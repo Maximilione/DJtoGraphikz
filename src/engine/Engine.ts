@@ -288,6 +288,12 @@ export class Engine {
     return this.activePostEffects.has(id)
   }
 
+  // TODO: Add smooth color transitions instead of hard-switching palettes.
+  //  - Store target colors alongside current colors
+  //  - Each frame, lerp current → target using THREE.Color.lerp()
+  //  - Configurable transition duration (e.g. 0.5s – 3s)
+  //  - Beat-synced option: start transition on next beat
+  //  - Cycle mode: auto-rotate through palettes at a configurable interval
   setColors(c1: string, c2: string, c3: string) {
     this.colors[0].set(c1)
     this.colors[1].set(c2)
