@@ -8,6 +8,21 @@ import warpFrag from './shaders/warp.frag?raw'
 import plasmaFrag from './shaders/plasma.frag?raw'
 import matrixFrag from './shaders/matrix.frag?raw'
 import voronoiFrag from './shaders/voronoi.frag?raw'
+import sacredFrag from './shaders/sacred.frag?raw'
+import fractalFrag from './shaders/fractal.frag?raw'
+import particlesFrag from './shaders/particles.frag?raw'
+import starfieldFrag from './shaders/starfield.frag?raw'
+import metaballsFrag from './shaders/metaballs.frag?raw'
+import mandalaFrag from './shaders/mandala.frag?raw'
+import gridFrag from './shaders/grid.frag?raw'
+import wavesFrag from './shaders/waves.frag?raw'
+import lissajousFrag from './shaders/lissajous.frag?raw'
+import fluidFrag from './shaders/fluid.frag?raw'
+import glitchFrag from './shaders/glitch.frag?raw'
+import ringsFrag from './shaders/rings.frag?raw'
+import fireFrag from './shaders/fire.frag?raw'
+import hexagonsFrag from './shaders/hexagons.frag?raw'
+import dnaFrag from './shaders/dna.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -50,7 +65,11 @@ export interface OverlayItem {
   _gifLastAdvance?: number
 }
 
-export type EffectId = 'tunnel' | 'kaleidoscope' | 'warp' | 'plasma' | 'matrix' | 'voronoi'
+export type EffectId =
+  | 'tunnel' | 'kaleidoscope' | 'warp' | 'plasma' | 'matrix' | 'voronoi'
+  | 'sacred' | 'fractal' | 'particles' | 'starfield' | 'metaballs' | 'mandala'
+  | 'grid' | 'waves' | 'lissajous' | 'fluid' | 'glitch' | 'rings' | 'fire'
+  | 'hexagons' | 'dna'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback'
 
 export interface EngineState {
@@ -69,6 +88,21 @@ const EFFECT_SHADERS: Record<EffectId, string> = {
   plasma: plasmaFrag,
   matrix: matrixFrag,
   voronoi: voronoiFrag,
+  sacred: sacredFrag,
+  fractal: fractalFrag,
+  particles: particlesFrag,
+  starfield: starfieldFrag,
+  metaballs: metaballsFrag,
+  mandala: mandalaFrag,
+  grid: gridFrag,
+  waves: wavesFrag,
+  lissajous: lissajousFrag,
+  fluid: fluidFrag,
+  glitch: glitchFrag,
+  rings: ringsFrag,
+  fire: fireFrag,
+  hexagons: hexagonsFrag,
+  dna: dnaFrag,
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']

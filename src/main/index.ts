@@ -56,12 +56,16 @@ function createOutputWindow(): BrowserWindow {
     fullscreen: !!externalDisplay,
     frame: false,
     backgroundColor: '#000000',
+    paintWhenInitiallyHidden: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: false,
     }
   })
+  // Prevent throttling when output window loses focus (critical for dual-window VJ)
+  win.webContents.setBackgroundThrottling(false)
 
   // If no external display, show as a regular window for dev
   if (!externalDisplay) {
@@ -135,10 +139,16 @@ app.whenReady().then(async () => {
     outputWindow = null
   })
 
-  // Toggle output fullscreen
+  // Toggle output fullscreen (simpleFullScreen for instant switch on macOS)
   ipcMain.on('output:toggle-fullscreen', () => {
     if (outputWindow) {
-      outputWindow.setFullScreen(!outputWindow.isFullScreen())
+      const current = outputWindow.isFullScreen() || outputWindow.isSimpleFullScreen()
+      if (current) {
+        outputWindow.setSimpleFullScreen(false)
+        outputWindow.setFullScreen(false)
+      } else {
+        outputWindow.setSimpleFullScreen(true)
+      }
     }
   })
 
