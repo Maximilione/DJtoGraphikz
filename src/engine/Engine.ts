@@ -101,6 +101,24 @@ export class Engine {
     new THREE.Color(DEFAULT_COLORS[2]),
   ]
 
+  // Color transitions
+  private targetColors: THREE.Color[] = [
+    new THREE.Color(DEFAULT_COLORS[0]),
+    new THREE.Color(DEFAULT_COLORS[1]),
+    new THREE.Color(DEFAULT_COLORS[2]),
+  ]
+  private colorLerpSpeed = 0.04  // per frame, ~0.7s at 60fps
+
+  // Palette cycling
+  private cycleEnabled = false
+  private cyclePalettes: [string, string, string][] = []
+  private cycleIndex = 0
+  private cycleIntervalMs = 8000
+  private cycleLastSwitch = 0
+  private cycleBeatSync = false
+  private cycleBeatCount = 0
+  private cycleBeatsPerSwitch = 16
+
   // Overlays
   private overlays: OverlayItem[] = []
   private overlayMaterial: THREE.ShaderMaterial
@@ -288,16 +306,69 @@ export class Engine {
     return this.activePostEffects.has(id)
   }
 
-  // TODO: Add smooth color transitions instead of hard-switching palettes.
-  //  - Store target colors alongside current colors
-  //  - Each frame, lerp current → target using THREE.Color.lerp()
-  //  - Configurable transition duration (e.g. 0.5s – 3s)
-  //  - Beat-synced option: start transition on next beat
-  //  - Cycle mode: auto-rotate through palettes at a configurable interval
   setColors(c1: string, c2: string, c3: string) {
-    this.colors[0].set(c1)
-    this.colors[1].set(c2)
-    this.colors[2].set(c3)
+    this.targetColors[0].set(c1)
+    this.targetColors[1].set(c2)
+    this.targetColors[2].set(c3)
+    this.emitState()
+  }
+
+  /** Set transition speed: 0 = instant, 1 = very slow */
+  setColorTransitionSpeed(speed: number) {
+    // speed 0..1 → lerpSpeed 1.0 (instant) .. 0.005 (~3s)
+    this.colorLerpSpeed = speed <= 0 ? 1.0 : 0.005 + (1.0 - speed) * 0.995
+  }
+
+  getColorTransitionSpeed(): number {
+    if (this.colorLerpSpeed >= 1.0) return 0
+    return 1.0 - (this.colorLerpSpeed - 0.005) / 0.995
+  }
+
+  // ---- Palette Cycling ----
+
+  setCycleEnabled(enabled: boolean) {
+    this.cycleEnabled = enabled
+    if (enabled) {
+      this.cycleLastSwitch = performance.now()
+      this.cycleBeatCount = 0
+    }
+  }
+
+  isCycleEnabled(): boolean { return this.cycleEnabled }
+
+  setCyclePalettes(palettes: [string, string, string][]) {
+    this.cyclePalettes = palettes
+    this.cycleIndex = 0
+  }
+
+  setCycleInterval(ms: number) {
+    this.cycleIntervalMs = Math.max(1000, ms)
+  }
+
+  getCycleInterval(): number { return this.cycleIntervalMs }
+
+  setCycleBeatSync(enabled: boolean) {
+    this.cycleBeatSync = enabled
+    this.cycleBeatCount = 0
+  }
+
+  isCycleBeatSync(): boolean { return this.cycleBeatSync }
+
+  setCycleBeatsPerSwitch(beats: number) {
+    this.cycleBeatsPerSwitch = Math.max(1, beats)
+  }
+
+  getCycleBeatsPerSwitch(): number { return this.cycleBeatsPerSwitch }
+
+  private advanceCycle() {
+    if (this.cyclePalettes.length < 2) return
+    this.cycleIndex = (this.cycleIndex + 1) % this.cyclePalettes.length
+    const next = this.cyclePalettes[this.cycleIndex]
+    this.targetColors[0].set(next[0])
+    this.targetColors[1].set(next[1])
+    this.targetColors[2].set(next[2])
+    this.cycleLastSwitch = performance.now()
+    this.cycleBeatCount = 0
     this.emitState()
   }
 
@@ -452,6 +523,28 @@ export class Engine {
     // Beat pulse with decay
     if (audio.beatDetected) this.beatPulse = 1.0
     this.beatPulse *= 0.88
+
+    // Palette cycling
+    if (this.cycleEnabled && this.cyclePalettes.length >= 2) {
+      if (this.cycleBeatSync) {
+        if (audio.beatDetected) {
+          this.cycleBeatCount++
+          if (this.cycleBeatCount >= this.cycleBeatsPerSwitch) {
+            this.advanceCycle()
+          }
+        }
+      } else {
+        const now = performance.now()
+        if (now - this.cycleLastSwitch >= this.cycleIntervalMs) {
+          this.advanceCycle()
+        }
+      }
+    }
+
+    // Smooth color transitions (lerp current → target)
+    for (let i = 0; i < 3; i++) {
+      this.colors[i].lerp(this.targetColors[i], this.colorLerpSpeed)
+    }
 
     // Update main effect uniforms
     const u = this.mainMaterial.uniforms
