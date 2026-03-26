@@ -12,6 +12,21 @@ const MAIN_EFFECTS: { id: EffectId; label: string }[] = [
   { id: 'plasma', label: 'Plasma' },
   { id: 'matrix', label: 'Matrix Rain' },
   { id: 'voronoi', label: 'Voronoi Cells' },
+  { id: 'sacred', label: 'Sacred Geometry' },
+  { id: 'fractal', label: 'Fractal' },
+  { id: 'particles', label: 'Particles' },
+  { id: 'starfield', label: 'Starfield' },
+  { id: 'metaballs', label: 'Metaballs' },
+  { id: 'mandala', label: 'Mandala' },
+  { id: 'grid', label: 'Cyber Grid' },
+  { id: 'waves', label: 'Waves' },
+  { id: 'lissajous', label: 'Lissajous' },
+  { id: 'fluid', label: 'Fluid' },
+  { id: 'glitch', label: 'Glitch' },
+  { id: 'rings', label: 'Rings' },
+  { id: 'fire', label: 'Fire' },
+  { id: 'hexagons', label: 'Hexagons' },
+  { id: 'dna', label: 'DNA Helix' },
 ]
 
 const POST_EFFECTS: { id: PostId; label: string }[] = [

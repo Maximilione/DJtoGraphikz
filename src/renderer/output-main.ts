@@ -7,6 +7,21 @@ import warpFrag from '@engine/shaders/warp.frag?raw'
 import plasmaFrag from '@engine/shaders/plasma.frag?raw'
 import matrixFrag from '@engine/shaders/matrix.frag?raw'
 import voronoiFrag from '@engine/shaders/voronoi.frag?raw'
+import sacredFrag from '@engine/shaders/sacred.frag?raw'
+import fractalFrag from '@engine/shaders/fractal.frag?raw'
+import particlesFrag from '@engine/shaders/particles.frag?raw'
+import starfieldFrag from '@engine/shaders/starfield.frag?raw'
+import metaballsFrag from '@engine/shaders/metaballs.frag?raw'
+import mandalaFrag from '@engine/shaders/mandala.frag?raw'
+import gridFrag from '@engine/shaders/grid.frag?raw'
+import wavesFrag from '@engine/shaders/waves.frag?raw'
+import lissajousFrag from '@engine/shaders/lissajous.frag?raw'
+import fluidFrag from '@engine/shaders/fluid.frag?raw'
+import glitchFrag from '@engine/shaders/glitch.frag?raw'
+import ringsFrag from '@engine/shaders/rings.frag?raw'
+import fireFrag from '@engine/shaders/fire.frag?raw'
+import hexagonsFrag from '@engine/shaders/hexagons.frag?raw'
+import dnaFrag from '@engine/shaders/dna.frag?raw'
 import rgbsplitFrag from '@engine/shaders/rgbsplit.frag?raw'
 import bloomFrag from '@engine/shaders/bloom.frag?raw'
 import feedbackFrag from '@engine/shaders/feedback.frag?raw'
@@ -20,6 +35,11 @@ const PASS = `precision highp float;uniform sampler2D tDiffuse;varying vec2 vUv;
 const SHADERS: Record<EffectId, string> = {
   tunnel: tunnelFrag, kaleidoscope: kaleidoscopeFrag, warp: warpFrag,
   plasma: plasmaFrag, matrix: matrixFrag, voronoi: voronoiFrag,
+  sacred: sacredFrag, fractal: fractalFrag, particles: particlesFrag,
+  starfield: starfieldFrag, metaballs: metaballsFrag, mandala: mandalaFrag,
+  grid: gridFrag, waves: wavesFrag, lissajous: lissajousFrag,
+  fluid: fluidFrag, glitch: glitchFrag, rings: ringsFrag,
+  fire: fireFrag, hexagons: hexagonsFrag, dna: dnaFrag,
 }
 
 const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
