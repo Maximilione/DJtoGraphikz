@@ -1,0 +1,67 @@
+{
+  "name": "djtographikz",
+  "version": "1.0.0",
+  "description": "Real-time audio-reactive visual generator for tekno club nights",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "unset NODE_OPTIONS && electron-vite dev",
+    "build": "unset NODE_OPTIONS && electron-vite build",
+    "preview": "unset NODE_OPTIONS && electron-vite preview",
+    "package": "electron-builder",
+    "package:mac": "electron-builder --mac",
+    "package:win": "electron-builder --win",
+    "package:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.djtographikz.app",
+    "productName": "DJtoGraphikz",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.entertainment",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "DJtoGraphikz needs microphone access to analyze audio input for real-time visuals."
+      }
+    },
+    "win": {
+      "target": "nsis",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": null,
+      "license": null
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "gifuct-js": "^2.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "realtime-bpm-analyzer": "^5.0.2",
+    "three": "^0.170.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/three": "^0.170.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}
