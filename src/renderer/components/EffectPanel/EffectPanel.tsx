@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId, PostId } from '@engine/Engine'
 
 interface EffectPanelProps {
@@ -32,11 +32,15 @@ const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
   { label: 'Mono', colors: ['#ffffff', '#888888', '#ffffff'] },
 ]
 
+// "Custom" is a special index beyond the presets
+const CUSTOM_INDEX = COLOR_PRESETS.length
+
 export function EffectPanel({ engine }: EffectPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
   const [activePosts, setActivePosts] = useState<Set<PostId>>(new Set(['bloom']))
   const [activeColorPreset, setActiveColorPreset] = useState(0)
+  const [customColors, setCustomColors] = useState<[string, string, string]>(['#ff0000', '#00ff00', '#0000ff'])
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
@@ -56,10 +60,25 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
   const selectColorPreset = useCallback((idx: number) => {
     if (!engine) return
-    const preset = COLOR_PRESETS[idx]
-    engine.setColors(...preset.colors)
+    if (idx === CUSTOM_INDEX) {
+      engine.setColors(...customColors)
+    } else {
+      const preset = COLOR_PRESETS[idx]
+      engine.setColors(...preset.colors)
+    }
     setActiveColorPreset(idx)
-  }, [engine])
+  }, [engine, customColors])
+
+  const updateCustomColor = useCallback((index: 0 | 1 | 2, color: string) => {
+    if (!engine) return
+    const next: [string, string, string] = [...customColors]
+    next[index] = color
+    setCustomColors(next)
+    // If custom is active, apply immediately
+    if (activeColorPreset === CUSTOM_INDEX) {
+      engine.setColors(...next)
+    }
+  }, [engine, customColors, activeColorPreset])
 
   return (
     <div className="panel">
@@ -134,7 +153,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             </div>
           </div>
 
-          {/* Color presets */}
+          {/* Color presets + custom */}
           <div>
             <div style={catLabel}>Color Palette</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
@@ -167,6 +186,68 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                   <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{preset.label}</span>
                 </button>
               ))}
+            </div>
+
+            {/* Custom palette */}
+            <div style={{ marginTop: '8px' }}>
+              <button
+                onClick={() => selectColorPreset(CUSTOM_INDEX)}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  border: activeColorPreset === CUSTOM_INDEX ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  background: activeColorPreset === CUSTOM_INDEX ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
+                  color: activeColorPreset === CUSTOM_INDEX ? 'var(--accent)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: activeColorPreset === CUSTOM_INDEX ? 600 : 400,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  {customColors.map((c, j) => (
+                    <div key={j} style={{
+                      width: '14px', height: '14px', borderRadius: '3px',
+                      background: c,
+                      boxShadow: `0 0 4px ${c}40`,
+                    }} />
+                  ))}
+                </div>
+                Custom
+              </button>
+
+              {activeColorPreset === CUSTOM_INDEX && (
+                <div style={{
+                  display: 'flex',
+                  gap: '6px',
+                  marginTop: '6px',
+                  alignItems: 'center',
+                }}>
+                  {(['Primary', 'Secondary', 'Tertiary'] as const).map((label, i) => (
+                    <div key={label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                      <input
+                        type="color"
+                        value={customColors[i]}
+                        onChange={e => updateCustomColor(i as 0 | 1 | 2, e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: '28px',
+                          padding: '0',
+                          border: '1px solid var(--border)',
+                          borderRadius: '4px',
+                          background: 'var(--bg-tertiary)',
+                          cursor: 'pointer',
+                        }}
+                      />
+                      <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
