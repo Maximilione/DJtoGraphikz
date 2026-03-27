@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "beta_0.3",
+  "version": "0.3.0-beta",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
