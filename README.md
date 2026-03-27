@@ -1,23 +1,50 @@
 # DJtoGraphikz
 
-Real-time audio-reactive visual generator for tekno club nights. Projects animated 1920x1080 graphics onto a second screen or projector, driven by live audio input from a DJ mixer or any audio source.
+Real-time audio-reactive visual generator for tekno club nights. Projects animated graphics onto a second screen or projector, driven by live audio input from a DJ mixer or any audio source.
 
 ## Features
 
-- **Dual-window system** — control panel with preview + fullscreen output on a second monitor/projector
-- **6 visual effects** — Tunnel, Kaleidoscope, Domain Warp, Plasma, Matrix Rain, Voronoi Cells
-- **4 post-processing effects** — Bloom, RGB Split, Chromatic Aberration, Feedback Trail (combinable)
-- **8 color palettes** — Acid, Fire, Ice, Toxic, Neon, Blood, Vapor, Mono
-- **Audio-reactive** — all visuals respond to bass, mid, high frequencies, energy and beat in real time
-- **BPM detection** — automatic via [realtime-bpm-analyzer](https://github.com/dlepaux/realtime-bpm-analyzer), plus manual input and tap tempo
-- **Beat detection** — spectral flux algorithm with adaptive threshold, works with both line-in and laptop microphone
-- **Image/GIF overlay** — load PNG, JPG, or animated GIF on top of visuals with opacity, scale, position controls
-- **GIF beat sync** — animate GIF frames synced to Beat, BPM, or free-running
-- **Offline** — no internet required, everything runs locally
+### Visual Engine
+- **21 visual effects** organized in 4 categories:
+  - **Geometric**: Tunnel, Kaleidoscope, Voronoi, Sacred Geometry, Mandala, Hexagons, Rings
+  - **Organic**: Fluid, Plasma, Domain Warp, Metaballs, Fire, Fractal
+  - **Motion**: Particles, Starfield, Waves, Lissajous, DNA Helix
+  - **Digital**: Matrix Rain, Cyber Grid, Glitch
+- **9 post-processing effects** (combinable):
+  - **Glow & Color**: Bloom, Chromatic Aberration, RGB Split, Invert
+  - **Distortion**: Feedback Trail, Mirror, Pixelate
+  - **Film & Texture**: Film Grain, Scanlines
+- **16 color palettes**: Acid, Fire, Ice, Toxic, Neon, Blood, Vapor, Mono, Sunset, Ocean, Forest, Cyber, Gold, Pastel, Lava, Aurora + custom palette editor
+- **Smooth color transitions** with configurable speed
+- **Palette cycling** with timer or beat-sync modes
 
-## Screenshots
+### Audio System
+- **Audio-reactive** — all visuals respond to bass, mid, high, energy and beat in real time
+- **BPM detection** — automatic via [realtime-bpm-analyzer](https://github.com/dlepaux/realtime-bpm-analyzer), manual input, and tap tempo
+- **Beat detection** — spectral flux algorithm with adaptive threshold
+- **Input gain** — amplify weak signals (e.g. laptop microphone)
+- **Configurable sensitivity** — works with line-in and microphone
 
-*Coming soon*
+### Overlay System
+- **Image/GIF overlay** — PNG, JPG, SVG, WebP, or animated GIF
+- **Per-overlay controls** — opacity, scale, position X/Y
+- **GIF beat sync** — advance frames synced to Beat, BPM, or free-running
+
+### Preset & Playlist System
+- **Save presets** — capture current effect + post-FX + colors as a named preset
+- **Playlist builder** — create ordered playlists from saved presets
+- **Auto-advance** — timer-based (2-60s) or beat-synced (1-64 beats)
+- **Loop mode** — continuous playlist cycling
+- **Export/Import** — save presets and playlists as JSON files
+- **Persistent storage** — presets and playlists saved in localStorage
+
+### Output
+- **Dual-window system** — control panel with preview + fullscreen output
+- **Configurable output resolution** — 720p, 1080p, 1440p, 4K
+- **Instant fullscreen** — simpleFullScreen on macOS for zero-delay switching
+- **Multi-monitor** — automatically detects external displays
+- **Background throttling disabled** — audio and rendering continue when focus is on the output window
+- **Offline** — no internet required
 
 ## Quick Start
 
@@ -34,8 +61,6 @@ cd DJtoGraphikz
 yarn install
 yarn dev
 ```
-
-The app opens two windows: the control panel (with DevTools) and the output window.
 
 ### Build & Package
 
@@ -79,22 +104,32 @@ Output goes to the `dist/` folder.
 
 ### Visual Effects
 
-Select one main effect (radio buttons) and toggle any combination of post-processing effects. Choose a color palette to change the overall look.
+The Effects panel has 3 tabs:
+- **Effects** — select one main effect from categorized grid with search filter
+- **Post FX** — toggle any combination of post-processing effects
+- **Colors** — choose a palette, create custom colors, configure transitions and auto-cycling
+
+### Presets & Playlists
+
+1. Configure your desired effect + post-FX + colors
+2. In the **Presets & Playlist** panel, enter a name and click **Save**
+3. Click **+** on any preset to add it to the playlist builder
+4. Reorder with arrows, set advance mode (Timer/Beat), save the playlist
+5. Click play on any saved playlist to start auto-advancing
+6. Use **Export/Import** to share presets and playlists as JSON
 
 ### Image Overlay
 
-1. Click **Import Image / GIF** in the Image Overlay panel
-2. Adjust opacity, scale, and position with the sliders
-3. For animated GIFs, choose the sync mode:
-   - **Beat** — advance one frame per detected beat
-   - **BPM** — advance at a steady rate matching the BPM
-   - **Free** — play at the GIF's original speed
+1. Click **Import Image / GIF** in the Overlay panel
+2. Adjust opacity, scale, and position with sliders
+3. For animated GIFs, choose sync mode: Beat, BPM, or Free
 
 ### Output Window
 
-- The output window automatically goes fullscreen on a secondary monitor
-- Click **Toggle Fullscreen** in the control panel to toggle
-- If no secondary display is detected, it opens as a regular window
+- Automatically goes fullscreen on secondary monitor
+- Click **Fullscreen** in the top bar to toggle
+- Select output resolution from the dropdown (720p to 4K)
+- The render targets resize dynamically with fullscreen toggle
 
 ## Tech Stack
 
@@ -105,7 +140,6 @@ Select one main effect (radio buttons) and toggle any combination of post-proces
 | Rendering | Three.js + GLSL shaders (WebGL2) |
 | Audio analysis | Web Audio API + realtime-bpm-analyzer |
 | UI | React 18 |
-| State | Zustand |
 | Build | Vite + electron-vite |
 | Packaging | electron-builder |
 
@@ -120,35 +154,27 @@ DJtoGraphikz/
 │   ├── preload/
 │   │   └── index.ts           # Context bridge API
 │   ├── renderer/              # Control window (React)
-│   │   ├── App.tsx            # Main layout + engine init
+│   │   ├── App.tsx            # 3-column layout, FPS counter, resolution
 │   │   ├── main.tsx           # React mount
-│   │   ├── output-main.ts    # Output window renderer (standalone)
+│   │   ├── output-main.ts     # Output window renderer (standalone)
 │   │   ├── components/
 │   │   │   ├── AudioPanel/    # Audio device, gain, sensitivity, BPM
-│   │   │   ├── EffectPanel/   # Effect selection, post-processing, colors
+│   │   │   ├── EffectPanel/   # Effects (3 tabs: FX, Post, Colors)
 │   │   │   ├── OverlayPanel/  # Image/GIF overlay management
-│   │   │   ├── OutputPreview/ # Miniature preview of the output
-│   │   │   └── Sidebar/       # Sidebar layout
+│   │   │   ├── PresetPanel/   # Presets save/load + playlist builder
+│   │   │   └── OutputPreview/ # Canvas preview
 │   │   └── styles/
-│   │       └── global.css     # Dark theme
+│   │       └── global.css     # Dark theme with CSS variables
 │   └── engine/
-│       ├── Engine.ts          # Render loop, effects, post-processing, overlay
+│       ├── Engine.ts          # Render loop, effects, post-FX, presets
 │       ├── GifDecoder.ts      # GIF frame extraction via gifuct-js
 │       ├── audio/
-│       │   └── AudioAnalyzer.ts  # FFT, bands, spectral flux beat detection, BPM
+│       │   └── AudioAnalyzer.ts  # FFT, bands, spectral flux, BPM
 │       └── shaders/
-│           ├── tunnel.frag
-│           ├── kaleidoscope.frag
-│           ├── warp.frag
-│           ├── plasma.frag
-│           ├── matrix.frag
-│           ├── voronoi.frag
-│           ├── bloom.frag
-│           ├── rgbsplit.frag
-│           ├── chromatic.frag
-│           ├── feedback.frag
-│           ├── overlay.frag
-│           └── noise.glsl
+│           ├── # 21 main effect shaders (.frag)
+│           ├── # 9 post-processing shaders (.frag)
+│           ├── overlay.frag   # Overlay compositing
+│           └── noise.glsl     # Shared simplex noise
 ├── build/
 │   └── entitlements.mac.plist # macOS microphone/JIT permissions
 ├── package.json
@@ -160,9 +186,29 @@ DJtoGraphikz/
 
 ### Dual Window
 
-The **control window** runs a React app with the sidebar (audio, effects, overlays) and a miniature preview canvas. The **output window** runs a standalone Three.js renderer at full resolution with no UI.
+The **control window** (left sidebar + center preview + right sidebar) runs a React app. The **output window** runs a standalone Three.js renderer at full resolution with no UI.
 
-Communication flows through Electron IPC: the control window sends engine state, audio data, and overlay commands to the output window via the main process bridge.
+Communication flows through Electron IPC: the control window sends engine state, audio data, overlay commands, and resolution changes to the output window via the main process bridge.
+
+Both windows have `backgroundThrottling: false` so audio and rendering continue regardless of which window has focus.
+
+### UI Layout
+
+```
+┌─────────────────────────────────────────────────────┐
+│  DJtoGraphikz          [720p|1080p|1440p|4K] [Full] │
+├──────────┬──────────────────────┬───────────────────┤
+│ AUDIO    │                      │ OVERLAYS          │
+│ INPUT    │                      │                   │
+│          │      PREVIEW         │                   │
+│ EFFECTS  │      (16:9)          │ PRESETS &         │
+│ [FX]     │                      │ PLAYLIST          │
+│ [Post]   │                      │                   │
+│ [Colors] │                      │                   │
+├──────────┴──────────────────────┴───────────────────┤
+│ 60 FPS │ 1920x1080                                  │
+└─────────────────────────────────────────────────────┘
+```
 
 ### Render Pipeline
 
@@ -182,23 +228,27 @@ All shaders receive audio uniforms (`uBass`, `uMid`, `uHigh`, `uEnergy`, `uBeat`
 
 ### Beat Detection
 
-Uses **spectral flux** — the sum of positive frequency-bin changes frame-to-frame, weighted towards lower frequencies but including all bands. This works with both high-quality line-in signals and weak laptop microphones.
+Uses **spectral flux** — the sum of positive frequency-bin changes frame-to-frame, weighted towards lower frequencies but including all bands. Works with both high-quality line-in signals and weak laptop microphones.
 
 The threshold is adaptive: `mean + stddev * sensitivity` over a rolling window, with a time-based cooldown informed by the current BPM.
 
 ### BPM Detection
 
-Powered by [realtime-bpm-analyzer](https://github.com/dlepaux/realtime-bpm-analyzer), which runs in an AudioWorklet (off main thread). It analyzes peaks at multiple threshold levels and reports candidates with confidence scores.
+Powered by [realtime-bpm-analyzer](https://github.com/dlepaux/realtime-bpm-analyzer), running in an AudioWorklet (off main thread). Analyzes peaks at multiple threshold levels and reports candidates with confidence scores.
 
 ## Roadmap
 
 - [ ] Transitions between effects (crossfade, wipe, dissolve, beat-synced)
-- [ ] More effects: Sacred Geometry, Particle System, Wave Field, Fluid Flow
-- [ ] Per-effect parameter sliders with audio mapping
-- [ ] Template system: save/load presets
-- [ ] Text overlay
 - [ ] Keyboard shortcuts for live performance
-- [ ] Monitor selection from GUI
+- [ ] Per-effect parameter sliders with audio mapping
+- [ ] MIDI controller support with learn mode
+- [ ] Text overlay with animations
+- [ ] LFO automation for parameters
+- [ ] A/B deck mixing with crossfader
+- [ ] Video clip playback
+- [ ] Webcam/camera input as texture
+- [ ] Ableton Link sync
+- [ ] Syphon/Spout video output
 - [ ] App icon
 
 ## License
