@@ -14,6 +14,12 @@ const api = {
   listDisplays: () => ipcRenderer.invoke('displays:list'),
   moveOutputToDisplay: (displayId: number) => ipcRenderer.send('output:move-to-display', displayId),
   toggleOutputFullscreen: () => ipcRenderer.send('output:toggle-fullscreen'),
+  setOutputResolution: (w: number, h: number) => ipcRenderer.send('output:set-resolution', w, h),
+  onOutputResolution: (callback: (w: number, h: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, w: number, h: number) => callback(w, h)
+    ipcRenderer.on('output:set-resolution', handler)
+    return () => ipcRenderer.removeListener('output:set-resolution', handler)
+  },
 
   // Engine state sync (control → output)
   sendEngineState: (state: unknown) => ipcRenderer.send('engine:state-update', state),

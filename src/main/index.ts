@@ -16,9 +16,12 @@ function createControlWindow(): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: false,
     }
   })
+  // Keep audio/rendering alive when control window loses focus
+  win.webContents.setBackgroundThrottling(false)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -137,6 +140,11 @@ app.whenReady().then(async () => {
 
   outputWindow.on('closed', () => {
     outputWindow = null
+  })
+
+  // Forward resolution change to output window
+  ipcMain.on('output:set-resolution', (_event, w: number, h: number) => {
+    outputWindow?.webContents.send('output:set-resolution', w, h)
   })
 
   // Toggle output fullscreen (simpleFullScreen for instant switch on macOS)
