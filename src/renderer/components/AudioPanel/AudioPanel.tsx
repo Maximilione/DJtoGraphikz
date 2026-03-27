@@ -397,12 +397,12 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 }
 
 const catLabel: React.CSSProperties = {
-  fontSize: '10px',
-  fontWeight: 600,
-  color: 'var(--accent)',
+  fontSize: '9px',
+  fontWeight: 700,
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
-  letterSpacing: '0.8px',
-  marginBottom: '6px',
+  letterSpacing: '1px',
+  marginBottom: '4px',
   display: 'flex',
   alignItems: 'baseline',
   gap: '4px',

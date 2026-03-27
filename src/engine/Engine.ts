@@ -27,6 +27,11 @@ import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
 import chromaticFrag from './shaders/chromatic.frag?raw'
+import filmgrainFrag from './shaders/filmgrain.frag?raw'
+import scanlinesFrag from './shaders/scanlines.frag?raw'
+import pixelateFrag from './shaders/pixelate.frag?raw'
+import mirrorFrag from './shaders/mirror.frag?raw'
+import invertFrag from './shaders/invert.frag?raw'
 import overlayFrag from './shaders/overlay.frag?raw'
 
 const FULLSCREEN_VERT = `
@@ -70,7 +75,7 @@ export type EffectId =
   | 'sacred' | 'fractal' | 'particles' | 'starfield' | 'metaballs' | 'mandala'
   | 'grid' | 'waves' | 'lissajous' | 'fluid' | 'glitch' | 'rings' | 'fire'
   | 'hexagons' | 'dna'
-export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback'
+export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export interface EngineState {
   activeEffect: EffectId
@@ -79,6 +84,23 @@ export interface EngineState {
   beatPulse: number
   energy: number
   bpm: number
+}
+
+// Preset system
+export interface Preset {
+  name: string
+  effect: EffectId
+  post: PostId[]
+  colors: [string, string, string]
+}
+
+export interface Playlist {
+  name: string
+  presets: Preset[]
+  loop: boolean
+  autoAdvance: boolean
+  advanceMode: 'timer' | 'beats'
+  advanceInterval: number   // seconds for timer, beats for beat mode
 }
 
 const EFFECT_SHADERS: Record<EffectId, string> = {
@@ -304,6 +326,54 @@ export class Engine {
         uBass: { value: 0 },
       }
     }))
+
+    this.postMaterials.set('filmgrain', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: filmgrainFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uTime: { value: 0 },
+        uEnergy: { value: 0 },
+        uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('scanlines', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: scanlinesFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uTime: { value: 0 },
+        uEnergy: { value: 0 },
+        uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('pixelate', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: pixelateFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uEnergy: { value: 0 },
+        uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('mirror', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: mirrorFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+      }
+    }))
+
+    this.postMaterials.set('invert', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: invertFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+      }
+    }))
   }
 
   // ---- Public API ----
@@ -518,6 +588,41 @@ export class Engine {
       this.activePostEffects.delete(postId)
       this.emitState()
     }
+  }
+
+  // ---- Preset & Playlist API ----
+
+  createPreset(name: string): Preset {
+    return {
+      name,
+      effect: this.currentEffect,
+      post: Array.from(this.activePostEffects),
+      colors: [
+        '#' + this.colors[0].getHexString(),
+        '#' + this.colors[1].getHexString(),
+        '#' + this.colors[2].getHexString(),
+      ],
+    }
+  }
+
+  applyPreset(preset: Preset) {
+    this.setEffect(preset.effect)
+    this.activePostEffects.clear()
+    for (const p of preset.post) {
+      if (this.postMaterials.has(p)) this.activePostEffects.add(p)
+    }
+    this.setColors(preset.colors[0], preset.colors[1], preset.colors[2])
+    this.emitState()
+  }
+
+  getCurrentEffect(): EffectId { return this.currentEffect }
+  getActivePosts(): PostId[] { return Array.from(this.activePostEffects) }
+  getCurrentColors(): [string, string, string] {
+    return [
+      '#' + this.colors[0].getHexString(),
+      '#' + this.colors[1].getHexString(),
+      '#' + this.colors[2].getHexString(),
+    ]
   }
 
   private emitState() {

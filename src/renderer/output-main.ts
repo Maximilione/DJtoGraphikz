@@ -26,6 +26,11 @@ import rgbsplitFrag from '@engine/shaders/rgbsplit.frag?raw'
 import bloomFrag from '@engine/shaders/bloom.frag?raw'
 import feedbackFrag from '@engine/shaders/feedback.frag?raw'
 import chromaticFrag from '@engine/shaders/chromatic.frag?raw'
+import filmgrainFrag from '@engine/shaders/filmgrain.frag?raw'
+import scanlinesFrag from '@engine/shaders/scanlines.frag?raw'
+import pixelateFrag from '@engine/shaders/pixelate.frag?raw'
+import mirrorFrag from '@engine/shaders/mirror.frag?raw'
+import invertFrag from '@engine/shaders/invert.frag?raw'
 import overlayFrag from '@engine/shaders/overlay.frag?raw'
 import { GifDecoder, GifFrame } from '@engine/GifDecoder'
 
@@ -83,6 +88,11 @@ postMats.set('bloom', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentSha
 postMats.set('rgb-split', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: rgbsplitFrag, uniforms: { tDiffuse: { value: null }, uAmount: { value: 0.003 }, uAngle: { value: 0 }, uBass: { value: 0 }, uBeat: { value: 0 } } }))
 postMats.set('chromatic', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: chromaticFrag, uniforms: { tDiffuse: { value: null }, uStrength: { value: 0.008 }, uBass: { value: 0 }, uBeat: { value: 0 }, uResolution: { value: resolution } } }))
 postMats.set('feedback', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: feedbackFrag, uniforms: { tDiffuse: { value: null }, tPrevFrame: { value: rtPrev.texture }, uDecay: { value: 0.9 }, uZoom: { value: 0.003 }, uRotation: { value: 0.2 }, uBass: { value: 0 } } }))
+postMats.set('filmgrain', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: filmgrainFrag, uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uEnergy: { value: 0 }, uResolution: { value: resolution } } }))
+postMats.set('scanlines', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: scanlinesFrag, uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uEnergy: { value: 0 }, uResolution: { value: resolution } } }))
+postMats.set('pixelate', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: pixelateFrag, uniforms: { tDiffuse: { value: null }, uEnergy: { value: 0 }, uResolution: { value: resolution } } }))
+postMats.set('mirror', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: mirrorFrag, uniforms: { tDiffuse: { value: null } } }))
+postMats.set('invert', new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: invertFrag, uniforms: { tDiffuse: { value: null } } }))
 
 function createMat(id: EffectId): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -210,13 +220,31 @@ window.api?.onAudioData((data: any) => {
   audioBeatDetected = data.beatDetected || false
 })
 
-// Resize
+// Resize — update renderer, render targets, and resolution
 function resize() {
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  resolution.set(window.innerWidth, window.innerHeight)
+  const w = window.innerWidth
+  const h = window.innerHeight
+  renderer.setSize(w, h)
+  resolution.set(w, h)
+  rtA.setSize(w, h)
+  rtB.setSize(w, h)
+  rtPrev.setSize(w, h)
 }
 window.addEventListener('resize', resize)
 resize()
+
+// Resolution override from control window
+let renderWidth = window.innerWidth
+let renderHeight = window.innerHeight
+window.api?.onOutputResolution((w: number, h: number) => {
+  renderWidth = w
+  renderHeight = h
+  resolution.set(w, h)
+  rtA.setSize(w, h)
+  rtB.setSize(w, h)
+  rtPrev.setSize(w, h)
+  // Keep renderer at window size, but render targets at target resolution
+})
 
 // Render loop
 const clock = new THREE.Clock()
