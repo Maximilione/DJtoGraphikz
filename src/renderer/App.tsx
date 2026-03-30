@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { AudioPanel } from './components/AudioPanel/AudioPanel'
 import { EffectPanel } from './components/EffectPanel/EffectPanel'
+import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
 import { PresetPanel } from './components/PresetPanel/PresetPanel'
+import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { Engine } from '@engine/Engine'
 
 export function App() {
@@ -75,6 +77,7 @@ export function App() {
         <div className="sidebar">
           <AudioPanel engine={engine} />
           <EffectPanel engine={engine} />
+          <AutoVJPanel engine={engine} />
         </div>
 
         {/* Center — Preview */}
@@ -89,6 +92,7 @@ export function App() {
         <div className="sidebar-right">
           <OverlayPanel engine={engine} />
           <PresetPanel engine={engine} />
+          <ShaderEditor engine={engine} />
         </div>
       </div>
 

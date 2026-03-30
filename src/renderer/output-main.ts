@@ -31,6 +31,7 @@ import scanlinesFrag from '@engine/shaders/scanlines.frag?raw'
 import pixelateFrag from '@engine/shaders/pixelate.frag?raw'
 import mirrorFrag from '@engine/shaders/mirror.frag?raw'
 import invertFrag from '@engine/shaders/invert.frag?raw'
+import transitionFrag from '@engine/shaders/transition.frag?raw'
 import overlayFrag from '@engine/shaders/overlay.frag?raw'
 import { GifDecoder, GifFrame } from '@engine/GifDecoder'
 
@@ -77,6 +78,9 @@ const postQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2),
   new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: PASS, uniforms: { tDiffuse: { value: null } } }))
 postScene.add(postQuad)
 
+// Reusable passthrough material (avoid per-frame allocations)
+const passMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: PASS, uniforms: { tDiffuse: { value: null } } })
+
 const opts: THREE.WebGLRenderTargetOptions = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter }
 const rtA = new THREE.WebGLRenderTarget(1920, 1080, opts)
 const rtB = new THREE.WebGLRenderTarget(1920, 1080, opts)
@@ -106,6 +110,27 @@ function createMat(id: EffectId): THREE.ShaderMaterial {
     }
   })
 }
+
+// Transition state
+const TRANSITION_TYPE_INDEX: Record<string, number> = {
+  'crossfade': 0, 'wipe-left': 1, 'wipe-down': 2, 'radial': 3, 'dissolve': 4,
+}
+let transOldMat: THREE.ShaderMaterial | null = null
+let transProgress = -1
+let transDuration = 0.8
+let transType = 0
+const rtTrans = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, opts)
+const transMat = new THREE.ShaderMaterial({
+  vertexShader: VERT,
+  fragmentShader: transitionFrag,
+  uniforms: {
+    tOld: { value: null },
+    tNew: { value: null },
+    uProgress: { value: 0 },
+    uType: { value: 0 },
+    uResolution: { value: resolution },
+  }
+})
 
 // Overlay material
 const overlayMat = new THREE.ShaderMaterial({
@@ -192,12 +217,35 @@ window.api?.onOverlayUpdate((id: string, updates: any) => {
 })
 
 // Receive state from control window
+function cancelOutputTransition() {
+  if (transOldMat) {
+    transOldMat.dispose()
+    transOldMat = null
+  }
+  transProgress = -1
+}
+
 window.api?.onEngineState((state: any) => {
   if (state.activeEffect && state.activeEffect !== currentEffect) {
-    currentEffect = state.activeEffect
-    mainMat.dispose()
-    mainMat = createMat(currentEffect)
-    quad.material = mainMat
+    // Always cancel existing transition before starting new one
+    cancelOutputTransition()
+
+    if (state.transition && state.transition.duration > 0) {
+      // Start transition
+      transOldMat = mainMat
+      mainMat = createMat(state.activeEffect)
+      quad.material = mainMat
+      currentEffect = state.activeEffect
+      transProgress = 0
+      transDuration = state.transition.duration
+      transType = TRANSITION_TYPE_INDEX[state.transition.type] || 0
+    } else {
+      // Instant switch
+      currentEffect = state.activeEffect
+      mainMat.dispose()
+      mainMat = createMat(currentEffect)
+      quad.material = mainMat
+    }
   }
   if (state.activePost) {
     activePosts = new Set(state.activePost)
@@ -206,6 +254,27 @@ window.api?.onEngineState((state: any) => {
     colors[0].set(state.colors[0])
     colors[1].set(state.colors[1])
     colors[2].set(state.colors[2])
+  }
+  // Custom shader from editor
+  if (state.customShader) {
+    try {
+      cancelOutputTransition()
+      const newMat = new THREE.ShaderMaterial({
+        vertexShader: VERT,
+        fragmentShader: state.customShader,
+        uniforms: {
+          uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 },
+          uHigh: { value: 0 }, uEnergy: { value: 0 }, uBeat: { value: 0 },
+          uColor1: { value: colors[0] }, uColor2: { value: colors[1] }, uColor3: { value: colors[2] },
+          uResolution: { value: resolution },
+        }
+      })
+      mainMat.dispose()
+      mainMat = newMat
+      quad.material = mainMat
+    } catch (e) {
+      console.error('[Output] Custom shader error:', e)
+    }
   }
 })
 
@@ -229,6 +298,7 @@ function resize() {
   rtA.setSize(w, h)
   rtB.setSize(w, h)
   rtPrev.setSize(w, h)
+  rtTrans.setSize(w, h)
 }
 window.addEventListener('resize', resize)
 resize()
@@ -243,7 +313,7 @@ window.api?.onOutputResolution((w: number, h: number) => {
   rtA.setSize(w, h)
   rtB.setSize(w, h)
   rtPrev.setSize(w, h)
-  // Keep renderer at window size, but render targets at target resolution
+  rtTrans.setSize(w, h)
 })
 
 // Render loop
@@ -266,11 +336,58 @@ function loop() {
   renderer.clear()
   renderer.render(scene, camera)
 
+  // Effect transition blending
+  if (transProgress >= 0 && transOldMat) {
+    const dt = clock.getDelta()
+    transProgress += dt / Math.max(transDuration, 0.01)
+
+    if (transProgress >= 1) {
+      transOldMat.dispose()
+      transOldMat = null
+      transProgress = -1
+    } else {
+      // Render old effect → rtTrans
+      quad.material = transOldMat
+      const ou = transOldMat.uniforms
+      ou.uTime.value = time
+      ou.uBass.value = audioBass
+      ou.uMid.value = audioMid
+      ou.uHigh.value = audioHigh
+      ou.uEnergy.value = audioEnergy
+      ou.uBeat.value = audioBeatPulse
+      renderer.setRenderTarget(rtTrans)
+      renderer.clear()
+      renderer.render(scene, camera)
+
+      // Restore new material
+      quad.material = mainMat
+
+      // Blend old + new → rtB
+      transMat.uniforms.tOld.value = rtTrans.texture
+      transMat.uniforms.tNew.value = rtA.texture
+      transMat.uniforms.uProgress.value = transProgress
+      transMat.uniforms.uType.value = transType
+      postQuad.material = transMat
+      renderer.setRenderTarget(rtB)
+      renderer.clear()
+      renderer.render(postScene, camera)
+
+      // Copy blended to rtA
+      passMat.uniforms.tDiffuse.value = rtB.texture
+      postQuad.material = passMat
+      renderer.setRenderTarget(rtA)
+      renderer.clear()
+      renderer.render(postScene, camera)
+    }
+  }
+
   // Render overlays on top of main effect
-  const visOverlays = outputOverlays.filter(o => o.visible)
-  if (visOverlays.length > 0) {
+  let hasVisibleOverlays = false
+  for (const o of outputOverlays) { if (o.visible) { hasVisibleOverlays = true; break } }
+  if (hasVisibleOverlays) {
     let src = rtA, dst = rtB
-    for (const ov of visOverlays) {
+    for (const ov of outputOverlays) {
+      if (!ov.visible) continue
       // Advance GIF frames
       if (ov.isGif && ov.gifFrames && ov.gifFrames.length > 1) {
         const now = performance.now()
@@ -305,21 +422,18 @@ function loop() {
       const tmp = src; src = dst; dst = tmp
     }
     if (src !== rtA) {
-      const copyMat = new THREE.ShaderMaterial({
-        vertexShader: VERT, fragmentShader: PASS,
-        uniforms: { tDiffuse: { value: src.texture } }
-      })
-      postQuad.material = copyMat
+      passMat.uniforms.tDiffuse.value = src.texture
+      postQuad.material = passMat
       renderer.setRenderTarget(rtA)
       renderer.clear()
       renderer.render(postScene, camera)
-      copyMat.dispose()
     }
   }
 
   // Post chain
   let read = rtA, write = rtB
-  const posts = Array.from(activePosts).filter(id => postMats.has(id))
+  const posts: PostId[] = []
+  for (const id of activePosts) { if (postMats.has(id)) posts.push(id) }
 
   for (let i = 0; i < posts.length; i++) {
     const mat = postMats.get(posts[i])!

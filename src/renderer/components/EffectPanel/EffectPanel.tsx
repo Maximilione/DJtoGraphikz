@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
-import type { Engine, EffectId, PostId } from '@engine/Engine'
+import type { Engine, EffectId, PostId, TransitionType } from '@engine/Engine'
+import { NumberInput } from '../NumberInput/NumberInput'
 
 interface EffectPanelProps {
   engine: Engine | null
@@ -109,6 +110,11 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [customColors, setCustomColors] = useState<[string, string, string]>(['#ff0000', '#00ff00', '#0000ff'])
   const [transitionSpeed, setTransitionSpeed] = useState(0.5)
   const [search, setSearch] = useState('')
+
+  // Transition state
+  const [transitionType, setTransitionType] = useState<TransitionType>('crossfade')
+  const [transitionDuration, setTransitionDuration] = useState(0.8)
+  const [transitionBeatSync, setTransitionBeatSync] = useState(false)
 
   // Cycling state
   const [cycleEnabled, setCycleEnabled] = useState(false)
@@ -282,6 +288,78 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 {activeEffect}
               </span>
+            </div>
+
+            {/* Transition settings */}
+            <div style={{
+              padding: '6px', borderRadius: '4px',
+              background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            }}>
+              <div style={{
+                fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
+                textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '4px',
+              }}>
+                Transition
+              </div>
+              {/* Type selector */}
+              <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
+                {([
+                  { id: 'crossfade' as TransitionType, label: 'Fade' },
+                  { id: 'wipe-left' as TransitionType, label: 'Wipe' },
+                  { id: 'radial' as TransitionType, label: 'Radial' },
+                  { id: 'dissolve' as TransitionType, label: 'Noise' },
+                ] as const).map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setTransitionType(t.id)
+                      engine?.setTransitionType(t.id)
+                    }}
+                    style={pillStyle(transitionType === t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {/* Duration */}
+              <div className="slider-row">
+                <span className="label">Time</span>
+                <input
+                  type="range" min={0} max={3} step={0.1}
+                  value={transitionDuration}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value)
+                    setTransitionDuration(v)
+                    engine?.setTransitionDuration(v)
+                  }}
+                />
+                <NumberInput
+                  value={transitionDuration}
+                  min={0} max={3} step={0.1}
+                  suffix="s"
+                  onChange={v => { setTransitionDuration(v); engine?.setTransitionDuration(v) }}
+                />
+              </div>
+              {/* Beat sync */}
+              <div
+                onClick={() => {
+                  const v = !transitionBeatSync
+                  setTransitionBeatSync(v)
+                  engine?.setTransitionBeatSync(v)
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '3px 0', cursor: 'pointer', marginTop: '2px',
+                }}
+              >
+                <div className={`toggle${transitionBeatSync ? ' active' : ''}`} />
+                <span style={{
+                  fontSize: '9px',
+                  color: transitionBeatSync ? 'var(--text-primary)' : 'var(--text-muted)',
+                }}>
+                  Wait for beat
+                </span>
+              </div>
             </div>
 
             {/* Categories */}
@@ -498,9 +576,11 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 value={transitionSpeed}
                 onChange={e => handleTransitionSpeed(parseFloat(e.target.value))}
               />
-              <span className="value">
-                {transitionSpeed <= 0 ? '0' : `${(transitionSpeed * 3).toFixed(1)}s`}
-              </span>
+              <NumberInput
+                value={transitionSpeed}
+                min={0} max={1} step={0.05}
+                onChange={handleTransitionSpeed}
+              />
             </div>
 
             {/* Palette Cycling */}
@@ -542,9 +622,14 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                     : handleCycleInterval(parseInt(e.target.value))
                   }
                 />
-                <span className="value">
-                  {cycleBeatSync ? cycleBeats : `${cycleInterval}s`}
-                </span>
+                <NumberInput
+                  value={cycleBeatSync ? cycleBeats : cycleInterval}
+                  min={cycleBeatSync ? 1 : 2}
+                  max={cycleBeatSync ? 64 : 30}
+                  step={1}
+                  suffix={cycleBeatSync ? '' : 's'}
+                  onChange={v => cycleBeatSync ? handleCycleBeats(v) : handleCycleInterval(v)}
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px' }}>
