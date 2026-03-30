@@ -32,6 +32,7 @@ import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
 import mirrorFrag from './shaders/mirror.frag?raw'
 import invertFrag from './shaders/invert.frag?raw'
+import transitionFrag from './shaders/transition.frag?raw'
 import overlayFrag from './shaders/overlay.frag?raw'
 
 const FULLSCREEN_VERT = `
@@ -77,6 +78,11 @@ export type EffectId =
   | 'hexagons' | 'dna'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
+export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
+const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
+  'crossfade': 0, 'wipe-left': 1, 'wipe-down': 2, 'radial': 3, 'dissolve': 4,
+}
+
 export interface EngineState {
   activeEffect: EffectId
   activePost: PostId[]
@@ -84,6 +90,12 @@ export interface EngineState {
   beatPulse: number
   energy: number
   bpm: number
+  transition?: {
+    type: TransitionType
+    duration: number
+    fromEffect: EffectId
+  }
+  customShader?: string
 }
 
 // Preset system
@@ -145,6 +157,9 @@ export class Engine {
   private postScene: THREE.Scene
   private postQuad: THREE.Mesh
 
+  // Reusable passthrough material (avoid per-frame allocations)
+  private passthroughMaterial: THREE.ShaderMaterial
+
   // Current state
   private currentEffect: EffectId = 'tunnel'
   private mainMaterial: THREE.ShaderMaterial
@@ -175,6 +190,16 @@ export class Engine {
   private cycleBeatCount = 0
   private cycleBeatsPerSwitch = 16
 
+  // Effect transitions
+  private transitionType: TransitionType = 'crossfade'
+  private transitionDuration = 0.8 // seconds
+  private transitionProgress = -1  // -1 = not transitioning
+  private transitionOldMaterial: THREE.ShaderMaterial | null = null
+  private rtTransition: THREE.WebGLRenderTarget
+  private transitionMaterial: THREE.ShaderMaterial
+  private transitionBeatSync = false
+  private transitionPending: EffectId | null = null
+
   // Overlays
   private overlays: OverlayItem[] = []
   private overlayMaterial: THREE.ShaderMaterial
@@ -183,6 +208,7 @@ export class Engine {
   private animFrameId = 0
   private disposed = false
   private resolution = new THREE.Vector2(1920, 1080)
+  private lastIpcTime = 0
 
   // Smoothed audio values for less jitter
   private smoothBass = 0
@@ -193,6 +219,9 @@ export class Engine {
 
   // State change callback (for syncing to output window)
   public onStateChange: ((state: EngineState) => void) | null = null
+
+  // Per-frame audio callback (for AutoVJ — called inside render loop with fresh beat data)
+  public onAudioFrame: ((beatDetected: boolean, energy: number, bass: number) => void) | null = null
 
   constructor(private canvas: HTMLCanvasElement) {
     this.audioAnalyzer = new AudioAnalyzer()
@@ -220,6 +249,13 @@ export class Engine {
     }))
     this.postScene.add(this.postQuad)
 
+    // Reusable passthrough (never allocate in render loop)
+    this.passthroughMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: PASSTHROUGH_FRAG,
+      uniforms: { tDiffuse: { value: null } }
+    })
+
     // Render targets
     const opts: THREE.WebGLRenderTargetOptions = {
       minFilter: THREE.LinearFilter,
@@ -229,6 +265,20 @@ export class Engine {
     this.rtA = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtB = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtPrev = new THREE.WebGLRenderTarget(1920, 1080, opts)
+    this.rtTransition = new THREE.WebGLRenderTarget(1920, 1080, opts)
+
+    // Transition material
+    this.transitionMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: transitionFrag,
+      uniforms: {
+        tOld: { value: null },
+        tNew: { value: null },
+        uProgress: { value: 0 },
+        uType: { value: 0 },
+        uResolution: { value: this.resolution },
+      }
+    })
 
     // Overlay material
     this.overlayMaterial = new THREE.ShaderMaterial({
@@ -378,20 +428,135 @@ export class Engine {
 
   // ---- Public API ----
 
-  // TODO: Add transitions between effects instead of hard-switching.
-  //  - Crossfade: render both old and new effect to separate RTs, blend with a mix uniform over N frames
-  //  - Wipe/slide: use a transition shader (radial, linear, dissolve noise) that reads both RTs
-  //  - Beat-synced: trigger transition on next beat, complete by the following beat
-  //  - Configurable duration (e.g. 0.5s – 2s) and transition type from the UI
-  //  - Keep the old material alive during transition, dispose only after completion
   setEffect(id: EffectId) {
-    if (id === this.currentEffect) return
-    this.currentEffect = id
-    this.mainMaterial.dispose()
+    if (id === this.currentEffect && this.transitionProgress < 0) return
+
+    // If beat-sync is on and no beat right now, queue the transition
+    if (this.transitionBeatSync) {
+      this.transitionPending = id
+      return
+    }
+
+    this.startTransition(id)
+  }
+
+  private cancelCurrentTransition() {
+    // Clean up any in-progress transition before starting a new one
+    if (this.transitionOldMaterial) {
+      this.transitionOldMaterial.dispose()
+      this.transitionOldMaterial = null
+    }
+    this.transitionProgress = -1
+    this.transitionPending = null
+  }
+
+  private startTransition(id: EffectId) {
+    // Always cancel existing transition first
+    this.cancelCurrentTransition()
+
+    const fromEffect = this.currentEffect
+
+    if (this.transitionDuration <= 0 || id === this.currentEffect) {
+      // Instant switch
+      this.currentEffect = id
+      this.mainMaterial.dispose()
+      this.mainMaterial = this.createEffectMaterial(id)
+      this.quad.material = this.mainMaterial
+      this.emitState()
+      return
+    }
+
+    // Start transition: keep old material, create new
+    this.transitionOldMaterial = this.mainMaterial
     this.mainMaterial = this.createEffectMaterial(id)
     this.quad.material = this.mainMaterial
-    this.emitState()
+    this.currentEffect = id
+    this.transitionProgress = 0
+
+    // Emit state with transition info for output window
+    if (this.onStateChange) {
+      this.onStateChange({
+        activeEffect: id,
+        activePost: Array.from(this.activePostEffects),
+        colors: [
+          '#' + this.colors[0].getHexString(),
+          '#' + this.colors[1].getHexString(),
+          '#' + this.colors[2].getHexString(),
+        ],
+        beatPulse: this.beatPulse,
+        energy: this.smoothEnergy,
+        bpm: this.audioAnalyzer.getData().bpm,
+        transition: {
+          type: this.transitionType,
+          duration: this.transitionDuration,
+          fromEffect,
+        },
+      })
+    }
   }
+
+  // ---- Custom Shader API ----
+
+  /** Load a custom GLSL fragment shader as the active effect */
+  setCustomShader(fragSource: string): boolean {
+    try {
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: FULLSCREEN_VERT,
+        fragmentShader: fragSource,
+        uniforms: {
+          uTime: { value: 0 },
+          uBass: { value: 0 },
+          uMid: { value: 0 },
+          uHigh: { value: 0 },
+          uEnergy: { value: 0 },
+          uBeat: { value: 0 },
+          uColor1: { value: this.colors[0] },
+          uColor2: { value: this.colors[1] },
+          uColor3: { value: this.colors[2] },
+          uResolution: { value: this.resolution },
+        }
+      })
+      // Cancel any in-progress transition
+      this.cancelCurrentTransition()
+      this.mainMaterial.dispose()
+      this.mainMaterial = mat
+      this.quad.material = this.mainMaterial
+      return true
+    } catch (e) {
+      console.error('[Engine] Custom shader compile error:', e)
+      return false
+    }
+  }
+
+  /** Send custom shader to output window via IPC */
+  sendCustomShaderToOutput(fragSource: string) {
+    try {
+      window.api?.sendEngineState({
+        activeEffect: this.currentEffect,
+        activePost: Array.from(this.activePostEffects),
+        colors: [
+          '#' + this.colors[0].getHexString(),
+          '#' + this.colors[1].getHexString(),
+          '#' + this.colors[2].getHexString(),
+        ],
+        beatPulse: this.beatPulse,
+        energy: this.smoothEnergy,
+        bpm: this.audioAnalyzer.getData().bpm,
+        customShader: fragSource,
+      })
+    } catch (_) {}
+  }
+
+  setTransitionType(type: TransitionType) { this.transitionType = type }
+  getTransitionType(): TransitionType { return this.transitionType }
+
+  setTransitionDuration(seconds: number) { this.transitionDuration = Math.max(0, seconds) }
+  getTransitionDuration(): number { return this.transitionDuration }
+
+  setTransitionBeatSync(enabled: boolean) { this.transitionBeatSync = enabled }
+  isTransitionBeatSync(): boolean { return this.transitionBeatSync }
+
+  isTransitioning(): boolean { return this.transitionProgress >= 0 }
 
   getActiveEffect(): EffectId {
     return this.currentEffect
@@ -606,13 +771,22 @@ export class Engine {
   }
 
   applyPreset(preset: Preset) {
-    this.setEffect(preset.effect)
+    // Batch: update post and colors without emitting state individually
     this.activePostEffects.clear()
     for (const p of preset.post) {
       if (this.postMaterials.has(p)) this.activePostEffects.add(p)
     }
-    this.setColors(preset.colors[0], preset.colors[1], preset.colors[2])
-    this.emitState()
+    this.targetColors[0].set(preset.colors[0])
+    this.targetColors[1].set(preset.colors[1])
+    this.targetColors[2].set(preset.colors[2])
+
+    // setEffect handles its own emitState (with transition info)
+    // If same effect, just emit state for the post/color changes
+    if (preset.effect === this.currentEffect && this.transitionProgress < 0) {
+      this.emitState()
+    } else {
+      this.setEffect(preset.effect)
+    }
   }
 
   getCurrentEffect(): EffectId { return this.currentEffect }
@@ -663,6 +837,18 @@ export class Engine {
     if (audio.beatDetected) this.beatPulse = 1.0
     this.beatPulse *= 0.88
 
+    // AutoVJ hook — called every frame with fresh audio data
+    if (this.onAudioFrame) {
+      this.onAudioFrame(audio.beatDetected, this.smoothEnergy, this.smoothBass)
+    }
+
+    // Beat-synced transition: trigger pending effect change on beat
+    if (this.transitionPending && audio.beatDetected) {
+      const pending = this.transitionPending
+      this.transitionPending = null
+      this.startTransition(pending)
+    }
+
     // Palette cycling
     if (this.cycleEnabled && this.cyclePalettes.length >= 2) {
       if (this.cycleBeatSync) {
@@ -700,12 +886,61 @@ export class Engine {
     this.renderer.clear()
     this.renderer.render(this.scene, this.camera)
 
+    // Effect transition blending
+    if (this.transitionProgress >= 0 && this.transitionOldMaterial) {
+      const dt = this.clock.getDelta()
+      this.transitionProgress += dt / Math.max(this.transitionDuration, 0.01)
+
+      if (this.transitionProgress >= 1) {
+        // Transition complete
+        this.transitionOldMaterial.dispose()
+        this.transitionOldMaterial = null
+        this.transitionProgress = -1
+      } else {
+        // Render old effect → rtTransition
+        this.quad.material = this.transitionOldMaterial
+        const ou = this.transitionOldMaterial.uniforms
+        ou.uTime.value = time
+        ou.uBass.value = this.smoothBass
+        ou.uMid.value = this.smoothMid
+        ou.uHigh.value = this.smoothHigh
+        ou.uEnergy.value = this.smoothEnergy
+        ou.uBeat.value = this.beatPulse
+        this.renderer.setRenderTarget(this.rtTransition)
+        this.renderer.clear()
+        this.renderer.render(this.scene, this.camera)
+
+        // Restore new material
+        this.quad.material = this.mainMaterial
+
+        // Blend old + new → rtA
+        const tu = this.transitionMaterial.uniforms
+        tu.tOld.value = this.rtTransition.texture
+        tu.tNew.value = this.rtA.texture
+        tu.uProgress.value = this.transitionProgress
+        tu.uType.value = TRANSITION_TYPE_INDEX[this.transitionType]
+        this.postQuad.material = this.transitionMaterial
+        this.renderer.setRenderTarget(this.rtB)
+        this.renderer.clear()
+        this.renderer.render(this.postScene, this.camera)
+
+        // Copy blended result back to rtA
+        this.passthroughMaterial.uniforms.tDiffuse.value = this.rtB.texture
+        this.postQuad.material = this.passthroughMaterial
+        this.renderer.setRenderTarget(this.rtA)
+        this.renderer.clear()
+        this.renderer.render(this.postScene, this.camera)
+      }
+    }
+
     // Render overlays on top of main effect
-    const visibleOverlays = this.overlays.filter(o => o.visible && o._texture)
-    if (visibleOverlays.length > 0) {
+    let hasVisibleOverlays = false
+    for (const o of this.overlays) { if (o.visible && o._texture) { hasVisibleOverlays = true; break } }
+    if (hasVisibleOverlays) {
       let src = this.rtA
       let dst = this.rtB
-      for (const overlay of visibleOverlays) {
+      for (const overlay of this.overlays) {
+        if (!overlay.visible || !overlay._texture) continue
         // Advance GIF frames based on sync mode
         if (overlay._isGif && overlay._gifFrames && overlay._gifFrames.length > 1 && overlay._canvas) {
           const now = performance.now()
@@ -750,24 +985,21 @@ export class Engine {
       }
       // If we ended on rtB, copy back to rtA so post-processing chain reads from rtA
       if (src !== this.rtA) {
-        const passMat = new THREE.ShaderMaterial({
-          vertexShader: FULLSCREEN_VERT,
-          fragmentShader: PASSTHROUGH_FRAG,
-          uniforms: { tDiffuse: { value: src.texture } }
-        })
-        this.postQuad.material = passMat
+        this.passthroughMaterial.uniforms.tDiffuse.value = src.texture
+        this.postQuad.material = this.passthroughMaterial
         this.renderer.setRenderTarget(this.rtA)
         this.renderer.clear()
         this.renderer.render(this.postScene, this.camera)
-        passMat.dispose()
       }
     }
 
-    // Post-processing chain
+    // Post-processing chain (reuse array to avoid per-frame allocation)
     let read = this.rtA
     let write = this.rtB
-    const posts = Array.from(this.activePostEffects)
-      .filter(id => this.postMaterials.has(id))
+    const posts: PostId[] = []
+    for (const id of this.activePostEffects) {
+      if (this.postMaterials.has(id)) posts.push(id)
+    }
 
     for (let i = 0; i < posts.length; i++) {
       const mat = this.postMaterials.get(posts[i])!
@@ -795,16 +1027,8 @@ export class Engine {
 
     // No post effects — passthrough to screen
     if (posts.length === 0) {
-      const passMat = this.postQuad.material as THREE.ShaderMaterial
-      if (passMat.uniforms.tDiffuse) {
-        passMat.uniforms.tDiffuse.value = read.texture
-      } else {
-        this.postQuad.material = new THREE.ShaderMaterial({
-          vertexShader: FULLSCREEN_VERT,
-          fragmentShader: PASSTHROUGH_FRAG,
-          uniforms: { tDiffuse: { value: read.texture } }
-        })
-      }
+      this.passthroughMaterial.uniforms.tDiffuse.value = read.texture
+      this.postQuad.material = this.passthroughMaterial
       this.renderer.setRenderTarget(null)
       this.renderer.clear()
       this.renderer.render(this.postScene, this.camera)
@@ -816,31 +1040,30 @@ export class Engine {
       feedbackMat.uniforms.tPrevFrame.value = this.rtPrev.texture
 
       // Copy current to prev
-      const copyMat = new THREE.ShaderMaterial({
-        vertexShader: FULLSCREEN_VERT,
-        fragmentShader: PASSTHROUGH_FRAG,
-        uniforms: { tDiffuse: { value: this.rtA.texture } }
-      })
-      this.postQuad.material = copyMat
+      this.passthroughMaterial.uniforms.tDiffuse.value = this.rtA.texture
+      this.postQuad.material = this.passthroughMaterial
       this.renderer.setRenderTarget(this.rtPrev)
       this.renderer.clear()
       this.renderer.render(this.postScene, this.camera)
-      copyMat.dispose()
     }
     this.renderer.setRenderTarget(null)
 
-    // Sync audio data to output window
-    try {
-      window.api?.sendAudioData({
-        bass: this.smoothBass,
-        mid: this.smoothMid,
-        high: this.smoothHigh,
-        energy: this.smoothEnergy,
-        beatPulse: this.beatPulse,
-        bpm: audio.bpm,
-        beatDetected: audio.beatDetected,
-      })
-    } catch (_) {}
+    // Sync audio data to output window (throttle to ~30Hz to reduce IPC overhead)
+    const now = performance.now()
+    if (now - this.lastIpcTime >= 33 || audio.beatDetected) {
+      this.lastIpcTime = now
+      try {
+        window.api?.sendAudioData({
+          bass: this.smoothBass,
+          mid: this.smoothMid,
+          high: this.smoothHigh,
+          energy: this.smoothEnergy,
+          beatPulse: this.beatPulse,
+          bpm: audio.bpm,
+          beatDetected: audio.beatDetected,
+        })
+      } catch (_) {}
+    }
 
     this.animFrameId = requestAnimationFrame(this.loop)
   }
@@ -853,7 +1076,11 @@ export class Engine {
     this.rtA.dispose()
     this.rtB.dispose()
     this.rtPrev.dispose()
+    this.rtTransition.dispose()
     this.mainMaterial.dispose()
+    this.passthroughMaterial.dispose()
+    this.transitionMaterial.dispose()
+    this.transitionOldMaterial?.dispose()
     this.overlayMaterial.dispose()
     this.overlays.forEach(o => o._texture?.dispose())
     this.overlays = []

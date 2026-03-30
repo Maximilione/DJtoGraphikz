@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
+import { NumberInput } from '../NumberInput/NumberInput'
 
 interface AudioPanelProps {
   engine: Engine | null
@@ -135,9 +136,11 @@ export function AudioPanel({ engine }: AudioPanelProps) {
         beatFlashRef.current *= 0.85
       }
 
-      // Update display BPM
-      setDisplayBpm(Math.round(audioData.bpm))
-      setConfidence(engine.audioAnalyzer.getBpmConfidence())
+      // Update display BPM (throttle to avoid 60fps React re-renders)
+      const roundedBpm = Math.round(audioData.bpm)
+      const conf = engine.audioAnalyzer.getBpmConfidence()
+      if (roundedBpm !== displayBpm) setDisplayBpm(roundedBpm)
+      if (Math.abs(conf - confidence) > 0.05) setConfidence(conf)
 
       ctx.fillStyle = '#00ff88'
       ctx.font = '10px monospace'
@@ -225,9 +228,12 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                   onChange={e => handleInputGain(parseFloat(e.target.value))}
                   style={{ flex: 1, height: '14px' }}
                 />
-                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', width: '30px', textAlign: 'right' }}>
-                  {inputGain.toFixed(1)}x
-                </span>
+                <NumberInput
+                  value={inputGain}
+                  min={1} max={10} step={0.5}
+                  suffix="x"
+                  onChange={handleInputGain}
+                />
               </div>
             </div>
           )}
