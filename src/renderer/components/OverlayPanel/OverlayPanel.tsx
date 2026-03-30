@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
+import { NumberInput } from '../NumberInput/NumberInput'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -213,9 +214,11 @@ function SliderRow({ label, value, min, max, step, onChange }: {
         onChange={e => onChange(parseFloat(e.target.value))}
         style={{ flex: 1, height: '14px' }}
       />
-      <span style={{ fontSize: '10px', color: 'var(--text-secondary)', width: '32px', textAlign: 'right' }}>
-        {value.toFixed(2)}
-      </span>
+      <NumberInput
+        value={value}
+        min={min} max={max} step={step}
+        onChange={onChange}
+      />
     </div>
   )
 }
