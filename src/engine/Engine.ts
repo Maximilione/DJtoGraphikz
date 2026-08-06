@@ -692,6 +692,37 @@ export class Engine {
 
   // ---- Custom Shader API ----
 
+  private lastShaderError: string | null = null
+  getLastShaderError(): string | null { return this.lastShaderError }
+
+  /**
+   * Compile the material through three.js BEFORE swapping it in — three
+   * compiles lazily at first render (with its own GLSL ES 3.0 prelude, so a
+   * raw standalone compile is not representative), and a broken shader would
+   * spam "useProgram: program not valid" every frame instead of failing here.
+   * One throwaway render into a small RT + debug.onShaderError catches it.
+   */
+  private validateMaterial(mat: THREE.ShaderMaterial): string | null {
+    let error: string | null = null
+    const prevHandler = this.renderer.debug.onShaderError
+    this.renderer.debug.onShaderError = (gl, _program, _vs, fs) => {
+      error = (gl.getShaderInfoLog(fs) || 'unknown GLSL error').trim()
+    }
+    const prevMat = this.quad.material
+    this.quad.material = mat
+    try {
+      this.renderer.setRenderTarget(this.rtBloomB)
+      this.renderer.render(this.scene, this.camera)
+    } catch (e: any) {
+      error = error || e.message
+    } finally {
+      this.renderer.setRenderTarget(null)
+      this.quad.material = prevMat
+      this.renderer.debug.onShaderError = prevHandler
+    }
+    return error
+  }
+
   /** Load a custom GLSL fragment shader as the active effect */
   setCustomShader(fragSource: string, params?: EffectParam[]): boolean {
     try {
@@ -717,6 +748,14 @@ export class Engine {
         fragmentShader: fragSource,
         uniforms,
       })
+
+      this.lastShaderError = this.validateMaterial(mat)
+      if (this.lastShaderError) {
+        console.error('[Engine] Custom shader rejected:', this.lastShaderError)
+        mat.dispose()
+        return false
+      }
+
       // Cancel any in-progress transition
       this.cancelCurrentTransition()
       this.mainMaterial.dispose()

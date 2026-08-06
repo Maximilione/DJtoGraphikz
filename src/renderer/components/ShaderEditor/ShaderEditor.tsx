@@ -290,7 +290,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       setLastApplied(code)
       engine.sendCustomShaderToOutput(code)
     } else {
-      setError('Shader compilation failed — check console for details')
+      setError(engine.getLastShaderError() || 'Shader compilation failed — check console for details')
     }
   }, [engine, code])
 
@@ -305,7 +305,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
         setLastApplied(code)
         engine.sendCustomShaderToOutput(code)
       } else {
-        setError('Compile error')
+        setError(engine.getLastShaderError() || 'Compile error')
       }
     }, 500)
     return () => clearTimeout(debounceRef.current)
@@ -339,7 +339,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
         setLastApplied(res.fragment)
         engine.sendCustomShaderToOutput(res.fragment)
       } else {
-        setError('ISF: compilazione fallita — vedi console')
+        setError(`ISF: ${engine.getLastShaderError() || 'compilazione fallita'}`)
       }
     }
     input.click()

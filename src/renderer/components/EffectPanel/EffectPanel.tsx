@@ -287,7 +287,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
         ))}
       </div>
 
-      <div style={{ padding: '8px', maxHeight: '60vh', overflowY: 'auto' }}>
+      <div style={{ padding: '8px' }}>
         {/* ====== EFFECTS TAB ====== */}
         {section === 'fx' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
