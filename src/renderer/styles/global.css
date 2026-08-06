@@ -318,6 +318,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-right: 1px solid var(--border);
 }
 
+/* Panels must keep their natural height so the sidebar scrolls — a flex
+   child with overflow:hidden gets min-height:0 and gets squashed instead */
+.sidebar > *,
+.sidebar-right > * {
+  flex-shrink: 0;
+}
+
 .sidebar-right {
   width: 260px;
   min-width: 260px;
