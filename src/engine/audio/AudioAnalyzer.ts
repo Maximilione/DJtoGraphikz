@@ -11,6 +11,10 @@ export interface AudioData {
   energy: number
   bpm: number
   beatDetected: boolean
+  /** 0..1 position inside the current beat (resynced on every detected beat) */
+  beatPhase: number
+  /** 0..1 position inside the current 4-beat bar */
+  barPhase: number
   spectrum: Uint8Array
 }
 
@@ -24,7 +28,7 @@ export class AudioAnalyzer {
   private source: MediaStreamAudioSourceNode | null = null
   private gainNode: GainNode | null = null
   private stream: MediaStream | null = null
-  private freqData: Uint8Array = new Uint8Array(0)
+  private freqData: Uint8Array<ArrayBuffer> = new Uint8Array(0)
   private running = false
 
   // realtime-bpm-analyzer
@@ -55,9 +59,19 @@ export class AudioAnalyzer {
   // Input gain
   private inputGain = 1.0
 
+  // Adaptive normalization — quiet tracks stay alive, loud ones stop clipping
+  private peakEnergy = 0.2
+  private readonly NOISE_GATE = 0.015
+
+  // Beat phase tracking (continuous, resynced on each detected beat)
+  private beatPhase = 0
+  private beatIndex = 0
+  private lastPhaseTime = 0
+
   private data: AudioData = {
     sub: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0,
-    energy: 0, bpm: 128, beatDetected: false, spectrum: EMPTY_SPECTRUM
+    energy: 0, bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
+    spectrum: EMPTY_SPECTRUM
   }
 
   get isRunning() { return this.running }
@@ -270,7 +284,25 @@ export class AudioAnalyzer {
       sum += (this.freqData[i] / 255) * weight
       count += weight
     }
-    this.data.energy = sum / count
+    const rawEnergy = sum / count
+
+    // Adaptive normalization: track a slowly decaying peak and scale everything to it.
+    // Quiet tracks don't look dead, loud ones don't sit pinned at 1.0.
+    this.peakEnergy = Math.max(rawEnergy, this.peakEnergy * 0.998, 0.05)
+    const gain = 1 / this.peakEnergy
+
+    // Noise gate — below this the signal is room noise, not music
+    const gated = rawEnergy < this.NOISE_GATE ? 0 : 1
+
+    const norm = (v: number) => gated * Math.min(1, v * gain)
+    this.data.sub = norm(this.data.sub)
+    this.data.bass = norm(this.data.bass)
+    this.data.lowMid = norm(this.data.lowMid)
+    this.data.mid = norm(this.data.mid)
+    this.data.highMid = norm(this.data.highMid)
+    this.data.high = norm(this.data.high)
+    this.data.presence = norm(this.data.presence)
+    this.data.energy = norm(rawEnergy)
 
     // --- Beat detection via SPECTRAL FLUX ---
     // Spectral flux measures the overall change in the spectrum frame-to-frame.
@@ -337,6 +369,23 @@ export class AudioAnalyzer {
     this.beatDecay *= 0.88
 
     this.data.bpm = this.getEffectiveBpm()
+
+    // Continuous beat phase — free-runs on BPM, resyncs on every detected beat.
+    // Lets shaders anticipate the beat instead of only reacting to it.
+    const dtSec = this.lastPhaseTime ? Math.min((now - this.lastPhaseTime) / 1000, 0.5) : 0
+    this.lastPhaseTime = now
+    this.beatPhase += dtSec * (this.data.bpm / 60)
+    while (this.beatPhase >= 1) {
+      this.beatPhase -= 1
+      this.beatIndex = (this.beatIndex + 1) % 4
+    }
+    if (this.data.beatDetected) {
+      this.beatPhase = 0
+      this.beatIndex = (this.beatIndex + 1) % 4
+    }
+    this.data.beatPhase = this.beatPhase
+    this.data.barPhase = (this.beatIndex + this.beatPhase) / 4
+
     this.data.spectrum = this.freqData
 
     return this.data
