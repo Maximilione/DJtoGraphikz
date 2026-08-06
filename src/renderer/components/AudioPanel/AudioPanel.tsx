@@ -50,6 +50,20 @@ export function AudioPanel({ engine }: AudioPanelProps) {
     refreshDevices()
   }, [])
 
+  // Audio can be started from outside this panel (onboarding) — keep state in sync
+  useEffect(() => {
+    if (!engine) return
+    const id = window.setInterval(() => {
+      const running = engine.audioAnalyzer.isRunning
+      if (running !== audioActive) {
+        setAudioActive(running)
+        if (running) drawSpectrum()
+        else cancelAnimationFrame(animFrameRef.current)
+      }
+    }, 500)
+    return () => clearInterval(id)
+  }, [engine, audioActive])
+
   const startAudio = async () => {
     if (!engine) { setError('Engine not ready'); return }
     try {

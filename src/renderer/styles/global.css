@@ -370,6 +370,285 @@ input[type="range"]::-webkit-slider-thumb:hover {
   letter-spacing: 1px;
 }
 
+/* ---- Simple / Pro mode switch ---- */
+.mode-switch {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mode-switch button {
+  padding: 4px 10px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+.mode-switch button.active {
+  background: var(--accent);
+  color: #000;
+}
+
+/* ---- Simple mode ---- */
+.sidebar-wide {
+  width: 320px;
+  min-width: 320px;
+}
+
+.simple-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.simple-autovj {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.simple-autovj.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
+}
+.simple-autovj-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+.simple-autovj.active .simple-autovj-title { color: var(--accent); }
+.simple-autovj-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.simple-genre {
+  width: 100%;
+  padding: 8px;
+  font-size: 12px;
+}
+
+.simple-section {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+  margin-top: 4px;
+}
+
+.simple-cat {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin: 4px 0 3px;
+}
+
+.simple-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+
+.simple-fx {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.simple-fx:hover { background: var(--bg-hover); border-color: var(--border-light); }
+.simple-fx.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.simple-fx .fx-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
+
+.simple-palettes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.simple-palette {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  padding: 7px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+}
+.simple-palette span {
+  width: 14px; height: 14px; border-radius: 3px; display: block;
+}
+.simple-palette.active { border-color: var(--accent); background: var(--accent-glow); }
+
+/* ---- Onboarding ---- */
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.onboarding-card {
+  width: 460px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.onboarding-card h2 {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.onboarding-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.onboarding-error {
+  padding: 8px;
+  border-radius: 4px;
+  background: rgba(255, 68, 68, 0.15);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  font-size: 11px;
+  color: #ff6666;
+}
+
+.onboarding-steps {
+  display: flex;
+  gap: 12px;
+}
+.onboarding-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.onboarding-step .dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+.onboarding-step.active { color: var(--accent); }
+.onboarding-step.active .dot { border-color: var(--accent); color: var(--accent); }
+.onboarding-step.done .dot { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.onboarding-select {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.onboarding-genres {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.onboarding-genre {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  text-align: left;
+}
+.onboarding-genre.active { border-color: var(--accent); background: var(--accent-glow); }
+.onboarding-genre .genre-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.onboarding-genre.active .genre-label { color: var(--accent); }
+.onboarding-genre .genre-swatches { display: flex; gap: 2px; }
+.onboarding-genre .genre-swatches span { width: 12px; height: 12px; border-radius: 2px; display: block; }
+
+.onboarding-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.onboarding-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.onboarding-summary span {
+  display: inline-block;
+  width: 80px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.onboarding-start {
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
 /* ---- Deck / crossfader bar ---- */
 .deck-bar {
   display: flex;

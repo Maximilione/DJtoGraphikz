@@ -7,7 +7,7 @@ interface EffectPanelProps {
 }
 
 // Effects organized by category
-const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: string; icon: string }[] }[] = [
+export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: string; icon: string }[] }[] = [
   {
     name: 'Geometric',
     effects: [
@@ -78,7 +78,7 @@ const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; ico
   },
 ]
 
-const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
+export const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
   { label: 'Acid', colors: ['#00ff88', '#ff00ff', '#4444ff'] },
   { label: 'Fire', colors: ['#ff4400', '#ffaa00', '#ff0066'] },
   { label: 'Ice', colors: ['#00ccff', '#0044ff', '#88ffff'] },
