@@ -29,6 +29,8 @@
 - [x] **AutoVJ** — 8 generi, switch effetti/post/palette a tempo, energia adattiva
 - [x] **Persistenza impostazioni** — look completo ripristinato all'avvio (preset a parte)
 - [x] **Screenshot PNG** — bottone 📷 in top bar
+- [x] **Parametri per effetto** — Speed/Reactivity su tutti gli effetti + uniform custom, ogni param mappabile a bass/mid/high/energy/beat con depth
+- [x] **ISF generator import** — header JSON → slider automatici, transpile a convenzioni interne
 - [x] **Antialiasing procedurale** — fwidth() sugli shader geometrici
 
 ## PRIMA DI TUTTO
@@ -39,7 +41,6 @@
 
 - [ ] **Video recording** — cattura output come WebM (canvas.captureStream + MediaRecorder, no native)
 - [ ] **MIDI input + MIDI learn** — Web MIDI API, mapping su crossfader/master/effetti
-- [ ] **Per-effect parameter sliders** — uniform esposti con audio mapping (la feature grossa rimasta)
 
 ## SE AVANZA TEMPO
 
@@ -55,7 +56,6 @@
 - [ ] **OSC input** — messaggi da tablet/telefoni
 - [ ] **Projection mapping** — keystoning/quad-warp
 - [ ] **3D geometry scenes** — mesh audio-reattive
-- [ ] **ISF shader import**
 - [ ] **DMX output via ArtNet**
 - [ ] **Plugin architecture**
 - [ ] **Web remote control** — UI web da telefono
