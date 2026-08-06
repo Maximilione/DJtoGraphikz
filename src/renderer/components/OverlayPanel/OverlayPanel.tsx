@@ -27,13 +27,33 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     setOverlays([...engine.getOverlays()])
   }, [engine])
 
+  const importVideo = useCallback(async () => {
+    if (!engine) return
+    const files = await window.api?.pickVideos()
+    if (!files || files.length === 0) return
+    for (const f of files) {
+      await engine.addVideoOverlay(f.name, { kind: 'video', path: f.path })
+    }
+    setOverlays([...engine.getOverlays()])
+  }, [engine])
+
+  const addWebcam = useCallback(async () => {
+    if (!engine) return
+    try {
+      await engine.addVideoOverlay('Webcam', { kind: 'webcam' })
+      setOverlays([...engine.getOverlays()])
+    } catch (err) {
+      console.error('[OverlayPanel] webcam failed:', err)
+    }
+  }, [engine])
+
   const removeOverlay = useCallback((id: string) => {
     if (!engine) return
     engine.removeOverlay(id)
     setOverlays([...engine.getOverlays()])
   }, [engine])
 
-  const updateOverlay = useCallback((id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync'>>) => {
+  const updateOverlay = useCallback((id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace'>>) => {
     if (!engine) return
     engine.updateOverlay(id, updates)
     setOverlays([...engine.getOverlays()])
@@ -54,6 +74,14 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
           >
             Import Image / GIF
           </button>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button className="btn btn-secondary btn-sm" onClick={importVideo} style={{ flex: 1 }}>
+              Import Video
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={addWebcam} style={{ flex: 1 }}>
+              Webcam
+            </button>
+          </div>
 
           {overlays.length === 0 && (
             <div style={{
@@ -120,14 +148,24 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                 </button>
               </div>
 
-              {/* Thumbnail */}
-              <img
-                src={overlay.dataUrl}
-                style={{
-                  width: '100%', height: '48px', objectFit: 'contain',
-                  borderRadius: '4px', background: '#000',
-                }}
-              />
+              {/* Thumbnail (images only — video draws straight to the engine) */}
+              {overlay.dataUrl ? (
+                <img
+                  src={overlay.dataUrl}
+                  style={{
+                    width: '100%', height: '48px', objectFit: 'contain',
+                    borderRadius: '4px', background: '#000',
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '24px', borderRadius: '4px', background: '#000',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '1px',
+                }}>
+                  {overlay.source?.kind === 'webcam' ? 'WEBCAM' : 'VIDEO'}
+                </div>
+              )}
 
               {/* GIF Sync Mode — only for GIFs */}
               {overlay._isGif && (
@@ -185,6 +223,14 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                 value={overlay.offsetY}
                 min={-0.5} max={0.5} step={0.01}
                 onChange={v => updateOverlay(overlay.id, { offsetY: v })}
+              />
+
+              {/* Displacement: the overlay warps the visuals instead of covering them */}
+              <SliderRow
+                label="Displace"
+                value={overlay.displace}
+                min={0} max={0.5} step={0.01}
+                onChange={v => updateOverlay(overlay.id, { displace: v })}
               />
             </div>
           ))}

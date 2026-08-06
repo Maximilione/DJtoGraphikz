@@ -45,12 +45,7 @@ export function AutoVJPanel({ engine }: AutoVJPanelProps) {
     }
 
     vj.onPostChange = (posts: PostId[]) => {
-      // Clear current posts and set new ones
-      const current = engine.getActivePosts()
-      for (const p of current) engine.togglePost(p)
-      for (const p of posts) {
-        if (!engine.isPostActive(p)) engine.togglePost(p)
-      }
+      engine.setActivePosts(posts)
     }
 
     vj.onPaletteChange = (colors: [string, string, string]) => {
@@ -71,15 +66,11 @@ export function AutoVJPanel({ engine }: AutoVJPanelProps) {
   useEffect(() => {
     if (!engine) return
 
-    engine.onAudioFrame = (beatDetected: boolean, energy: number, bass: number) => {
+    return engine.onAudioFrame((beatDetected: boolean, energy: number, bass: number) => {
       const vj = autoVJRef.current
       if (!vj || !enabledRef.current) return
       vj.update(beatDetected, energy, bass)
-    }
-
-    return () => {
-      engine.onAudioFrame = null
-    }
+    })
   }, [engine])
 
   const toggleEnabled = useCallback(() => {
