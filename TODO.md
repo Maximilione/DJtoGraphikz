@@ -21,14 +21,23 @@
 - [x] **Pannello effetti categorizzato** — Geometric/Organic/Motion/Digital con ricerca e icone
 - [x] **Post-FX categorizzati** — Glow & Color / Distortion / Film & Texture con icone e descrizioni
 
+- [x] **Transizioni tra effetti** — crossfade, wipe, radial, dissolve, beat-synced
+- [x] **Blackout + Freeze frame** — bottoni e hotkey (B / F)
+- [x] **Master brightness** — fader globale 0-1 con hotkey [ ]
+- [x] **A/B deck mixing** — deck B con crossfader e blend mode
+- [x] **Post-FX chain riordinabile** — ordine + wet/dry per effetto
+- [x] **Color grading master** — exposure, contrast, saturation, lift, vignette + tone mapping ACES
+- [x] **Bloom con threshold** — prefiltro luminanza + blur separabile a mezza risoluzione
+- [x] **Motion blur temporale** — accumulo frame
+- [x] **Audio envelope follower** — attack veloce / release lento, noise gate, auto-gain
+- [x] **Beat phase / bar phase** — uniform continui per anticipare il beat
+- [x] **Video clip playback + webcam** — sorgenti video come layer o displacement map
+- [x] **Antialiasing procedurale** — larghezza bordi da fwidth() sugli shader geometrici
+
 ## PRIORITA' ALTA
 
-- [ ] **Transizioni tra effetti** — crossfade, wipe, dissolve, beat-synced
-- [ ] **Keyboard shortcuts** — 1-0 effetti, Q/W/E/R post-FX, B blackout, F freeze, Space tap BPM
-- [ ] **Blackout + Freeze frame** — bottoni e hotkey
-- [ ] **Master brightness** — fader globale 0-1
+- [ ] **Keyboard shortcuts estesi** — 1-0 effetti, Q/W/E/R post-FX, Space tap BPM
 - [ ] **Per-effect parameter sliders** — uniform esposti con audio mapping
-- [ ] **A/B deck mixing** — due canali visual con crossfader
 - [ ] **Preview/blind mode** — anteprima effetto prima di mandarlo all'output
 
 ## PRIORITA' MEDIA
@@ -36,8 +45,6 @@
 - [ ] **MIDI input + MIDI learn** — controller MIDI con learn mode
 - [ ] **Text overlay** — testo configurabile con animazioni
 - [ ] **LFO automation** — oscillatori per modulare parametri
-- [ ] **Video clip playback** — MP4/MOV/WebM con play/pause/loop/speed
-- [ ] **Webcam/camera input** — sorgente video come texture
 - [ ] **Video recording** — cattura output come WebM
 - [ ] **Screenshot capture** — salva frame come PNG
 - [ ] **Monitor selection** — dropdown per scegliere display output
