@@ -370,6 +370,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
   letter-spacing: 1px;
 }
 
+/* ---- Deck / crossfader bar ---- */
+.deck-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 30px;
+}
+
+.deck-label {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
 /* ---- Bottom bar ---- */
 .bottom-bar {
   display: flex;

@@ -86,26 +86,22 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     if (activePlaylist.advanceMode !== 'beats') return
 
     beatCountRef.current = 0
-    const interval = setInterval(() => {
-      const data = engine.audioAnalyzer.getData()
-      if (data.beatDetected) {
-        beatCountRef.current++
-        if (beatCountRef.current >= activePlaylist.advanceInterval) {
-          beatCountRef.current = 0
-          setPlaylistIndex(prev => {
-            const next = prev + 1
-            if (next >= activePlaylist.presets.length) {
-              if (activePlaylist.loop) return 0
-              setPlaying(false)
-              return prev
-            }
-            return next
-          })
+    // Subscribe to the render loop — polling misses beats (the flag lives one frame)
+    return engine.onAudioFrame(beatDetected => {
+      if (!beatDetected) return
+      beatCountRef.current++
+      if (beatCountRef.current < activePlaylist.advanceInterval) return
+      beatCountRef.current = 0
+      setPlaylistIndex(prev => {
+        const next = prev + 1
+        if (next >= activePlaylist.presets.length) {
+          if (activePlaylist.loop) return 0
+          setPlaying(false)
+          return prev
         }
-      }
-    }, 50) // check beats at 20Hz
-
-    return () => clearInterval(interval)
+        return next
+      })
+    })
   }, [playing, activePlaylist, engine])
 
   // Save preset
