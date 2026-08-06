@@ -8,12 +8,25 @@ import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
-import { Engine } from '@engine/Engine'
+import { Engine, type EffectId, type PostId, type EngineState } from '@engine/Engine'
 import { AutoVJ, type Genre } from '@engine/AutoVJ'
+import { EFFECT_CATEGORIES } from './components/EffectPanel/EffectPanel'
 
 type UIMode = 'simple' | 'pro'
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
+const SETTINGS_KEY = 'djtographikz-settings'
+
+// Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
+const HOTKEY_EFFECTS: EffectId[] = EFFECT_CATEGORIES.flatMap(c => c.effects.map(e => e.id)).slice(0, 10)
+const HOTKEY_POSTS: Record<string, PostId> = { q: 'bloom', w: 'feedback', e: 'chromatic', r: 'rgb-split' }
+
+function loadSettings(): Partial<EngineState> | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
 
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -34,14 +47,26 @@ export function App() {
   const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
   const [vjStatus, setVjStatus] = useState({ current: '', count: 0 })
 
+  // Displays for the output-monitor picker
+  const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean }[]>([])
+
   useEffect(() => {
     if (!canvasRef.current) return
 
     const eng = new Engine(canvasRef.current)
     eng.onStateChange = (state) => {
       try { window.api?.sendEngineState(state) } catch (_) {}
+      // Persist the full look across launches (blackout/frozen excluded on restore)
+      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state)) } catch (_) {}
     }
     eng.start()
+
+    // Restore last session's look
+    const saved = loadSettings()
+    if (saved) {
+      eng.applySettings(saved)
+      if (typeof saved.brightness === 'number') setBrightness(saved.brightness)
+    }
 
     // Wire AutoVJ → engine
     const vj = vjRef.current
@@ -63,6 +88,23 @@ export function App() {
       setEngine(null)
     }
   }, [])
+
+  // Enumerate displays for the monitor picker
+  useEffect(() => {
+    window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {})
+  }, [])
+
+  const screenshot = useCallback(async () => {
+    if (!engine) return
+    const blob = await engine.screenshot()
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.png`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [engine])
 
   const toggleVJ = useCallback((on: boolean) => {
     vjRef.current.setEnabled(on)
@@ -112,26 +154,39 @@ export function App() {
     return () => cancelAnimationFrame(rafId)
   }, [])
 
-  // Live performance hotkeys — B blackout, F freeze, [ / ] master brightness
+  // Live performance hotkeys:
+  // B blackout · F freeze · [ ] master · 1-0 effects · QWER post toggles · Space tap BPM
   useEffect(() => {
     if (!engine) return
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
 
-      if (e.key === 'b' || e.key === 'B') {
+      const k = e.key.toLowerCase()
+
+      if (k === 'b') {
         setBlackout(prev => { engine.setBlackout(!prev); return !prev })
-      } else if (e.key === 'f' || e.key === 'F') {
+      } else if (k === 'f') {
         setFrozen(prev => { engine.setFreeze(!prev); return !prev })
       } else if (e.key === '[') {
         setBrightness(prev => { const v = Math.max(0, prev - 0.05); engine.setBrightness(v); return v })
       } else if (e.key === ']') {
         setBrightness(prev => { const v = Math.min(1, prev + 0.05); engine.setBrightness(v); return v })
+      } else if (k >= '0' && k <= '9') {
+        const idx = k === '0' ? 9 : parseInt(k) - 1
+        const effect = HOTKEY_EFFECTS[idx]
+        if (effect) { toggleVJ(false); engine.setEffect(effect) }
+      } else if (k in HOTKEY_POSTS) {
+        engine.togglePost(HOTKEY_POSTS[k])
+      } else if (k === ' ') {
+        e.preventDefault()
+        engine.audioAnalyzer.setBpmMode('tap')
+        engine.audioAnalyzer.tap()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [engine])
+  }, [engine, toggleVJ])
 
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
 
@@ -180,6 +235,24 @@ export function App() {
         </button>
 
         <div className="spacer" />
+        <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Salva screenshot PNG">
+          📷
+        </button>
+        {displays.length > 1 && (
+          <select
+            defaultValue=""
+            onChange={e => {
+              const id = parseInt(e.target.value)
+              if (!isNaN(id)) window.api?.moveOutputToDisplay(id)
+            }}
+            title="Sposta la finestra di output su un display"
+          >
+            <option value="" disabled>Output su…</option>
+            {displays.map(d => (
+              <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
+            ))}
+          </select>
+        )}
         <select
           value={outputRes}
           onChange={e => {
@@ -197,6 +270,13 @@ export function App() {
         </select>
         <button className="btn btn-secondary btn-sm" onClick={() => window.api?.toggleOutputFullscreen()} title="Fullscreen finestra di output">
           Fullscreen
+        </button>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => setShowOnboarding(true)}
+          title="Rivedi la configurazione guidata"
+        >
+          ?
         </button>
       </div>
 
@@ -255,7 +335,7 @@ export function App() {
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}
         {frozen && <><span>|</span><span style={{ color: 'var(--accent)' }}>FROZEN</span></>}
         <div className="spacer" />
-        <span>B blackout · F freeze · [ ] master</span>
+        <span>B blackout · F freeze · [ ] master · 1-0 effetti · QWER post · Space tap</span>
       </div>
     </div>
   )

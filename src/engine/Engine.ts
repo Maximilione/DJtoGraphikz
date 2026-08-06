@@ -828,6 +828,28 @@ export class Engine {
   }
   getGrade(): Grade { return { ...this.grade } }
 
+  /** Restore a saved settings snapshot (same shape as EngineState). */
+  applySettings(state: Partial<EngineState>) {
+    const duration = this.transitionDuration
+    this.transitionDuration = 0 // switch instantly while restoring
+    if (state.activeEffect) this.setEffect(state.activeEffect)
+    if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
+    if (state.colors) {
+      this.setColors(state.colors[0], state.colors[1], state.colors[2])
+      // jump, don't lerp, on boot
+      for (let i = 0; i < 3; i++) this.colors[i].copy(this.targetColors[i])
+    }
+    if (state.deckBEffect) this.setDeckBEffect(state.deckBEffect)
+    if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
+    if (state.blendMode) this.blendMode = state.blendMode
+    if (typeof state.brightness === 'number') this.brightness = state.brightness
+    if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
+    if (state.grade) this.setGrade(state.grade)
+    // blackout/frozen are deliberately NOT restored — booting into a black
+    // screen looks like a crash
+    this.transitionDuration = duration
+  }
+
   // ---- Remote (output window) API ----
 
   /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
@@ -1491,6 +1513,20 @@ export class Engine {
     mu.uBrightness.value = this.blackout ? 0 : this.brightness
     this.renderPass(this.masterMaterial, null)
     this.renderer.setRenderTarget(null)
+
+    // Screenshot must read the buffer in the same task as the render
+    if (this.screenshotCb) {
+      const cb = this.screenshotCb
+      this.screenshotCb = null
+      this.canvas.toBlob(b => cb(b), 'image/png')
+    }
+  }
+
+  private screenshotCb: ((blob: Blob | null) => void) | null = null
+
+  /** Capture the next rendered frame as a PNG blob */
+  screenshot(): Promise<Blob | null> {
+    return new Promise(resolve => { this.screenshotCb = resolve })
   }
 
   /** Throttled audio push to the output window (~30Hz, plus every beat) */

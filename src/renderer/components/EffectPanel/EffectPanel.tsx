@@ -125,6 +125,15 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [cycleBeats, setCycleBeats] = useState(16)
   const [cycleSelection, setCycleSelection] = useState<Set<number>>(() => new Set(COLOR_PRESETS.map((_, i) => i)))
 
+  // Sync from engine once it exists — settings may have been restored before mount
+  React.useEffect(() => {
+    if (!engine) return
+    setActiveEffect(engine.getCurrentEffect())
+    setActivePosts(new Set(engine.getActivePosts()))
+    setPostChain(engine.getPostChain())
+    setGradeState(engine.getGrade())
+  }, [engine])
+
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
     engine.setEffect(id)

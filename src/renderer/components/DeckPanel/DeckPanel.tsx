@@ -19,6 +19,15 @@ export function DeckPanel({ engine }: DeckPanelProps) {
   const [blend, setBlend] = useState<BlendMode>('mix')
   const [motionBlur, setMotionBlur] = useState(0)
 
+  // Sync from engine — settings may have been restored before mount
+  React.useEffect(() => {
+    if (!engine) return
+    setDeckB(engine.getDeckBEffect())
+    setCrossfade(engine.getCrossfade())
+    setBlend(engine.getBlendMode())
+    setMotionBlur(engine.getMotionBlur())
+  }, [engine])
+
   const changeDeckB = useCallback((id: EffectId) => {
     setDeckB(id)
     engine?.setDeckBEffect(id)
