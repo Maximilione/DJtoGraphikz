@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
 import { ParamControls } from '../ParamControls/ParamControls'
+import { loadISF } from '@engine/IsfLoader'
 
 interface ShaderEditorProps {
   engine: Engine | null
@@ -316,6 +317,34 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
     setError(null)
   }, [])
 
+  // Import an ISF generator: parse header → auto-sliders, transpile, apply
+  const importISF = useCallback(() => {
+    if (!engine) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.fs,.isf,.frag,.glsl,.txt'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const res = loadISF(text, file.name)
+      if ('error' in res) {
+        setError(`ISF: ${res.error}`)
+        return
+      }
+      setError(res.warnings.length ? `ISF: ${res.warnings.join(', ')}` : null)
+      const ok = engine.setCustomShader(res.fragment, res.params)
+      if (ok) {
+        setCode(res.fragment)
+        setLastApplied(res.fragment)
+        engine.sendCustomShaderToOutput(res.fragment)
+      } else {
+        setError('ISF: compilazione fallita — vedi console')
+      }
+    }
+    input.click()
+  }, [engine])
+
   // Handle tab key in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -477,6 +506,14 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
               }}
             >
               Import .frag
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ flex: 1 }}
+              onClick={importISF}
+              title="Importa un generator ISF: gli INPUTS diventano slider automatici"
+            >
+              Import ISF
             </button>
           </div>
 
