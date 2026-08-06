@@ -57,8 +57,9 @@ void main() {
   float fill = smoothstep(0.0, 0.3, wave);
 
   // Edge glow
-  float edge = smoothstep(0.45, 0.48, hexDist);
-  float innerEdge = smoothstep(0.35, 0.40, hexDist);
+  float hw = max(fwidth(hexDist) * 1.5, 0.03);
+  float edge = smoothstep(0.48 - hw, 0.48, hexDist);
+  float innerEdge = smoothstep(0.40 - hw, 0.40, hexDist);
 
   // Beat: random cells flash
   float beatFlash = step(0.7 - uBeat * 0.5, cellHash) * uBeat;

@@ -25,7 +25,8 @@ float circle(vec2 p, float r) {
 
 float ring(vec2 p, float r, float w) {
   float d = abs(length(p) - r);
-  return smoothstep(w, w * 0.3, d);
+  float aw = max(w, fwidth(d) * 1.5);
+  return smoothstep(aw, aw * 0.3, d);
 }
 
 void main() {

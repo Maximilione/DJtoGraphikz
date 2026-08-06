@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uBeatPhase;
+uniform float uBarPhase;
 
 varying vec2 vUv;
 
@@ -35,7 +37,9 @@ void main() {
   float a = atan(uv.y, uv.x);
 
   // Infinite tunnel with depth
-  float speed = 2.0 + uBass * 4.0 + uBeat * 3.0;
+  // Anticipation: speed ramps up across the bar and snaps back on the downbeat
+  float build = uBarPhase * uBarPhase;
+  float speed = 2.0 + uBass * 4.0 + uBeat * 3.0 + build * 2.0;
   float depth = 1.0 / (r + 0.05) + uTime * speed;
 
   // Segmented rotation
@@ -62,7 +66,7 @@ void main() {
   float fog = exp(-r * 1.5);
 
   // Pulsing glow on beat
-  float pulse = 1.0 + uBeat * 1.5;
+  float pulse = 1.0 + uBeat * 1.5 + build * 0.3;
   float centerGlow = exp(-r * 4.0) * (0.5 + uBeat * 2.0);
 
   // Color cycling — 3 colors that shift with audio
