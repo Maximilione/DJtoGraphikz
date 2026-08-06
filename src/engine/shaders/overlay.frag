@@ -5,13 +5,12 @@ uniform float uOpacity;
 uniform vec2 uOverlayScale;
 uniform vec2 uOverlayOffset;
 uniform float uDisplace;   // >0: use overlay luminance as a displacement map
-uniform int uFlipY;        // video textures come in flipped
 varying vec2 vUv;
 
 void main() {
   // Map UV to overlay space with scale and offset
+  // (VideoTexture/CanvasTexture both upload with flipY=true — no extra flip here)
   vec2 overlayUv = (vUv - 0.5 - uOverlayOffset) / uOverlayScale + 0.5;
-  if (uFlipY == 1) overlayUv.y = 1.0 - overlayUv.y;
 
   bool inside = overlayUv.x >= 0.0 && overlayUv.x <= 1.0 && overlayUv.y >= 0.0 && overlayUv.y <= 1.0;
 

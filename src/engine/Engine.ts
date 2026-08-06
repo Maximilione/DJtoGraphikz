@@ -437,7 +437,6 @@ export class Engine {
         uOverlayScale: { value: new THREE.Vector2(1, 1) },
         uOverlayOffset: { value: new THREE.Vector2(0, 0) },
         uDisplace: { value: 0 },
-        uFlipY: { value: 0 },
       }
     })
 
@@ -1368,7 +1367,6 @@ export class Engine {
         ou.uOverlayScale.value.set(overlay.scale, overlay.scale)
         ou.uOverlayOffset.value.set(overlay.offsetX, overlay.offsetY)
         ou.uDisplace.value = overlay.displace || 0
-        ou.uFlipY.value = overlay._isVideo ? 1 : 0
 
         this.renderPass(this.overlayMaterial, dst)
 
