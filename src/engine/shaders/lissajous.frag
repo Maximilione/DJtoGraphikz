@@ -54,7 +54,7 @@ void main() {
     glow = min(glow, 3.0);
 
     // Line
-    float line = smoothstep(0.004, 0.0, minDist);
+    float line = smoothstep(max(0.004, fwidth(minDist) * 1.5), 0.0, minDist);
 
     // Color varies along curve parameter
     vec3 cColor;

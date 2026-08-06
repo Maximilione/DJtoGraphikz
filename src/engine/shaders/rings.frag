@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uBeatPhase;
+uniform float uBarPhase;
 
 varying vec2 vUv;
 
@@ -51,7 +53,8 @@ void main() {
       float gap = sin(a * (3.0 + fs * 2.0) + t * (0.5 + i * 0.1) + i);
       float gapMask = smoothstep(0.0, 0.3, gap);
 
-      float ring = smoothstep(thickness, 0.0, abs(r - ringR)) * gapMask;
+      float rd = abs(r - ringR);
+      float ring = smoothstep(max(thickness, fwidth(rd) * 1.5), 0.0, rd) * gapMask;
 
       // Fade with expansion
       float fade = 1.0 - ringR;
@@ -68,7 +71,13 @@ void main() {
     }
   }
 
-  // Beat: burst of rings from center
+  // Ring burst rides the beat phase, so it expands in time with the music
+  {
+    float bp = 1.0 - uBeatPhase;
+    float preR = uBeatPhase * 0.9;
+    float pre = smoothstep(0.012, 0.0, abs(length(uv) - preR)) * bp * 0.6;
+    color += mix(uColor2, uColor3, uBarPhase) * pre;
+  }
   if (uBeat > 0.1) {
     float burstR = uBeat * 0.8;
     float burst = smoothstep(0.01, 0.0, abs(length(uv) - burstR));

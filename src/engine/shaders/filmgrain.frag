@@ -1,5 +1,6 @@
 precision highp float;
 uniform sampler2D tDiffuse;
+uniform float uWet;
 uniform float uTime;
 uniform float uEnergy;
 uniform vec2 uResolution;
@@ -13,6 +14,6 @@ void main() {
   vec4 color = texture2D(tDiffuse, vUv);
   float grain = rand(vUv * uResolution + vec2(uTime * 100.0)) * 0.12;
   grain *= 0.5 + uEnergy * 0.5;
-  color.rgb += vec3(grain - 0.06);
-  gl_FragColor = color;
+  vec3 wet = color.rgb + vec3(grain - 0.06);
+  gl_FragColor = vec4(mix(color.rgb, wet, uWet), color.a);
 }

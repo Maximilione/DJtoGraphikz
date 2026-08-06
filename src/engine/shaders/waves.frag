@@ -49,7 +49,7 @@ void main() {
     glow = min(glow, 2.0);
 
     // Sharp line
-    float line = smoothstep(0.003, 0.0, d);
+    float line = smoothstep(max(0.003, fwidth(d) * 1.5), 0.0, d);
 
     // Color gradient based on wave index
     vec3 wColor = mix(uColor1, uColor2, fi);

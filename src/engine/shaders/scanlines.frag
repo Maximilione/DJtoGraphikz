@@ -1,5 +1,6 @@
 precision highp float;
 uniform sampler2D tDiffuse;
+uniform float uWet;
 uniform float uTime;
 uniform float uEnergy;
 uniform vec2 uResolution;
@@ -15,5 +16,5 @@ void main() {
   vec2 center = vUv - 0.5;
   float vig = 1.0 - dot(center, center) * 1.2;
   color.rgb *= vig;
-  gl_FragColor = color;
+  gl_FragColor = vec4(mix(texture2D(tDiffuse, vUv).rgb, color.rgb, uWet), color.a);
 }
