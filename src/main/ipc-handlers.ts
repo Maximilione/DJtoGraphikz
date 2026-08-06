@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, dialog } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'fs'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { homedir } from 'os'
 
 const USER_DATA_DIR = join(homedir(), '.djtographikz')
@@ -58,7 +58,7 @@ export function setupIpcHandlers(
     return result.filePaths.map(filePath => {
       const data = readFileSync(filePath)
       const ext = filePath.split('.').pop() || 'png'
-      const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'asset'
+      const name = basename(filePath) || 'asset'
       return {
         name,
         ext,
