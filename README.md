@@ -10,10 +10,14 @@ Real-time audio-reactive visual generator for tekno club nights. Projects animat
   - **Organic**: Fluid, Plasma, Domain Warp, Metaballs, Fire, Fractal
   - **Motion**: Particles, Starfield, Waves, Lissajous, DNA Helix
   - **Digital**: Matrix Rain, Cyber Grid, Glitch
-- **9 post-processing effects** (combinable):
-  - **Glow & Color**: Bloom, Chromatic Aberration, RGB Split, Invert
-  - **Distortion**: Feedback Trail, Mirror, Pixelate
+- **9 post-processing effects** — reorderable chain with per-effect wet/dry:
+  - **Glow & Color**: Bloom (threshold prefilter + separable blur), Chromatic Aberration, RGB Split, Invert
+  - **Distortion**: Feedback Trail (with noise displacement), Mirror, Pixelate
   - **Film & Texture**: Film Grain, Scanlines
+- **Master colour grade** — exposure, contrast, saturation, lift, vignette (always-on final pass)
+- **Filmic tone mapping** — ACES + sRGB output, so saturated neons don't clip on a projector
+- **Temporal motion blur** — frame accumulation for cinematic smearing
+- **A/B decks + crossfader** — second effect deck with mix / add / screen / multiply / difference blend modes
 - **16 color palettes**: Acid, Fire, Ice, Toxic, Neon, Blood, Vapor, Mono, Sunset, Ocean, Forest, Cyber, Gold, Pastel, Lava, Aurora + custom palette editor
 - **Smooth color transitions** with configurable speed
 - **Palette cycling** with timer or beat-sync modes
@@ -22,12 +26,17 @@ Real-time audio-reactive visual generator for tekno club nights. Projects animat
 - **Audio-reactive** — all visuals respond to bass, mid, high, energy and beat in real time
 - **BPM detection** — automatic via [realtime-bpm-analyzer](https://github.com/dlepaux/realtime-bpm-analyzer), manual input, and tap tempo
 - **Beat detection** — spectral flux algorithm with adaptive threshold
+- **Beat phase + bar phase** — continuous 0–1 ramps so shaders can anticipate the beat, not just react
+- **Envelope follower** — fast attack / slow release, keeps transients punchy
+- **Auto-gain + noise gate** — quiet tracks stay alive, loud tracks stop clipping, silence stays still
 - **Input gain** — amplify weak signals (e.g. laptop microphone)
 - **Configurable sensitivity** — works with line-in and microphone
 
 ### Overlay System
 - **Image/GIF overlay** — PNG, JPG, SVG, WebP, or animated GIF
-- **Per-overlay controls** — opacity, scale, position X/Y
+- **Video + webcam layers** — MP4/MOV/WebM files or a live camera as a texture
+- **Displacement mode** — any overlay can warp the visuals underneath instead of covering them
+- **Per-overlay controls** — opacity, scale, position X/Y, displacement
 - **GIF beat sync** — advance frames synced to Beat, BPM, or free-running
 
 ### Preset & Playlist System
@@ -37,6 +46,11 @@ Real-time audio-reactive visual generator for tekno club nights. Projects animat
 - **Loop mode** — continuous playlist cycling
 - **Export/Import** — save presets and playlists as JSON files
 - **Persistent storage** — presets and playlists saved in localStorage
+
+### Live Performance
+- **Master brightness** fader, **blackout** and **freeze frame**
+- **Hotkeys** — `B` blackout, `F` freeze, `[` / `]` master brightness
+- **Preview matches output** — `uResolution` follows the output resolution, so framing and scale are identical
 
 ### Output
 - **Dual-window system** — control panel with preview + fullscreen output
@@ -238,15 +252,15 @@ Powered by [realtime-bpm-analyzer](https://github.com/dlepaux/realtime-bpm-analy
 
 ## Roadmap
 
-- [ ] Transitions between effects (crossfade, wipe, dissolve, beat-synced)
-- [ ] Keyboard shortcuts for live performance
+- [x] Transitions between effects (crossfade, wipe, dissolve, beat-synced)
+- [x] Keyboard shortcuts for live performance
+- [x] A/B deck mixing with crossfader
+- [x] Video clip playback
+- [x] Webcam/camera input as texture
 - [ ] Per-effect parameter sliders with audio mapping
 - [ ] MIDI controller support with learn mode
 - [ ] Text overlay with animations
 - [ ] LFO automation for parameters
-- [ ] A/B deck mixing with crossfader
-- [ ] Video clip playback
-- [ ] Webcam/camera input as texture
 - [ ] Ableton Link sync
 - [ ] Syphon/Spout video output
 - [ ] App icon
