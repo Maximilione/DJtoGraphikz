@@ -9,6 +9,8 @@ const api = {
 
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
+  pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
+  readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
 
   // Display operations
   listDisplays: () => ipcRenderer.invoke('displays:list'),
@@ -38,7 +40,7 @@ const api = {
   },
 
   // Overlay sync (control → output)
-  sendOverlayAdd: (data: { id: string; name: string; dataUrl: string; opacity: number; scale: number; offsetX: number; offsetY: number; visible: boolean }) =>
+  sendOverlayAdd: (data: { id: string; name: string; dataUrl: string; opacity: number; scale: number; offsetX: number; offsetY: number; visible: boolean; gifSync: string; displace: number; source?: unknown }) =>
     ipcRenderer.send('overlay:add', data),
   sendOverlayRemove: (id: string) => ipcRenderer.send('overlay:remove', id),
   sendOverlayUpdate: (id: string, updates: Record<string, unknown>) => ipcRenderer.send('overlay:update', id, updates),

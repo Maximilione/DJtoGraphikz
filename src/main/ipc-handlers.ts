@@ -46,6 +46,21 @@ export function setupIpcHandlers(
     }
   })
 
+  // Video files are picked by path and read on demand — base64 over IPC would
+  // blow up for a 100MB clip, and each window needs its own <video> anyway.
+  ipcMain.handle('asset:pick-video', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Video', extensions: ['mp4', 'mov', 'webm', 'mkv', 'm4v'] }]
+    })
+    if (result.canceled) return []
+    return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
+  ipcMain.handle('asset:read-file', async (_event, filePath: string) => {
+    return readFileSync(filePath)
+  })
+
   // Asset import via dialog
   ipcMain.handle('asset:import', async () => {
     const result = await dialog.showOpenDialog({
