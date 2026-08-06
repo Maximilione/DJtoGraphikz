@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { ParamControls } from '../ParamControls/ParamControls'
 
 interface EffectPanelProps {
   engine: Engine | null
@@ -315,6 +316,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 {activeEffect}
               </span>
             </div>
+
+            {/* Per-effect params + audio mapping */}
+            <ParamControls engine={engine} key={activeEffect} />
 
             {/* Transition settings */}
             <div style={{

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
+import { COMMON_PARAMS, type EffectParam, type ParamState, type AudioSource } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
@@ -121,6 +122,8 @@ export interface EngineState {
     fromEffect: EffectId
   }
   customShader?: string
+  customParams?: EffectParam[]
+  effectParams?: Record<string, Record<string, ParamState>>
   // Deck / master
   deckBEffect?: EffectId
   crossfade?: number
@@ -227,6 +230,13 @@ export class Engine {
   private frozen = false
   private freezeRequested = false
   private grade: Grade = { ...DEFAULT_GRADE }
+
+  // Per-effect parameters (speed/reactivity + custom shader uniforms), audio-mappable
+  private paramState: Record<string, Record<string, ParamState>> = {}
+  private customParamDefs: EffectParam[] = []
+  private usingCustom = false
+  private effectTime = 0     // param-speed-driven clock for effect shaders
+  private audioScale = 1     // reactivity multiplier applied to audio uniforms
 
   // Motion blur + bloom helpers
   private motionBlur = 0
@@ -617,6 +627,12 @@ export class Engine {
   // ---- Public API ----
 
   setEffect(id: EffectId) {
+    if (this.usingCustom) {
+      // leave custom-shader mode: rebuild the stock material even for the same id
+      this.usingCustom = false
+      this.startTransition(id)
+      return
+    }
     if (id === this.currentEffect && this.transitionProgress < 0) return
 
     // If beat-sync is on and no beat right now, queue the transition
@@ -677,31 +693,37 @@ export class Engine {
   // ---- Custom Shader API ----
 
   /** Load a custom GLSL fragment shader as the active effect */
-  setCustomShader(fragSource: string): boolean {
+  setCustomShader(fragSource: string, params?: EffectParam[]): boolean {
     try {
+      const defs = params ?? this.customParamDefs
+      const uniforms: Record<string, THREE.IUniform> = {
+        uTime: { value: 0 },
+        uBass: { value: 0 },
+        uMid: { value: 0 },
+        uHigh: { value: 0 },
+        uEnergy: { value: 0 },
+        uBeat: { value: 0 },
+        uBeatPhase: { value: 0 },
+        uBarPhase: { value: 0 },
+        uColor1: { value: this.colors[0] },
+        uColor2: { value: this.colors[1] },
+        uColor3: { value: this.colors[2] },
+        uResolution: { value: this.resolution },
+      }
+      // Custom shader params (e.g. from ISF INPUTS) become uniforms driven per-frame
+      for (const d of defs) uniforms[d.key] = { value: d.default }
       const mat = new THREE.ShaderMaterial({
         vertexShader: FULLSCREEN_VERT,
         fragmentShader: fragSource,
-        uniforms: {
-          uTime: { value: 0 },
-          uBass: { value: 0 },
-          uMid: { value: 0 },
-          uHigh: { value: 0 },
-          uEnergy: { value: 0 },
-          uBeat: { value: 0 },
-          uBeatPhase: { value: 0 },
-          uBarPhase: { value: 0 },
-          uColor1: { value: this.colors[0] },
-          uColor2: { value: this.colors[1] },
-          uColor3: { value: this.colors[2] },
-          uResolution: { value: this.resolution },
-        }
+        uniforms,
       })
       // Cancel any in-progress transition
       this.cancelCurrentTransition()
       this.mainMaterial.dispose()
       this.mainMaterial = mat
       this.quad.material = this.mainMaterial
+      this.customParamDefs = defs
+      this.usingCustom = true
       return true
     } catch (e) {
       console.error('[Engine] Custom shader compile error:', e)
@@ -712,7 +734,7 @@ export class Engine {
   /** Send custom shader to output window via IPC */
   sendCustomShaderToOutput(fragSource: string) {
     try {
-      window.api?.sendEngineState({ ...this.stateSnapshot(), customShader: fragSource })
+      window.api?.sendEngineState({ ...this.stateSnapshot(), customShader: fragSource, customParams: this.customParamDefs })
     } catch (_) {}
   }
 
@@ -774,6 +796,57 @@ export class Engine {
 
   getPostChain(): { id: PostId; amount: number }[] {
     return this.postChain.map(p => ({ ...p }))
+  }
+
+  // ---- Per-effect parameters ----
+
+  /** Params of the ACTIVE effect: common engine params + custom shader uniforms */
+  getParamDefs(): EffectParam[] {
+    return this.usingCustom ? [...COMMON_PARAMS, ...this.customParamDefs] : COMMON_PARAMS
+  }
+
+  isUsingCustomShader(): boolean { return this.usingCustom }
+
+  private paramBucket(): Record<string, ParamState> {
+    const key = this.usingCustom ? '__custom__' : this.currentEffect
+    if (!this.paramState[key]) this.paramState[key] = {}
+    return this.paramState[key]
+  }
+
+  getParamState(key: string): ParamState {
+    const bucket = this.paramBucket()
+    if (!bucket[key]) {
+      const def = this.getParamDefs().find(d => d.key === key)
+      bucket[key] = { value: def?.default ?? 0, source: 'none', depth: 0.5 }
+    }
+    return bucket[key]
+  }
+
+  setParamValue(key: string, value: number) {
+    const def = this.getParamDefs().find(d => d.key === key)
+    if (!def) return
+    this.getParamState(key).value = Math.max(def.min, Math.min(def.max, value))
+    this.emitState()
+  }
+
+  setParamMapping(key: string, source: AudioSource, depth: number) {
+    const st = this.getParamState(key)
+    st.source = source
+    st.depth = Math.max(-1, Math.min(1, depth))
+    this.emitState()
+  }
+
+  /** Live param value: slider base + audio modulation over the full range */
+  private effParamValue(def: EffectParam): number {
+    const st = this.paramBucket()[def.key]
+    const base = st?.value ?? def.default
+    if (!st || st.source === 'none' || st.depth === 0) return base
+    const audio: Record<Exclude<AudioSource, 'none'>, number> = {
+      bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh,
+      energy: this.smoothEnergy, beat: this.beatPulse,
+    }
+    const v = base + audio[st.source as Exclude<AudioSource, 'none'>] * st.depth * (def.max - def.min)
+    return Math.max(def.min, Math.min(def.max, v))
   }
 
   // ---- Deck B / crossfader ----
@@ -845,6 +918,7 @@ export class Engine {
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
+    if (state.effectParams) this.paramState = state.effectParams
     // blackout/frozen are deliberately NOT restored — booting into a black
     // screen looks like a crash
     this.transitionDuration = duration
@@ -867,8 +941,9 @@ export class Engine {
 
   /** Apply engine state received over IPC (output window) */
   applyRemoteState(state: EngineState) {
+    if (state.effectParams) this.paramState = state.effectParams
     if (state.customShader) {
-      this.setCustomShader(state.customShader)
+      this.setCustomShader(state.customShader, state.customParams || [])
       return
     }
     // Transition params always come from the control window
@@ -1198,6 +1273,7 @@ export class Engine {
       frozen: this.frozen,
       motionBlur: this.motionBlur,
       grade: { ...this.grade },
+      effectParams: this.paramState,
     }
   }
 
@@ -1284,6 +1360,21 @@ export class Engine {
     for (let i = 0; i < 3; i++) {
       this.colors[i].lerp(this.targetColors[i], this.colorLerpSpeed)
     }
+
+    // Per-effect params: speed drives the effect clock, reactivity scales the
+    // audio uniforms, everything else lands on same-named material uniforms
+    let speed = 1
+    this.audioScale = 1
+    for (const def of this.getParamDefs()) {
+      const v = this.effParamValue(def)
+      if (def.key === 'speed') speed = v
+      else if (def.key === 'reactivity') this.audioScale = v
+      else {
+        const u = this.mainMaterial.uniforms[def.key]
+        if (u) u.value = v
+      }
+    }
+    this.effectTime += dt * speed
 
     // Update main effect uniforms
     this.applyEffectUniforms(this.mainMaterial, time)
@@ -1459,14 +1550,15 @@ export class Engine {
   }
 
   /** Feed the shared per-frame uniforms into an effect material */
-  private applyEffectUniforms(mat: THREE.ShaderMaterial, time: number) {
+  private applyEffectUniforms(mat: THREE.ShaderMaterial, _time: number) {
     const u = mat.uniforms
-    if (u.uTime) u.uTime.value = time
-    if (u.uBass) u.uBass.value = this.smoothBass
-    if (u.uMid) u.uMid.value = this.smoothMid
-    if (u.uHigh) u.uHigh.value = this.smoothHigh
-    if (u.uEnergy) u.uEnergy.value = this.smoothEnergy
-    if (u.uBeat) u.uBeat.value = this.beatPulse
+    const k = this.audioScale
+    if (u.uTime) u.uTime.value = this.effectTime
+    if (u.uBass) u.uBass.value = this.smoothBass * k
+    if (u.uMid) u.uMid.value = this.smoothMid * k
+    if (u.uHigh) u.uHigh.value = this.smoothHigh * k
+    if (u.uEnergy) u.uEnergy.value = this.smoothEnergy * k
+    if (u.uBeat) u.uBeat.value = this.beatPulse * k
     if (u.uBeatPhase) u.uBeatPhase.value = this.beatPhase
     if (u.uBarPhase) u.uBarPhase.value = this.barPhase
     if (u.uResolution) u.uResolution.value = this.resolution

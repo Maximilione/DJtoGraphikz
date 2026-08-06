@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
-import { NumberInput } from '../NumberInput/NumberInput'
+import { ParamControls } from '../ParamControls/ParamControls'
 
 interface ShaderEditorProps {
   engine: Engine | null
@@ -438,6 +438,9 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
               {liveMode ? 'Live ON' : 'Live'}
             </button>
           </div>
+
+          {/* Params of the active custom shader (ISF sliders end up here) */}
+          {engine?.isUsingCustomShader() && <ParamControls engine={engine} key={lastApplied} />}
 
           {/* Save/Load */}
           <div style={{ display: 'flex', gap: '4px' }}>
