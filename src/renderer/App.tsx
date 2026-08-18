@@ -10,9 +10,9 @@ import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
-import { Engine, type EffectId, type PostId, type EngineState } from '@engine/Engine'
-import { AutoVJ, type Genre } from '@engine/AutoVJ'
-import { EFFECT_CATEGORIES } from './components/EffectPanel/EffectPanel'
+import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
+import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import { EFFECT_CATEGORIES, COLOR_PRESETS } from './components/EffectPanel/EffectPanel'
 
 type UIMode = 'simple' | 'pro'
 const MODE_KEY = 'djtographikz-ui-mode'
@@ -22,6 +22,16 @@ const SETTINGS_KEY = 'djtographikz-settings'
 // Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
 const HOTKEY_EFFECTS: EffectId[] = EFFECT_CATEGORIES.flatMap(c => c.effects.map(e => e.id)).slice(0, 10)
 const HOTKEY_POSTS: Record<string, PostId> = { q: 'bloom', w: 'feedback', e: 'chromatic', r: 'rgb-split' }
+
+// Catalogs for the phone remote. Keyed on the engine union types so tsc fails
+// right here whenever a PostId / TransitionType is added or removed.
+const POST_LABELS: Record<PostId, string> = {
+  bloom: 'Bloom', feedback: 'Feedback', chromatic: 'Chromatic', 'rgb-split': 'RGB Split',
+  pixelate: 'Pixelate', mirror: 'Mirror', invert: 'Invert', filmgrain: 'Film Grain', scanlines: 'Scanlines',
+}
+const TRANSITION_TYPES: Record<TransitionType, true> = {
+  crossfade: true, 'wipe-left': true, 'wipe-down': true, radial: true, dissolve: true,
+}
 
 function loadSettings(): Partial<EngineState> | null {
   try {
@@ -86,6 +96,18 @@ export function App() {
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
     const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase) => vj.update(beat, energy, bass, barPhase))
+
+    // Push catalogs to the phone remote (served at GET /defs, version added server-side)
+    try {
+      window.api?.sendRemoteDefs({
+        effects: EFFECT_CATEGORIES.flatMap(c => c.effects.map(fx => ({ id: fx.id, label: fx.label, category: c.name }))),
+        posts: (Object.keys(POST_LABELS) as PostId[]).map(id => ({ id, label: POST_LABELS[id] })),
+        palettes: COLOR_PRESETS,
+        genres: (Object.keys(GENRE_CONFIGS) as Genre[]).map(id => ({ id, label: GENRE_CONFIGS[id].label })),
+        blendModes: BLEND_MODES,
+        transitionTypes: Object.keys(TRANSITION_TYPES),
+      })
+    } catch (_) {}
 
     setEngine(eng)
     return () => {
@@ -213,6 +235,24 @@ export function App() {
         case 'freeze': setFrozen(!!v); engine.setFreeze(!!v); break
         case 'autovj': toggleVJ(!!v); break
         case 'genre': changeVJGenre(v); break
+        case 'postAmount': engine.setPostAmount(v.id, v.value); break
+        case 'postMove': engine.movePost(v.id, v.delta); break
+        case 'grade': engine.setGrade({ [v.key]: v.value }); break
+        case 'motionBlur': engine.setMotionBlur(v); break
+        case 'blendMode': engine.setBlendMode(v); break
+        case 'param': engine.setParamValue(v.key, v.value); break
+        case 'paramMap': engine.setParamMapping(v.key, v.source, v.depth); break
+        case 'transitionType': engine.setTransitionType(v); break
+        case 'transitionDuration': engine.setTransitionDuration(v); break
+        case 'look': {
+          // Looks live in this renderer's localStorage — same source LookBank reads
+          try {
+            const looks = JSON.parse(localStorage.getItem('djtographikz-looks') || '[]') as ({ preset: Preset } | null)[]
+            const slot = looks[v]
+            if (slot?.preset) { toggleVJ(false); engine.applyPreset(slot.preset) }
+          } catch (_) {}
+          break
+        }
         case 'tap':
           engine.audioAnalyzer.setBpmMode('tap')
           engine.audioAnalyzer.tap()

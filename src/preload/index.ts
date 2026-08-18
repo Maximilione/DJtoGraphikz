@@ -20,6 +20,10 @@ const api = {
     ipcRenderer.on('remote:cmd', handler)
     return () => { ipcRenderer.removeListener('remote:cmd', handler) }
   },
+  // Catalogs + look bank pushed to the remote server (served at GET /defs)
+  sendRemoteDefs: (defs: unknown) => ipcRenderer.send('remote:defs', defs),
+  sendRemoteLooks: (looks: { index: number; name: string; thumb: string }[]) =>
+    ipcRenderer.send('remote:looks', looks),
 
   // Display operations
   listDisplays: () => ipcRenderer.invoke('displays:list'),
