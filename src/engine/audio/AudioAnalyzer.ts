@@ -76,10 +76,37 @@ export class AudioAnalyzer {
 
   get isRunning() { return this.running }
 
+  // Auto-recovery: the audio device can die under us (Bluetooth profile
+  // switch, device unplug, Chromium "AudioContext encountered an error") —
+  // without this the app silently stops reacting to the mic until restart.
+  private lastDeviceId?: string
+  private restartTimer = 0
+
+  private scheduleRestart(reason: string) {
+    if (!this.running || this.restartTimer) return
+    console.warn('[AudioAnalyzer] audio device lost (' + reason + ') — restarting in 1s')
+    this.restartTimer = window.setTimeout(() => {
+      this.restartTimer = 0
+      this.start(this.lastDeviceId).catch(err =>
+        console.error('[AudioAnalyzer] restart failed:', err))
+    }, 1000)
+  }
+
   async start(deviceId?: string): Promise<void> {
     this.stop()
+    this.lastDeviceId = deviceId
 
-    this.context = new AudioContext({ sampleRate: 44100 })
+    // Native device rate — forcing 44100 on 48k hardware goes through a
+    // resampler that is a known source of AudioContext device errors
+    this.context = new AudioContext()
+    this.context.onstatechange = () => {
+      if (!this.context) return
+      if (this.context.state === 'suspended' && this.running) {
+        this.context.resume().catch(() => {})
+      } else if ((this.context.state as string) === 'closed' && this.running) {
+        this.scheduleRestart('context closed')
+      }
+    }
 
     if (this.context.state === 'suspended') {
       await this.context.resume()
@@ -106,6 +133,11 @@ export class AudioAnalyzer {
       throw err
     }
     console.log('[AudioAnalyzer] Got stream, tracks:', this.stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
+
+    // Device yanked / OS revoked the track → recover instead of going silent
+    const track = this.stream.getAudioTracks()[0]
+    if (track) track.onended = () => this.scheduleRestart('track ended')
+
     this.source = this.context.createMediaStreamSource(this.stream)
 
     // Add gain node for input amplification (useful for weak mic signals)
@@ -168,6 +200,9 @@ export class AudioAnalyzer {
 
   stop(): void {
     this.running = false
+    clearTimeout(this.restartTimer)
+    this.restartTimer = 0
+    if (this.context) this.context.onstatechange = null
 
     if (this.bpmAnalyzer) {
       try { this.bpmAnalyzer.stop() } catch (_) {}

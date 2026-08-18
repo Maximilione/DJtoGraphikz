@@ -97,6 +97,7 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
 
     if (req.method === 'GET' && url === '/state') {
       if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
+      res.setHeader('Cache-Control', 'no-store')
       json(res, 200, { engine: lastEngineState })
       return
     }
@@ -217,7 +218,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     <button class="tapbtn" onclick="cmd({type:'tap'})">TAP</button>
   </div>
   <div class="row"><span class="lbl">MASTER</span>
-    <input type="range" min="0" max="1" step="0.01" value="1" oninput="slide('brightness', this.value)"></div>
+    <input type="range" min="0" max="1" step="0.01" value="1" oninput="slide('brightness', this.value)" onchange="slideEnd('brightness', this.value)"></div>
 
   <div class="sect">Auto VJ</div>
   <div class="row">
@@ -234,7 +235,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 
   <div class="sect">Crossfader A/B</div>
   <div class="row"><span class="lbl">A → B</span>
-    <input type="range" min="0" max="1" step="0.01" value="0" oninput="slide('crossfade', this.value)"></div>
+    <input type="range" min="0" max="1" step="0.01" value="0" oninput="slide('crossfade', this.value)" onchange="slideEnd('crossfade', this.value)"></div>
   <select onchange="cmd({type:'deckB', value:this.value})">
     ${EFFECTS.map(e => `<option value="${e}">deck B: ${e}</option>`).join('')}
   </select>
@@ -276,7 +277,11 @@ async function cmd(c) {
 let slideT = {}
 function slide(type, value) {
   clearTimeout(slideT[type])
-  slideT[type] = setTimeout(() => cmd({ type, value: parseFloat(value) }), 60)
+  slideT[type] = setTimeout(() => cmd({ type, value: parseFloat(value) }), 90)
+}
+function slideEnd(type, value) {
+  clearTimeout(slideT[type])
+  cmd({ type, value: parseFloat(value) })
 }
 
 function toggle(k) {
