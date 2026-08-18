@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
 
@@ -12,20 +12,33 @@ const SYNC_MODES: { id: GifSyncMode; label: string }[] = [
   { id: 'free', label: 'Free' },
 ]
 
+function mediaBadge(overlay: OverlayItem): string {
+  if (overlay._isGif) return 'GIF'
+  if (overlay.source?.kind === 'webcam') return 'WEBCAM'
+  if (overlay._isVideo) return 'VIDEO'
+  return 'IMG'
+}
+
 export function OverlayPanel({ engine }: OverlayPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [overlays, setOverlays] = useState<OverlayItem[]>([])
+  // When multiple cameras exist we show an inline picker instead of adding blindly
+  const [webcamChoices, setWebcamChoices] = useState<MediaDeviceInfo[] | null>(null)
+  const [webcamError, setWebcamError] = useState<string | null>(null)
 
-  const importOverlay = useCallback(async () => {
+  const refresh = useCallback(() => {
+    if (engine) setOverlays([...engine.getOverlays()])
+  }, [engine])
+
+  const importImage = useCallback(async () => {
     if (!engine) return
     const assets = await window.api?.importAssets()
     if (!assets || assets.length === 0) return
-
     for (const asset of assets) {
       await engine.addOverlay(asset.name, asset.data)
     }
-    setOverlays([...engine.getOverlays()])
-  }, [engine])
+    refresh()
+  }, [engine, refresh])
 
   const importVideo = useCallback(async () => {
     if (!engine) return
@@ -34,161 +47,128 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     for (const f of files) {
       await engine.addVideoOverlay(f.name, { kind: 'video', path: f.path })
     }
-    setOverlays([...engine.getOverlays()])
-  }, [engine])
+    refresh()
+  }, [engine, refresh])
 
-  const addWebcam = useCallback(async () => {
+  const addWebcamDevice = useCallback(async (deviceId?: string, label?: string) => {
     if (!engine) return
+    setWebcamChoices(null)
+    setWebcamError(null)
     try {
-      await engine.addVideoOverlay('Webcam', { kind: 'webcam' })
-      setOverlays([...engine.getOverlays()])
+      await engine.addVideoOverlay(label || 'Webcam', { kind: 'webcam', deviceId })
+      refresh()
     } catch (err) {
-      console.error('[OverlayPanel] webcam failed:', err)
+      const name = err instanceof DOMException ? err.name : ''
+      setWebcamError(
+        name === 'NotAllowedError'
+          ? 'Permesso webcam negato. Controlla le impostazioni di sistema.'
+          : 'Webcam non disponibile o già in uso.'
+      )
     }
-  }, [engine])
+  }, [engine, refresh])
+
+  const onWebcamClick = useCallback(async () => {
+    setWebcamError(null)
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const cams = devices.filter(d => d.kind === 'videoinput')
+      if (cams.length > 1) {
+        setWebcamChoices(cams)
+      } else {
+        // 0 or 1 device: let getUserMedia pick the default (and surface its error)
+        await addWebcamDevice()
+      }
+    } catch {
+      setWebcamError('Impossibile elencare le webcam.')
+    }
+  }, [addWebcamDevice])
 
   const removeOverlay = useCallback((id: string) => {
     if (!engine) return
     engine.removeOverlay(id)
-    setOverlays([...engine.getOverlays()])
-  }, [engine])
+    refresh()
+  }, [engine, refresh])
 
   const updateOverlay = useCallback((id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace'>>) => {
     if (!engine) return
     engine.updateOverlay(id, updates)
-    setOverlays([...engine.getOverlays()])
-  }, [engine])
+    refresh()
+  }, [engine, refresh])
 
   return (
     <div className="panel">
       <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>Image Overlay</span>
+        <span>Media</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
       {!collapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button
-            className="btn btn-primary"
-            onClick={importOverlay}
-            style={{ width: '100%' }}
-          >
-            Import Image / GIF
-          </button>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button className="btn btn-secondary btn-sm" onClick={importVideo} style={{ flex: 1 }}>
-              Import Video
-            </button>
-            <button className="btn btn-secondary btn-sm" onClick={addWebcam} style={{ flex: 1 }}>
-              Webcam
-            </button>
+          <div className="media-add">
+            <button onClick={importImage}>🖼 Immagine/GIF</button>
+            <button onClick={importVideo}>🎬 Video</button>
+            <button onClick={onWebcamClick}>📷 Webcam</button>
           </div>
 
+          {webcamChoices && (
+            <div className="media-device-pick">
+              <div className="label">Scegli la webcam</div>
+              {webcamChoices.map((cam, i) => (
+                <button
+                  key={cam.deviceId || i}
+                  onClick={() => addWebcamDevice(cam.deviceId || undefined, cam.label || undefined)}
+                >
+                  {cam.label || `Camera ${i + 1}`}
+                </button>
+              ))}
+              <button className="media-device-cancel" onClick={() => setWebcamChoices(null)}>
+                Annulla
+              </button>
+            </div>
+          )}
+
+          {webcamError && <div className="media-error">{webcamError}</div>}
+
           {overlays.length === 0 && (
-            <div style={{
-              fontSize: '11px',
-              color: 'var(--text-muted)',
-              textAlign: 'center',
-              padding: '12px 0',
-            }}>
-              No overlays loaded. Import a PNG, JPG, or GIF.
+            <div className="media-empty">
+              Nessun media. Aggiungi un'immagine, un video o la webcam.
             </div>
           )}
 
           {overlays.map(overlay => (
-            <div
-              key={overlay.id}
-              style={{
-                background: 'var(--bg-tertiary)',
-                borderRadius: '6px',
-                border: '1px solid var(--border)',
-                padding: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-              }}
-            >
-              {/* Header with name, visibility toggle, remove */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div key={overlay.id} className="media-card">
+              <div className="media-card-header">
                 <div
+                  className={`media-toggle${overlay.visible ? ' on' : ''}`}
                   onClick={() => updateOverlay(overlay.id, { visible: !overlay.visible })}
-                  style={{
-                    width: '28px', height: '14px', borderRadius: '7px',
-                    background: overlay.visible ? 'var(--accent)' : 'var(--border)',
-                    position: 'relative', cursor: 'pointer', flexShrink: 0,
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  <div style={{
-                    width: '10px', height: '10px', borderRadius: '50%',
-                    background: '#fff',
-                    position: 'absolute', top: '2px',
-                    left: overlay.visible ? '16px' : '2px',
-                    transition: 'left 0.2s',
-                  }} />
-                </div>
-                <span style={{
-                  fontSize: '11px',
-                  color: 'var(--text-primary)',
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {overlay.name}
-                </span>
+                  title={overlay.visible ? 'Nascondi' : 'Mostra'}
+                />
+                <span className="media-name">{overlay.name}</span>
+                <span className="media-badge">{mediaBadge(overlay)}</span>
                 <button
+                  className="media-remove"
                   onClick={() => removeOverlay(overlay.id)}
-                  style={{
-                    background: 'none', border: 'none', color: 'var(--text-muted)',
-                    cursor: 'pointer', fontSize: '14px', padding: '0 4px',
-                  }}
-                  title="Remove overlay"
+                  title="Rimuovi media"
                 >
                   x
                 </button>
               </div>
 
-              {/* Thumbnail (images only — video draws straight to the engine) */}
               {overlay.dataUrl ? (
-                <img
-                  src={overlay.dataUrl}
-                  style={{
-                    width: '100%', height: '48px', objectFit: 'contain',
-                    borderRadius: '4px', background: '#000',
-                  }}
-                />
-              ) : (
-                <div style={{
-                  width: '100%', height: '24px', borderRadius: '4px', background: '#000',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '1px',
-                }}>
-                  {overlay.source?.kind === 'webcam' ? 'WEBCAM' : 'VIDEO'}
-                </div>
-              )}
+                <img className="media-thumb" src={overlay.dataUrl} />
+              ) : overlay._video ? (
+                <VideoThumb video={overlay._video} />
+              ) : null}
 
               {/* GIF Sync Mode — only for GIFs */}
               {overlay._isGif && (
                 <div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    GIF Sync
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                  <div className="label">GIF Sync</div>
+                  <div className="media-seg">
                     {SYNC_MODES.map(mode => (
                       <button
                         key={mode.id}
+                        className={overlay.gifSync === mode.id ? 'active' : ''}
                         onClick={() => updateOverlay(overlay.id, { gifSync: mode.id })}
-                        style={{
-                          flex: 1,
-                          padding: '4px 6px',
-                          borderRadius: '4px',
-                          border: overlay.gifSync === mode.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                          background: overlay.gifSync === mode.id ? 'var(--accent-glow)' : 'var(--bg-primary)',
-                          color: overlay.gifSync === mode.id ? 'var(--accent)' : 'var(--text-secondary)',
-                          fontSize: '10px',
-                          fontWeight: overlay.gifSync === mode.id ? 600 : 400,
-                          cursor: 'pointer',
-                        }}
                       >
                         {mode.label}
                       </button>
@@ -240,6 +220,26 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
   )
 }
 
+/** Live thumbnail for video/webcam overlays, redrawn at ~2fps. */
+function VideoThumb({ video }: { video: HTMLVideoElement }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const draw = () => {
+      const canvas = canvasRef.current
+      // readyState < 2: no frame decoded yet, drawImage would throw/blank
+      if (!canvas || video.readyState < 2) return
+      canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+    }
+    draw()
+    // ponytail: 2fps preview is plenty for a 64px thumbnail
+    const id = setInterval(draw, 500)
+    return () => clearInterval(id)
+  }, [video])
+
+  return <canvas ref={canvasRef} className="media-thumb" width={114} height={64} />
+}
+
 function SliderRow({ label, value, min, max, step, onChange }: {
   label: string
   value: number
@@ -249,16 +249,13 @@ function SliderRow({ label, value, min, max, step, onChange }: {
   onChange: (v: number) => void
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-      <span style={{ fontSize: '10px', color: 'var(--text-muted)', width: '52px', flexShrink: 0 }}>
-        {label}
-      </span>
+    <div className="media-slider-row">
+      <span>{label}</span>
       <input
         type="range"
         min={min} max={max} step={step}
         value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
-        style={{ flex: 1, height: '14px' }}
       />
       <NumberInput
         value={value}
