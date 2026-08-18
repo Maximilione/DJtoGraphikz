@@ -8,6 +8,7 @@ import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
+import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { Engine, type EffectId, type PostId, type EngineState } from '@engine/Engine'
 import { AutoVJ, type Genre } from '@engine/AutoVJ'
 import { EFFECT_CATEGORIES } from './components/EffectPanel/EffectPanel'
@@ -39,6 +40,7 @@ export function App() {
 
   // UI mode + onboarding
   const [mode, setMode] = useState<UIMode>(() => (localStorage.getItem(MODE_KEY) as UIMode) || 'simple')
+  const [showRemote, setShowRemote] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDED_KEY))
 
   // AutoVJ lives here so Simple and Pro views share one instance
@@ -188,11 +190,36 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [engine, toggleVJ])
 
+  // Phone remote → engine. Commands arrive from the main process HTTP server.
+  useEffect(() => {
+    if (!engine) return
+    return window.api.onRemoteCommand(cmd => {
+      const v = cmd.value as any
+      switch (cmd.type) {
+        case 'effect': toggleVJ(false); engine.setEffect(v); break
+        case 'post': engine.togglePost(v); break
+        case 'palette': engine.setColors(v[0], v[1], v[2]); break
+        case 'crossfade': engine.setCrossfade(v); break
+        case 'deckB': engine.setDeckBEffect(v); break
+        case 'brightness': setBrightness(v); engine.setBrightness(v); break
+        case 'blackout': setBlackout(!!v); engine.setBlackout(!!v); break
+        case 'freeze': setFrozen(!!v); engine.setFreeze(!!v); break
+        case 'autovj': toggleVJ(!!v); break
+        case 'genre': changeVJGenre(v); break
+        case 'tap':
+          engine.audioAnalyzer.setBpmMode('tap')
+          engine.audioAnalyzer.tap()
+          break
+      }
+    })
+  }, [engine, toggleVJ, changeVJGenre])
+
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
 
   return (
     <div className="app-layout">
       {showOnboarding && <Onboarding onDone={finishOnboarding} />}
+      {showRemote && <RemoteModal onClose={() => setShowRemote(false)} />}
 
       {/* Top bar */}
       <div className="top-bar">
@@ -237,6 +264,9 @@ export function App() {
         <div className="spacer" />
         <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Salva screenshot PNG">
           📷
+        </button>
+        <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)">
+          📱
         </button>
         {displays.length > 1 && (
           <select

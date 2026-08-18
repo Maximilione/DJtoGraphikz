@@ -12,6 +12,15 @@ const api = {
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
   readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
 
+  // Web remote
+  getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
+  resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),
+  onRemoteCommand: (callback: (cmd: { type: string; value?: unknown }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, cmd: any) => callback(cmd)
+    ipcRenderer.on('remote:cmd', handler)
+    return () => { ipcRenderer.removeListener('remote:cmd', handler) }
+  },
+
   // Display operations
   listDisplays: () => ipcRenderer.invoke('displays:list'),
   moveOutputToDisplay: (displayId: number) => ipcRenderer.send('output:move-to-display', displayId),
