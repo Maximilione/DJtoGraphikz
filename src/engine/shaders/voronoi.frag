@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float cells;
+uniform float edgewidth;
 
 varying vec2 vUv;
 
@@ -24,7 +26,7 @@ void main() {
   float t = uTime;
 
   // Scale
-  float scale = 4.0 + uMid * 3.0;
+  float scale = cells + uMid * 3.0;
   vec2 p = uv * scale;
 
   // Voronoi
@@ -58,7 +60,7 @@ void main() {
 
   // Edge detection
   float edge = d2 - d1;
-  float edgeLine = 1.0 - smoothstep(0.0, 0.08 + uHigh * 0.05, edge);
+  float edgeLine = 1.0 - smoothstep(0.0, edgewidth + uHigh * 0.05, edge);
 
   // Cell color based on point hash
   float cellId = dot(nearestPoint, vec2(12.9898, 78.233));

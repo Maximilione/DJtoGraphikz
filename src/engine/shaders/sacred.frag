@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float zoom;
+uniform float radius;
+uniform float ringfreq;
 
 varying vec2 vUv;
 
@@ -33,14 +36,14 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
 
   float t = uTime * 0.3;
-  float scale = 2.5 + uBass * 1.5;
+  float scale = zoom + uBass * 1.5;
   uv *= scale;
   uv *= rot(t * 0.1 + uMid * 0.3);
 
   float pattern = 0.0;
 
   // Flower of Life — 7 overlapping circles
-  float r = 0.5 + uBeat * 0.15;
+  float r = radius + uBeat * 0.15;
   pattern += ring(uv, r, 0.015);
   for (int i = 0; i < 6; i++) {
     float angle = float(i) * TAU / 6.0 + t * 0.2;
@@ -66,7 +69,7 @@ void main() {
   }
 
   // Pulsing concentric rings
-  float rings = sin(length(uv) * 20.0 - uTime * 2.0 - uBass * 8.0);
+  float rings = sin(length(uv) * ringfreq - uTime * 2.0 - uBass * 8.0);
   rings = smoothstep(0.8, 1.0, rings) * 0.4;
   pattern += rings;
 

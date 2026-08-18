@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float count;
+uniform float amp;
+uniform float freq;
 
 varying vec2 vUv;
 
@@ -22,17 +25,19 @@ void main() {
   vec3 color = vec3(0.0);
 
   // Stack of audio-reactive sine waves
-  float numWaves = 20.0;
-  for (float i = 0.0; i < 20.0; i++) {
+  float numWaves = count;
+  // Constant loop bound (= param max), dynamic break on the actual count
+  for (float i = 0.0; i < 40.0; i++) {
+    if (i >= numWaves) break;
     float fi = i / numWaves;
 
     // Y position for this wave — spread across screen
     float baseY = (fi - 0.5) * 1.5;
 
     // Wave equation — multiple frequencies
-    float freq1 = 3.0 + i * 0.5;
+    float freq1 = freq + i * 0.5;
     float freq2 = 5.0 + i * 0.3;
-    float amp1 = 0.03 + uBass * 0.05;
+    float amp1 = amp + uBass * 0.05;
     float amp2 = 0.02 + uMid * 0.03;
 
     float wave = baseY

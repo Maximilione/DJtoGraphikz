@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float iterations;
+uniform float zoom;
+uniform float morph;
 
 varying vec2 vUv;
 
@@ -23,19 +26,21 @@ void main() {
   // Julia set with audio-reactive constant
   float t = uTime * 0.15;
   vec2 c = vec2(
-    -0.7 + sin(t) * 0.15 + uBass * 0.1,
+    -0.7 + sin(t) * morph + uBass * 0.1,
     0.27015 + cos(t * 0.7) * 0.1 + uMid * 0.05
   );
 
-  float zoom = 1.5 - uBeat * 0.3;
-  vec2 z = uv * zoom;
+  float zm = zoom - uBeat * 0.3;
+  vec2 z = uv * zm;
   z *= rot(t * 0.2);
 
   float iter = 0.0;
-  float maxIter = 40.0;
+  float maxIter = floor(iterations);
   float escape = 4.0;
 
-  for (float i = 0.0; i < 40.0; i++) {
+  // Constant loop bound (= param max), dynamic break on the actual count
+  for (float i = 0.0; i < 80.0; i++) {
+    if (i >= maxIter) break;
     if (dot(z, z) > escape) break;
     // z = z^2 + c
     z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;

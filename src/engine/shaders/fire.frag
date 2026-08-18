@@ -10,6 +10,10 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uBassHit;
+uniform float falloff;
+uniform float turbulence;
+uniform float sparks;
 
 varying vec2 vUv;
 
@@ -55,11 +59,11 @@ void main() {
 
   // Distort UV with turbulence
   vec2 distorted = p;
-  distorted.x += (turb1 - 0.5) * 0.5 * (1.0 + uMid);
+  distorted.x += (turb1 - 0.5) * turbulence * (1.0 + uMid);
   distorted.y += turb2 * 0.3;
 
   // Fire shape — fades at top, wide at bottom
-  float fireHeight = 1.0 - uv.y * 0.8 - 0.2;
+  float fireHeight = 1.0 - uv.y * falloff - 0.2;
   fireHeight += turb1 * 0.4 + turb2 * 0.2;
   fireHeight *= 1.0 + uBass * 0.5 + uBeat * 0.5;
 
@@ -80,8 +84,9 @@ void main() {
   color += uColor1 * wisps * core * 0.5; // wisps
 
   // Sparks / embers
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 16; i++) {
     float fi = float(i);
+    if (fi >= sparks) break;
     float sparkX = (hash(vec2(fi, 0.0)) - 0.5) * 1.5;
     float sparkSpeed = 1.0 + hash(vec2(fi, 1.0)) * 2.0;
     float sparkY = fract(hash(vec2(fi, 2.0)) + t * sparkSpeed * 0.3) * 2.0 - 0.5;
@@ -96,8 +101,8 @@ void main() {
     color += mix(uColor1, uColor2, hash(vec2(fi, 3.0))) * spark * sparkFade * 0.1;
   }
 
-  // Beat flare
-  color *= 1.0 + uBeat * 0.5;
+  // Beat flare + kick-driven flash
+  color *= 1.0 + uBeat * 0.5 + uBassHit * 0.3;
 
   // Fade bottom
   color *= smoothstep(-0.7, -0.2, uv.y);

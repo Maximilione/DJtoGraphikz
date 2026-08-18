@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float symmetry;
+uniform float ringfreq;
 
 varying vec2 vUv;
 
@@ -30,7 +32,7 @@ void main() {
   float a = atan(uv.y, uv.x);
 
   // Kaleidoscopic fold — number of folds reactive to audio
-  float folds = floor(6.0 + uMid * 6.0);
+  float folds = floor(symmetry + uMid * 6.0);
   float foldAngle = TAU / folds;
   float fa = mod(a + t * 0.2, foldAngle);
   if (fa > foldAngle * 0.5) fa = foldAngle - fa;
@@ -42,7 +44,7 @@ void main() {
 
   // Ring 1 — petal shapes
   float petals = sin(fa * folds + t) * 0.5 + 0.5;
-  float ring1 = sin(r * 20.0 - t * 2.0 - uBass * 5.0);
+  float ring1 = sin(r * ringfreq - t * 2.0 - uBass * 5.0);
   ring1 = smoothstep(0.7, 1.0, ring1);
   pattern += ring1 * petals;
 

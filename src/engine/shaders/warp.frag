@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float zoom;
+uniform float warpamt;
+uniform float linefreq;
 
 varying vec2 vUv;
 
@@ -29,6 +32,7 @@ float noise(vec2 p) {
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   vec2 origUv = uv;
+  uv *= zoom;
 
   float t = uTime * 0.4;
 
@@ -44,8 +48,8 @@ void main() {
 
   // Layer 2: medium warp driven by audio
   vec2 r2 = vec2(
-    noise(uv * 3.0 + q * 4.0 * (1.0 + bass * 2.0) + vec2(t * 0.7, t * 0.3)),
-    noise(uv * 3.0 + q * 4.0 * (1.0 + bass * 2.0) + vec2(t * 0.5, -t * 0.6))
+    noise(uv * 3.0 + q * warpamt * (1.0 + bass * 2.0) + vec2(t * 0.7, t * 0.3)),
+    noise(uv * 3.0 + q * warpamt * (1.0 + bass * 2.0) + vec2(t * 0.5, -t * 0.6))
   );
 
   // Layer 3: fine detail
@@ -59,7 +63,7 @@ void main() {
   f += 0.0625 * noise(uv * 8.0 + n * 2.0 - t * 0.15);
 
   // Flow lines
-  float lines = sin(f * 20.0 + uTime * 2.0 + bass * 10.0);
+  float lines = sin(f * linefreq + uTime * 2.0 + bass * 10.0);
   lines = pow(abs(lines), 0.3) * sign(lines) * 0.5 + 0.5;
 
   // Color mapping
