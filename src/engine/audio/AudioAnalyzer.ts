@@ -9,8 +9,16 @@ export interface AudioData {
   high: number
   presence: number
   energy: number
+  /** Per-band onset pulses (1 on transient, decaying) — kick / snare-synth / hats */
+  bassHit: number
+  midHit: number
+  highHit: number
   bpm: number
   beatDetected: boolean
+  /** 0..1 position inside the current beat (resynced on every detected beat) */
+  beatPhase: number
+  /** 0..1 position inside the current 4-beat bar */
+  barPhase: number
   spectrum: Uint8Array
 }
 
@@ -24,7 +32,7 @@ export class AudioAnalyzer {
   private source: MediaStreamAudioSourceNode | null = null
   private gainNode: GainNode | null = null
   private stream: MediaStream | null = null
-  private freqData: Uint8Array = new Uint8Array(0)
+  private freqData: Uint8Array<ArrayBuffer> = new Uint8Array(0)
   private running = false
 
   // realtime-bpm-analyzer
@@ -55,17 +63,60 @@ export class AudioAnalyzer {
   // Input gain
   private inputGain = 1.0
 
+  // Adaptive normalization — quiet tracks stay alive, loud ones stop clipping
+  private peakEnergy = 0.2
+  private readonly NOISE_GATE = 0.015
+
+  // Beat phase tracking (continuous, resynced on each detected beat)
+  private beatPhase = 0
+  private beatIndex = 0
+  private lastPhaseTime = 0
+
   private data: AudioData = {
     sub: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0,
-    energy: 0, bpm: 128, beatDetected: false, spectrum: EMPTY_SPECTRUM
+    energy: 0, bassHit: 0, midHit: 0, highHit: 0,
+    bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
+    spectrum: EMPTY_SPECTRUM
   }
+
+  // Per-band onset detection — same spectral-flux idea as the beat detector,
+  // one rolling history per band so hats don't need kick-sized transients
+  private bandFluxHistory: [number[], number[], number[]] = [[], [], []]
+  private bandPulse = [0, 0, 0]
 
   get isRunning() { return this.running }
 
+  // Auto-recovery: the audio device can die under us (Bluetooth profile
+  // switch, device unplug, Chromium "AudioContext encountered an error") —
+  // without this the app silently stops reacting to the mic until restart.
+  private lastDeviceId?: string
+  private restartTimer = 0
+
+  private scheduleRestart(reason: string) {
+    if (!this.running || this.restartTimer) return
+    console.warn('[AudioAnalyzer] audio device lost (' + reason + ') — restarting in 1s')
+    this.restartTimer = window.setTimeout(() => {
+      this.restartTimer = 0
+      this.start(this.lastDeviceId).catch(err =>
+        console.error('[AudioAnalyzer] restart failed:', err))
+    }, 1000)
+  }
+
   async start(deviceId?: string): Promise<void> {
     this.stop()
+    this.lastDeviceId = deviceId
 
-    this.context = new AudioContext({ sampleRate: 44100 })
+    // Native device rate — forcing 44100 on 48k hardware goes through a
+    // resampler that is a known source of AudioContext device errors
+    this.context = new AudioContext()
+    this.context.onstatechange = () => {
+      if (!this.context) return
+      if (this.context.state === 'suspended' && this.running) {
+        this.context.resume().catch(() => {})
+      } else if ((this.context.state as string) === 'closed' && this.running) {
+        this.scheduleRestart('context closed')
+      }
+    }
 
     if (this.context.state === 'suspended') {
       await this.context.resume()
@@ -92,6 +143,11 @@ export class AudioAnalyzer {
       throw err
     }
     console.log('[AudioAnalyzer] Got stream, tracks:', this.stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
+
+    // Device yanked / OS revoked the track → recover instead of going silent
+    const track = this.stream.getAudioTracks()[0]
+    if (track) track.onended = () => this.scheduleRestart('track ended')
+
     this.source = this.context.createMediaStreamSource(this.stream)
 
     // Add gain node for input amplification (useful for weak mic signals)
@@ -143,6 +199,7 @@ export class AudioAnalyzer {
 
     // Reset detection state
     this.fluxHistory = []
+    this.bandFluxHistory = [[], [], []]
     this.libraryBpm = 0
     this.libraryConfidence = 0
     this.libraryStable = false
@@ -154,6 +211,9 @@ export class AudioAnalyzer {
 
   stop(): void {
     this.running = false
+    clearTimeout(this.restartTimer)
+    this.restartTimer = 0
+    if (this.context) this.context.onstatechange = null
 
     if (this.bpmAnalyzer) {
       try { this.bpmAnalyzer.stop() } catch (_) {}
@@ -270,7 +330,25 @@ export class AudioAnalyzer {
       sum += (this.freqData[i] / 255) * weight
       count += weight
     }
-    this.data.energy = sum / count
+    const rawEnergy = sum / count
+
+    // Adaptive normalization: track a slowly decaying peak and scale everything to it.
+    // Quiet tracks don't look dead, loud ones don't sit pinned at 1.0.
+    this.peakEnergy = Math.max(rawEnergy, this.peakEnergy * 0.998, 0.05)
+    const gain = 1 / this.peakEnergy
+
+    // Noise gate — below this the signal is room noise, not music
+    const gated = rawEnergy < this.NOISE_GATE ? 0 : 1
+
+    const norm = (v: number) => gated * Math.min(1, v * gain)
+    this.data.sub = norm(this.data.sub)
+    this.data.bass = norm(this.data.bass)
+    this.data.lowMid = norm(this.data.lowMid)
+    this.data.mid = norm(this.data.mid)
+    this.data.highMid = norm(this.data.highMid)
+    this.data.high = norm(this.data.high)
+    this.data.presence = norm(this.data.presence)
+    this.data.energy = norm(rawEnergy)
 
     // --- Beat detection via SPECTRAL FLUX ---
     // Spectral flux measures the overall change in the spectrum frame-to-frame.
@@ -278,6 +356,7 @@ export class AudioAnalyzer {
     // because it detects ANY sudden energy increase across all frequencies.
     const now = performance.now()
     let flux = 0
+    const bandFlux = [0, 0, 0] // bass / mid / high
     for (let i = 0; i < this.freqData.length; i++) {
       const curr = this.freqData[i] / 255
       const prev = this.prevSpectrum[i]
@@ -291,11 +370,36 @@ export class AudioAnalyzer {
                : i < binCount / 2 ? 1.0
                : 0.5
         flux += diff * w
+
+        // Per-band onset flux (kick / snare-synth / hats)
+        const hz = i * binHz
+        if (hz < 250) bandFlux[0] += diff
+        else if (hz >= 500 && hz < 2000) bandFlux[1] += diff
+        else if (hz >= 4000 && hz < 12000) bandFlux[2] += diff
       }
       this.prevSpectrum[i] = curr
     }
     // Normalize by bin count
     flux /= binCount
+
+    // Per-band hit pulses: adaptive threshold per band, decaying envelope
+    for (let b = 0; b < 3; b++) {
+      const f = bandFlux[b] / binCount
+      const hist = this.bandFluxHistory[b]
+      hist.push(f)
+      if (hist.length > this.FLUX_HISTORY_SIZE) hist.shift()
+      if (hist.length >= 10) {
+        const mean = hist.reduce((a, v) => a + v, 0) / hist.length
+        let sq = 0
+        for (const v of hist) sq += (v - mean) ** 2
+        const std = Math.sqrt(sq / hist.length)
+        if (f > mean + std * this.sensitivity && f > 0.0008) this.bandPulse[b] = 1
+      }
+      this.bandPulse[b] *= 0.85
+    }
+    this.data.bassHit = gated * this.bandPulse[0]
+    this.data.midHit = gated * this.bandPulse[1]
+    this.data.highHit = gated * this.bandPulse[2]
 
     // Push to history
     this.fluxHistory.push(flux)
@@ -337,6 +441,23 @@ export class AudioAnalyzer {
     this.beatDecay *= 0.88
 
     this.data.bpm = this.getEffectiveBpm()
+
+    // Continuous beat phase — free-runs on BPM, resyncs on every detected beat.
+    // Lets shaders anticipate the beat instead of only reacting to it.
+    const dtSec = this.lastPhaseTime ? Math.min((now - this.lastPhaseTime) / 1000, 0.5) : 0
+    this.lastPhaseTime = now
+    this.beatPhase += dtSec * (this.data.bpm / 60)
+    while (this.beatPhase >= 1) {
+      this.beatPhase -= 1
+      this.beatIndex = (this.beatIndex + 1) % 4
+    }
+    if (this.data.beatDetected) {
+      this.beatPhase = 0
+      this.beatIndex = (this.beatIndex + 1) % 4
+    }
+    this.data.beatPhase = this.beatPhase
+    this.data.barPhase = (this.beatIndex + this.beatPhase) / 4
+
     this.data.spectrum = this.freqData
 
     return this.data

@@ -9,6 +9,21 @@ const api = {
 
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
+  pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
+  readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
+
+  // Web remote
+  getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
+  resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),
+  onRemoteCommand: (callback: (cmd: { type: string; value?: unknown }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, cmd: any) => callback(cmd)
+    ipcRenderer.on('remote:cmd', handler)
+    return () => { ipcRenderer.removeListener('remote:cmd', handler) }
+  },
+  // Catalogs + look bank pushed to the remote server (served at GET /defs)
+  sendRemoteDefs: (defs: unknown) => ipcRenderer.send('remote:defs', defs),
+  sendRemoteLooks: (looks: { index: number; name: string; thumb: string }[]) =>
+    ipcRenderer.send('remote:looks', looks),
 
   // Display operations
   listDisplays: () => ipcRenderer.invoke('displays:list'),
@@ -38,7 +53,7 @@ const api = {
   },
 
   // Overlay sync (control → output)
-  sendOverlayAdd: (data: { id: string; name: string; dataUrl: string; opacity: number; scale: number; offsetX: number; offsetY: number; visible: boolean }) =>
+  sendOverlayAdd: (data: { id: string; name: string; dataUrl: string; opacity: number; scale: number; offsetX: number; offsetY: number; visible: boolean; gifSync: string; displace: number; source?: unknown }) =>
     ipcRenderer.send('overlay:add', data),
   sendOverlayRemove: (id: string) => ipcRenderer.send('overlay:remove', id),
   sendOverlayUpdate: (id: string, updates: Record<string, unknown>) => ipcRenderer.send('overlay:update', id, updates),

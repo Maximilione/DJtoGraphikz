@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float zoom;
+uniform float ringfreq;
 
 varying vec2 vUv;
 
@@ -17,6 +19,7 @@ varying vec2 vUv;
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+  uv *= zoom;
   float t = uTime;
 
   // Multiple sine plasma layers
@@ -35,7 +38,7 @@ void main() {
   v *= 0.2;
 
   // Moiré rings
-  float rings = sin(length(uv) * 30.0 - t * 4.0 - bass * 15.0);
+  float rings = sin(length(uv) * ringfreq - t * 4.0 - bass * 15.0);
   rings = rings * 0.5 + 0.5;
   rings = pow(rings, 2.0 + mid * 3.0);
 

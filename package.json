@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.3.0-beta",
+  "version": "0.7.0-beta",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "gifuct-js": "^2.1.2",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "realtime-bpm-analyzer": "^5.0.2",
@@ -53,6 +54,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/three": "^0.170.0",

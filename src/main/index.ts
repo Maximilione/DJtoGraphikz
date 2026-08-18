@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, session, systemPreferences } from 'electron'
 import { join } from 'path'
 import { setupIpcHandlers } from './ipc-handlers'
+import { setupRemoteServer } from './remote-server'
 
 let controlWindow: BrowserWindow | null = null
 let outputWindow: BrowserWindow | null = null
@@ -110,6 +111,7 @@ app.whenReady().then(async () => {
   outputWindow = createOutputWindow()
 
   setupIpcHandlers(controlWindow, outputWindow)
+  setupRemoteServer(controlWindow)
 
   // Forward engine state from control to output window
   ipcMain.on('engine:state-update', (_event, state) => {

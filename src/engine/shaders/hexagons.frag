@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float zoom;
+uniform float wavefreq;
 
 varying vec2 vUv;
 
@@ -36,10 +38,10 @@ void main() {
   float t = uTime;
 
   // Zoom and rotate
-  float zoom = 5.0 + uBass * 2.0;
+  float zm = zoom + uBass * 2.0;
   float angle = t * 0.1 + uMid * 0.2;
   float c = cos(angle), s = sin(angle);
-  vec2 p = mat2(c, -s, s, c) * uv * zoom;
+  vec2 p = mat2(c, -s, s, c) * uv * zm;
 
   vec4 hex = hexCoords(p);
   vec2 gv = hex.xy;  // local coords within hex
@@ -52,13 +54,14 @@ void main() {
   hexDist = max(hexDist, abs(gv.y * 0.577 - gv.x * 0.5));
 
   // Animated fill — wave propagates outward
-  float distFromCenter = length(id) / zoom;
-  float wave = sin(distFromCenter * 5.0 - t * 2.0 - uBass * 3.0);
+  float distFromCenter = length(id) / zm;
+  float wave = sin(distFromCenter * wavefreq - t * 2.0 - uBass * 3.0);
   float fill = smoothstep(0.0, 0.3, wave);
 
   // Edge glow
-  float edge = smoothstep(0.45, 0.48, hexDist);
-  float innerEdge = smoothstep(0.35, 0.40, hexDist);
+  float hw = max(fwidth(hexDist) * 1.5, 0.03);
+  float edge = smoothstep(0.48 - hw, 0.48, hexDist);
+  float innerEdge = smoothstep(0.40 - hw, 0.40, hexDist);
 
   // Beat: random cells flash
   float beatFlash = step(0.7 - uBeat * 0.5, cellHash) * uBeat;

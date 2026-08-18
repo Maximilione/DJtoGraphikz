@@ -10,6 +10,11 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uBeatPhase;
+uniform float uBarPhase;
+uniform float density;
+uniform float fogamt;
+uniform float wavefreq;
 
 varying vec2 vUv;
 
@@ -31,7 +36,8 @@ void main() {
   vec3 color = vec3(0.0);
 
   // Horizon line
-  float horizon = smoothstep(0.005, 0.0, abs(p.y + 0.1));
+  float hd = abs(p.y + 0.1);
+  float horizon = smoothstep(max(0.005, fwidth(hd) * 1.5), 0.0, hd);
   color += uColor2 * horizon * 2.0;
 
   // Ground plane (below horizon)
@@ -42,18 +48,18 @@ void main() {
     float z = depth + t * (2.0 + uBass * 4.0);
 
     // Grid lines
-    float gridX = abs(fract(x * 0.5) - 0.5);
-    float gridZ = abs(fract(z * 0.3) - 0.5);
+    float gridX = abs(fract(x * 0.5 * density) - 0.5);
+    float gridZ = abs(fract(z * 0.3 * density) - 0.5);
 
-    float lineX = smoothstep(0.02, 0.0, gridX);
-    float lineZ = smoothstep(0.02, 0.0, gridZ);
+    float lineX = smoothstep(max(0.02, fwidth(gridX) * 1.5), 0.0, gridX);
+    float lineZ = smoothstep(max(0.02, fwidth(gridZ) * 1.5), 0.0, gridZ);
     float grid = max(lineX, lineZ);
 
     // Distance fog
-    float fog = exp(-depth * 0.15);
+    float fog = exp(-depth * fogamt);
 
     // Pulse waves along Z
-    float wave = sin(z * 2.0 - t * 3.0) * 0.5 + 0.5;
+    float wave = sin(z * wavefreq - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
     wave = pow(wave, 4.0);
 
     color += uColor1 * grid * fog * (0.8 + uBeat * 0.5);
@@ -87,7 +93,8 @@ void main() {
   float building = smoothstep(buildingH + 0.01, buildingH, p.y + 0.1);
   color = mix(color, vec3(0.0), building * 0.7);
   // Building edges glow
-  float buildingEdge = smoothstep(0.01, 0.0, abs(p.y + 0.1 - buildingH));
+  float be = abs(p.y + 0.1 - buildingH);
+  float buildingEdge = smoothstep(max(0.01, fwidth(be) * 1.5), 0.0, be);
   color += uColor2 * buildingEdge * 0.5;
 
   // Global beat pulse
