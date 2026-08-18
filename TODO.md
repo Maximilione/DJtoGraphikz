@@ -32,6 +32,12 @@
 - [x] **Parametri per effetto** — Speed/Reactivity su tutti gli effetti + uniform custom, ogni param mappabile a bass/mid/high/energy/beat con depth
 - [x] **ISF generator import** — header JSON → slider automatici, transpile a convenzioni interne
 - [x] **Antialiasing procedurale** — fwidth() sugli shader geometrici
+- [x] **Look Bank** — griglia 4×4 con thumbnail, trigger click/Shift+1-0 con transizione (v0.7.0)
+- [x] **Vocabolario audio esteso** — hit per banda, clock gated, sub/presence su tutti gli effetti (v0.7.0)
+- [x] **Parametri curati** — 50 uniform veri sui 21 effetti, tutti audio-mappabili (v0.7.0)
+- [x] **AutoVJ Bag + downbeat** — rotazione senza ripetizioni, switch sul giro di battuta (v0.7.0)
+- [x] **Pannello Media unificato** — immagini/GIF/video/webcam stesso flusso, thumbnail live, scelta camera (v0.7.0)
+- [x] **Remote mobile a parità completa** — data-driven, sempre allineato alla versione dell'app (v0.7.0)
 
 ## ORDINE DI LAVORO — lista unica riconciliata (storico + studio 2026-08-06)
 
@@ -42,10 +48,10 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 
 1. [ ] **Test con musica vera** — set techno in line-in: beat, BPM ×½/×2, envelope, AutoVJ, grade su proiettore, FPS 4K. Tara tutto il lavoro audio mai sentito. [studio S4] · zero codice, 1 serata
 2. [ ] **Packaging verificato** — `yarn package:mac`: doppia finestra, entitlements webcam/mic, .dmg pulito fuori da dev. Gate di qualsiasi uscita dal laptop. [studio B12, anticipato] · ½g
-3. [ ] **Look Bank** — griglia 4×4 preset con thumbnail (screenshot() al salvataggio), trigger 1 click/hotkey con transizione. Il gap live più grosso vs Resolume. [studio S1] · 1g
-4. [ ] **Vocabolario audio esteso** — uBassHits/uMidHits/uHighHits (flux per banda), uBassTime/uHighTime (clock gated), uSub/uPresence già calcolati e mai esposti; pass sugli shader. Stile Synesthesia, alza tutti gli effetti. [studio S2] · 1g
-5. [ ] **AutoVJ Bag + downbeat** — pesca senza ripetizioni finché il sacchetto non è vuoto (Resolume Bag), switch quando barPhase→0. Sfrutta subito il punto 4. [studio A9] · ½g
-6. [ ] **Parametri curati per i 21 effetti** — 2-3 uniform veri ciascuno (segments, fold, densità…), tabella + ParamControls già pronti. Chiude il confronto con gli Scene Controls. [storico "per-effect sliders" + studio S3] · 2-3g
+3. [x] **Look Bank** — fatto in v0.7.0: griglia 4×4 con thumbnail, click/Shift+1-0, transizione inclusa
+4. [x] **Vocabolario audio esteso** — fatto in v0.7.0: uBassHit/uMidHit/uHighHit, uBassTime/uHighTime, uSub/uPresence su tutti gli effetti (anche ISF); starfield/glitch/fire li usano già
+5. [x] **AutoVJ Bag + downbeat** — fatto in v0.7.0: bag per effetti/post/palette, switch sul giro di battuta
+6. [x] **Parametri curati per i 21 effetti** — fatto in v0.7.0: 50 uniform veri, slider + audio mapping automatici
 7. [ ] **LFO come sorgente parametri** — sine/saw/square accanto a bass/mid/high in ParamControls, rate in beat. Era "se avanza tempo": con ParamControls costa ½ giornata. [storico, riclassificato ↑] · ½g
 8. [ ] **MIDI learn** — Web MIDI nativa; learn su crossfader, master, wet/dry, trigger Look Bank. [storico + studio A5] · 1-2g
 9. [ ] **Video recording WebM** — canvas.captureStream + MediaRecorder, zero dipendenze; serve anche a documentare i test. [storico + studio A6] · ½g
@@ -55,7 +61,7 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 13. [ ] **Libreria ISF su cartella** — ~/.djtographikz/isf scansionata all'avvio, ogni generator valido diventa un effetto coi suoi slider. [storico ISF + studio B11] · 1g
 14. [ ] **Text overlay** — testo su CanvasTexture nella pipeline overlay esistente (nome evento, logo serata). [storico, riclassificato ↑] · ½g
 15. [ ] **GIF export** — retrocesso: il recording WebM (punto 9) copre quasi tutti gli usi. [storico, riclassificato ↓] · ½g
-16. [x] **Web remote control** — fatto in v0.6.0: QR + codice abbinamento, pannello mobile completo su stessa wifi (anticipato su richiesta)
+16. [x] **Web remote control** — fatto in v0.6.0, portato a parità completa in v0.7.0: data-driven (/defs + versione), tab LIVE/FX/MIX/COLORI/SETUP, Look Bank e parametri sul telefono
 
 ## PARCHEGGIO — confermato dallo studio
 

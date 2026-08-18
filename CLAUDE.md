@@ -12,7 +12,7 @@ Ad ogni batch di modifiche committato:
 
 ## Flusso git (obbligatorio)
 
-- `main` = sempre stabile e rilasciabile. Mai commit diretti su main.
+- `main` = sempre stabile e rilasciabile. Mai commit diretti su main (unica eccezione: docs banali — TODO/README/CHANGELOG typo).
 - Ogni batch di lavoro su un branch `feat/<tema>` o `fix/<tema>`; un commit per task logico (Conventional Commits), niente commit "wip".
 - Fine batch: commit `chore(release): vX.Y.Z-beta`, merge su main con `--no-ff` (il merge commit delimita il batch), tag annotato `vX.Y.Z-beta` sul merge, push di main + tag.
 - Il branch feature si cancella dopo il merge; il prossimo batch riparte da main con un branch nuovo.
