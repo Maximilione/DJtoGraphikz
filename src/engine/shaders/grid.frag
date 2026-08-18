@@ -12,6 +12,9 @@ uniform vec3 uColor3;
 uniform vec2 uResolution;
 uniform float uBeatPhase;
 uniform float uBarPhase;
+uniform float density;
+uniform float fogamt;
+uniform float wavefreq;
 
 varying vec2 vUv;
 
@@ -45,18 +48,18 @@ void main() {
     float z = depth + t * (2.0 + uBass * 4.0);
 
     // Grid lines
-    float gridX = abs(fract(x * 0.5) - 0.5);
-    float gridZ = abs(fract(z * 0.3) - 0.5);
+    float gridX = abs(fract(x * 0.5 * density) - 0.5);
+    float gridZ = abs(fract(z * 0.3 * density) - 0.5);
 
     float lineX = smoothstep(max(0.02, fwidth(gridX) * 1.5), 0.0, gridX);
     float lineZ = smoothstep(max(0.02, fwidth(gridZ) * 1.5), 0.0, gridZ);
     float grid = max(lineX, lineZ);
 
     // Distance fog
-    float fog = exp(-depth * 0.15);
+    float fog = exp(-depth * fogamt);
 
     // Pulse waves along Z
-    float wave = sin(z * 2.0 - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
+    float wave = sin(z * wavefreq - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
     wave = pow(wave, 4.0);
 
     color += uColor1 * grid * fog * (0.8 + uBeat * 0.5);

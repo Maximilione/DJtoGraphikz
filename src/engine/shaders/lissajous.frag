@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float freqa;
+uniform float freqb;
+uniform float size;
 
 varying vec2 vUv;
 
@@ -24,10 +27,10 @@ void main() {
   // Multiple Lissajous curves with audio-reactive parameters
   for (int curve = 0; curve < 3; curve++) {
     float fc = float(curve);
-    float freqA = 2.0 + fc + uBass * 2.0;
-    float freqB = 3.0 + fc * 0.7 + uMid;
+    float freqA = freqa + fc + uBass * 2.0;
+    float freqB = freqb + fc * 0.7 + uMid;
     float phase = t * (0.3 + fc * 0.1) + uHigh * fc;
-    float amplitude = 0.35 + fc * 0.02 + uBeat * 0.05;
+    float amplitude = size + fc * 0.02 + uBeat * 0.05;
 
     // Sample many points along the curve and find closest distance
     float minDist = 100.0;

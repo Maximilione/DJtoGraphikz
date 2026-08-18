@@ -12,6 +12,9 @@ uniform vec3 uColor3;
 uniform vec2 uResolution;
 uniform float uBeatPhase;
 uniform float uBarPhase;
+uniform float ringcount;
+uniform float spacing;
+uniform float gapfreq;
 
 varying vec2 vUv;
 
@@ -41,16 +44,18 @@ void main() {
 
     // Expanding rings from center
     float ringSpeed = 1.5 + uBass * 2.0;
-    float ringSpacing = 0.08 + uMid * 0.04;
+    float ringSpacing = spacing + uMid * 0.04;
 
-    for (float i = 0.0; i < 8.0; i++) {
+    // Constant loop bound (= param max), dynamic break on the actual count
+    for (float i = 0.0; i < 16.0; i++) {
+      if (i >= ringcount) break;
       float ringR = mod(i * ringSpacing + t * ringSpeed * 0.1, 1.0);
 
       // Ring thickness varies with angle
       float thickness = 0.004 + sin(a * 4.0 + t + i * 2.0) * 0.002;
 
       // Broken ring — gaps
-      float gap = sin(a * (3.0 + fs * 2.0) + t * (0.5 + i * 0.1) + i);
+      float gap = sin(a * (gapfreq + fs * 2.0) + t * (0.5 + i * 0.1) + i);
       float gapMask = smoothstep(0.0, 0.3, gap);
 
       float rd = abs(r - ringR);

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
-import { COMMON_PARAMS, type EffectParam, type ParamState, type AudioSource } from './EffectParams'
+import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
@@ -124,6 +124,8 @@ export interface EngineState {
   customShader?: string
   customParams?: EffectParam[]
   effectParams?: Record<string, Record<string, ParamState>>
+  /** Param defs of the ACTIVE effect — read-only, for remote UIs */
+  paramDefs?: EffectParam[]
   // Deck / master
   deckBEffect?: EffectId
   crossfade?: number
@@ -505,6 +507,10 @@ export class Engine {
   }
 
   private createEffectMaterial(id: EffectId): THREE.ShaderMaterial {
+    // Curated per-effect uniforms start at their defaults; the render loop
+    // drives the ACTIVE effect's ones from param state every frame
+    const paramUniforms: Record<string, THREE.IUniform> = {}
+    for (const d of EFFECT_PARAMS[id] ?? []) paramUniforms[d.key] = { value: d.default }
     return new THREE.ShaderMaterial({
       vertexShader: FULLSCREEN_VERT,
       fragmentShader: EFFECT_SHADERS[id],
@@ -528,6 +534,7 @@ export class Engine {
         uColor2: { value: this.colors[1] },
         uColor3: { value: this.colors[2] },
         uResolution: { value: this.resolution },
+        ...paramUniforms,
       }
     })
   }
@@ -863,9 +870,11 @@ export class Engine {
 
   // ---- Per-effect parameters ----
 
-  /** Params of the ACTIVE effect: common engine params + custom shader uniforms */
+  /** Params of the ACTIVE effect: common engine params + curated/custom uniforms */
   getParamDefs(): EffectParam[] {
-    return this.usingCustom ? [...COMMON_PARAMS, ...this.customParamDefs] : COMMON_PARAMS
+    return this.usingCustom
+      ? [...COMMON_PARAMS, ...this.customParamDefs]
+      : [...COMMON_PARAMS, ...(EFFECT_PARAMS[this.currentEffect] ?? [])]
   }
 
   isUsingCustomShader(): boolean { return this.usingCustom }
@@ -1342,6 +1351,7 @@ export class Engine {
       motionBlur: this.motionBlur,
       grade: { ...this.grade },
       effectParams: this.paramState,
+      paramDefs: this.getParamDefs(),
     }
   }
 

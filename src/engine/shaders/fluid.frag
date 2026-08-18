@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float zoom;
+uniform float swirl;
 
 varying vec2 vUv;
 
@@ -60,10 +62,10 @@ void main() {
   float t = uTime * 0.4;
 
   // Multi-layer fluid advection
-  vec2 p = uv * 2.0;
+  vec2 p = uv * zoom;
 
   // Advection — noise warps the sampling position
-  float warpStrength = 1.0 + uBass * 1.5 + uBeat * 0.5;
+  float warpStrength = swirl + uBass * 1.5 + uBeat * 0.5;
   vec2 warp1 = vec2(
     fbm(p + vec2(t * 0.3, t * 0.1)),
     fbm(p + vec2(t * 0.1, t * 0.4) + 5.0)

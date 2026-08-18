@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float cols;
+uniform float fallspeed;
+uniform float trailfade;
 
 varying vec2 vUv;
 
@@ -30,7 +33,7 @@ void main() {
   float beat = uBeat;
 
   // Grid
-  float columns = 40.0 + uMid * 20.0;
+  float columns = cols + uMid * 20.0;
   float cellW = uResolution.x / columns;
   float cellH = cellW * 1.5;
 
@@ -38,7 +41,7 @@ void main() {
   vec2 cellUv = fract(pixel / vec2(cellW, cellH));
 
   // Rain speed per column
-  float colSpeed = 2.0 + hash(cell.x * 0.123) * 4.0;
+  float colSpeed = fallspeed + hash(cell.x * 0.123) * 4.0;
   colSpeed *= 1.0 + bass * 3.0;
 
   float rain = cell.y + t * colSpeed + hash(cell.x * 7.77) * 100.0;
@@ -46,7 +49,7 @@ void main() {
 
   // Trail fade
   float trail = fract(rain);
-  trail = pow(trail, 2.0 + uHigh * 3.0);
+  trail = pow(trail, trailfade + uHigh * 3.0);
 
   // Head brightness
   float head = smoothstep(0.0, 0.1, trail) * smoothstep(1.0, 0.8, trail);

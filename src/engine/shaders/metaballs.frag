@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float count;
+uniform float size;
+uniform float threshold;
 
 varying vec2 vUv;
 
@@ -26,8 +29,9 @@ void main() {
   float totalWeight = 0.0;
 
   // 8 metaballs with audio-reactive movement
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 12; i++) {
     float fi = float(i);
+    if (fi >= count) break;
     float speed = 0.5 + hash1(fi * 7.0) * 0.5;
     float phase = hash1(fi * 13.0) * PI * 2.0;
 
@@ -44,7 +48,7 @@ void main() {
     pos *= 1.0 + uBeat * 0.3;
 
     // Ball radius varies with audio
-    float radius = 0.06 + hash1(fi * 23.0) * 0.04 + uEnergy * 0.03;
+    float radius = size + hash1(fi * 23.0) * 0.04 + uEnergy * 0.03;
 
     float d = length(uv - pos);
     float contribution = radius * radius / (d * d + 0.001);
@@ -61,8 +65,7 @@ void main() {
     totalWeight += contribution;
   }
 
-  // Threshold for metaball surface
-  float threshold = 1.0;
+  // Threshold for metaball surface comes from the uniform
   vec3 color = vec3(0.0);
 
   if (totalWeight > 0.0) {
