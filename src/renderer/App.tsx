@@ -56,10 +56,16 @@ export function App() {
     if (!canvasRef.current) return
 
     const eng = new Engine(canvasRef.current)
+    // Persistence debounced: a synchronous localStorage write per emitted state
+    // (~16/s while dragging a remote slider) blocks the render thread
+    let persistTimer = 0
     eng.onStateChange = (state) => {
       try { window.api?.sendEngineState(state) } catch (_) {}
-      // Persist the full look across launches (blackout/frozen excluded on restore)
-      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state)) } catch (_) {}
+      clearTimeout(persistTimer)
+      persistTimer = window.setTimeout(() => {
+        // blackout/frozen excluded on restore
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state)) } catch (_) {}
+      }, 400)
     }
     eng.start()
 
