@@ -47,7 +47,7 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 (coperto dal recording WebM).
 
 1. [ ] **Test con musica vera** — set techno in line-in: beat, BPM ×½/×2, envelope, AutoVJ, grade su proiettore, FPS 4K. Tara tutto il lavoro audio mai sentito. [studio S4] · zero codice, 1 serata
-2. [ ] **Packaging verificato** — `yarn package:mac`: doppia finestra, entitlements webcam/mic, .dmg pulito fuori da dev. Gate di qualsiasi uscita dal laptop. [studio B12, anticipato] · ½g
+2. [x] **Packaging verificato** — fatto in v0.7.1: .dmg buildato e avviato (doppia finestra ✓, remote server ✓), entitlement mic+camera nel bundle firmato, author fixato. Manca solo icona custom (opzionale) e notarization (solo per distribuire ad altri Mac)
 3. [x] **Look Bank** — fatto in v0.7.0: griglia 4×4 con thumbnail, click/Shift+1-0, transizione inclusa
 4. [x] **Vocabolario audio esteso** — fatto in v0.7.0: uBassHit/uMidHit/uHighHit, uBassTime/uHighTime, uSub/uPresence su tutti gli effetti (anche ISF); starfield/glitch/fire li usano già
 5. [x] **AutoVJ Bag + downbeat** — fatto in v0.7.0: bag per effetti/post/palette, switch sul giro di battuta

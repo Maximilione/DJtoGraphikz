@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.7.1-beta] — 2026-08-18
+
+### Fixed
+- **Webcam nell'app pacchettizzata**: mancava l'entitlement `com.apple.security.device.camera` — con l'hardened runtime la webcam veniva rifiutata nel .dmg (in dev funzionava); descrizione d'uso in italiano
+- `author` in package.json (warning di electron-builder rimosso)
+
 ## [0.7.0-beta] — 2026-08-18
 
 ### Added
