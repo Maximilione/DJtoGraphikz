@@ -33,33 +33,33 @@
 - [x] **ISF generator import** — header JSON → slider automatici, transpile a convenzioni interne
 - [x] **Antialiasing procedurale** — fwidth() sugli shader geometrici
 
-## PRIMA DI TUTTO
+## TIER S — trasformano il prodotto (studio 2026-08-06)
 
-- [ ] **Test con audio vero** — una serata (o un set registrato): beat phase, envelope, AutoVJ e transizioni non li ha ancora sentiti nessuno
+- [ ] **S1 Look Bank** — griglia 4×4 preset con thumbnail (screenshot() al salvataggio), trigger 1 click/hotkey con transizione (~1g)
+- [ ] **S2 Vocabolario audio esteso** — uBassHits/uMidHits/uHighHits (flux per banda), uBassTime/uHighTime (clock gated), uSub/uPresence già calcolati ma mai esposti; poi pass sugli shader (~1g)
+- [ ] **S3 Parametri curati per i 21 effetti** — 2-3 uniform veri ciascuno in tabella, UI ParamControls già pronta (~2-3g)
+- [ ] **S4 Test con musica vera** — set techno in line-in: beat, BPM, envelope, AutoVJ, grade su proiettore, FPS 4K (costo zero codice)
 
-## ALTA UTILITÀ / EFFORT MEDIO
+## TIER A — credibilità da strumento
 
-- [ ] **Video recording** — cattura output come WebM (canvas.captureStream + MediaRecorder, no native)
-- [ ] **MIDI input + MIDI learn** — Web MIDI API, mapping su crossfader/master/effetti
+- [ ] **A5 MIDI learn** — Web MIDI nativa; crossfader, master, wet/dry, trigger Look Bank (~1-2g)
+- [ ] **A6 Video recording WebM** — canvas.captureStream + MediaRecorder (~½g)
+- [ ] **A7 Media library persistente** — overlay muoiono al riavvio; copia in ~/.djtographikz/assets + ricarico (~1g)
+- [ ] **A8 OSC input** — riclassificato: dgram UDP è built-in, niente native addon; apre TouchOSC (~1g)
+- [ ] **A9 AutoVJ Bag + downbeat** — pesca senza ripetizioni (Resolume Bag) e switch quando barPhase→0 (~½g)
 
-## SE AVANZA TEMPO
+## TIER B — dopo i tier sopra
 
-- [ ] **Text overlay** — testo su CanvasTexture, pipeline overlay già pronta
-- [ ] **LFO automation** — oscillatori per modulare parametri
-- [ ] **GIF export** — esportare loop come GIF
+- [ ] **B10 Thumbnail effetti** — render offline 1 frame per effetto, cache su disco (~½g)
+- [ ] **B11 Libreria ISF su cartella** — ~/.djtographikz/isf scansionata all'avvio (~1g)
+- [ ] **B12 Packaging verificato** — .dmg con doppia finestra + entitlements webcam/mic (~½g)
 
-## PARCHEGGIO (native addon / da prodotto maturo)
+## TIER C — parcheggio confermato
 
-- [ ] **Ableton Link** — sync BPM via rete
-- [ ] **Syphon/Spout output** — condivisione texture GPU
-- [ ] **NDI output** — video via rete
-- [ ] **OSC input** — messaggi da tablet/telefoni
-- [ ] **Projection mapping** — keystoning/quad-warp
-- [ ] **3D geometry scenes** — mesh audio-reattive
-- [ ] **DMX output via ArtNet**
-- [ ] **Plugin architecture**
-- [ ] **Web remote control** — UI web da telefono
-- [ ] **Gamepad/HID support**
+- [ ] Syphon/Spout · NDI · Ableton Link · DMX/ArtNet · projection mapping · 3D scenes · plugin architecture · web remote · gamepad — native addon o roba da prodotto maturo
+- [ ] Text overlay · LFO automation · GIF export — se avanza tempo
+
+Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
 ## RIMOSSI (fatti o coperti da altro)
 
