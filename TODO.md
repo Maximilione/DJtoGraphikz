@@ -33,31 +33,42 @@
 - [x] **ISF generator import** — header JSON → slider automatici, transpile a convenzioni interne
 - [x] **Antialiasing procedurale** — fwidth() sugli shader geometrici
 
-## TIER S — trasformano il prodotto (studio 2026-08-06)
+## ORDINE DI LAVORO — lista unica riconciliata (storico + studio 2026-08-06)
 
-- [ ] **S1 Look Bank** — griglia 4×4 preset con thumbnail (screenshot() al salvataggio), trigger 1 click/hotkey con transizione (~1g)
-- [ ] **S2 Vocabolario audio esteso** — uBassHits/uMidHits/uHighHits (flux per banda), uBassTime/uHighTime (clock gated), uSub/uPresence già calcolati ma mai esposti; poi pass sugli shader (~1g)
-- [ ] **S3 Parametri curati per i 21 effetti** — 2-3 uniform veri ciascuno in tabella, UI ParamControls già pronta (~2-3g)
-- [ ] **S4 Test con musica vera** — set techno in line-in: beat, BPM, envelope, AutoVJ, grade su proiettore, FPS 4K (costo zero codice)
+Ogni voce: [origine] · effort. Riclassificati rispetto al vecchio TODO: LFO e Text overlay
+promossi (costo crollato con ParamControls/pipeline overlay), Packaging anticipato (gate
+della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF export retrocesso
+(coperto dal recording WebM).
 
-## TIER A — credibilità da strumento
+1. [ ] **Test con musica vera** — set techno in line-in: beat, BPM ×½/×2, envelope, AutoVJ, grade su proiettore, FPS 4K. Tara tutto il lavoro audio mai sentito. [studio S4] · zero codice, 1 serata
+2. [ ] **Packaging verificato** — `yarn package:mac`: doppia finestra, entitlements webcam/mic, .dmg pulito fuori da dev. Gate di qualsiasi uscita dal laptop. [studio B12, anticipato] · ½g
+3. [ ] **Look Bank** — griglia 4×4 preset con thumbnail (screenshot() al salvataggio), trigger 1 click/hotkey con transizione. Il gap live più grosso vs Resolume. [studio S1] · 1g
+4. [ ] **Vocabolario audio esteso** — uBassHits/uMidHits/uHighHits (flux per banda), uBassTime/uHighTime (clock gated), uSub/uPresence già calcolati e mai esposti; pass sugli shader. Stile Synesthesia, alza tutti gli effetti. [studio S2] · 1g
+5. [ ] **AutoVJ Bag + downbeat** — pesca senza ripetizioni finché il sacchetto non è vuoto (Resolume Bag), switch quando barPhase→0. Sfrutta subito il punto 4. [studio A9] · ½g
+6. [ ] **Parametri curati per i 21 effetti** — 2-3 uniform veri ciascuno (segments, fold, densità…), tabella + ParamControls già pronti. Chiude il confronto con gli Scene Controls. [storico "per-effect sliders" + studio S3] · 2-3g
+7. [ ] **LFO come sorgente parametri** — sine/saw/square accanto a bass/mid/high in ParamControls, rate in beat. Era "se avanza tempo": con ParamControls costa ½ giornata. [storico, riclassificato ↑] · ½g
+8. [ ] **MIDI learn** — Web MIDI nativa; learn su crossfader, master, wet/dry, trigger Look Bank. [storico + studio A5] · 1-2g
+9. [ ] **Video recording WebM** — canvas.captureStream + MediaRecorder, zero dipendenze; serve anche a documentare i test. [storico + studio A6] · ½g
+10. [ ] **Media library persistente** — oggi gli overlay muoiono al riavvio: copia in ~/.djtographikz/assets, ricarico all'avvio, pannello con anteprime. [studio A7] · 1g
+11. [ ] **OSC input** — dgram UDP built-in nel main, parser ~80 righe, stessi target del MIDI. Apre TouchOSC dal telefono. [storico, riclassificato ↑ dal parcheggio] · 1g
+12. [ ] **Thumbnail effetti** — render offline 1 frame per effetto, cache su disco: griglia visiva come le scene card. [studio B10] · ½g
+13. [ ] **Libreria ISF su cartella** — ~/.djtographikz/isf scansionata all'avvio, ogni generator valido diventa un effetto coi suoi slider. [storico ISF + studio B11] · 1g
+14. [ ] **Text overlay** — testo su CanvasTexture nella pipeline overlay esistente (nome evento, logo serata). [storico, riclassificato ↑] · ½g
+15. [ ] **GIF export** — retrocesso: il recording WebM (punto 9) copre quasi tutti gli usi. [storico, riclassificato ↓] · ½g
+16. [ ] **Web remote control** — UI web da telefono; dopo l'OSC (punto 11) TouchOSC copre gran parte del caso. [storico, riclassificato ↓] · 2g+
 
-- [ ] **A5 MIDI learn** — Web MIDI nativa; crossfader, master, wet/dry, trigger Look Bank (~1-2g)
-- [ ] **A6 Video recording WebM** — canvas.captureStream + MediaRecorder (~½g)
-- [ ] **A7 Media library persistente** — overlay muoiono al riavvio; copia in ~/.djtographikz/assets + ricarico (~1g)
-- [ ] **A8 OSC input** — riclassificato: dgram UDP è built-in, niente native addon; apre TouchOSC (~1g)
-- [ ] **A9 AutoVJ Bag + downbeat** — pesca senza ripetizioni (Resolume Bag) e switch quando barPhase→0 (~½g)
+## PARCHEGGIO — confermato dallo studio
 
-## TIER B — dopo i tier sopra
+Native addon per piattaforma o feature da prodotto maturo con utenza; nessuno sblocca il salto di livello:
 
-- [ ] **B10 Thumbnail effetti** — render offline 1 frame per effetto, cache su disco (~½g)
-- [ ] **B11 Libreria ISF su cartella** — ~/.djtographikz/isf scansionata all'avvio (~1g)
-- [ ] **B12 Packaging verificato** — .dmg con doppia finestra + entitlements webcam/mic (~½g)
-
-## TIER C — parcheggio confermato
-
-- [ ] Syphon/Spout · NDI · Ableton Link · DMX/ArtNet · projection mapping · 3D scenes · plugin architecture · web remote · gamepad — native addon o roba da prodotto maturo
-- [ ] Text overlay · LFO automation · GIF export — se avanza tempo
+- [ ] **Syphon/Spout output** — condivisione texture GPU (native addon macOS/Win)
+- [ ] **NDI output** — video via rete (SDK nativo)
+- [ ] **Ableton Link** — sync BPM via rete (native addon)
+- [ ] **DMX output via ArtNet** — controllo luci
+- [ ] **Projection mapping** — keystone/quad-warp
+- [ ] **3D geometry scenes** — mesh audio-reattive
+- [ ] **Plugin architecture** — sistema plugin terze parti
+- [ ] **Gamepad/HID support**
 
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
