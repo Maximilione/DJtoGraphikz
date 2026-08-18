@@ -7,6 +7,7 @@ import { PresetPanel } from './components/PresetPanel/PresetPanel'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
+import { LookBank } from './components/LookBank/LookBank'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { Engine, type EffectId, type PostId, type EngineState } from '@engine/Engine'
@@ -84,7 +85,7 @@ export function App() {
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
-    const unsubscribe = eng.onAudioFrame((beat, energy, bass) => vj.update(beat, energy, bass))
+    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase) => vj.update(beat, energy, bass, barPhase))
 
     setEngine(eng)
     return () => {
@@ -322,14 +323,17 @@ export function App() {
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
           <AudioPanel engine={engine} />
           {mode === 'simple' ? (
-            <SimplePanel
-              engine={engine}
-              vjEnabled={vjEnabled}
-              vjGenre={vjGenre}
-              vjStatus={vjStatus}
-              onVJToggle={toggleVJ}
-              onVJGenre={changeVJGenre}
-            />
+            <>
+              <SimplePanel
+                engine={engine}
+                vjEnabled={vjEnabled}
+                vjGenre={vjGenre}
+                vjStatus={vjStatus}
+                onVJToggle={toggleVJ}
+                onVJGenre={changeVJGenre}
+              />
+              {engine && <LookBank engine={engine} />}
+            </>
           ) : (
             <>
               <EffectPanel engine={engine} />
@@ -356,6 +360,7 @@ export function App() {
         {/* Right sidebar — pro only */}
         {mode === 'pro' && (
           <div className="sidebar-right">
+            {engine && <LookBank engine={engine} />}
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
