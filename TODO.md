@@ -55,7 +55,7 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 13. [ ] **Libreria ISF su cartella** — ~/.djtographikz/isf scansionata all'avvio, ogni generator valido diventa un effetto coi suoi slider. [storico ISF + studio B11] · 1g
 14. [ ] **Text overlay** — testo su CanvasTexture nella pipeline overlay esistente (nome evento, logo serata). [storico, riclassificato ↑] · ½g
 15. [ ] **GIF export** — retrocesso: il recording WebM (punto 9) copre quasi tutti gli usi. [storico, riclassificato ↓] · ½g
-16. [ ] **Web remote control** — UI web da telefono; dopo l'OSC (punto 11) TouchOSC copre gran parte del caso. [storico, riclassificato ↓] · 2g+
+16. [x] **Web remote control** — fatto in v0.6.0: QR + codice abbinamento, pannello mobile completo su stessa wifi (anticipato su richiesta)
 
 ## PARCHEGGIO — confermato dallo studio
 
