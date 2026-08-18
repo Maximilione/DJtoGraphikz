@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react'
-import type { Engine, EffectId, PostId, TransitionType } from '@engine/Engine'
+import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { ParamControls } from '../ParamControls/ParamControls'
 
 interface EffectPanelProps {
   engine: Engine | null
 }
 
 // Effects organized by category
-const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: string; icon: string }[] }[] = [
+export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: string; icon: string }[] }[] = [
   {
     name: 'Geometric',
     effects: [
@@ -78,7 +79,7 @@ const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; ico
   },
 ]
 
-const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
+export const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
   { label: 'Acid', colors: ['#00ff88', '#ff00ff', '#4444ff'] },
   { label: 'Fire', colors: ['#ff4400', '#ffaa00', '#ff0066'] },
   { label: 'Ice', colors: ['#00ccff', '#0044ff', '#88ffff'] },
@@ -106,6 +107,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [section, setSection] = useState<Section>('fx')
   const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
   const [activePosts, setActivePosts] = useState<Set<PostId>>(new Set(['bloom']))
+  const [postChain, setPostChain] = useState<{ id: PostId; amount: number }[]>([{ id: 'bloom', amount: 1 }])
+  const [grade, setGradeState] = useState<Grade>({ contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 })
   const [activeColorPreset, setActiveColorPreset] = useState(0)
   const [customColors, setCustomColors] = useState<[string, string, string]>(['#ff0000', '#00ff00', '#0000ff'])
   const [transitionSpeed, setTransitionSpeed] = useState(0.5)
@@ -123,6 +126,15 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [cycleBeats, setCycleBeats] = useState(16)
   const [cycleSelection, setCycleSelection] = useState<Set<number>>(() => new Set(COLOR_PRESETS.map((_, i) => i)))
 
+  // Sync from engine once it exists — settings may have been restored before mount
+  React.useEffect(() => {
+    if (!engine) return
+    setActiveEffect(engine.getCurrentEffect())
+    setActivePosts(new Set(engine.getActivePosts()))
+    setPostChain(engine.getPostChain())
+    setGradeState(engine.getGrade())
+  }, [engine])
+
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
     engine.setEffect(id)
@@ -132,11 +144,26 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const togglePost = useCallback((id: PostId) => {
     if (!engine) return
     engine.togglePost(id)
-    setActivePosts(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
+    setActivePosts(new Set(engine.getActivePosts()))
+    setPostChain(engine.getPostChain())
+  }, [engine])
+
+  const movePost = useCallback((id: PostId, delta: number) => {
+    if (!engine) return
+    engine.movePost(id, delta)
+    setPostChain(engine.getPostChain())
+  }, [engine])
+
+  const setPostAmount = useCallback((id: PostId, amount: number) => {
+    if (!engine) return
+    engine.setPostAmount(id, amount)
+    setPostChain(engine.getPostChain())
+  }, [engine])
+
+  const updateGrade = useCallback((patch: Partial<Grade>) => {
+    if (!engine) return
+    engine.setGrade(patch)
+    setGradeState(engine.getGrade())
   }, [engine])
 
   const selectColorPreset = useCallback((idx: number) => {
@@ -260,7 +287,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
         ))}
       </div>
 
-      <div style={{ padding: '8px', maxHeight: '60vh', overflowY: 'auto' }}>
+      <div style={{ padding: '8px' }}>
         {/* ====== EFFECTS TAB ====== */}
         {section === 'fx' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -289,6 +316,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 {activeEffect}
               </span>
             </div>
+
+            {/* Per-effect params + audio mapping */}
+            <ParamControls engine={engine} key={activeEffect} />
 
             {/* Transition settings */}
             <div style={{
@@ -414,22 +444,36 @@ export function EffectPanel({ engine }: EffectPanelProps) {
         {/* ====== POST FX TAB ====== */}
         {section === 'post' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* Active indicator */}
-            {activePosts.size > 0 && (
+            {/* Active chain — order and wet/dry both change the look a lot */}
+            {postChain.length > 0 && (
               <div style={{
-                display: 'flex', flexWrap: 'wrap', gap: '3px',
                 padding: '4px 6px', borderRadius: '4px',
                 background: 'var(--accent-glow)', border: '1px solid var(--accent)',
+                display: 'flex', flexDirection: 'column', gap: '3px',
               }}>
-                {Array.from(activePosts).map(id => (
-                  <span key={id} style={{
-                    fontSize: '8px', fontWeight: 600, color: 'var(--accent)',
-                    padding: '1px 4px', borderRadius: '2px',
-                    background: 'rgba(0,255,136,0.1)',
-                    textTransform: 'uppercase', letterSpacing: '0.5px',
-                  }}>
-                    {id}
-                  </span>
+                <div style={{ fontSize: '8px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '1px' }}>
+                  CHAIN (top → bottom)
+                </div>
+                {postChain.map((entry, i) => (
+                  <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ fontSize: '8px', color: 'var(--text-muted)', width: '10px' }}>{i + 1}</span>
+                    <span style={{
+                      fontSize: '9px', color: 'var(--accent)', width: '54px',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {entry.id}
+                    </span>
+                    <input
+                      type="range" min={0} max={1} step={0.05}
+                      value={entry.amount}
+                      onChange={e => setPostAmount(entry.id, parseFloat(e.target.value))}
+                      style={{ flex: 1 }}
+                      title="Wet / dry"
+                    />
+                    <button onClick={() => movePost(entry.id, -1)} disabled={i === 0} style={tinyBtn}>↑</button>
+                    <button onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} style={tinyBtn}>↓</button>
+                    <button onClick={() => togglePost(entry.id)} style={{ ...tinyBtn, color: '#ff4444' }}>×</button>
+                  </div>
                 ))}
               </div>
             )}
@@ -583,6 +627,32 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               />
             </div>
 
+            {/* Master colour grade — the pass that makes it look graded, not raw */}
+            <div>
+              <div style={catLabel}>Grade</div>
+              {([
+                { key: 'exposure' as const, label: 'Expos', min: 0.2, max: 2, step: 0.05 },
+                { key: 'contrast' as const, label: 'Contr', min: 0.5, max: 2, step: 0.05 },
+                { key: 'saturation' as const, label: 'Satur', min: 0, max: 2, step: 0.05 },
+                { key: 'lift' as const, label: 'Lift', min: 0, max: 0.3, step: 0.01 },
+                { key: 'vignette' as const, label: 'Vign', min: 0, max: 1.5, step: 0.05 },
+              ]).map(g => (
+                <div className="slider-row" key={g.key}>
+                  <span className="label">{g.label}</span>
+                  <input
+                    type="range" min={g.min} max={g.max} step={g.step}
+                    value={grade[g.key]}
+                    onChange={e => updateGrade({ [g.key]: parseFloat(e.target.value) })}
+                  />
+                  <NumberInput
+                    value={grade[g.key]}
+                    min={g.min} max={g.max} step={g.step}
+                    onChange={v => updateGrade({ [g.key]: v })}
+                  />
+                </div>
+              ))}
+            </div>
+
             {/* Palette Cycling */}
             <div>
               <div style={catLabel}>Cycling</div>
@@ -677,4 +747,15 @@ const catLabel: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: '1.2px',
   marginBottom: '3px',
+}
+
+const tinyBtn: React.CSSProperties = {
+  padding: '0 3px',
+  borderRadius: '2px',
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text-secondary)',
+  fontSize: '9px',
+  cursor: 'pointer',
+  lineHeight: 1,
 }

@@ -10,6 +10,8 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float coils;
+uniform float amp;
 
 varying vec2 vUv;
 
@@ -30,8 +32,8 @@ void main() {
       float phase = float(strand) * PI;
       float speed = 2.0 + uBass * 3.0;
 
-      float scrollY = uv.y * 8.0 + t * speed;
-      float amplitude = 0.12 + uMid * 0.05;
+      float scrollY = uv.y * coils + t * speed;
+      float amplitude = amp + uMid * 0.05;
 
       // Helix curve
       float helixX = sin(scrollY + phase + fh * PI * 0.66) * amplitude + offsetX;
@@ -59,7 +61,7 @@ void main() {
           float maxX = max(helixX, otherHelixX);
 
           float rungInside = step(minX, uv.x) * step(uv.x, maxX);
-          float rungDist = abs(uv.y - (floor(uv.y * 8.0 + t * speed) + 0.5) / (8.0));
+          float rungDist = abs(uv.y - (floor(uv.y * coils + t * speed) + 0.5) / coils);
 
           float rung = smoothstep(0.003, 0.0, rungDist) * rungInside;
 

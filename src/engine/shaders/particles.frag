@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float count;
+uniform float size;
+uniform float spread;
 
 varying vec2 vUv;
 
@@ -32,16 +35,18 @@ void main() {
   for (int layer = 0; layer < 2; layer++) {
     float fl = float(layer);
     float speed = 1.0 + fl * 0.5 + uBass * 2.0;
-    float size = 0.008 + fl * 0.004 - uBeat * 0.003;
+    // Guard: beat shrink must not push small sizes negative (pow(neg) = NaN)
+    float pSize = max(size + fl * 0.004 - uBeat * 0.003, 0.001);
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 40; i++) {
+      if (float(i) >= count) break;
       float fi = float(i) + fl * 40.0;
       float seed = fi * 0.1 + fl * 100.0;
 
       // Particle position — spiral outward from center
       float angle = hash1(seed) * PI * 2.0 + t * (0.5 + hash1(seed + 1.0)) * speed;
       float radius = hash1(seed + 2.0) * 0.8 + t * hash1(seed + 3.0) * 0.3;
-      radius = fract(radius) * (0.6 + uEnergy * 0.4);
+      radius = fract(radius) * (spread + uEnergy * 0.4);
 
       // Add explosion on beat
       float beatOffset = uBeat * hash1(seed + 4.0) * 0.5;
@@ -51,7 +56,7 @@ void main() {
 
       // Particle glow
       float d = length(uv - pos);
-      float glow = size / (d + 0.001);
+      float glow = pSize / (d + 0.001);
       glow = pow(glow, 1.5);
       glow = min(glow, 2.0);
 

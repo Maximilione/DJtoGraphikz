@@ -1,9 +1,13 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import type { Engine, EffectId, PostId } from '@engine/Engine'
-import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import React, { useState } from 'react'
+import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 
+// The AutoVJ instance lives in App (shared with Simple mode); this panel is just its Pro-view controls.
 interface AutoVJPanelProps {
-  engine: Engine | null
+  vjEnabled: boolean
+  vjGenre: Genre
+  vjStatus: { current: string; count: number }
+  onToggle: (on: boolean) => void
+  onGenre: (g: Genre) => void
 }
 
 const GENRES: { id: Genre; label: string; desc: string }[] = [
@@ -17,86 +21,9 @@ const GENRES: { id: Genre; label: string; desc: string }[] = [
   { id: 'gabber', label: 'Gabber', desc: 'Maximum chaos, glitch, fast' },
 ]
 
-export function AutoVJPanel({ engine }: AutoVJPanelProps) {
+export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
-  const [enabled, setEnabled] = useState(false)
-  const [genre, setGenre] = useState<Genre>('acid-techno')
-  const [currentEffect, setCurrentEffect] = useState<string>('')
-  const [switchCount, setSwitchCount] = useState(0)
-  const autoVJRef = useRef<AutoVJ | null>(null)
-  const enabledRef = useRef(false)
-
-  // Initialize AutoVJ
-  useEffect(() => {
-    const vj = new AutoVJ()
-    autoVJRef.current = vj
-    return () => { autoVJRef.current = null }
-  }, [])
-
-  // Wire callbacks when engine changes
-  useEffect(() => {
-    const vj = autoVJRef.current
-    if (!vj || !engine) return
-
-    vj.onEffectChange = (effect: EffectId) => {
-      engine.setEffect(effect)
-      setCurrentEffect(effect)
-      setSwitchCount(prev => prev + 1)
-    }
-
-    vj.onPostChange = (posts: PostId[]) => {
-      // Clear current posts and set new ones
-      const current = engine.getActivePosts()
-      for (const p of current) engine.togglePost(p)
-      for (const p of posts) {
-        if (!engine.isPostActive(p)) engine.togglePost(p)
-      }
-    }
-
-    vj.onPaletteChange = (colors: [string, string, string]) => {
-      engine.setColors(colors[0], colors[1], colors[2])
-    }
-
-    return () => {
-      vj.onEffectChange = null
-      vj.onPostChange = null
-      vj.onPaletteChange = null
-    }
-  }, [engine])
-
-  // Keep ref in sync
-  useEffect(() => { enabledRef.current = enabled }, [enabled])
-
-  // Hook into Engine render loop for accurate beat detection
-  useEffect(() => {
-    if (!engine) return
-
-    engine.onAudioFrame = (beatDetected: boolean, energy: number, bass: number) => {
-      const vj = autoVJRef.current
-      if (!vj || !enabledRef.current) return
-      vj.update(beatDetected, energy, bass)
-    }
-
-    return () => {
-      engine.onAudioFrame = null
-    }
-  }, [engine])
-
-  const toggleEnabled = useCallback(() => {
-    const next = !enabled
-    setEnabled(next)
-    autoVJRef.current?.setEnabled(next)
-    if (next) {
-      setSwitchCount(0)
-    }
-  }, [enabled])
-
-  const changeGenre = useCallback((g: Genre) => {
-    setGenre(g)
-    autoVJRef.current?.setGenre(g)
-  }, [])
-
-  const config = GENRE_CONFIGS[genre]
+  const config = GENRE_CONFIGS[vjGenre]
 
   return (
     <div className="panel">
@@ -108,25 +35,25 @@ export function AutoVJPanel({ engine }: AutoVJPanelProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Enable toggle */}
           <div
-            onClick={toggleEnabled}
+            onClick={() => onToggle(!vjEnabled)}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               padding: '6px 8px', borderRadius: '4px', cursor: 'pointer',
-              background: enabled ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-              border: enabled ? '1px solid var(--accent)' : '1px solid var(--border)',
+              background: vjEnabled ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
+              border: vjEnabled ? '1px solid var(--accent)' : '1px solid var(--border)',
             }}
           >
-            <div className={`toggle${enabled ? ' active' : ''}`} />
+            <div className={`toggle${vjEnabled ? ' active' : ''}`} />
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: '11px', fontWeight: enabled ? 600 : 400,
-                color: enabled ? 'var(--accent)' : 'var(--text-secondary)',
+                fontSize: '11px', fontWeight: vjEnabled ? 600 : 400,
+                color: vjEnabled ? 'var(--accent)' : 'var(--text-secondary)',
               }}>
-                {enabled ? 'Auto VJ Active' : 'Enable Auto VJ'}
+                {vjEnabled ? 'Auto VJ Active' : 'Enable Auto VJ'}
               </div>
-              {enabled && (
+              {vjEnabled && (
                 <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                  {switchCount} switches | current: {currentEffect || '—'}
+                  {vjStatus.count} switches | current: {vjStatus.current || '—'}
                 </div>
               )}
             </div>
@@ -137,11 +64,11 @@ export function AutoVJPanel({ engine }: AutoVJPanelProps) {
             <div style={catLabel}>Genre</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {GENRES.map(g => {
-                const isActive = genre === g.id
+                const isActive = vjGenre === g.id
                 return (
                   <div
                     key={g.id}
-                    onClick={() => changeGenre(g.id)}
+                    onClick={() => onGenre(g.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px',
                       padding: '5px 6px', borderRadius: '4px', cursor: 'pointer',
@@ -175,7 +102,7 @@ export function AutoVJPanel({ engine }: AutoVJPanelProps) {
           {/* Genre info */}
           <details style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
             <summary style={{ cursor: 'pointer', marginBottom: '4px' }}>
-              {GENRE_CONFIGS[genre].label} config
+              {config.label} config
             </summary>
             <div style={{ paddingLeft: '6px', lineHeight: '1.6' }}>
               <div>

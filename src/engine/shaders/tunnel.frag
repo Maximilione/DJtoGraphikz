@@ -10,6 +10,11 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uBeatPhase;
+uniform float uBarPhase;
+uniform float sides;
+uniform float ringdensity;
+uniform float twist;
 
 varying vec2 vUv;
 
@@ -27,7 +32,7 @@ void main() {
 
   // Audio-reactive warp
   float warp = uBass * 0.3 + uBeat * 0.15;
-  uv *= rot(uTime * 0.15 + uMid * 0.5);
+  uv *= rot(uTime * twist + uMid * 0.5);
   uv += vec2(sin(uTime * 0.3) * warp, cos(uTime * 0.4) * warp);
 
   // Polar coordinates
@@ -35,11 +40,13 @@ void main() {
   float a = atan(uv.y, uv.x);
 
   // Infinite tunnel with depth
-  float speed = 2.0 + uBass * 4.0 + uBeat * 3.0;
+  // Anticipation: speed ramps up across the bar and snaps back on the downbeat
+  float build = uBarPhase * uBarPhase;
+  float speed = 2.0 + uBass * 4.0 + uBeat * 3.0 + build * 2.0;
   float depth = 1.0 / (r + 0.05) + uTime * speed;
 
   // Segmented rotation
-  float segments = 6.0 + uMid * 6.0;
+  float segments = sides + uMid * 6.0;
   float segAngle = floor(a / TAU * segments) / segments * TAU;
 
   // Multi-layer pattern
@@ -48,7 +55,7 @@ void main() {
   float p3 = sin(a * segments * 2.0 + depth * 2.0 + uTime) * 0.5 + 0.5;
 
   // Hexagonal rings
-  float rings = abs(sin(depth * 12.0));
+  float rings = abs(sin(depth * ringdensity));
   rings = smoothstep(0.85, 0.95, rings);
 
   // Segment lines (neon grid)
@@ -62,7 +69,7 @@ void main() {
   float fog = exp(-r * 1.5);
 
   // Pulsing glow on beat
-  float pulse = 1.0 + uBeat * 1.5;
+  float pulse = 1.0 + uBeat * 1.5 + build * 0.3;
   float centerGlow = exp(-r * 4.0) * (0.5 + uBeat * 2.0);
 
   // Color cycling — 3 colors that shift with audio

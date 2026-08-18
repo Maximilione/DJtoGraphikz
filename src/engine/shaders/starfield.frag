@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uHighTime;
+uniform float tile;
+uniform float density;
 
 varying vec2 vUv;
 
@@ -32,7 +35,7 @@ void main() {
     float layerSpeed = speed * (1.0 + fl * 0.5);
 
     // Tile the space
-    float scale = 10.0 + fl * 8.0;
+    float scale = tile + fl * 8.0;
     vec2 st = uv * scale;
 
     // Scroll forward (warp speed)
@@ -49,7 +52,7 @@ void main() {
         vec2 id = cellId + neighbor;
 
         float h = hash(vec3(id, fl));
-        if (h > 0.7) { // only some cells have stars
+        if (h > 1.0 - density) { // only some cells have stars
           vec2 starPos = neighbor + vec2(hash(vec3(id + 1.0, fl)), hash(vec3(id + 2.0, fl))) - 0.5 - cellUv;
 
           float d = length(starPos);
@@ -60,7 +63,8 @@ void main() {
           star = min(star, 3.0);
 
           // Twinkle
-          float twinkle = sin(uTime * 2.0 + h * 100.0 + uHigh * 5.0) * 0.3 + 0.7;
+          // uHighTime: hats push the twinkle phase forward
+          float twinkle = sin(uTime * 2.0 + uHighTime * 2.0 + h * 100.0 + uHigh * 5.0) * 0.3 + 0.7;
           star *= twinkle;
 
           // Streak when moving fast

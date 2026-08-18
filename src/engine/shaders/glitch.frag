@@ -10,6 +10,10 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uBassHit;
+uniform float blocks;
+uniform float intensity;
+uniform float fps;
 
 varying vec2 vUv;
 
@@ -32,11 +36,12 @@ void main() {
   vec3 color = vec3(0.0);
 
   // Time quantization — glitch frames
-  float glitchTime = floor(t * 15.0) / 15.0;
-  float glitchIntensity = uBeat * 0.8 + uBass * 0.3;
+  float glitchTime = floor(t * fps) / max(fps, 1.0);
+  // uBassHit: kicks slam in extra glitch on top of the beat envelope
+  float glitchIntensity = (uBeat * 0.8 + uBass * 0.3 + uBassHit * 0.4) * intensity;
 
   // Horizontal displacement blocks
-  float blockY = floor(uv.y * (10.0 + uMid * 20.0));
+  float blockY = floor(uv.y * (blocks + uMid * 20.0));
   float displacement = (hash(vec2(blockY, glitchTime)) - 0.5) * glitchIntensity * 0.2;
 
   // Only displace some blocks

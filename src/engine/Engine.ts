@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
+import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
@@ -34,6 +35,11 @@ import mirrorFrag from './shaders/mirror.frag?raw'
 import invertFrag from './shaders/invert.frag?raw'
 import transitionFrag from './shaders/transition.frag?raw'
 import overlayFrag from './shaders/overlay.frag?raw'
+import bloomPrefilterFrag from './shaders/bloomPrefilter.frag?raw'
+import blurFrag from './shaders/blur.frag?raw'
+import masterFrag from './shaders/master.frag?raw'
+import deckmixFrag from './shaders/deckmix.frag?raw'
+import motionblurFrag from './shaders/motionblur.frag?raw'
 
 const FULLSCREEN_VERT = `
 varying vec2 vUv;
@@ -62,10 +68,16 @@ export interface OverlayItem {
   offsetY: number
   visible: boolean
   gifSync: GifSyncMode
+  /** >0 turns the overlay into a displacement map instead of a layer */
+  displace: number
+  /** Set for video/webcam overlays so the output window can recreate them */
+  source?: { kind: 'video'; path: string } | { kind: 'webcam'; deviceId?: string }
   // Internal — managed by engine
   _texture?: THREE.Texture
   _canvas?: HTMLCanvasElement
   _isGif?: boolean
+  _isVideo?: boolean
+  _video?: HTMLVideoElement
   _gifFrames?: GifFrame[]
   _gifFrameIndex?: number
   _gifLastAdvance?: number
@@ -83,9 +95,23 @@ const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
   'crossfade': 0, 'wipe-left': 1, 'wipe-down': 2, 'radial': 3, 'dissolve': 4,
 }
 
+export type BlendMode = 'mix' | 'add' | 'screen' | 'multiply' | 'difference'
+export const BLEND_MODES: BlendMode[] = ['mix', 'add', 'screen', 'multiply', 'difference']
+
+export interface Grade {
+  contrast: number    // 1 = neutral
+  saturation: number  // 1 = neutral
+  vignette: number    // 0 = off
+  lift: number        // 0 = neutral
+  exposure: number    // 1 = neutral (tone mapping exposure)
+}
+
+const DEFAULT_GRADE: Grade = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
+
 export interface EngineState {
   activeEffect: EffectId
   activePost: PostId[]
+  postAmounts?: Partial<Record<PostId, number>>
   colors: [string, string, string]
   beatPulse: number
   energy: number
@@ -96,6 +122,19 @@ export interface EngineState {
     fromEffect: EffectId
   }
   customShader?: string
+  customParams?: EffectParam[]
+  effectParams?: Record<string, Record<string, ParamState>>
+  /** Param defs of the ACTIVE effect — read-only, for remote UIs */
+  paramDefs?: EffectParam[]
+  // Deck / master
+  deckBEffect?: EffectId
+  crossfade?: number
+  blendMode?: BlendMode
+  brightness?: number
+  blackout?: boolean
+  frozen?: boolean
+  motionBlur?: number
+  grade?: Grade
 }
 
 // Preset system
@@ -104,6 +143,12 @@ export interface Preset {
   effect: EffectId
   post: PostId[]
   colors: [string, string, string]
+  postAmounts?: Partial<Record<PostId, number>>
+  grade?: Grade
+  motionBlur?: number
+  deckBEffect?: EffectId
+  crossfade?: number
+  blendMode?: BlendMode
 }
 
 export interface Playlist {
@@ -152,6 +197,12 @@ export class Engine {
   private rtA: THREE.WebGLRenderTarget
   private rtB: THREE.WebGLRenderTarget
   private rtPrev: THREE.WebGLRenderTarget
+  private rtDeckB: THREE.WebGLRenderTarget
+  private rtFreeze: THREE.WebGLRenderTarget
+  private rtAccum: THREE.WebGLRenderTarget      // motion blur history (ping)
+  private rtAccum2: THREE.WebGLRenderTarget     // motion blur history (pong)
+  private rtBloomA: THREE.WebGLRenderTarget     // half-res bloom buffers
+  private rtBloomB: THREE.WebGLRenderTarget
 
   // Post processing
   private postScene: THREE.Scene
@@ -164,7 +215,41 @@ export class Engine {
   private currentEffect: EffectId = 'tunnel'
   private mainMaterial: THREE.ShaderMaterial
   private postMaterials: Map<PostId, THREE.ShaderMaterial> = new Map()
-  private activePostEffects: Set<PostId> = new Set(['bloom'])
+  /** Ordered post-FX chain — order matters as much as which effects are on */
+  private postChain: { id: PostId; amount: number }[] = [{ id: 'bloom', amount: 1 }]
+
+  // Deck B + crossfader
+  private deckBEffect: EffectId = 'plasma'
+  private deckBMaterial: THREE.ShaderMaterial | null = null
+  private crossfade = 0            // 0 = deck A only, 1 = full B
+  private blendMode: BlendMode = 'mix'
+  private deckMixMaterial!: THREE.ShaderMaterial
+
+  // Master stage (always on)
+  private masterMaterial!: THREE.ShaderMaterial
+  private brightness = 1
+  private blackout = false
+  private frozen = false
+  private freezeRequested = false
+  private grade: Grade = { ...DEFAULT_GRADE }
+
+  // Per-effect parameters (speed/reactivity + custom shader uniforms), audio-mappable
+  private paramState: Record<string, Record<string, ParamState>> = {}
+  private customParamDefs: EffectParam[] = []
+  private usingCustom = false
+  private effectTime = 0     // param-speed-driven clock for effect shaders
+  private audioScale = 1     // reactivity multiplier applied to audio uniforms
+
+  // Motion blur + bloom helpers
+  private motionBlur = 0
+  private motionBlurMaterial!: THREE.ShaderMaterial
+  private bloomPrefilterMaterial!: THREE.ShaderMaterial
+  private blurMaterial!: THREE.ShaderMaterial
+  private bloomResolution = new THREE.Vector2(960, 540)
+
+  // Output resolution drives shader math even when the preview renders smaller
+  private outputWidth = 1920
+  private outputHeight = 1080
 
   private colors: THREE.Color[] = [
     new THREE.Color(DEFAULT_COLORS[0]),
@@ -209,27 +294,56 @@ export class Engine {
   private disposed = false
   private resolution = new THREE.Vector2(1920, 1080)
   private lastIpcTime = 0
+  private lastFrameTime = 0
+
+  // Remote mode: output window — audio arrives via IPC, nothing is sent back
+  private remote: boolean
+  private pendingBeat = false
+  private remoteBpm = 128
 
   // Smoothed audio values for less jitter
   private smoothBass = 0
   private smoothMid = 0
   private smoothHigh = 0
   private smoothEnergy = 0
+  private smoothSub = 0
+  private smoothPresence = 0
   private beatPulse = 0
+  private beatPhase = 0
+  private barPhase = 0
+
+  // Extended vocabulary: per-band onset pulses + gated clocks
+  // (uBassTime advances only while bass is playing — breakdowns freeze it)
+  private bassHit = 0
+  private midHit = 0
+  private highHit = 0
+  private bassTime = 0
+  private highTime = 0
 
   // State change callback (for syncing to output window)
   public onStateChange: ((state: EngineState) => void) | null = null
 
-  // Per-frame audio callback (for AutoVJ — called inside render loop with fresh beat data)
-  public onAudioFrame: ((beatDetected: boolean, energy: number, bass: number) => void) | null = null
+  // Per-frame audio listeners (AutoVJ, playlist beat-advance — fresh beat data, one call per frame)
+  private audioFrameListeners = new Set<(beatDetected: boolean, energy: number, bass: number, barPhase: number) => void>()
 
-  constructor(private canvas: HTMLCanvasElement) {
+  /** Subscribe to per-frame audio. Returns an unsubscribe function. */
+  onAudioFrame(fn: (beatDetected: boolean, energy: number, bass: number, barPhase: number) => void): () => void {
+    this.audioFrameListeners.add(fn)
+    return () => { this.audioFrameListeners.delete(fn) }
+  }
+
+  constructor(private canvas: HTMLCanvasElement, options: { remote?: boolean } = {}) {
+    this.remote = !!options.remote
     this.audioAnalyzer = new AudioAnalyzer()
     this.clock = new THREE.Clock()
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false })
     this.renderer.setPixelRatio(1)
     this.renderer.autoClear = false
+    // Filmic tone mapping + sRGB output: saturated neons stop clipping to white on a projector
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = this.grade.exposure
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
     const geom = new THREE.PlaneGeometry(2, 2)
@@ -257,7 +371,7 @@ export class Engine {
     })
 
     // Render targets
-    const opts: THREE.WebGLRenderTargetOptions = {
+    const opts: THREE.RenderTargetOptions = {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
@@ -266,6 +380,60 @@ export class Engine {
     this.rtB = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtPrev = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtTransition = new THREE.WebGLRenderTarget(1920, 1080, opts)
+    this.rtDeckB = new THREE.WebGLRenderTarget(1920, 1080, opts)
+    this.rtFreeze = new THREE.WebGLRenderTarget(1920, 1080, opts)
+    this.rtAccum = new THREE.WebGLRenderTarget(1920, 1080, opts)
+    this.rtAccum2 = new THREE.WebGLRenderTarget(1920, 1080, opts)
+    this.rtBloomA = new THREE.WebGLRenderTarget(960, 540, opts)
+    this.rtBloomB = new THREE.WebGLRenderTarget(960, 540, opts)
+
+    // Deck crossfader
+    this.deckMixMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: deckmixFrag,
+      uniforms: {
+        tDeckA: { value: null }, tDeckB: { value: null },
+        uMix: { value: 0 }, uBlend: { value: 0 },
+      }
+    })
+
+    // Master grade (always the last pass)
+    this.masterMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: masterFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uBrightness: { value: 1 },
+        uContrast: { value: this.grade.contrast },
+        uSaturation: { value: this.grade.saturation },
+        uVignette: { value: this.grade.vignette },
+        uLift: { value: this.grade.lift },
+      }
+    })
+
+    // Temporal motion blur
+    this.motionBlurMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: motionblurFrag,
+      uniforms: { tDiffuse: { value: null }, tPrev: { value: null }, uAmount: { value: 0 } }
+    })
+
+    // Bloom: threshold prefilter + separable blur at half resolution
+    this.bloomPrefilterMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: bloomPrefilterFrag,
+      uniforms: { tDiffuse: { value: null }, uThreshold: { value: 0.55 }, uKnee: { value: 0.25 } }
+    })
+    this.blurMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: blurFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uDirection: { value: new THREE.Vector2(1, 0) },
+        uResolution: { value: this.bloomResolution },
+        uRadius: { value: 1.5 },
+      }
+    })
 
     // Transition material
     this.transitionMaterial = new THREE.ShaderMaterial({
@@ -290,6 +458,7 @@ export class Engine {
         uOpacity: { value: 1.0 },
         uOverlayScale: { value: new THREE.Vector2(1, 1) },
         uOverlayOffset: { value: new THREE.Vector2(0, 0) },
+        uDisplace: { value: 0 },
       }
     })
 
@@ -301,15 +470,47 @@ export class Engine {
   }
 
   private handleResize = () => {
+    if (this.remote) {
+      this.renderer.setSize(window.innerWidth, window.innerHeight)
+      this.setRenderSize(this.outputWidth, this.outputHeight)
+      return
+    }
     const parent = this.canvas.parentElement
     if (!parent) return
-    const w = parent.clientWidth
-    const h = parent.clientHeight
-    this.renderer.setSize(w, h)
+    this.renderer.setSize(parent.clientWidth, parent.clientHeight)
+    // Preview keeps the OUTPUT resolution in uResolution, so what you see on the
+    // preview is the same framing/scale that goes to the projector.
+    this.setRenderSize(this.outputWidth, this.outputHeight)
+  }
+
+  /**
+   * Set the output resolution. `uResolution` always reports this value so shader
+   * scale matches the projector; the buffers themselves are capped in preview.
+   */
+  setRenderSize(w: number, h: number) {
+    this.outputWidth = w
+    this.outputHeight = h
     this.resolution.set(w, h)
+
+    // Preview renders at most 1080p worth of pixels — same look, less GPU
+    const cap = this.remote ? 3840 : 1920
+    const scale = Math.min(1, cap / w)
+    const bw = Math.max(2, Math.round(w * scale))
+    const bh = Math.max(2, Math.round(h * scale))
+
+    for (const rt of [this.rtA, this.rtB, this.rtPrev, this.rtTransition, this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2]) {
+      rt.setSize(bw, bh)
+    }
+    this.rtBloomA.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
+    this.rtBloomB.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
+    this.bloomResolution.set(bw >> 1, bh >> 1)
   }
 
   private createEffectMaterial(id: EffectId): THREE.ShaderMaterial {
+    // Curated per-effect uniforms start at their defaults; the render loop
+    // drives the ACTIVE effect's ones from param state every frame
+    const paramUniforms: Record<string, THREE.IUniform> = {}
+    for (const d of EFFECT_PARAMS[id] ?? []) paramUniforms[d.key] = { value: d.default }
     return new THREE.ShaderMaterial({
       vertexShader: FULLSCREEN_VERT,
       fragmentShader: EFFECT_SHADERS[id],
@@ -320,10 +521,20 @@ export class Engine {
         uHigh: { value: 0 },
         uEnergy: { value: 0 },
         uBeat: { value: 0 },
+        uBeatPhase: { value: 0 },
+        uBarPhase: { value: 0 },
+        uSub: { value: 0 },
+        uPresence: { value: 0 },
+        uBassHit: { value: 0 },
+        uMidHit: { value: 0 },
+        uHighHit: { value: 0 },
+        uBassTime: { value: 0 },
+        uHighTime: { value: 0 },
         uColor1: { value: this.colors[0] },
         uColor2: { value: this.colors[1] },
         uColor3: { value: this.colors[2] },
         uResolution: { value: this.resolution },
+        ...paramUniforms,
       }
     })
   }
@@ -334,9 +545,10 @@ export class Engine {
       fragmentShader: bloomFrag,
       uniforms: {
         tDiffuse: { value: null },
-        uStrength: { value: 1.0 },
+        tBloom: { value: null },
+        uStrength: { value: 1.4 },
         uEnergy: { value: 0 },
-        uResolution: { value: this.resolution },
+        uWet: { value: 1 },
       }
     }))
 
@@ -345,6 +557,7 @@ export class Engine {
       fragmentShader: rgbsplitFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
         uAmount: { value: 0.003 },
         uAngle: { value: 0.0 },
         uBass: { value: 0 },
@@ -357,6 +570,7 @@ export class Engine {
       fragmentShader: chromaticFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
         uStrength: { value: 0.008 },
         uBass: { value: 0 },
         uBeat: { value: 0 },
@@ -369,11 +583,14 @@ export class Engine {
       fragmentShader: feedbackFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
         tPrevFrame: { value: this.rtPrev.texture },
         uDecay: { value: 0.9 },
         uZoom: { value: 0.003 },
         uRotation: { value: 0.2 },
         uBass: { value: 0 },
+        uTime: { value: 0 },
+        uWarp: { value: 0.6 },
       }
     }))
 
@@ -382,6 +599,7 @@ export class Engine {
       fragmentShader: filmgrainFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
         uTime: { value: 0 },
         uEnergy: { value: 0 },
         uResolution: { value: this.resolution },
@@ -393,6 +611,7 @@ export class Engine {
       fragmentShader: scanlinesFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
         uTime: { value: 0 },
         uEnergy: { value: 0 },
         uResolution: { value: this.resolution },
@@ -404,6 +623,7 @@ export class Engine {
       fragmentShader: pixelateFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
         uEnergy: { value: 0 },
         uResolution: { value: this.resolution },
       }
@@ -414,6 +634,7 @@ export class Engine {
       fragmentShader: mirrorFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
       }
     }))
 
@@ -422,6 +643,7 @@ export class Engine {
       fragmentShader: invertFrag,
       uniforms: {
         tDiffuse: { value: null },
+        uWet: { value: 1 },
       }
     }))
   }
@@ -429,6 +651,12 @@ export class Engine {
   // ---- Public API ----
 
   setEffect(id: EffectId) {
+    if (this.usingCustom) {
+      // leave custom-shader mode: rebuild the stock material even for the same id
+      this.usingCustom = false
+      this.startTransition(id)
+      return
+    }
     if (id === this.currentEffect && this.transitionProgress < 0) return
 
     // If beat-sync is on and no beat right now, queue the transition
@@ -476,16 +704,7 @@ export class Engine {
     // Emit state with transition info for output window
     if (this.onStateChange) {
       this.onStateChange({
-        activeEffect: id,
-        activePost: Array.from(this.activePostEffects),
-        colors: [
-          '#' + this.colors[0].getHexString(),
-          '#' + this.colors[1].getHexString(),
-          '#' + this.colors[2].getHexString(),
-        ],
-        beatPulse: this.beatPulse,
-        energy: this.smoothEnergy,
-        bpm: this.audioAnalyzer.getData().bpm,
+        ...this.stateSnapshot(),
         transition: {
           type: this.transitionType,
           duration: this.transitionDuration,
@@ -497,30 +716,84 @@ export class Engine {
 
   // ---- Custom Shader API ----
 
-  /** Load a custom GLSL fragment shader as the active effect */
-  setCustomShader(fragSource: string): boolean {
+  private lastShaderError: string | null = null
+  getLastShaderError(): string | null { return this.lastShaderError }
+
+  /**
+   * Compile the material through three.js BEFORE swapping it in — three
+   * compiles lazily at first render (with its own GLSL ES 3.0 prelude, so a
+   * raw standalone compile is not representative), and a broken shader would
+   * spam "useProgram: program not valid" every frame instead of failing here.
+   * One throwaway render into a small RT + debug.onShaderError catches it.
+   */
+  private validateMaterial(mat: THREE.ShaderMaterial): string | null {
+    let error: string | null = null
+    const prevHandler = this.renderer.debug.onShaderError
+    this.renderer.debug.onShaderError = (gl, _program, _vs, fs) => {
+      error = (gl.getShaderInfoLog(fs) || 'unknown GLSL error').trim()
+    }
+    const prevMat = this.quad.material
+    this.quad.material = mat
     try {
+      this.renderer.setRenderTarget(this.rtBloomB)
+      this.renderer.render(this.scene, this.camera)
+    } catch (e: any) {
+      error = error || e.message
+    } finally {
+      this.renderer.setRenderTarget(null)
+      this.quad.material = prevMat
+      this.renderer.debug.onShaderError = prevHandler
+    }
+    return error
+  }
+
+  /** Load a custom GLSL fragment shader as the active effect */
+  setCustomShader(fragSource: string, params?: EffectParam[]): boolean {
+    try {
+      const defs = params ?? this.customParamDefs
+      const uniforms: Record<string, THREE.IUniform> = {
+        uTime: { value: 0 },
+        uBass: { value: 0 },
+        uMid: { value: 0 },
+        uHigh: { value: 0 },
+        uEnergy: { value: 0 },
+        uBeat: { value: 0 },
+        uBeatPhase: { value: 0 },
+        uBarPhase: { value: 0 },
+        uSub: { value: 0 },
+        uPresence: { value: 0 },
+        uBassHit: { value: 0 },
+        uMidHit: { value: 0 },
+        uHighHit: { value: 0 },
+        uBassTime: { value: 0 },
+        uHighTime: { value: 0 },
+        uColor1: { value: this.colors[0] },
+        uColor2: { value: this.colors[1] },
+        uColor3: { value: this.colors[2] },
+        uResolution: { value: this.resolution },
+      }
+      // Custom shader params (e.g. from ISF INPUTS) become uniforms driven per-frame
+      for (const d of defs) uniforms[d.key] = { value: d.default }
       const mat = new THREE.ShaderMaterial({
         vertexShader: FULLSCREEN_VERT,
         fragmentShader: fragSource,
-        uniforms: {
-          uTime: { value: 0 },
-          uBass: { value: 0 },
-          uMid: { value: 0 },
-          uHigh: { value: 0 },
-          uEnergy: { value: 0 },
-          uBeat: { value: 0 },
-          uColor1: { value: this.colors[0] },
-          uColor2: { value: this.colors[1] },
-          uColor3: { value: this.colors[2] },
-          uResolution: { value: this.resolution },
-        }
+        uniforms,
       })
+
+      this.lastShaderError = this.validateMaterial(mat)
+      if (this.lastShaderError) {
+        console.error('[Engine] Custom shader rejected:', this.lastShaderError)
+        mat.dispose()
+        return false
+      }
+
       // Cancel any in-progress transition
       this.cancelCurrentTransition()
       this.mainMaterial.dispose()
       this.mainMaterial = mat
       this.quad.material = this.mainMaterial
+      this.customParamDefs = defs
+      this.usingCustom = true
       return true
     } catch (e) {
       console.error('[Engine] Custom shader compile error:', e)
@@ -531,19 +804,7 @@ export class Engine {
   /** Send custom shader to output window via IPC */
   sendCustomShaderToOutput(fragSource: string) {
     try {
-      window.api?.sendEngineState({
-        activeEffect: this.currentEffect,
-        activePost: Array.from(this.activePostEffects),
-        colors: [
-          '#' + this.colors[0].getHexString(),
-          '#' + this.colors[1].getHexString(),
-          '#' + this.colors[2].getHexString(),
-        ],
-        beatPulse: this.beatPulse,
-        energy: this.smoothEnergy,
-        bpm: this.audioAnalyzer.getData().bpm,
-        customShader: fragSource,
-      })
+      window.api?.sendEngineState({ ...this.stateSnapshot(), customShader: fragSource, customParams: this.customParamDefs })
     } catch (_) {}
   }
 
@@ -563,16 +824,220 @@ export class Engine {
   }
 
   togglePost(id: PostId) {
-    if (this.activePostEffects.has(id)) {
-      this.activePostEffects.delete(id)
-    } else {
-      this.activePostEffects.add(id)
-    }
+    const idx = this.postChain.findIndex(p => p.id === id)
+    if (idx >= 0) this.postChain.splice(idx, 1)
+    else this.postChain.push({ id, amount: 1 })
     this.emitState()
   }
 
   isPostActive(id: PostId): boolean {
-    return this.activePostEffects.has(id)
+    return this.postChain.some(p => p.id === id)
+  }
+
+  /** Replace the whole post-FX chain in one shot (order is preserved) */
+  setActivePosts(ids: PostId[], amounts?: Partial<Record<PostId, number>>) {
+    this.postChain = ids
+      .filter(id => this.postMaterials.has(id))
+      .map(id => ({ id, amount: amounts?.[id] ?? 1 }))
+    this.emitState()
+  }
+
+  /** Wet/dry per post effect (0..1) */
+  setPostAmount(id: PostId, amount: number) {
+    const entry = this.postChain.find(p => p.id === id)
+    if (!entry) return
+    entry.amount = Math.max(0, Math.min(1, amount))
+    this.emitState()
+  }
+
+  getPostAmount(id: PostId): number {
+    return this.postChain.find(p => p.id === id)?.amount ?? 1
+  }
+
+  /** Move an effect up (-1) or down (+1) in the chain — order changes the look a lot */
+  movePost(id: PostId, delta: number) {
+    const idx = this.postChain.findIndex(p => p.id === id)
+    const next = idx + delta
+    if (idx < 0 || next < 0 || next >= this.postChain.length) return
+    const [entry] = this.postChain.splice(idx, 1)
+    this.postChain.splice(next, 0, entry)
+    this.emitState()
+  }
+
+  getPostChain(): { id: PostId; amount: number }[] {
+    return this.postChain.map(p => ({ ...p }))
+  }
+
+  // ---- Per-effect parameters ----
+
+  /** Params of the ACTIVE effect: common engine params + curated/custom uniforms */
+  getParamDefs(): EffectParam[] {
+    return this.usingCustom
+      ? [...COMMON_PARAMS, ...this.customParamDefs]
+      : [...COMMON_PARAMS, ...(EFFECT_PARAMS[this.currentEffect] ?? [])]
+  }
+
+  isUsingCustomShader(): boolean { return this.usingCustom }
+
+  private paramBucket(): Record<string, ParamState> {
+    const key = this.usingCustom ? '__custom__' : this.currentEffect
+    if (!this.paramState[key]) this.paramState[key] = {}
+    return this.paramState[key]
+  }
+
+  getParamState(key: string): ParamState {
+    const bucket = this.paramBucket()
+    if (!bucket[key]) {
+      const def = this.getParamDefs().find(d => d.key === key)
+      bucket[key] = { value: def?.default ?? 0, source: 'none', depth: 0.5 }
+    }
+    return bucket[key]
+  }
+
+  setParamValue(key: string, value: number) {
+    const def = this.getParamDefs().find(d => d.key === key)
+    if (!def) return
+    this.getParamState(key).value = Math.max(def.min, Math.min(def.max, value))
+    this.emitState()
+  }
+
+  setParamMapping(key: string, source: AudioSource, depth: number) {
+    const st = this.getParamState(key)
+    st.source = source
+    st.depth = Math.max(-1, Math.min(1, depth))
+    this.emitState()
+  }
+
+  /** Live param value: slider base + audio modulation over the full range */
+  private effParamValue(def: EffectParam): number {
+    const st = this.paramBucket()[def.key]
+    const base = st?.value ?? def.default
+    if (!st || st.source === 'none' || st.depth === 0) return base
+    const audio: Record<Exclude<AudioSource, 'none'>, number> = {
+      bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh,
+      energy: this.smoothEnergy, beat: this.beatPulse,
+    }
+    const v = base + audio[st.source as Exclude<AudioSource, 'none'>] * st.depth * (def.max - def.min)
+    return Math.max(def.min, Math.min(def.max, v))
+  }
+
+  // ---- Deck B / crossfader ----
+
+  setDeckBEffect(id: EffectId) {
+    this.deckBEffect = id
+    this.deckBMaterial?.dispose()
+    this.deckBMaterial = this.createEffectMaterial(id)
+    this.emitState()
+  }
+  getDeckBEffect(): EffectId { return this.deckBEffect }
+
+  setCrossfade(v: number) {
+    this.crossfade = Math.max(0, Math.min(1, v))
+    if (this.crossfade > 0 && !this.deckBMaterial) {
+      this.deckBMaterial = this.createEffectMaterial(this.deckBEffect)
+    }
+    this.emitState()
+  }
+  getCrossfade(): number { return this.crossfade }
+
+  setBlendMode(mode: BlendMode) { this.blendMode = mode; this.emitState() }
+  getBlendMode(): BlendMode { return this.blendMode }
+
+  // ---- Master ----
+
+  setBrightness(v: number) { this.brightness = Math.max(0, Math.min(1, v)); this.emitState() }
+  getBrightness(): number { return this.brightness }
+
+  setBlackout(on: boolean) { this.blackout = on; this.emitState() }
+  isBlackout(): boolean { return this.blackout }
+
+  setFreeze(on: boolean) {
+    if (on && !this.frozen) this.freezeRequested = true
+    this.frozen = on
+    this.emitState()
+  }
+  isFrozen(): boolean { return this.frozen }
+
+  setMotionBlur(v: number) { this.motionBlur = Math.max(0, Math.min(0.95, v)); this.emitState() }
+  getMotionBlur(): number { return this.motionBlur }
+
+  setGrade(grade: Partial<Grade>) {
+    this.grade = { ...this.grade, ...grade }
+    const u = this.masterMaterial.uniforms
+    u.uContrast.value = this.grade.contrast
+    u.uSaturation.value = this.grade.saturation
+    u.uVignette.value = this.grade.vignette
+    u.uLift.value = this.grade.lift
+    this.renderer.toneMappingExposure = this.grade.exposure
+    this.emitState()
+  }
+  getGrade(): Grade { return { ...this.grade } }
+
+  /** Restore a saved settings snapshot (same shape as EngineState). */
+  applySettings(state: Partial<EngineState>) {
+    const duration = this.transitionDuration
+    this.transitionDuration = 0 // switch instantly while restoring
+    if (state.activeEffect) this.setEffect(state.activeEffect)
+    if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
+    if (state.colors) {
+      this.setColors(state.colors[0], state.colors[1], state.colors[2])
+      // jump, don't lerp, on boot
+      for (let i = 0; i < 3; i++) this.colors[i].copy(this.targetColors[i])
+    }
+    if (state.deckBEffect) this.setDeckBEffect(state.deckBEffect)
+    if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
+    if (state.blendMode) this.blendMode = state.blendMode
+    if (typeof state.brightness === 'number') this.brightness = state.brightness
+    if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
+    if (state.grade) this.setGrade(state.grade)
+    if (state.effectParams) this.paramState = state.effectParams
+    // blackout/frozen are deliberately NOT restored — booting into a black
+    // screen looks like a crash
+    this.transitionDuration = duration
+  }
+
+  // ---- Remote (output window) API ----
+
+  /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
+  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number }) {
+    this.smoothBass = data.bass || 0
+    this.smoothMid = data.mid || 0
+    this.smoothHigh = data.high || 0
+    this.smoothEnergy = data.energy || 0
+    this.smoothSub = data.sub || 0
+    this.smoothPresence = data.presence || 0
+    this.bassHit = data.bassHit || 0
+    this.midHit = data.midHit || 0
+    this.highHit = data.highHit || 0
+    this.beatPulse = data.beatPulse || 0
+    this.remoteBpm = data.bpm || 128
+    this.beatPhase = data.beatPhase || 0
+    this.barPhase = data.barPhase || 0
+    if (data.beatDetected) this.pendingBeat = true
+  }
+
+  /** Apply engine state received over IPC (output window) */
+  applyRemoteState(state: EngineState) {
+    if (state.effectParams) this.paramState = state.effectParams
+    if (state.customShader) {
+      this.setCustomShader(state.customShader, state.customParams || [])
+      return
+    }
+    // Transition params always come from the control window
+    if (state.transition) this.transitionType = state.transition.type
+    this.transitionDuration = state.transition ? state.transition.duration : 0
+    if (state.activeEffect) this.setEffect(state.activeEffect)
+    if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
+    if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
+
+    if (state.deckBEffect && state.deckBEffect !== this.deckBEffect) this.setDeckBEffect(state.deckBEffect)
+    if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
+    if (state.blendMode) this.blendMode = state.blendMode
+    if (typeof state.brightness === 'number') this.brightness = state.brightness
+    if (typeof state.blackout === 'boolean') this.blackout = state.blackout
+    if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
+    if (typeof state.frozen === 'boolean' && state.frozen !== this.frozen) this.setFreeze(state.frozen)
+    if (state.grade) this.setGrade(state.grade)
   }
 
   setColors(c1: string, c2: string, c3: string) {
@@ -643,8 +1108,8 @@ export class Engine {
 
   // ---- Overlay API ----
 
-  async addOverlay(name: string, dataUrl: string): Promise<OverlayItem> {
-    const id = `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+  async addOverlay(name: string, dataUrl: string, existingId?: string): Promise<OverlayItem> {
+    const id = existingId || `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const isGif = dataUrl.includes('image/gif')
 
     const canvas = document.createElement('canvas')
@@ -690,6 +1155,7 @@ export class Engine {
       offsetY: 0,
       visible: true,
       gifSync: 'beat',
+      displace: 0,
       _texture: texture,
       _canvas: canvas,
       _isGif: isGif,
@@ -701,13 +1167,72 @@ export class Engine {
     this.overlays.push(overlay)
 
     // Sync to output window
-    try {
-      window.api?.sendOverlayAdd({
-        id, name, dataUrl, opacity: overlay.opacity,
-        scale: overlay.scale, offsetX: overlay.offsetX, offsetY: overlay.offsetY,
-        visible: overlay.visible,
+    if (!this.remote) {
+      try {
+        window.api?.sendOverlayAdd({
+          id, name, dataUrl, opacity: overlay.opacity,
+          scale: overlay.scale, offsetX: overlay.offsetX, offsetY: overlay.offsetY,
+          visible: overlay.visible, gifSync: overlay.gifSync, displace: overlay.displace,
+        })
+      } catch (_) {}
+    }
+
+    return overlay
+  }
+
+  /**
+   * Add a video file or webcam as an overlay layer. Both windows create their
+   * own element from the same source descriptor — no giant blobs over IPC.
+   */
+  async addVideoOverlay(
+    name: string,
+    source: { kind: 'video'; path: string } | { kind: 'webcam'; deviceId?: string },
+    existingId?: string
+  ): Promise<OverlayItem> {
+    const id = existingId || `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.loop = true
+
+    if (source.kind === 'webcam') {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: source.deviceId ? { deviceId: { exact: source.deviceId } } : true,
+        audio: false,
       })
-    } catch (_) {}
+      video.srcObject = stream
+    } else {
+      const bytes: ArrayBuffer = await window.api.readFile(source.path)
+      const blob = new Blob([bytes])
+      video.src = URL.createObjectURL(blob)
+    }
+
+    await video.play().catch(err => console.error('[Engine] video play failed:', err))
+
+    const texture = new THREE.VideoTexture(video)
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+
+    const overlay: OverlayItem = {
+      id, name, dataUrl: '',
+      opacity: 1.0, scale: 1.0, offsetX: 0, offsetY: 0,
+      visible: true, gifSync: 'free', displace: 0,
+      source,
+      _texture: texture,
+      _isVideo: true,
+      _video: video,
+    }
+    this.overlays.push(overlay)
+
+    if (!this.remote) {
+      try {
+        window.api?.sendOverlayAdd({
+          id, name, dataUrl: '', opacity: overlay.opacity, scale: overlay.scale,
+          offsetX: overlay.offsetX, offsetY: overlay.offsetY, visible: overlay.visible,
+          gifSync: overlay.gifSync, displace: overlay.displace, source,
+        })
+      } catch (_) {}
+    }
 
     return overlay
   }
@@ -716,9 +1241,10 @@ export class Engine {
     const idx = this.overlays.findIndex(o => o.id === id)
     if (idx >= 0) {
       const overlay = this.overlays[idx]
+      overlay._video?.pause()
       overlay._texture?.dispose()
       this.overlays.splice(idx, 1)
-      try { window.api?.sendOverlayRemove(id) } catch (_) {}
+      if (!this.remote) { try { window.api?.sendOverlayRemove(id) } catch (_) {} }
     }
   }
 
@@ -726,11 +1252,11 @@ export class Engine {
     return this.overlays
   }
 
-  updateOverlay(id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync'>>) {
+  updateOverlay(id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace'>>) {
     const overlay = this.overlays.find(o => o.id === id)
     if (overlay) {
       Object.assign(overlay, updates)
-      try { window.api?.sendOverlayUpdate(id, updates) } catch (_) {}
+      if (!this.remote) { try { window.api?.sendOverlayUpdate(id, updates) } catch (_) {} }
     }
   }
 
@@ -738,47 +1264,52 @@ export class Engine {
   addEffect(id: string) {
     if (id in EFFECT_SHADERS) {
       this.setEffect(id as EffectId)
-    } else {
-      const postId = id as PostId
-      if (this.postMaterials.has(postId) && !this.activePostEffects.has(postId)) {
-        this.activePostEffects.add(postId)
-        this.emitState()
-      }
+    } else if (this.postMaterials.has(id as PostId) && !this.isPostActive(id as PostId)) {
+      this.togglePost(id as PostId)
     }
   }
 
   removeEffect(id: string) {
-    const postId = id as PostId
-    if (this.activePostEffects.has(postId)) {
-      this.activePostEffects.delete(postId)
-      this.emitState()
-    }
+    if (this.isPostActive(id as PostId)) this.togglePost(id as PostId)
   }
 
   // ---- Preset & Playlist API ----
 
   createPreset(name: string): Preset {
+    const amounts: Partial<Record<PostId, number>> = {}
+    for (const p of this.postChain) amounts[p.id] = p.amount
     return {
       name,
       effect: this.currentEffect,
-      post: Array.from(this.activePostEffects),
+      post: this.postChain.map(p => p.id),
+      postAmounts: amounts,
       colors: [
         '#' + this.colors[0].getHexString(),
         '#' + this.colors[1].getHexString(),
         '#' + this.colors[2].getHexString(),
       ],
+      grade: { ...this.grade },
+      motionBlur: this.motionBlur,
+      deckBEffect: this.deckBEffect,
+      crossfade: this.crossfade,
+      blendMode: this.blendMode,
     }
   }
 
   applyPreset(preset: Preset) {
     // Batch: update post and colors without emitting state individually
-    this.activePostEffects.clear()
-    for (const p of preset.post) {
-      if (this.postMaterials.has(p)) this.activePostEffects.add(p)
-    }
+    this.postChain = preset.post
+      .filter(p => this.postMaterials.has(p))
+      .map(p => ({ id: p, amount: preset.postAmounts?.[p] ?? 1 }))
     this.targetColors[0].set(preset.colors[0])
     this.targetColors[1].set(preset.colors[1])
     this.targetColors[2].set(preset.colors[2])
+
+    if (preset.grade) this.setGrade(preset.grade)
+    if (typeof preset.motionBlur === 'number') this.motionBlur = preset.motionBlur
+    if (preset.deckBEffect && preset.deckBEffect !== this.deckBEffect) this.setDeckBEffect(preset.deckBEffect)
+    if (typeof preset.crossfade === 'number') this.setCrossfade(preset.crossfade)
+    if (preset.blendMode) this.blendMode = preset.blendMode
 
     // setEffect handles its own emitState (with transition info)
     // If same effect, just emit state for the post/color changes
@@ -790,7 +1321,7 @@ export class Engine {
   }
 
   getCurrentEffect(): EffectId { return this.currentEffect }
-  getActivePosts(): PostId[] { return Array.from(this.activePostEffects) }
+  getActivePosts(): PostId[] { return this.postChain.map(p => p.id) }
   getCurrentColors(): [string, string, string] {
     return [
       '#' + this.colors[0].getHexString(),
@@ -799,24 +1330,39 @@ export class Engine {
     ]
   }
 
-  private emitState() {
-    if (!this.onStateChange) return
-    this.onStateChange({
+  /** Full state for the output window — one place, so nothing drifts out of sync */
+  private stateSnapshot(): EngineState {
+    const amounts: Partial<Record<PostId, number>> = {}
+    for (const p of this.postChain) amounts[p.id] = p.amount
+    return {
       activeEffect: this.currentEffect,
-      activePost: Array.from(this.activePostEffects),
-      colors: [
-        '#' + this.colors[0].getHexString(),
-        '#' + this.colors[1].getHexString(),
-        '#' + this.colors[2].getHexString(),
-      ],
+      activePost: this.postChain.map(p => p.id),
+      postAmounts: amounts,
+      colors: this.getCurrentColors(),
       beatPulse: this.beatPulse,
       energy: this.smoothEnergy,
       bpm: this.audioAnalyzer.getData().bpm,
-    })
+      deckBEffect: this.deckBEffect,
+      crossfade: this.crossfade,
+      blendMode: this.blendMode,
+      brightness: this.brightness,
+      blackout: this.blackout,
+      frozen: this.frozen,
+      motionBlur: this.motionBlur,
+      grade: { ...this.grade },
+      effectParams: this.paramState,
+      paramDefs: this.getParamDefs(),
+    }
+  }
+
+  private emitState() {
+    if (this.remote || !this.onStateChange) return
+    this.onStateChange(this.stateSnapshot())
   }
 
   start() {
     this.clock.start()
+    this.lastFrameTime = 0
     this.loop()
   }
 
@@ -824,26 +1370,58 @@ export class Engine {
     if (this.disposed) return
 
     const time = this.clock.getElapsedTime()
-    const audio = this.audioAnalyzer.update()
+    // Frame delta from elapsed time — clock.getDelta() is consumed by getElapsedTime()
+    const dt = Math.min(time - this.lastFrameTime, 0.25)
+    this.lastFrameTime = time
 
-    // Smooth audio values
-    const lerp = 0.25
-    this.smoothBass += (audio.bass - this.smoothBass) * lerp
-    this.smoothMid += (audio.mid - this.smoothMid) * lerp
-    this.smoothHigh += (audio.high - this.smoothHigh) * lerp
-    this.smoothEnergy += (audio.energy - this.smoothEnergy) * lerp
+    let beatDetected: boolean
+    let bpm: number
 
-    // Beat pulse with decay
-    if (audio.beatDetected) this.beatPulse = 1.0
-    this.beatPulse *= 0.88
+    if (this.remote) {
+      // Audio pushed over IPC; latched beat is consumed once
+      beatDetected = this.pendingBeat
+      this.pendingBeat = false
+      bpm = this.remoteBpm
+    } else {
+      const audio = this.audioAnalyzer.update()
+      beatDetected = audio.beatDetected
+      bpm = audio.bpm
+      this.beatPhase = audio.beatPhase
+      this.barPhase = audio.barPhase
 
-    // AutoVJ hook — called every frame with fresh audio data
-    if (this.onAudioFrame) {
-      this.onAudioFrame(audio.beatDetected, this.smoothEnergy, this.smoothBass)
+      // Envelope follower: fast attack, slow release. Transients stay punchy,
+      // decays stay smooth — symmetric smoothing kills both.
+      const ATTACK = 0.55
+      const RELEASE = 0.09
+      const env = (current: number, target: number) =>
+        current + (target - current) * (target > current ? ATTACK : RELEASE)
+      this.smoothBass = env(this.smoothBass, audio.bass)
+      this.smoothMid = env(this.smoothMid, audio.mid)
+      this.smoothHigh = env(this.smoothHigh, audio.high)
+      this.smoothEnergy = env(this.smoothEnergy, audio.energy)
+      this.smoothSub = env(this.smoothSub, audio.sub)
+      this.smoothPresence = env(this.smoothPresence, audio.presence)
+      this.bassHit = audio.bassHit
+      this.midHit = audio.midHit
+      this.highHit = audio.highHit
+
+      // Beat pulse with decay
+      if (beatDetected) this.beatPulse = 1.0
+      this.beatPulse *= 0.88
+    }
+
+    // Gated clocks: advance only while the band is actually playing, so a
+    // breakdown freezes bass-driven motion and the drop restarts it
+    this.bassTime += dt * this.smoothBass
+    this.highTime += dt * this.smoothHigh
+
+    // Per-frame audio listeners (AutoVJ, playlist beat-advance)
+    for (const fn of this.audioFrameListeners) {
+      fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase)
     }
 
     // Beat-synced transition: trigger pending effect change on beat
-    if (this.transitionPending && audio.beatDetected) {
+    if (this.transitionPending && beatDetected) {
       const pending = this.transitionPending
       this.transitionPending = null
       this.startTransition(pending)
@@ -852,7 +1430,7 @@ export class Engine {
     // Palette cycling
     if (this.cycleEnabled && this.cyclePalettes.length >= 2) {
       if (this.cycleBeatSync) {
-        if (audio.beatDetected) {
+        if (beatDetected) {
           this.cycleBeatCount++
           if (this.cycleBeatCount >= this.cycleBeatsPerSwitch) {
             this.advanceCycle()
@@ -871,24 +1449,39 @@ export class Engine {
       this.colors[i].lerp(this.targetColors[i], this.colorLerpSpeed)
     }
 
-    // Update main effect uniforms
-    const u = this.mainMaterial.uniforms
-    u.uTime.value = time
-    u.uBass.value = this.smoothBass
-    u.uMid.value = this.smoothMid
-    u.uHigh.value = this.smoothHigh
-    u.uEnergy.value = this.smoothEnergy
-    u.uBeat.value = this.beatPulse
-    u.uResolution.value = this.resolution
+    // Per-effect params: speed drives the effect clock, reactivity scales the
+    // audio uniforms, everything else lands on same-named material uniforms
+    let speed = 1
+    this.audioScale = 1
+    for (const def of this.getParamDefs()) {
+      const v = this.effParamValue(def)
+      if (def.key === 'speed') speed = v
+      else if (def.key === 'reactivity') this.audioScale = v
+      else {
+        const u = this.mainMaterial.uniforms[def.key]
+        if (u) u.value = v
+      }
+    }
+    this.effectTime += dt * speed
 
-    // Render main effect → rtA
+    // Update main effect uniforms
+    this.applyEffectUniforms(this.mainMaterial, time)
+
+    // Frozen: keep showing the captured frame, skip the whole pipeline
+    if (this.frozen && !this.freezeRequested) {
+      this.renderMaster(this.rtFreeze.texture)
+      this.syncAudioToOutput(bpm, beatDetected)
+      this.animFrameId = requestAnimationFrame(this.loop)
+      return
+    }
+
+    // Render deck A → rtA
     this.renderer.setRenderTarget(this.rtA)
     this.renderer.clear()
     this.renderer.render(this.scene, this.camera)
 
     // Effect transition blending
     if (this.transitionProgress >= 0 && this.transitionOldMaterial) {
-      const dt = this.clock.getDelta()
       this.transitionProgress += dt / Math.max(this.transitionDuration, 0.01)
 
       if (this.transitionProgress >= 1) {
@@ -899,13 +1492,7 @@ export class Engine {
       } else {
         // Render old effect → rtTransition
         this.quad.material = this.transitionOldMaterial
-        const ou = this.transitionOldMaterial.uniforms
-        ou.uTime.value = time
-        ou.uBass.value = this.smoothBass
-        ou.uMid.value = this.smoothMid
-        ou.uHigh.value = this.smoothHigh
-        ou.uEnergy.value = this.smoothEnergy
-        ou.uBeat.value = this.beatPulse
+        this.applyEffectUniforms(this.transitionOldMaterial, time)
         this.renderer.setRenderTarget(this.rtTransition)
         this.renderer.clear()
         this.renderer.render(this.scene, this.camera)
@@ -913,27 +1500,36 @@ export class Engine {
         // Restore new material
         this.quad.material = this.mainMaterial
 
-        // Blend old + new → rtA
+        // Blend old + new → rtB, then copy back to rtA
         const tu = this.transitionMaterial.uniforms
         tu.tOld.value = this.rtTransition.texture
         tu.tNew.value = this.rtA.texture
         tu.uProgress.value = this.transitionProgress
         tu.uType.value = TRANSITION_TYPE_INDEX[this.transitionType]
-        this.postQuad.material = this.transitionMaterial
-        this.renderer.setRenderTarget(this.rtB)
-        this.renderer.clear()
-        this.renderer.render(this.postScene, this.camera)
-
-        // Copy blended result back to rtA
-        this.passthroughMaterial.uniforms.tDiffuse.value = this.rtB.texture
-        this.postQuad.material = this.passthroughMaterial
-        this.renderer.setRenderTarget(this.rtA)
-        this.renderer.clear()
-        this.renderer.render(this.postScene, this.camera)
+        this.renderPass(this.transitionMaterial, this.rtB)
+        this.blit(this.rtB.texture, this.rtA)
       }
     }
 
-    // Render overlays on top of main effect
+    // Deck B + crossfader
+    if (this.crossfade > 0.001 && this.deckBMaterial) {
+      this.quad.material = this.deckBMaterial
+      this.applyEffectUniforms(this.deckBMaterial, time)
+      this.renderer.setRenderTarget(this.rtDeckB)
+      this.renderer.clear()
+      this.renderer.render(this.scene, this.camera)
+      this.quad.material = this.mainMaterial
+
+      const du = this.deckMixMaterial.uniforms
+      du.tDeckA.value = this.rtA.texture
+      du.tDeckB.value = this.rtDeckB.texture
+      du.uMix.value = this.crossfade
+      du.uBlend.value = BLEND_MODES.indexOf(this.blendMode)
+      this.renderPass(this.deckMixMaterial, this.rtB)
+      this.blit(this.rtB.texture, this.rtA)
+    }
+
+    // Render overlays on top of the mixed image
     let hasVisibleOverlays = false
     for (const o of this.overlays) { if (o.visible && o._texture) { hasVisibleOverlays = true; break } }
     if (hasVisibleOverlays) {
@@ -947,14 +1543,11 @@ export class Engine {
           let advance = false
 
           if (overlay.gifSync === 'beat') {
-            // Advance one frame on each beat
-            if (audio.beatDetected) advance = true
+            if (beatDetected) advance = true
           } else if (overlay.gifSync === 'bpm') {
-            // Advance at BPM rate (one frame per beat interval)
-            const beatInterval = 60000 / audio.bpm
+            const beatInterval = 60000 / (bpm || 128)
             if (now - (overlay._gifLastAdvance || 0) >= beatInterval) advance = true
           } else {
-            // Free: use original GIF timing
             const currentFrame = overlay._gifFrames[overlay._gifFrameIndex || 0]
             if (now - (overlay._gifLastAdvance || 0) >= currentFrame.delay) advance = true
           }
@@ -974,102 +1567,184 @@ export class Engine {
         ou.uOpacity.value = overlay.opacity
         ou.uOverlayScale.value.set(overlay.scale, overlay.scale)
         ou.uOverlayOffset.value.set(overlay.offsetX, overlay.offsetY)
+        ou.uDisplace.value = overlay.displace || 0
 
-        this.postQuad.material = this.overlayMaterial
-        this.renderer.setRenderTarget(dst)
-        this.renderer.clear()
-        this.renderer.render(this.postScene, this.camera)
+        this.renderPass(this.overlayMaterial, dst)
 
         // Swap
         const tmp = src; src = dst; dst = tmp
       }
-      // If we ended on rtB, copy back to rtA so post-processing chain reads from rtA
-      if (src !== this.rtA) {
-        this.passthroughMaterial.uniforms.tDiffuse.value = src.texture
-        this.postQuad.material = this.passthroughMaterial
-        this.renderer.setRenderTarget(this.rtA)
-        this.renderer.clear()
-        this.renderer.render(this.postScene, this.camera)
-      }
+      if (src !== this.rtA) this.blit(src.texture, this.rtA)
     }
 
-    // Post-processing chain (reuse array to avoid per-frame allocation)
+    // Post-processing chain — ordered, each with its own wet/dry
     let read = this.rtA
     let write = this.rtB
-    const posts: PostId[] = []
-    for (const id of this.activePostEffects) {
-      if (this.postMaterials.has(id)) posts.push(id)
-    }
 
-    for (let i = 0; i < posts.length; i++) {
-      const mat = this.postMaterials.get(posts[i])!
-      const pu = mat.uniforms
+    for (const entry of this.postChain) {
+      const mat = this.postMaterials.get(entry.id)
+      if (!mat) continue
 
-      // Set input texture
-      pu.tDiffuse.value = read.texture
+      if (entry.id === 'bloom') {
+        this.renderBloom(read, write, entry.amount)
+      } else {
+        const pu = mat.uniforms
+        pu.tDiffuse.value = read.texture
+        if (pu.uWet) pu.uWet.value = entry.amount
+        if (pu.uBass) pu.uBass.value = this.smoothBass
+        if (pu.uMid) pu.uMid.value = this.smoothMid
+        if (pu.uHigh) pu.uHigh.value = this.smoothHigh
+        if (pu.uEnergy) pu.uEnergy.value = this.smoothEnergy
+        if (pu.uBeat) pu.uBeat.value = this.beatPulse
+        if (pu.uTime) pu.uTime.value = time
+        this.renderPass(mat, write)
+      }
 
-      // Update audio uniforms if present
-      if (pu.uBass) pu.uBass.value = this.smoothBass
-      if (pu.uMid) pu.uMid.value = this.smoothMid
-      if (pu.uHigh) pu.uHigh.value = this.smoothHigh
-      if (pu.uEnergy) pu.uEnergy.value = this.smoothEnergy
-      if (pu.uBeat) pu.uBeat.value = this.beatPulse
-
-      const isLast = i === posts.length - 1
-      this.postQuad.material = mat
-      this.renderer.setRenderTarget(isLast ? null : write)
-      this.renderer.clear()
-      this.renderer.render(this.postScene, this.camera)
-
-      // Swap buffers
       const tmp = read; read = write; write = tmp
     }
 
-    // No post effects — passthrough to screen
-    if (posts.length === 0) {
-      this.passthroughMaterial.uniforms.tDiffuse.value = read.texture
-      this.postQuad.material = this.passthroughMaterial
-      this.renderer.setRenderTarget(null)
-      this.renderer.clear()
-      this.renderer.render(this.postScene, this.camera)
-    }
-
-    // Store frame for feedback effect
-    if (this.activePostEffects.has('feedback')) {
+    // Feedback needs the frame it just produced as next frame's history
+    if (this.isPostActive('feedback')) {
       const feedbackMat = this.postMaterials.get('feedback')!
       feedbackMat.uniforms.tPrevFrame.value = this.rtPrev.texture
-
-      // Copy current to prev
-      this.passthroughMaterial.uniforms.tDiffuse.value = this.rtA.texture
-      this.postQuad.material = this.passthroughMaterial
-      this.renderer.setRenderTarget(this.rtPrev)
-      this.renderer.clear()
-      this.renderer.render(this.postScene, this.camera)
+      this.blit(read.texture, this.rtPrev)
     }
-    this.renderer.setRenderTarget(null)
 
-    // Sync audio data to output window (throttle to ~30Hz to reduce IPC overhead)
-    const now = performance.now()
-    if (now - this.lastIpcTime >= 33 || audio.beatDetected) {
-      this.lastIpcTime = now
-      try {
-        window.api?.sendAudioData({
-          bass: this.smoothBass,
-          mid: this.smoothMid,
-          high: this.smoothHigh,
-          energy: this.smoothEnergy,
-          beatPulse: this.beatPulse,
-          bpm: audio.bpm,
-          beatDetected: audio.beatDetected,
-        })
-      } catch (_) {}
+    // Temporal motion blur (ping-pong accumulation)
+    let finalTexture = read.texture
+    if (this.motionBlur > 0.01) {
+      const mu = this.motionBlurMaterial.uniforms
+      mu.tDiffuse.value = finalTexture
+      mu.tPrev.value = this.rtAccum.texture
+      mu.uAmount.value = this.motionBlur
+      this.renderPass(this.motionBlurMaterial, this.rtAccum2)
+      const tmp = this.rtAccum; this.rtAccum = this.rtAccum2; this.rtAccum2 = tmp
+      finalTexture = this.rtAccum.texture
     }
+
+    // Capture the frame the moment freeze is armed
+    if (this.freezeRequested) {
+      this.blit(finalTexture, this.rtFreeze)
+      this.freezeRequested = false
+      finalTexture = this.rtFreeze.texture
+    }
+
+    // Master stage: grade + brightness → screen
+    this.renderMaster(finalTexture)
+
+    this.syncAudioToOutput(bpm, beatDetected)
 
     this.animFrameId = requestAnimationFrame(this.loop)
   }
 
+  /** Feed the shared per-frame uniforms into an effect material */
+  private applyEffectUniforms(mat: THREE.ShaderMaterial, _time: number) {
+    const u = mat.uniforms
+    const k = this.audioScale
+    if (u.uTime) u.uTime.value = this.effectTime
+    if (u.uBass) u.uBass.value = this.smoothBass * k
+    if (u.uMid) u.uMid.value = this.smoothMid * k
+    if (u.uHigh) u.uHigh.value = this.smoothHigh * k
+    if (u.uEnergy) u.uEnergy.value = this.smoothEnergy * k
+    if (u.uBeat) u.uBeat.value = this.beatPulse * k
+    if (u.uBeatPhase) u.uBeatPhase.value = this.beatPhase
+    if (u.uBarPhase) u.uBarPhase.value = this.barPhase
+    if (u.uSub) u.uSub.value = this.smoothSub * k
+    if (u.uPresence) u.uPresence.value = this.smoothPresence * k
+    if (u.uBassHit) u.uBassHit.value = this.bassHit * k
+    if (u.uMidHit) u.uMidHit.value = this.midHit * k
+    if (u.uHighHit) u.uHighHit.value = this.highHit * k
+    if (u.uBassTime) u.uBassTime.value = this.bassTime
+    if (u.uHighTime) u.uHighTime.value = this.highTime
+    if (u.uResolution) u.uResolution.value = this.resolution
+  }
+
+  /** Render a fullscreen material into a target (null = screen) */
+  private renderPass(mat: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget | null) {
+    this.postQuad.material = mat
+    this.renderer.setRenderTarget(target)
+    this.renderer.clear()
+    this.renderer.render(this.postScene, this.camera)
+  }
+
+  private blit(texture: THREE.Texture, target: THREE.WebGLRenderTarget | null) {
+    this.passthroughMaterial.uniforms.tDiffuse.value = texture
+    this.renderPass(this.passthroughMaterial, target)
+  }
+
+  /** Threshold prefilter → separable blur at half res → composite */
+  private renderBloom(read: THREE.WebGLRenderTarget, write: THREE.WebGLRenderTarget, amount: number) {
+    this.bloomPrefilterMaterial.uniforms.tDiffuse.value = read.texture
+    this.renderPass(this.bloomPrefilterMaterial, this.rtBloomA)
+
+    const bu = this.blurMaterial.uniforms
+    bu.tDiffuse.value = this.rtBloomA.texture
+    bu.uDirection.value.set(1, 0)
+    this.renderPass(this.blurMaterial, this.rtBloomB)
+
+    bu.tDiffuse.value = this.rtBloomB.texture
+    bu.uDirection.value.set(0, 1)
+    this.renderPass(this.blurMaterial, this.rtBloomA)
+
+    const cu = this.postMaterials.get('bloom')!.uniforms
+    cu.tDiffuse.value = read.texture
+    cu.tBloom.value = this.rtBloomA.texture
+    cu.uEnergy.value = this.smoothEnergy
+    cu.uWet.value = amount
+    this.renderPass(this.postMaterials.get('bloom')!, write)
+  }
+
+  private renderMaster(texture: THREE.Texture) {
+    const mu = this.masterMaterial.uniforms
+    mu.tDiffuse.value = texture
+    mu.uBrightness.value = this.blackout ? 0 : this.brightness
+    this.renderPass(this.masterMaterial, null)
+    this.renderer.setRenderTarget(null)
+
+    // Screenshot must read the buffer in the same task as the render
+    if (this.screenshotCb) {
+      const cb = this.screenshotCb
+      this.screenshotCb = null
+      this.canvas.toBlob(b => cb(b), 'image/png')
+    }
+  }
+
+  private screenshotCb: ((blob: Blob | null) => void) | null = null
+
+  /** Capture the next rendered frame as a PNG blob */
+  screenshot(): Promise<Blob | null> {
+    return new Promise(resolve => { this.screenshotCb = resolve })
+  }
+
+  /** Throttled audio push to the output window (~30Hz, plus every beat) */
+  private syncAudioToOutput(bpm: number, beatDetected: boolean) {
+    if (this.remote) return
+    const now = performance.now()
+    if (now - this.lastIpcTime < 33 && !beatDetected) return
+    this.lastIpcTime = now
+    try {
+      window.api?.sendAudioData({
+        bass: this.smoothBass,
+        mid: this.smoothMid,
+        high: this.smoothHigh,
+        energy: this.smoothEnergy,
+        sub: this.smoothSub,
+        presence: this.smoothPresence,
+        bassHit: this.bassHit,
+        midHit: this.midHit,
+        highHit: this.highHit,
+        beatPulse: this.beatPulse,
+        beatPhase: this.beatPhase,
+        barPhase: this.barPhase,
+        bpm,
+        beatDetected,
+      })
+    } catch (_) {}
+  }
+
   dispose() {
     this.disposed = true
+    this.audioFrameListeners.clear()
     cancelAnimationFrame(this.animFrameId)
     window.removeEventListener('resize', this.handleResize)
     this.renderer.dispose()
@@ -1082,8 +1757,15 @@ export class Engine {
     this.transitionMaterial.dispose()
     this.transitionOldMaterial?.dispose()
     this.overlayMaterial.dispose()
-    this.overlays.forEach(o => o._texture?.dispose())
+    this.overlays.forEach(o => { o._texture?.dispose(); o._video?.pause() })
     this.overlays = []
     this.postMaterials.forEach(m => m.dispose())
+    for (const rt of [this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2, this.rtBloomA, this.rtBloomB]) rt.dispose()
+    this.deckBMaterial?.dispose()
+    this.deckMixMaterial.dispose()
+    this.masterMaterial.dispose()
+    this.motionBlurMaterial.dispose()
+    this.bloomPrefilterMaterial.dispose()
+    this.blurMaterial.dispose()
   }
 }

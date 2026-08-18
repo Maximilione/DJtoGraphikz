@@ -50,6 +50,37 @@ export function AudioPanel({ engine }: AudioPanelProps) {
     refreshDevices()
   }, [])
 
+  // Audio and BPM mode can change from outside this panel (onboarding, Space
+  // hotkey) — keep local state in sync
+  useEffect(() => {
+    if (!engine) return
+    const id = window.setInterval(() => {
+      const running = engine.audioAnalyzer.isRunning
+      if (running !== audioActive) {
+        setAudioActive(running)
+        if (running) drawSpectrum()
+        else cancelAnimationFrame(animFrameRef.current)
+      }
+      const m = engine.audioAnalyzer.getBpmMode()
+      if (m !== bpmMode) setBpmMode(m)
+      const mb = engine.audioAnalyzer.getManualBpm()
+      if (mb !== manualBpm) setManualBpm(mb)
+    }, 500)
+    return () => clearInterval(id)
+  }, [engine, audioActive, bpmMode, manualBpm])
+
+  // Detectors often lock onto half or double tempo on four-to-the-floor —
+  // these snap the current BPM by the factor and hand control to manual mode
+  const scaleBpm = useCallback((factor: number) => {
+    if (!engine) return
+    const current = engine.audioAnalyzer.getEffectiveBpm()
+    const next = Math.round(Math.max(60, Math.min(300, current * factor)))
+    engine.audioAnalyzer.setBpmMode('manual')
+    engine.audioAnalyzer.setManualBpm(next)
+    setBpmMode('manual')
+    setManualBpm(next)
+  }, [engine])
+
   const startAudio = async () => {
     if (!engine) { setError('Engine not ready'); return }
     try {
@@ -289,6 +320,23 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                   {confidence > 0.5 ? 'locked' : 'detecting...'}
                 </span>
               )}
+              <span style={{ flex: 1 }} />
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => scaleBpm(0.5)}
+                title="Dimezza il BPM (il detector ha agganciato il doppio tempo)"
+                style={{ padding: '1px 6px', fontSize: '9px' }}
+              >
+                ×½
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => scaleBpm(2)}
+                title="Raddoppia il BPM (il detector ha agganciato il mezzo tempo)"
+                style={{ padding: '1px 6px', fontSize: '9px' }}
+              >
+                ×2
+              </button>
             </div>
 
             {/* Mode selector */}

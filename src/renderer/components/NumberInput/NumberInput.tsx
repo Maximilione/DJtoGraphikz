@@ -71,8 +71,10 @@ export function NumberInput({
     }
   }, [editing, value, step, onChange, clamp, commitEdit])
 
-  // Mouse wheel
+  // Mouse wheel — only when focused (click first), otherwise the sidebar
+  // couldn't scroll past any of these values
   const handleWheel = useCallback((e: WheelEvent) => {
+    if (document.activeElement !== containerRef.current) return
     e.preventDefault()
     const delta = e.deltaY < 0 ? step : -step
     const mult = e.shiftKey ? 10 : 1
@@ -123,7 +125,7 @@ export function NumberInput({
       ) : (
         <span
           onDoubleClick={startEdit}
-          title="Double-click to edit, scroll or arrows to adjust"
+          title="Doppio-click per scrivere; click poi rotella/frecce per regolare"
           style={{
             width: '100%',
             textAlign: 'right',

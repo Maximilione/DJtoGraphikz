@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
-import { NumberInput } from '../NumberInput/NumberInput'
+import { ParamControls } from '../ParamControls/ParamControls'
+import { loadISF } from '@engine/IsfLoader'
 
 interface ShaderEditorProps {
   engine: Engine | null
@@ -289,7 +290,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       setLastApplied(code)
       engine.sendCustomShaderToOutput(code)
     } else {
-      setError('Shader compilation failed — check console for details')
+      setError(engine.getLastShaderError() || 'Shader compilation failed — check console for details')
     }
   }, [engine, code])
 
@@ -304,7 +305,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
         setLastApplied(code)
         engine.sendCustomShaderToOutput(code)
       } else {
-        setError('Compile error')
+        setError(engine.getLastShaderError() || 'Compile error')
       }
     }, 500)
     return () => clearTimeout(debounceRef.current)
@@ -315,6 +316,34 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
     setCode(TEMPLATES[idx].code)
     setError(null)
   }, [])
+
+  // Import an ISF generator: parse header → auto-sliders, transpile, apply
+  const importISF = useCallback(() => {
+    if (!engine) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.fs,.isf,.frag,.glsl,.txt'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const res = loadISF(text, file.name)
+      if ('error' in res) {
+        setError(`ISF: ${res.error}`)
+        return
+      }
+      setError(res.warnings.length ? `ISF: ${res.warnings.join(', ')}` : null)
+      const ok = engine.setCustomShader(res.fragment, res.params)
+      if (ok) {
+        setCode(res.fragment)
+        setLastApplied(res.fragment)
+        engine.sendCustomShaderToOutput(res.fragment)
+      } else {
+        setError(`ISF: ${engine.getLastShaderError() || 'compilazione fallita'}`)
+      }
+    }
+    input.click()
+  }, [engine])
 
   // Handle tab key in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -439,6 +468,9 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
             </button>
           </div>
 
+          {/* Params of the active custom shader (ISF sliders end up here) */}
+          {engine?.isUsingCustomShader() && <ParamControls engine={engine} key={lastApplied} />}
+
           {/* Save/Load */}
           <div style={{ display: 'flex', gap: '4px' }}>
             <button
@@ -474,6 +506,14 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
               }}
             >
               Import .frag
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ flex: 1 }}
+              onClick={importISF}
+              title="Importa un generator ISF: gli INPUTS diventano slider automatici"
+            >
+              Import ISF
             </button>
           </div>
 

@@ -134,6 +134,35 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
 }
 
 /**
+ * Shuffle bag: draws every item once (random order) before reshuffling,
+ * never starting a new bag with the item just played.
+ */
+class Bag<T> {
+  private pool: T[] = []
+  private last: T | undefined
+  constructor(private readonly items: readonly T[]) {}
+
+  next(): T {
+    if (this.pool.length === 0) {
+      this.pool = [...this.items]
+      // Fisher-Yates shuffle
+      for (let i = this.pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[this.pool[i], this.pool[j]] = [this.pool[j], this.pool[i]]
+      }
+      // Next draw is pop() from the end — make sure it isn't a repeat
+      const top = this.pool.length - 1
+      if (top > 0 && this.pool[top] === this.last) {
+        const j = Math.floor(Math.random() * top)
+        ;[this.pool[top], this.pool[j]] = [this.pool[j], this.pool[top]]
+      }
+    }
+    this.last = this.pool.pop()!
+    return this.last
+  }
+}
+
+/**
  * AutoVJ — algorithmic VJ that selects effects, post-FX and palettes
  * based on audio analysis and genre configuration.
  */
@@ -141,18 +170,24 @@ export class AutoVJ {
   private enabled = false
   private genre: Genre = 'acid-techno'
   private beatCount = 0
-  private lastEffectIndex = -1
-  private lastPostIndex = -1
-  private lastPaletteIndex = -1
   private highEnergyStreak = 0
   private lowEnergyStreak = 0
   private frameCount = 0
   private lastSwitchFrame = 0
+  private effectBag!: Bag<EffectId>
+  private postBag!: Bag<PostId[]>
+  private paletteBag!: Bag<[string, string, string]>
+  // Pending switch armed on beat count, executed on the next downbeat
+  private pendingSwitch: { post: boolean; palette: boolean } | null = null
+  private pendingSince = 0
+  private prevBarPhase = 0
 
   // Callbacks for when AutoVJ wants to change something
   public onEffectChange: ((effect: EffectId) => void) | null = null
   public onPostChange: ((posts: PostId[]) => void) | null = null
   public onPaletteChange: ((colors: [string, string, string]) => void) | null = null
+
+  constructor() { this.resetBags() }
 
   setEnabled(enabled: boolean) { this.enabled = enabled }
   isEnabled(): boolean { return this.enabled }
@@ -162,6 +197,15 @@ export class AutoVJ {
     this.beatCount = 0
     this.highEnergyStreak = 0
     this.lowEnergyStreak = 0
+    this.pendingSwitch = null
+    this.resetBags()
+  }
+
+  private resetBags() {
+    const config = GENRE_CONFIGS[this.genre]
+    this.effectBag = new Bag(config.effects)
+    this.postBag = new Bag(config.postSets)
+    this.paletteBag = new Bag(config.palettes)
   }
   getGenre(): Genre { return this.genre }
 
@@ -169,18 +213,15 @@ export class AutoVJ {
    * Call every frame with current audio data.
    * The AutoVJ decides when to switch based on beat count and energy.
    */
-  update(beatDetected: boolean, energy: number, bass: number) {
+  update(beatDetected: boolean, energy: number, bass: number, barPhase: number) {
     if (!this.enabled) return
     this.frameCount++
 
     const config = GENRE_CONFIGS[this.genre]
 
     // Fallback: if no beats detected for ~300 frames (~5s at 60fps), switch anyway
-    if (!beatDetected && this.frameCount - this.lastSwitchFrame > 300) {
-      this.lastSwitchFrame = this.frameCount
-      this.switchEffect(config, energy, bass)
-      if (Math.random() < 0.4) this.switchPost(config, energy)
-      if (Math.random() < 0.3) this.switchPalette(config)
+    if (!beatDetected && !this.pendingSwitch && this.frameCount - this.lastSwitchFrame > 300) {
+      this.executeSwitch(config, { post: Math.random() < 0.4, palette: Math.random() < 0.3 })
       return
     }
 
@@ -197,24 +238,32 @@ export class AutoVJ {
         this.highEnergyStreak = 0
       }
 
-      // Time to switch effect?
+      // Time to switch? Arm it — the actual switch fires on the next downbeat
       const switchInterval = this.getSwitchInterval(config, energy)
-      if (this.beatCount >= switchInterval) {
+      if (this.beatCount >= switchInterval && !this.pendingSwitch) {
         this.beatCount = 0
-        this.lastSwitchFrame = this.frameCount
-        this.switchEffect(config, energy, bass)
-      }
-
-      // Switch post-FX less frequently (every 2x effect switches)
-      if (this.beatCount === 0 && Math.random() < 0.5) {
-        this.switchPost(config, energy)
-      }
-
-      // Switch palette even less frequently
-      if (this.beatCount === 0 && Math.random() < 0.3) {
-        this.switchPalette(config)
+        this.pendingSwitch = { post: Math.random() < 0.5, palette: Math.random() < 0.3 }
+        this.pendingSince = this.frameCount
       }
     }
+
+    // Execute pending switch when the bar wraps (downbeat), or after ~2 bars as safety
+    if (this.pendingSwitch) {
+      const barWrapped = this.prevBarPhase > 0.5 && barPhase < 0.1
+      if (barWrapped || this.frameCount - this.pendingSince > 480) {
+        const pending = this.pendingSwitch
+        this.pendingSwitch = null
+        this.executeSwitch(config, pending)
+      }
+    }
+    this.prevBarPhase = barPhase
+  }
+
+  private executeSwitch(config: GenreConfig, opts: { post: boolean; palette: boolean }) {
+    this.lastSwitchFrame = this.frameCount
+    this.switchEffect(config)
+    if (opts.post) this.switchPost(config)
+    if (opts.palette) this.switchPalette(config)
   }
 
   private getSwitchInterval(config: GenreConfig, energy: number): number {
@@ -232,52 +281,21 @@ export class AutoVJ {
     return base
   }
 
-  private switchEffect(config: GenreConfig, energy: number, _bass: number) {
-    const effects = config.effects
-    if (effects.length <= 1) return
-
-    // Pick a different effect, weighted by energy
-    let idx: number
-    if (energy > config.energyThreshold * 1.5) {
-      // High energy: prefer effects at the start of the list (more intense)
-      idx = Math.floor(Math.random() * Math.min(3, effects.length))
-    } else {
-      idx = Math.floor(Math.random() * effects.length)
-    }
-
-    // Avoid repeating
-    if (idx === this.lastEffectIndex && effects.length > 1) {
-      idx = (idx + 1) % effects.length
-    }
-    this.lastEffectIndex = idx
-
-    console.log(`[AutoVJ] Switching to effect: ${effects[idx]}`)
-    this.onEffectChange?.(effects[idx])
+  // ponytail: energy-weighted effect bias dropped — bag guarantees full rotation instead
+  private switchEffect(config: GenreConfig) {
+    if (config.effects.length <= 1) return
+    const effect = this.effectBag.next()
+    console.log(`[AutoVJ] Switching to effect: ${effect}`)
+    this.onEffectChange?.(effect)
   }
 
-  private switchPost(config: GenreConfig, energy: number) {
-    const sets = config.postSets
-    if (sets.length <= 1) return
-
-    let idx = Math.floor(Math.random() * sets.length)
-    if (idx === this.lastPostIndex && sets.length > 1) {
-      idx = (idx + 1) % sets.length
-    }
-    this.lastPostIndex = idx
-
-    this.onPostChange?.(sets[idx])
+  private switchPost(config: GenreConfig) {
+    if (config.postSets.length <= 1) return
+    this.onPostChange?.(this.postBag.next())
   }
 
   private switchPalette(config: GenreConfig) {
-    const palettes = config.palettes
-    if (palettes.length <= 1) return
-
-    let idx = Math.floor(Math.random() * palettes.length)
-    if (idx === this.lastPaletteIndex && palettes.length > 1) {
-      idx = (idx + 1) % palettes.length
-    }
-    this.lastPaletteIndex = idx
-
-    this.onPaletteChange?.(palettes[idx])
+    if (config.palettes.length <= 1) return
+    this.onPaletteChange?.(this.paletteBag.next())
   }
 }

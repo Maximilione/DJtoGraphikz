@@ -10,6 +10,9 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float segments;
+uniform float zoom;
+uniform float detail;
 
 varying vec2 vUv;
 
@@ -46,7 +49,7 @@ void main() {
   float a = atan(uv.y, uv.x);
 
   // Kaleidoscope fold — segments react to bass
-  float segs = floor(4.0 + uBass * 8.0 + uMid * 4.0);
+  float segs = floor(segments + uBass * 8.0 + uMid * 4.0);
   float segAngle = TAU / segs;
   a = mod(a + PI, segAngle) - segAngle * 0.5;
   a = abs(a);
@@ -55,8 +58,8 @@ void main() {
   vec2 kuv = vec2(cos(a), sin(a)) * r;
 
   // Zoom pulses with beat
-  float zoom = 3.0 + sin(uTime * 0.5) * 0.5 + uBeat * 1.5;
-  kuv *= zoom;
+  float zm = zoom + sin(uTime * 0.5) * 0.5 + uBeat * 1.5;
+  kuv *= zm;
 
   // Animated FBM pattern
   float t = uTime * 0.3;
@@ -69,7 +72,7 @@ void main() {
   pattern = pow(pattern, 0.8 + uMid * 0.5);
 
   // Neon edge lines
-  float edge1 = abs(sin(n2 * 8.0 + uTime));
+  float edge1 = abs(sin(n2 * detail + uTime));
   edge1 = smoothstep(0.95, 1.0, edge1) * 2.0;
 
   float edge2 = abs(sin(n3 * 12.0 - uTime * 1.5));
