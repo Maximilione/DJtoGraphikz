@@ -9,6 +9,10 @@ export interface AudioData {
   high: number
   presence: number
   energy: number
+  /** Per-band onset pulses (1 on transient, decaying) — kick / snare-synth / hats */
+  bassHit: number
+  midHit: number
+  highHit: number
   bpm: number
   beatDetected: boolean
   /** 0..1 position inside the current beat (resynced on every detected beat) */
@@ -70,9 +74,15 @@ export class AudioAnalyzer {
 
   private data: AudioData = {
     sub: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0,
-    energy: 0, bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
+    energy: 0, bassHit: 0, midHit: 0, highHit: 0,
+    bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
     spectrum: EMPTY_SPECTRUM
   }
+
+  // Per-band onset detection — same spectral-flux idea as the beat detector,
+  // one rolling history per band so hats don't need kick-sized transients
+  private bandFluxHistory: [number[], number[], number[]] = [[], [], []]
+  private bandPulse = [0, 0, 0]
 
   get isRunning() { return this.running }
 
@@ -189,6 +199,7 @@ export class AudioAnalyzer {
 
     // Reset detection state
     this.fluxHistory = []
+    this.bandFluxHistory = [[], [], []]
     this.libraryBpm = 0
     this.libraryConfidence = 0
     this.libraryStable = false
@@ -345,6 +356,7 @@ export class AudioAnalyzer {
     // because it detects ANY sudden energy increase across all frequencies.
     const now = performance.now()
     let flux = 0
+    const bandFlux = [0, 0, 0] // bass / mid / high
     for (let i = 0; i < this.freqData.length; i++) {
       const curr = this.freqData[i] / 255
       const prev = this.prevSpectrum[i]
@@ -358,11 +370,36 @@ export class AudioAnalyzer {
                : i < binCount / 2 ? 1.0
                : 0.5
         flux += diff * w
+
+        // Per-band onset flux (kick / snare-synth / hats)
+        const hz = i * binHz
+        if (hz < 250) bandFlux[0] += diff
+        else if (hz >= 500 && hz < 2000) bandFlux[1] += diff
+        else if (hz >= 4000 && hz < 12000) bandFlux[2] += diff
       }
       this.prevSpectrum[i] = curr
     }
     // Normalize by bin count
     flux /= binCount
+
+    // Per-band hit pulses: adaptive threshold per band, decaying envelope
+    for (let b = 0; b < 3; b++) {
+      const f = bandFlux[b] / binCount
+      const hist = this.bandFluxHistory[b]
+      hist.push(f)
+      if (hist.length > this.FLUX_HISTORY_SIZE) hist.shift()
+      if (hist.length >= 10) {
+        const mean = hist.reduce((a, v) => a + v, 0) / hist.length
+        let sq = 0
+        for (const v of hist) sq += (v - mean) ** 2
+        const std = Math.sqrt(sq / hist.length)
+        if (f > mean + std * this.sensitivity && f > 0.0008) this.bandPulse[b] = 1
+      }
+      this.bandPulse[b] *= 0.85
+    }
+    this.data.bassHit = gated * this.bandPulse[0]
+    this.data.midHit = gated * this.bandPulse[1]
+    this.data.highHit = gated * this.bandPulse[2]
 
     // Push to history
     this.fluxHistory.push(flux)
