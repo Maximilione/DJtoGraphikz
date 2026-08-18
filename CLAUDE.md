@@ -10,6 +10,13 @@ Ad ogni batch di modifiche committato:
 2. **Aggiungi la voce in `CHANGELOG.md`** (formato Keep a Changelog, sezioni Added/Changed/Fixed, hash commit tra parentesi).
 3. Bump + changelog vanno nello stesso commit del lavoro, o in un commit `chore(release): vX.Y.Z-beta` a fine batch.
 
+## Flusso git (obbligatorio)
+
+- `main` = sempre stabile e rilasciabile. Mai commit diretti su main.
+- Ogni batch di lavoro su un branch `feat/<tema>` o `fix/<tema>`; un commit per task logico (Conventional Commits), niente commit "wip".
+- Fine batch: commit `chore(release): vX.Y.Z-beta`, merge su main con `--no-ff` (il merge commit delimita il batch), tag annotato `vX.Y.Z-beta` sul merge, push di main + tag.
+- Il branch feature si cancella dopo il merge; il prossimo batch riparte da main con un branch nuovo.
+
 ## Convenzioni
 
 - Commit: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`).
