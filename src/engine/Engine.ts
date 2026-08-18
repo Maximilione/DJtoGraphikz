@@ -304,9 +304,19 @@ export class Engine {
   private smoothMid = 0
   private smoothHigh = 0
   private smoothEnergy = 0
+  private smoothSub = 0
+  private smoothPresence = 0
   private beatPulse = 0
   private beatPhase = 0
   private barPhase = 0
+
+  // Extended vocabulary: per-band onset pulses + gated clocks
+  // (uBassTime advances only while bass is playing — breakdowns freeze it)
+  private bassHit = 0
+  private midHit = 0
+  private highHit = 0
+  private bassTime = 0
+  private highTime = 0
 
   // State change callback (for syncing to output window)
   public onStateChange: ((state: EngineState) => void) | null = null
@@ -507,6 +517,13 @@ export class Engine {
         uBeat: { value: 0 },
         uBeatPhase: { value: 0 },
         uBarPhase: { value: 0 },
+        uSub: { value: 0 },
+        uPresence: { value: 0 },
+        uBassHit: { value: 0 },
+        uMidHit: { value: 0 },
+        uHighHit: { value: 0 },
+        uBassTime: { value: 0 },
+        uHighTime: { value: 0 },
         uColor1: { value: this.colors[0] },
         uColor2: { value: this.colors[1] },
         uColor3: { value: this.colors[2] },
@@ -736,6 +753,13 @@ export class Engine {
         uBeat: { value: 0 },
         uBeatPhase: { value: 0 },
         uBarPhase: { value: 0 },
+        uSub: { value: 0 },
+        uPresence: { value: 0 },
+        uBassHit: { value: 0 },
+        uMidHit: { value: 0 },
+        uHighHit: { value: 0 },
+        uBassTime: { value: 0 },
+        uHighTime: { value: 0 },
         uColor1: { value: this.colors[0] },
         uColor2: { value: this.colors[1] },
         uColor3: { value: this.colors[2] },
@@ -966,11 +990,16 @@ export class Engine {
   // ---- Remote (output window) API ----
 
   /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
-  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number }) {
+  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number }) {
     this.smoothBass = data.bass || 0
     this.smoothMid = data.mid || 0
     this.smoothHigh = data.high || 0
     this.smoothEnergy = data.energy || 0
+    this.smoothSub = data.sub || 0
+    this.smoothPresence = data.presence || 0
+    this.bassHit = data.bassHit || 0
+    this.midHit = data.midHit || 0
+    this.highHit = data.highHit || 0
     this.beatPulse = data.beatPulse || 0
     this.remoteBpm = data.bpm || 128
     this.beatPhase = data.beatPhase || 0
@@ -1360,11 +1389,21 @@ export class Engine {
       this.smoothMid = env(this.smoothMid, audio.mid)
       this.smoothHigh = env(this.smoothHigh, audio.high)
       this.smoothEnergy = env(this.smoothEnergy, audio.energy)
+      this.smoothSub = env(this.smoothSub, audio.sub)
+      this.smoothPresence = env(this.smoothPresence, audio.presence)
+      this.bassHit = audio.bassHit
+      this.midHit = audio.midHit
+      this.highHit = audio.highHit
 
       // Beat pulse with decay
       if (beatDetected) this.beatPulse = 1.0
       this.beatPulse *= 0.88
     }
+
+    // Gated clocks: advance only while the band is actually playing, so a
+    // breakdown freezes bass-driven motion and the drop restarts it
+    this.bassTime += dt * this.smoothBass
+    this.highTime += dt * this.smoothHigh
 
     // Per-frame audio listeners (AutoVJ, playlist beat-advance)
     for (const fn of this.audioFrameListeners) {
@@ -1600,6 +1639,13 @@ export class Engine {
     if (u.uBeat) u.uBeat.value = this.beatPulse * k
     if (u.uBeatPhase) u.uBeatPhase.value = this.beatPhase
     if (u.uBarPhase) u.uBarPhase.value = this.barPhase
+    if (u.uSub) u.uSub.value = this.smoothSub * k
+    if (u.uPresence) u.uPresence.value = this.smoothPresence * k
+    if (u.uBassHit) u.uBassHit.value = this.bassHit * k
+    if (u.uMidHit) u.uMidHit.value = this.midHit * k
+    if (u.uHighHit) u.uHighHit.value = this.highHit * k
+    if (u.uBassTime) u.uBassTime.value = this.bassTime
+    if (u.uHighTime) u.uHighTime.value = this.highTime
     if (u.uResolution) u.uResolution.value = this.resolution
   }
 
@@ -1672,6 +1718,11 @@ export class Engine {
         mid: this.smoothMid,
         high: this.smoothHigh,
         energy: this.smoothEnergy,
+        sub: this.smoothSub,
+        presence: this.smoothPresence,
+        bassHit: this.bassHit,
+        midHit: this.midHit,
+        highHit: this.highHit,
         beatPulse: this.beatPulse,
         beatPhase: this.beatPhase,
         barPhase: this.barPhase,
