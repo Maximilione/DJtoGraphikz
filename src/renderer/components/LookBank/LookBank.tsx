@@ -42,6 +42,15 @@ export function LookBank({ engine }: { engine: Engine }) {
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
   const [active, setActive] = useState(-1)
 
+  // Mirror filled slots (thumbs included) to the phone remote — on mount and on change
+  useEffect(() => {
+    try {
+      window.api?.sendRemoteLooks(
+        looks.flatMap((l, index) => (l ? [{ index, name: l.name, thumb: l.thumb }] : []))
+      )
+    } catch (_) {}
+  }, [looks])
+
   const saveLook = useCallback(async (i: number) => {
     const preset = engine.createPreset(`Look ${i + 1}`)
     const thumb = await makeThumb(engine)
