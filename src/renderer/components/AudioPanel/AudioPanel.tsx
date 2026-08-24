@@ -13,17 +13,39 @@ const BPM_MODES: { id: BpmMode; label: string }[] = [
   { id: 'manual', label: 'Manual' },
 ]
 
+const AUDIO_STORE_KEY = 'djtographikz-audio'
+
+interface SavedAudioSettings {
+  deviceId?: string
+  bpmMode?: BpmMode
+  manualBpm?: number
+  sensitivity?: number
+  inputGain?: number
+  running?: boolean
+}
+
+function loadAudioSettings(): SavedAudioSettings {
+  try {
+    return JSON.parse(localStorage.getItem(AUDIO_STORE_KEY) || 'null') || {}
+  } catch {
+    return {}
+  }
+}
+
 export function AudioPanel({ engine }: AudioPanelProps) {
+  // Persisted settings from the previous session — read once per mount
+  const savedRef = useRef<SavedAudioSettings>(loadAudioSettings())
+  const saved = savedRef.current
   const [collapsed, setCollapsed] = useState(false)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
-  const [selectedDevice, setSelectedDevice] = useState<string>('')
+  const [selectedDevice, setSelectedDevice] = useState<string>(saved.deviceId ?? '')
   const [audioActive, setAudioActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [bpmMode, setBpmMode] = useState<BpmMode>('auto')
-  const [manualBpm, setManualBpm] = useState(128)
+  const [bpmMode, setBpmMode] = useState<BpmMode>(saved.bpmMode ?? 'auto')
+  const [manualBpm, setManualBpm] = useState(saved.manualBpm ?? 128)
   const [displayBpm, setDisplayBpm] = useState(128)
-  const [sensitivity, setSensitivity] = useState(0.5)
-  const [inputGain, setInputGain] = useState(1.0)
+  const [sensitivity, setSensitivity] = useState(saved.sensitivity ?? 0.5)
+  const [inputGain, setInputGain] = useState(saved.inputGain ?? 1.0)
   const [confidence, setConfidence] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animFrameRef = useRef<number>(0)
@@ -49,6 +71,46 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   useEffect(() => {
     refreshDevices()
   }, [])
+
+  // Push panel settings into the analyzer — needed on restore and after every
+  // (re)start, since start() rebuilds the audio graph
+  const applyAnalyzerSettings = () => {
+    if (!engine) return
+    engine.audioAnalyzer.setSensitivity(sensitivity)
+    engine.audioAnalyzer.setInputGain(inputGain)
+    engine.audioAnalyzer.setBpmMode(bpmMode)
+    engine.audioAnalyzer.setManualBpm(manualBpm)
+  }
+
+  // Restore last session: apply saved settings, and if audio was running with
+  // a saved device, auto-start the analyzer (the 500ms poll picks up the UI)
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (!engine || restoredRef.current) return
+    restoredRef.current = true
+    applyAnalyzerSettings()
+    const s = savedRef.current
+    if (s.running && s.deviceId && !engine.audioAnalyzer.isRunning) {
+      engine.audioAnalyzer.start(s.deviceId)
+        .then(applyAnalyzerSettings)
+        .catch((err: any) => console.warn('[AudioPanel] auto-start failed:', err))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine])
+
+  // Persist settings — writes are rare (user tweaks), no debounce needed
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUDIO_STORE_KEY, JSON.stringify({
+        deviceId: selectedDevice,
+        bpmMode,
+        manualBpm,
+        sensitivity,
+        inputGain,
+        running: audioActive,
+      }))
+    } catch { /* private mode / quota — non-fatal */ }
+  }, [selectedDevice, bpmMode, manualBpm, sensitivity, inputGain, audioActive])
 
   // Audio and BPM mode can change from outside this panel (onboarding, Space
   // hotkey) — keep local state in sync
@@ -86,6 +148,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
     try {
       setError(null)
       await engine.audioAnalyzer.start(selectedDevice || undefined)
+      applyAnalyzerSettings()
       setAudioActive(true)
       drawSpectrum()
     } catch (err: any) {
