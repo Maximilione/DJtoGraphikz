@@ -126,13 +126,50 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [cycleBeats, setCycleBeats] = useState(16)
   const [cycleSelection, setCycleSelection] = useState<Set<number>>(() => new Set(COLOR_PRESETS.map((_, i) => i)))
 
-  // Sync from engine once it exists — settings may have been restored before mount
+  // Sync from engine on mount (boot restore may not emit), then subscribe:
+  // state changes come from ANY surface (phone remote, AutoVJ, hotkeys, presets)
   React.useEffect(() => {
     if (!engine) return
+    const syncColors = (colors: [string, string, string]) => {
+      const idx = COLOR_PRESETS.findIndex(p => p.colors.every((c, i) => c === colors[i]))
+      if (idx >= 0) {
+        setActiveColorPreset(idx)
+      } else {
+        // ponytail: mid-lerp colors can land here and repaint the custom swatch — cosmetic only
+        setActiveColorPreset(CUSTOM_INDEX)
+        setCustomColors(colors)
+      }
+    }
     setActiveEffect(engine.getCurrentEffect())
     setActivePosts(new Set(engine.getActivePosts()))
     setPostChain(engine.getPostChain())
     setGradeState(engine.getGrade())
+    syncColors(engine.getCurrentColors())
+    setTransitionType(engine.getTransitionType())
+    setTransitionDuration(engine.getTransitionDuration())
+    setTransitionBeatSync(engine.isTransitionBeatSync())
+    setTransitionSpeed(engine.getColorTransitionSpeed())
+    setCycleEnabled(engine.isCycleEnabled())
+    setCycleBeatSync(engine.isCycleBeatSync())
+    setCycleInterval(Math.round(engine.getCycleInterval() / 1000))
+    setCycleBeats(engine.getCycleBeatsPerSwitch())
+    return engine.onState(state => {
+      setActiveEffect(state.activeEffect)
+      setActivePosts(new Set(state.activePost))
+      setPostChain(engine.getPostChain())
+      if (state.grade) setGradeState(state.grade)
+      syncColors(state.colors)
+      if (state.transitionType) setTransitionType(state.transitionType)
+      if (state.transitionDuration !== undefined) setTransitionDuration(state.transitionDuration)
+      if (state.transitionBeatSync !== undefined) setTransitionBeatSync(state.transitionBeatSync)
+      if (state.colorSpeed !== undefined) setTransitionSpeed(state.colorSpeed)
+      if (state.cycle) {
+        setCycleEnabled(state.cycle.enabled)
+        setCycleBeatSync(state.cycle.beatSync)
+        setCycleInterval(Math.round(state.cycle.intervalMs / 1000))
+        setCycleBeats(state.cycle.beatsPerSwitch)
+      }
+    })
   }, [engine])
 
   const selectEffect = useCallback((id: EffectId) => {
@@ -335,7 +372,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
                 {([
                   { id: 'crossfade' as TransitionType, label: 'Fade' },
-                  { id: 'wipe-left' as TransitionType, label: 'Wipe' },
+                  { id: 'wipe-left' as TransitionType, label: 'Wipe←' },
+                  { id: 'wipe-down' as TransitionType, label: 'Wipe↓' },
                   { id: 'radial' as TransitionType, label: 'Radial' },
                   { id: 'dissolve' as TransitionType, label: 'Noise' },
                 ] as const).map(t => (

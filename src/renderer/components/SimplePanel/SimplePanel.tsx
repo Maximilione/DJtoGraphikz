@@ -17,6 +17,19 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
   const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
   const [activePalette, setActivePalette] = useState(0)
 
+  // Sync from engine on mount (boot restore may not emit), then subscribe:
+  // state changes come from ANY surface (phone remote, AutoVJ, hotkeys, presets)
+  React.useEffect(() => {
+    if (!engine) return
+    const sync = (effect: EffectId, colors: [string, string, string]) => {
+      setActiveEffect(effect)
+      const idx = COLOR_PRESETS.findIndex(p => p.colors.every((c, i) => c === colors[i]))
+      if (idx >= 0) setActivePalette(idx)
+    }
+    sync(engine.getCurrentEffect(), engine.getCurrentColors())
+    return engine.onState(state => sync(state.activeEffect, state.colors))
+  }, [engine])
+
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
     engine.setEffect(id)

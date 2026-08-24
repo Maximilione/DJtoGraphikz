@@ -16,12 +16,16 @@ const BASE_PORT = 9666
 const MAX_PAIR_ATTEMPTS = 8
 const LOCKOUT_MS = 60_000
 
+const MAX_SESSIONS = 4
+
 let pairingCode = ''
-let sessionToken = ''
+let sessionTokens: string[] = []   // up to MAX_SESSIONS phones paired at once
 let failedAttempts = 0
 let lockedUntil = 0
 let port = BASE_PORT
 let lastEngineState: unknown = null
+let lastAudio: { bpm: number; energy: number; beatPulse: number } | null = null
+let lastVj: { enabled: boolean; genre: string } | null = null
 let remoteDefs: Record<string, unknown> | null = null
 let remoteLooks: unknown[] = []
 // Bumped on every looks push; the page re-fetches thumbs only when it changes
@@ -62,7 +66,11 @@ function json(res: ServerResponse, status: number, body: unknown) {
 function authorized(req: IncomingMessage): boolean {
   const header = req.headers.authorization || ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : ''
-  return sessionToken !== '' && safeEqual(token, sessionToken)
+  if (token === '') return false
+  // ponytail: linear scan is fine at 4 tokens; each compare stays timing-safe
+  let ok = false
+  for (const t of sessionTokens) if (safeEqual(token, t)) ok = true
+  return ok
 }
 
 export function setupRemoteServer(controlWindow: BrowserWindow) {
@@ -87,8 +95,10 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
         const { code } = JSON.parse(await readBody(req))
         if (typeof code === 'string' && safeEqual(code, pairingCode)) {
           failedAttempts = 0
-          sessionToken = randomBytes(24).toString('hex')
-          json(res, 200, { token: sessionToken })
+          const token = randomBytes(24).toString('hex')
+          sessionTokens.push(token)
+          if (sessionTokens.length > MAX_SESSIONS) sessionTokens.shift()   // drop oldest
+          json(res, 200, { token })
         } else {
           failedAttempts++
           if (failedAttempts >= MAX_PAIR_ATTEMPTS) {
@@ -106,7 +116,7 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
     if (req.method === 'GET' && url === '/state') {
       if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
       res.setHeader('Cache-Control', 'no-store')
-      json(res, 200, { engine: lastEngineState, looksRev })
+      json(res, 200, { engine: lastEngineState, looksRev, audio: lastAudio, vj: lastVj })
       return
     }
 
@@ -159,6 +169,21 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
   // window — cache the latest snapshot for the remote's polling
   ipcMain.on('engine:state-update', (_e, state) => { lastEngineState = state })
 
+  // Audio flows ~30Hz through main for the output window — cache the live
+  // bits so /state stays fresh even when the user isn't touching anything
+  ipcMain.on('audio:data', (_e, d) => {
+    if (d && typeof d === 'object') {
+      lastAudio = { bpm: d.bpm ?? 0, energy: d.energy ?? 0, beatPulse: d.beatPulse ?? 0 }
+    }
+  })
+
+  // AutoVJ status pushed by the renderer (button, hotkeys, auto-disable)
+  ipcMain.on('remote:vj', (_e, vj) => {
+    if (vj && typeof vj.enabled === 'boolean') {
+      lastVj = { enabled: vj.enabled, genre: typeof vj.genre === 'string' ? vj.genre : '' }
+    }
+  })
+
   // Catalogs pushed once by the renderer at engine init
   ipcMain.on('remote:defs', (_e, defs) => { remoteDefs = defs })
 
@@ -173,9 +198,9 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
     code: pairingCode,
   }))
 
-  // Invalidate the session and rotate the pairing code
+  // Invalidate all sessions and rotate the pairing code
   ipcMain.handle('remote:reset', () => {
-    sessionToken = ''
+    sessionTokens = []
     pairingCode = String(randomInt(0, 1000000)).padStart(6, '0')
     return { code: pairingCode }
   })
@@ -715,11 +740,20 @@ async function poll(){
   const e = j.engine
   if (!e || !defs) return
 
-  // top strip
+  // top strip — BPM comes from the live audio cache, not the engine snapshot
   setOn($('blackout'), !!e.blackout)
   setOn($('freeze'), !!e.frozen)
-  setText($('bpm'), e.bpm ? String(Math.round(e.bpm)) : '--')
+  const bpm = (j.audio && j.audio.bpm) || e.bpm
+  setText($('bpm'), bpm ? String(Math.round(bpm)) : '--')
   setRange($('master'), num(e.brightness, 1))
+
+  // AutoVJ: desktop is the source of truth; optimistic tap corrected here
+  if (j.vj) {
+    local.autovj = !!j.vj.enabled
+    setOn($('autovj'), local.autovj)
+    const gsel = $('genre')
+    if (j.vj.genre && document.activeElement !== gsel && gsel.value !== j.vj.genre) gsel.value = j.vj.genre
+  }
 
   // FX: active effect highlight + params
   if (prev.fx !== e.activeEffect) {
@@ -729,8 +763,9 @@ async function poll(){
   const psig = (e.paramDefs || []).map(function(d){ return d.key }).join(',') + '|' + e.activeEffect
   if (prev.psig !== psig) { prev.psig = psig; rebuildParams(e) }
   // Engine buckets params under the effect id ('__custom__' for custom shaders)
+  // — when a custom shader is live, its bucket wins over the stale stock one
   const ep = e.effectParams || {}
-  const bucket = ep[e.activeEffect] || ep['__custom__'] || {}
+  const bucket = (e.customShader ? ep['__custom__'] : ep[e.activeEffect]) || ep['__custom__'] || {}
   ;(e.paramDefs || []).forEach(function(d){
     const els = paramEls[d.key]
     if (!els) return
@@ -805,7 +840,7 @@ function wireStatic(){
   })
   $('tap').addEventListener('click', function(){ cmd({ type: 'tap' }) })
 
-  // autovj is not in engine state — keep it local like the desktop toggle
+  // autovj: optimistic toggle, next poll confirms from state.vj
   $('autovj').addEventListener('click', function(){
     local.autovj = !local.autovj
     this.classList.toggle('on', local.autovj)

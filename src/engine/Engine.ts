@@ -126,6 +126,18 @@ export interface EngineState {
   effectParams?: Record<string, Record<string, ParamState>>
   /** Param defs of the ACTIVE effect — read-only, for remote UIs */
   paramDefs?: EffectParam[]
+  // Transition + palette-cycling preferences (persisted, synced to remote UIs)
+  transitionType?: TransitionType
+  transitionDuration?: number
+  transitionBeatSync?: boolean
+  colorSpeed?: number
+  cycle?: {
+    enabled: boolean
+    palettes: [string, string, string][]
+    intervalMs: number
+    beatSync: boolean
+    beatsPerSwitch: number
+  }
   // Deck / master
   deckBEffect?: EffectId
   crossfade?: number
@@ -149,6 +161,10 @@ export interface Preset {
   deckBEffect?: EffectId
   crossfade?: number
   blendMode?: BlendMode
+  /** Per-effect param values + audio mappings — a look isn't a look without them */
+  effectParams?: Record<string, Record<string, ParamState>>
+  customShader?: string
+  customParams?: EffectParam[]
 }
 
 export interface Playlist {
@@ -237,6 +253,7 @@ export class Engine {
   private paramState: Record<string, Record<string, ParamState>> = {}
   private customParamDefs: EffectParam[] = []
   private usingCustom = false
+  private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
   private audioScale = 1     // reactivity multiplier applied to audio uniforms
 
@@ -284,6 +301,7 @@ export class Engine {
   private transitionMaterial: THREE.ShaderMaterial
   private transitionBeatSync = false
   private transitionPending: EffectId | null = null
+  private transitionPendingSince = 0
 
   // Overlays
   private overlays: OverlayItem[] = []
@@ -322,6 +340,16 @@ export class Engine {
 
   // State change callback (for syncing to output window)
   public onStateChange: ((state: EngineState) => void) | null = null
+
+  // UI listeners — panels subscribe here so they stay in sync when state
+  // changes from ANY surface (phone remote, AutoVJ, hotkeys, presets)
+  private stateListeners = new Set<(state: EngineState) => void>()
+
+  /** Subscribe to state changes. Returns an unsubscribe function. */
+  onState(fn: (state: EngineState) => void): () => void {
+    this.stateListeners.add(fn)
+    return () => { this.stateListeners.delete(fn) }
+  }
 
   // Per-frame audio listeners (AutoVJ, playlist beat-advance — fresh beat data, one call per frame)
   private audioFrameListeners = new Set<(beatDetected: boolean, energy: number, bass: number, barPhase: number) => void>()
@@ -465,6 +493,17 @@ export class Engine {
     // Init post-processing materials
     this.initPostMaterials()
 
+    // WebGL context loss after hours of GPU load: preventDefault allows the
+    // browser to restore the context; three re-uploads resources on restore
+    canvas.addEventListener('webglcontextlost', e => {
+      e.preventDefault()
+      console.error('[Engine] WebGL context LOST — waiting for restore')
+    })
+    canvas.addEventListener('webglcontextrestored', () => {
+      console.warn('[Engine] WebGL context restored')
+      this.renderer.resetState()
+    })
+
     this.handleResize()
     window.addEventListener('resize', this.handleResize)
   }
@@ -499,6 +538,8 @@ export class Engine {
     const bh = Math.max(2, Math.round(h * scale))
 
     for (const rt of [this.rtA, this.rtB, this.rtPrev, this.rtTransition, this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2]) {
+      // Resizing an RT discards its contents — the freeze frame must survive
+      if (rt === this.rtFreeze && this.frozen) continue
       rt.setSize(bw, bh)
     }
     this.rtBloomA.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
@@ -662,6 +703,7 @@ export class Engine {
     // If beat-sync is on and no beat right now, queue the transition
     if (this.transitionBeatSync) {
       this.transitionPending = id
+      this.transitionPendingSince = performance.now()
       return
     }
 
@@ -794,6 +836,8 @@ export class Engine {
       this.quad.material = this.mainMaterial
       this.customParamDefs = defs
       this.usingCustom = true
+      this.customShaderSource = fragSource
+      this.emitState()
       return true
     } catch (e) {
       console.error('[Engine] Custom shader compile error:', e)
@@ -808,13 +852,13 @@ export class Engine {
     } catch (_) {}
   }
 
-  setTransitionType(type: TransitionType) { this.transitionType = type }
+  setTransitionType(type: TransitionType) { this.transitionType = type; this.emitState() }
   getTransitionType(): TransitionType { return this.transitionType }
 
-  setTransitionDuration(seconds: number) { this.transitionDuration = Math.max(0, seconds) }
+  setTransitionDuration(seconds: number) { this.transitionDuration = Math.max(0, seconds); this.emitState() }
   getTransitionDuration(): number { return this.transitionDuration }
 
-  setTransitionBeatSync(enabled: boolean) { this.transitionBeatSync = enabled }
+  setTransitionBeatSync(enabled: boolean) { this.transitionBeatSync = enabled; this.emitState() }
   isTransitionBeatSync(): boolean { return this.transitionBeatSync }
 
   isTransitioning(): boolean { return this.transitionProgress >= 0 }
@@ -977,7 +1021,8 @@ export class Engine {
   applySettings(state: Partial<EngineState>) {
     const duration = this.transitionDuration
     this.transitionDuration = 0 // switch instantly while restoring
-    if (state.activeEffect) this.setEffect(state.activeEffect)
+    if (state.customShader) this.setCustomShader(state.customShader, state.customParams || [])
+    else if (state.activeEffect) this.setEffect(state.activeEffect)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) {
       this.setColors(state.colors[0], state.colors[1], state.colors[2])
@@ -991,9 +1036,20 @@ export class Engine {
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
     if (state.effectParams) this.paramState = state.effectParams
+    if (state.transitionType) this.transitionType = state.transitionType
+    if (typeof state.transitionBeatSync === 'boolean') this.transitionBeatSync = state.transitionBeatSync
+    if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
+    if (state.cycle) {
+      this.cyclePalettes = state.cycle.palettes || []
+      this.cycleIntervalMs = state.cycle.intervalMs
+      this.cycleBeatSync = state.cycle.beatSync
+      this.cycleBeatsPerSwitch = state.cycle.beatsPerSwitch
+      this.setCycleEnabled(state.cycle.enabled)
+    }
     // blackout/frozen are deliberately NOT restored — booting into a black
     // screen looks like a crash
-    this.transitionDuration = duration
+    this.transitionDuration = typeof state.transitionDuration === 'number'
+      ? state.transitionDuration : duration
   }
 
   // ---- Remote (output window) API ----
@@ -1020,13 +1076,18 @@ export class Engine {
   applyRemoteState(state: EngineState) {
     if (state.effectParams) this.paramState = state.effectParams
     if (state.customShader) {
-      this.setCustomShader(state.customShader, state.customParams || [])
-      return
+      // Recompile only when the source actually changed — the shader now
+      // rides every snapshot, and validation renders are not free
+      if (!this.usingCustom || state.customShader !== this.customShaderSource) {
+        this.setCustomShader(state.customShader, state.customParams || [])
+      }
+    } else {
+      // Transition params always come from the control window
+      if (state.transition) this.transitionType = state.transition.type
+      this.transitionDuration = state.transition ? state.transition.duration : 0
+      if (state.activeEffect) this.setEffect(state.activeEffect)
     }
-    // Transition params always come from the control window
-    if (state.transition) this.transitionType = state.transition.type
-    this.transitionDuration = state.transition ? state.transition.duration : 0
-    if (state.activeEffect) this.setEffect(state.activeEffect)
+    if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -1135,7 +1196,10 @@ export class Engine {
     } else {
       const img = new Image()
       img.src = dataUrl
-      await new Promise<void>((resolve) => { img.onload = () => resolve() })
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('immagine non valida: ' + name))
+      })
       canvas.width = img.naturalWidth
       canvas.height = img.naturalHeight
       const ctx = canvas.getContext('2d')!
@@ -1237,12 +1301,24 @@ export class Engine {
     return overlay
   }
 
+  /** Full media teardown — leaked webcam tracks keep the camera hot all night */
+  private teardownOverlay(overlay: OverlayItem) {
+    const video = overlay._video
+    if (video) {
+      video.pause()
+      const stream = video.srcObject as MediaStream | null
+      stream?.getTracks().forEach(t => t.stop())
+      video.srcObject = null
+      if (video.src.startsWith('blob:')) URL.revokeObjectURL(video.src)
+      video.removeAttribute('src')
+    }
+    overlay._texture?.dispose()
+  }
+
   removeOverlay(id: string) {
     const idx = this.overlays.findIndex(o => o.id === id)
     if (idx >= 0) {
-      const overlay = this.overlays[idx]
-      overlay._video?.pause()
-      overlay._texture?.dispose()
+      this.teardownOverlay(this.overlays[idx])
       this.overlays.splice(idx, 1)
       if (!this.remote) { try { window.api?.sendOverlayRemove(id) } catch (_) {} }
     }
@@ -1293,6 +1369,9 @@ export class Engine {
       deckBEffect: this.deckBEffect,
       crossfade: this.crossfade,
       blendMode: this.blendMode,
+      effectParams: JSON.parse(JSON.stringify(this.paramState)),
+      customShader: this.usingCustom ? this.customShaderSource : undefined,
+      customParams: this.usingCustom ? this.customParamDefs : undefined,
     }
   }
 
@@ -1310,10 +1389,21 @@ export class Engine {
     if (preset.deckBEffect && preset.deckBEffect !== this.deckBEffect) this.setDeckBEffect(preset.deckBEffect)
     if (typeof preset.crossfade === 'number') this.setCrossfade(preset.crossfade)
     if (preset.blendMode) this.blendMode = preset.blendMode
+    if (preset.effectParams) this.paramState = JSON.parse(JSON.stringify(preset.effectParams))
+
+    if (preset.customShader) {
+      if (!this.usingCustom || preset.customShader !== this.customShaderSource) {
+        this.setCustomShader(preset.customShader, preset.customParams || [])
+      } else {
+        this.emitState()
+      }
+      return
+    }
 
     // setEffect handles its own emitState (with transition info)
     // If same effect, just emit state for the post/color changes
-    if (preset.effect === this.currentEffect && this.transitionProgress < 0) {
+    // (unless a custom shader is active — setEffect must exit custom mode)
+    if (!this.usingCustom && preset.effect === this.currentEffect && this.transitionProgress < 0) {
       this.emitState()
     } else {
       this.setEffect(preset.effect)
@@ -1352,12 +1442,31 @@ export class Engine {
       grade: { ...this.grade },
       effectParams: this.paramState,
       paramDefs: this.getParamDefs(),
+      // Custom shader must ride the snapshot: any emit without it used to
+      // revert the output window to the stock effect (show-breaking)
+      customShader: this.usingCustom ? this.customShaderSource : undefined,
+      customParams: this.usingCustom ? this.customParamDefs : undefined,
+      transitionType: this.transitionType,
+      transitionDuration: this.transitionDuration,
+      transitionBeatSync: this.transitionBeatSync,
+      colorSpeed: this.getColorTransitionSpeed(),
+      cycle: {
+        enabled: this.cycleEnabled,
+        palettes: this.cyclePalettes,
+        intervalMs: this.cycleIntervalMs,
+        beatSync: this.cycleBeatSync,
+        beatsPerSwitch: this.cycleBeatsPerSwitch,
+      },
     }
   }
 
   private emitState() {
-    if (this.remote || !this.onStateChange) return
-    this.onStateChange(this.stateSnapshot())
+    if (this.remote) return
+    const snap = this.stateSnapshot()
+    this.onStateChange?.(snap)
+    for (const fn of this.stateListeners) {
+      try { fn(snap) } catch (e) { console.error('[Engine] state listener error:', e) }
+    }
   }
 
   start() {
@@ -1368,7 +1477,18 @@ export class Engine {
 
   private loop = () => {
     if (this.disposed) return
+    // One bad frame (a broken GIF, a listener throw) must never kill the rAF
+    // chain — a frozen projector mid-set is the worst possible failure mode
+    try {
+      this.renderFrame()
+    } catch (e) {
+      console.error('[Engine] frame error:', e)
+    } finally {
+      this.animFrameId = requestAnimationFrame(this.loop)
+    }
+  }
 
+  private renderFrame() {
     const time = this.clock.getElapsedTime()
     // Frame delta from elapsed time — clock.getDelta() is consumed by getElapsedTime()
     const dt = Math.min(time - this.lastFrameTime, 0.25)
@@ -1420,8 +1540,10 @@ export class Engine {
       fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase)
     }
 
-    // Beat-synced transition: trigger pending effect change on beat
-    if (this.transitionPending && beatDetected) {
+    // Beat-synced transition: trigger pending effect change on beat — or
+    // after 2s without one (dead audio must not swallow effect switches)
+    if (this.transitionPending &&
+        (beatDetected || performance.now() - this.transitionPendingSince > 2000)) {
       const pending = this.transitionPending
       this.transitionPending = null
       this.startTransition(pending)
@@ -1471,7 +1593,6 @@ export class Engine {
     if (this.frozen && !this.freezeRequested) {
       this.renderMaster(this.rtFreeze.texture)
       this.syncAudioToOutput(bpm, beatDetected)
-      this.animFrameId = requestAnimationFrame(this.loop)
       return
     }
 
@@ -1633,8 +1754,6 @@ export class Engine {
     this.renderMaster(finalTexture)
 
     this.syncAudioToOutput(bpm, beatDetected)
-
-    this.animFrameId = requestAnimationFrame(this.loop)
   }
 
   /** Feed the shared per-frame uniforms into an effect material */
@@ -1757,7 +1876,7 @@ export class Engine {
     this.transitionMaterial.dispose()
     this.transitionOldMaterial?.dispose()
     this.overlayMaterial.dispose()
-    this.overlays.forEach(o => { o._texture?.dispose(); o._video?.pause() })
+    this.overlays.forEach(o => this.teardownOverlay(o))
     this.overlays = []
     this.postMaterials.forEach(m => m.dispose())
     for (const rt of [this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2, this.rtBloomA, this.rtBloomB]) rt.dispose()

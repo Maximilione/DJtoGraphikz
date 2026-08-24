@@ -91,19 +91,32 @@ export class AudioAnalyzer {
   // without this the app silently stops reacting to the mic until restart.
   private lastDeviceId?: string
   private restartTimer = 0
+  private restartAttempts = 0
+  // start() calls stop() internally, so `running` can't gate restarts — this
+  // flag distinguishes a user stop (no retry) from a recovery stop (retry)
+  private userStopped = true
 
-  private scheduleRestart(reason: string) {
-    if (!this.running || this.restartTimer) return
-    console.warn('[AudioAnalyzer] audio device lost (' + reason + ') — restarting in 1s')
+  private scheduleRestart(reason: string, delayMs = 1000) {
+    if (this.userStopped || this.restartTimer) return
+    console.warn(`[AudioAnalyzer] audio device lost (${reason}) — restarting in ${delayMs}ms`)
     this.restartTimer = window.setTimeout(() => {
       this.restartTimer = 0
-      this.start(this.lastDeviceId).catch(err =>
-        console.error('[AudioAnalyzer] restart failed:', err))
-    }, 1000)
+      this.start(this.lastDeviceId)
+        .then(() => { this.restartAttempts = 0 })
+        .catch(err => {
+          // A USB interface can take seconds to re-enumerate — keep trying
+          // with backoff instead of going silent for the rest of the night
+          this.restartAttempts++
+          console.error('[AudioAnalyzer] restart failed (attempt ' + this.restartAttempts + '):', err)
+          this.userStopped = false
+          this.scheduleRestart('retry', Math.min(30_000, 1000 * 2 ** this.restartAttempts))
+        })
+    }, delayMs)
   }
 
   async start(deviceId?: string): Promise<void> {
     this.stop()
+    this.userStopped = false
     this.lastDeviceId = deviceId
 
     // Native device rate — forcing 44100 on 48k hardware goes through a
@@ -211,6 +224,7 @@ export class AudioAnalyzer {
 
   stop(): void {
     this.running = false
+    this.userStopped = true
     clearTimeout(this.restartTimer)
     this.restartTimer = 0
     if (this.context) this.context.onstatechange = null

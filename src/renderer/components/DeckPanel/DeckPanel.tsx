@@ -19,13 +19,20 @@ export function DeckPanel({ engine }: DeckPanelProps) {
   const [blend, setBlend] = useState<BlendMode>('mix')
   const [motionBlur, setMotionBlur] = useState(0)
 
-  // Sync from engine — settings may have been restored before mount
+  // Sync from engine on mount (boot restore may not emit), then subscribe:
+  // state changes come from ANY surface (phone remote, AutoVJ, hotkeys, presets)
   React.useEffect(() => {
     if (!engine) return
     setDeckB(engine.getDeckBEffect())
     setCrossfade(engine.getCrossfade())
     setBlend(engine.getBlendMode())
     setMotionBlur(engine.getMotionBlur())
+    return engine.onState(state => {
+      if (state.deckBEffect) setDeckB(state.deckBEffect)
+      if (state.crossfade !== undefined) setCrossfade(state.crossfade)
+      if (state.blendMode) setBlend(state.blendMode)
+      if (state.motionBlur !== undefined) setMotionBlur(state.motionBlur)
+    })
   }, [engine])
 
   const changeDeckB = useCallback((id: EffectId) => {
