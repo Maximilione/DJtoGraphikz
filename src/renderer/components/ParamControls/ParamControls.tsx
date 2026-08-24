@@ -1,4 +1,4 @@
-import React, { useReducer } from 'react'
+import React, { useEffect, useReducer, useRef } from 'react'
 import type { Engine } from '@engine/Engine'
 import { AUDIO_SOURCES, type AudioSource } from '@engine/EffectParams'
 import { NumberInput } from '../NumberInput/NumberInput'
@@ -13,13 +13,27 @@ interface ParamControlsProps {
  */
 export function ParamControls({ engine }: ParamControlsProps) {
   const [, force] = useReducer((x: number) => x + 1, 0)
+  // While a pointer is down on this panel a slider may be mid-drag — skip
+  // re-renders from engine emits so the drag isn't clobbered, catch up on release
+  const draggingRef = useRef(false)
+
+  useEffect(() => {
+    if (!engine) return
+    return engine.onState(() => { if (!draggingRef.current) force() })
+  }, [engine])
+
   if (!engine) return null
 
   const defs = engine.getParamDefs()
   if (defs.length === 0) return null
 
+  const onPointerDown = () => {
+    draggingRef.current = true
+    window.addEventListener('pointerup', () => { draggingRef.current = false; force() }, { once: true })
+  }
+
   return (
-    <div style={{
+    <div onPointerDown={onPointerDown} style={{
       padding: '6px', borderRadius: '4px',
       background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', gap: '4px',
