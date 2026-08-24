@@ -141,11 +141,14 @@ export function App() {
     vjRef.current.setEnabled(on)
     setVjEnabled(on)
     if (on) setVjStatus({ current: '', count: 0 })
+    // Keep the phone remote honest — hotkeys/effect cmds disable AutoVJ silently
+    try { window.api?.sendRemoteVj({ enabled: on, genre: vjRef.current.getGenre() }) } catch (_) {}
   }, [])
 
   const changeVJGenre = useCallback((g: Genre) => {
     vjRef.current.setGenre(g)
     setVjGenre(g)
+    try { window.api?.sendRemoteVj({ enabled: vjRef.current.isEnabled(), genre: g }) } catch (_) {}
   }, [])
 
   const changeMode = useCallback((m: UIMode) => {

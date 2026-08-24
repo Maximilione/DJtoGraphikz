@@ -5,6 +5,12 @@ import { setupRemoteServer } from './remote-server'
 
 let controlWindow: BrowserWindow | null = null
 let outputWindow: BrowserWindow | null = null
+let quitting = false
+
+// Cached for output-window replay: a late-loading or recreated output window
+// gets the latest engine state + overlays instead of defaults.
+let lastEngineState: unknown = null
+const overlays = new Map<string, Record<string, unknown>>()
 
 function createControlWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -82,7 +88,32 @@ function createOutputWindow(): BrowserWindow {
     win.loadFile(join(__dirname, '../renderer/output.html'))
   }
 
+  // Initial-state handshake: replay cached engine state + overlays so the
+  // projector never sits on defaults (output-main.ts subscribes at load)
+  win.webContents.on('did-finish-load', () => {
+    if (lastEngineState) win.webContents.send('engine:state-update', lastEngineState)
+    for (const data of overlays.values()) win.webContents.send('overlay:add', data)
+  })
+
+  // Auto-recreate if the output renderer crashes mid-set
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[Main] output renderer gone:', details.reason)
+    if (outputWindow === win) outputWindow = null
+    win.destroy()
+    if (!quitting && controlWindow) outputWindow = createOutputWindow()
+  })
+
+  win.on('closed', () => {
+    if (outputWindow === win) outputWindow = null
+  })
+
   return win
+}
+
+// Single instance: recreate on demand if the user closed it
+function ensureOutputWindow(): BrowserWindow {
+  if (!outputWindow || outputWindow.isDestroyed()) outputWindow = createOutputWindow()
+  return outputWindow
 }
 
 app.whenReady().then(async () => {
@@ -113,8 +144,9 @@ app.whenReady().then(async () => {
   setupIpcHandlers(controlWindow, outputWindow)
   setupRemoteServer(controlWindow)
 
-  // Forward engine state from control to output window
+  // Forward engine state from control to output window (cache for replay)
   ipcMain.on('engine:state-update', (_event, state) => {
+    lastEngineState = state
     outputWindow?.webContents.send('engine:state-update', state)
   })
 
@@ -123,14 +155,18 @@ app.whenReady().then(async () => {
     outputWindow?.webContents.send('audio:data', data)
   })
 
-  // Forward overlay operations from control to output
+  // Forward overlay operations from control to output (cache descriptors for replay)
   ipcMain.on('overlay:add', (_event, data) => {
+    if (data?.id) overlays.set(data.id, data)
     outputWindow?.webContents.send('overlay:add', data)
   })
   ipcMain.on('overlay:remove', (_event, id) => {
+    overlays.delete(id)
     outputWindow?.webContents.send('overlay:remove', id)
   })
   ipcMain.on('overlay:update', (_event, id, updates) => {
+    const cached = overlays.get(id)
+    if (cached) Object.assign(cached, updates)
     outputWindow?.webContents.send('overlay:update', id, updates)
   })
 
@@ -140,25 +176,20 @@ app.whenReady().then(async () => {
     outputWindow = null
   })
 
-  outputWindow.on('closed', () => {
-    outputWindow = null
-  })
-
   // Forward resolution change to output window
   ipcMain.on('output:set-resolution', (_event, w: number, h: number) => {
-    outputWindow?.webContents.send('output:set-resolution', w, h)
+    ensureOutputWindow().webContents.send('output:set-resolution', w, h)
   })
 
   // Toggle output fullscreen (simpleFullScreen for instant switch on macOS)
   ipcMain.on('output:toggle-fullscreen', () => {
-    if (outputWindow) {
-      const current = outputWindow.isFullScreen() || outputWindow.isSimpleFullScreen()
-      if (current) {
-        outputWindow.setSimpleFullScreen(false)
-        outputWindow.setFullScreen(false)
-      } else {
-        outputWindow.setSimpleFullScreen(true)
-      }
+    const win = ensureOutputWindow()
+    const current = win.isFullScreen() || win.isSimpleFullScreen()
+    if (current) {
+      win.setSimpleFullScreen(false)
+      win.setFullScreen(false)
+    } else {
+      win.setSimpleFullScreen(true)
     }
   })
 
@@ -175,12 +206,15 @@ app.whenReady().then(async () => {
   // Move output to specific display
   ipcMain.on('output:move-to-display', (_event, displayId: number) => {
     const display = screen.getAllDisplays().find(d => d.id === displayId)
-    if (display && outputWindow) {
-      outputWindow.setBounds(display.bounds)
-      outputWindow.setFullScreen(true)
+    if (display) {
+      const win = ensureOutputWindow()
+      win.setBounds(display.bounds)
+      win.setFullScreen(true)
     }
   })
 })
+
+app.on('before-quit', () => { quitting = true })
 
 app.on('window-all-closed', () => {
   app.quit()
