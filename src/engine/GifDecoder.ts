@@ -5,6 +5,10 @@ export interface GifFrame {
   delay: number // ms
 }
 
+// Memory caps: a 500-frame 800x600 GIF is ~1GB of RGBA, decoded in BOTH windows.
+const MAX_DIMENSION = 720 // longest side; overlay texture, VJ res doesn't need more
+const MAX_FRAMES = 240
+
 export class GifDecoder {
   frames: GifFrame[] = []
   width = 0
@@ -22,17 +26,36 @@ export class GifDecoder {
 
     if (rawFrames.length === 0) return
 
-    this.width = gif.lsd.width
-    this.height = gif.lsd.height
+    // Native size — compositing must happen here (patch offsets/disposal use it)
+    const nativeW = gif.lsd.width
+    const nativeH = gif.lsd.height
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(nativeW, nativeH))
+    this.width = Math.max(1, Math.round(nativeW * scale))
+    this.height = Math.max(1, Math.round(nativeH * scale))
     this.frames = []
 
     // Composite canvas — GIF frames can be partial patches
     const canvas = document.createElement('canvas')
-    canvas.width = this.width
-    canvas.height = this.height
+    canvas.width = nativeW
+    canvas.height = nativeH
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!
 
+    // Downscale pass: composite at native size, capture at capped size
+    let outCtx = ctx
+    if (scale < 1) {
+      const outCanvas = document.createElement('canvas')
+      outCanvas.width = this.width
+      outCanvas.height = this.height
+      outCtx = outCanvas.getContext('2d', { willReadFrequently: true })!
+    }
+
     for (const frame of rawFrames) {
+      if (this.frames.length >= MAX_FRAMES) {
+        console.warn(
+          `GifDecoder: frame cap hit — keeping ${MAX_FRAMES} of ${rawFrames.length} frames`
+        )
+        break
+      }
       // Draw patch onto composite
       const patch = new ImageData(
         new Uint8ClampedArray(frame.patch),
@@ -49,13 +72,17 @@ export class GifDecoder {
 
       // Handle disposal
       if (frame.disposalType === 2) {
-        ctx.clearRect(0, 0, this.width, this.height)
+        ctx.clearRect(0, 0, nativeW, nativeH)
       }
 
       ctx.drawImage(patchCanvas, frame.dims.left, frame.dims.top)
 
-      // Capture full composited frame
-      const composited = ctx.getImageData(0, 0, this.width, this.height)
+      // Capture full composited frame (downscaled when over the dimension cap)
+      if (scale < 1) {
+        outCtx.clearRect(0, 0, this.width, this.height)
+        outCtx.drawImage(canvas, 0, 0, this.width, this.height)
+      }
+      const composited = outCtx.getImageData(0, 0, this.width, this.height)
       this.frames.push({
         imageData: new ImageData(
           new Uint8ClampedArray(composited.data),
@@ -64,6 +91,14 @@ export class GifDecoder {
         ),
         delay: frame.delay || 100,
       })
+    }
+
+    const estBytes = this.frames.length * this.width * this.height * 4
+    if (estBytes > 100 * 1024 * 1024) {
+      console.warn(
+        `GifDecoder: decoded GIF uses ~${Math.round(estBytes / (1024 * 1024))}MB ` +
+          `(${this.frames.length} frames @ ${this.width}x${this.height}) even after caps`
+      )
     }
   }
 }
