@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
 import { ParamControls } from '../ParamControls/ParamControls'
 import { loadISF } from '@engine/IsfLoader'
+import { usePanelCollapsed } from '../usePanelCollapsed'
 
 interface ShaderEditorProps {
   engine: Engine | null
@@ -11,7 +12,7 @@ interface ShaderEditorProps {
 const TEMPLATES: { name: string; category: string; code: string }[] = [
   {
     name: 'Mandelbrot',
-    category: 'Fractal',
+    category: 'Frattali',
     code: `precision highp float;
 uniform float uTime;
 uniform float uBass;
@@ -47,7 +48,7 @@ void main() {
   },
   {
     name: 'Julia Set',
-    category: 'Fractal',
+    category: 'Frattali',
     code: `precision highp float;
 uniform float uTime;
 uniform float uBass;
@@ -84,7 +85,7 @@ void main() {
   },
   {
     name: 'Burning Ship',
-    category: 'Fractal',
+    category: 'Frattali',
     code: `precision highp float;
 uniform float uTime;
 uniform float uBass;
@@ -121,7 +122,7 @@ void main() {
   },
   {
     name: 'Sierpinski',
-    category: 'Fractal',
+    category: 'Frattali',
     code: `precision highp float;
 uniform float uTime;
 uniform float uBass;
@@ -160,7 +161,7 @@ void main() {
   },
   {
     name: 'Spiral Zoom',
-    category: 'Animation',
+    category: 'Animazione',
     code: `precision highp float;
 uniform float uTime;
 uniform float uBass;
@@ -196,7 +197,7 @@ void main() {
   },
   {
     name: 'Kaleidoscope Fractal',
-    category: 'Fractal',
+    category: 'Frattali',
     code: `precision highp float;
 uniform float uTime;
 uniform float uBass;
@@ -239,8 +240,8 @@ void main() {
 }`,
   },
   {
-    name: 'Empty Template',
-    category: 'Template',
+    name: 'Template vuoto',
+    category: 'Base',
     code: `precision highp float;
 
 // Audio uniforms (updated every frame)
@@ -273,7 +274,7 @@ void main() {
 ]
 
 export function ShaderEditor({ engine }: ShaderEditorProps) {
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, toggleCollapsed] = usePanelCollapsed('shader', true, 'right')
   const [code, setCode] = useState(TEMPLATES[TEMPLATES.length - 1].code)
   const [error, setError] = useState<string | null>(null)
   const [liveMode, setLiveMode] = useState(false)
@@ -290,7 +291,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       setLastApplied(code)
       engine.sendCustomShaderToOutput(code)
     } else {
-      setError(engine.getLastShaderError() || 'Shader compilation failed — check console for details')
+      setError(engine.getLastShaderError() || 'Compilazione shader fallita — dettagli in console')
     }
   }, [engine, code])
 
@@ -305,7 +306,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
         setLastApplied(code)
         engine.sendCustomShaderToOutput(code)
       } else {
-        setError(engine.getLastShaderError() || 'Compile error')
+        setError(engine.getLastShaderError() || 'Errore di compilazione')
       }
     }, 500)
     return () => clearTimeout(debounceRef.current)
@@ -370,7 +371,11 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
+      <div
+        className="panel-header"
+        onClick={toggleCollapsed}
+        title={collapsed ? 'Espandi Shader Editor' : 'Comprimi Shader Editor'}
+      >
         <span>Shader Editor</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
@@ -378,24 +383,17 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {/* Templates */}
           <div>
-            <div style={catLabel}>Templates</div>
+            <div className="cat-label">Template</div>
             {Object.entries(categories).map(([cat, items]) => (
               <div key={cat} style={{ marginBottom: '4px' }}>
-                <div style={{ fontSize: '7px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
-                  {cat}
-                </div>
+                <div className="cat-label" style={{ marginBottom: '2px' }}>{cat}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
                   {items.map(t => (
                     <button
                       key={t.index}
+                      className="btn btn-secondary btn-sm"
+                      title={`Carica il template ${t.name} nell'editor`}
                       onClick={() => loadTemplate(t.index)}
-                      style={{
-                        padding: '3px 6px', borderRadius: '3px',
-                        border: '1px solid var(--border)',
-                        background: 'var(--bg-tertiary)',
-                        color: 'var(--text-secondary)',
-                        fontSize: '9px', cursor: 'pointer',
-                      }}
                     >
                       {t.name}
                     </button>
@@ -407,62 +405,38 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
 
           {/* Code editor */}
           <div>
-            <div style={catLabel}>GLSL Code</div>
+            <div className="cat-label">Codice GLSL</div>
             <textarea
               ref={textareaRef}
+              className={`code-edit${error ? ' error' : ''}`}
               value={code}
               onChange={e => setCode(e.target.value)}
               onKeyDown={handleKeyDown}
               spellCheck={false}
-              style={{
-                width: '100%',
-                height: '200px',
-                padding: '6px',
-                borderRadius: '4px',
-                border: error ? '1px solid var(--danger)' : '1px solid var(--border)',
-                background: '#0a0a10',
-                color: '#c8d0e0',
-                fontSize: '10px',
-                fontFamily: 'var(--font-mono)',
-                lineHeight: '1.4',
-                resize: 'vertical',
-                outline: 'none',
-                tabSize: 2,
-                whiteSpace: 'pre',
-                overflowWrap: 'normal',
-                overflowX: 'auto',
-              }}
+              title="Fragment shader GLSL — Tab indenta"
             />
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {code.split('\n').length} lines
+            <div className="u-hint" style={{ marginTop: '2px' }}>
+              {code.split('\n').length} righe
             </div>
           </div>
 
           {/* Error display */}
-          {error && (
-            <div style={{
-              padding: '4px 6px', borderRadius: '3px',
-              background: 'rgba(255,68,68,0.1)',
-              border: '1px solid rgba(255,68,68,0.3)',
-              fontSize: '9px', color: '#ff6666',
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <div className="u-error">{error}</div>}
 
           {/* Controls */}
           <div style={{ display: 'flex', gap: '4px' }}>
             <button
               className="btn btn-primary btn-sm"
               onClick={applyShader}
+              title="Compila e applica lo shader"
               style={{ flex: 1 }}
             >
-              Apply Shader
+              Applica shader
             </button>
             <button
               className={`btn btn-sm ${liveMode ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setLiveMode(!liveMode)}
-              title="Auto-apply while typing (with 500ms debounce)"
+              title="Applica automaticamente mentre scrivi (debounce 500ms)"
             >
               {liveMode ? 'Live ON' : 'Live'}
             </button>
@@ -476,6 +450,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
             <button
               className="btn btn-secondary btn-sm"
               style={{ flex: 1 }}
+              title="Salva lo shader corrente come file .frag"
               onClick={() => {
                 const blob = new Blob([code], { type: 'text/plain' })
                 const url = URL.createObjectURL(blob)
@@ -486,11 +461,12 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
                 URL.revokeObjectURL(url)
               }}
             >
-              Export .frag
+              Esporta .frag
             </button>
             <button
               className="btn btn-secondary btn-sm"
               style={{ flex: 1 }}
+              title="Carica un file .frag/.glsl nell'editor"
               onClick={() => {
                 const input = document.createElement('input')
                 input.type = 'file'
@@ -505,7 +481,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
                 input.click()
               }}
             >
-              Import .frag
+              Importa .frag
             </button>
             <button
               className="btn btn-secondary btn-sm"
@@ -513,36 +489,27 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
               onClick={importISF}
               title="Importa un generator ISF: gli INPUTS diventano slider automatici"
             >
-              Import ISF
+              Importa ISF
             </button>
           </div>
 
           {/* Uniforms reference */}
-          <details style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
-            <summary style={{ cursor: 'pointer', marginBottom: '3px' }}>Available Uniforms</summary>
+          <details className="u-hint">
+            <summary style={{ cursor: 'pointer', marginBottom: '3px' }} title="Uniform disponibili nello shader">Uniform disponibili</summary>
             <div style={{ fontFamily: 'var(--font-mono)', lineHeight: '1.6', paddingLeft: '8px' }}>
-              <div><span style={{ color: 'var(--accent)' }}>uTime</span> — float, elapsed seconds</div>
-              <div><span style={{ color: 'var(--accent)' }}>uBass</span> — float, 0-1 bass energy</div>
-              <div><span style={{ color: 'var(--accent)' }}>uMid</span> — float, 0-1 mid energy</div>
-              <div><span style={{ color: 'var(--accent)' }}>uHigh</span> — float, 0-1 high energy</div>
-              <div><span style={{ color: 'var(--accent)' }}>uEnergy</span> — float, 0-1 overall energy</div>
-              <div><span style={{ color: 'var(--accent)' }}>uBeat</span> — float, 1.0 on beat, decays</div>
-              <div><span style={{ color: 'var(--accent)' }}>uColor1..3</span> — vec3, palette colors</div>
-              <div><span style={{ color: 'var(--accent)' }}>uResolution</span> — vec2, viewport size</div>
-              <div><span style={{ color: 'var(--accent)' }}>vUv</span> — vec2, 0..1 UV coords</div>
+              <div><span style={{ color: 'var(--accent)' }}>uTime</span> — float, secondi trascorsi</div>
+              <div><span style={{ color: 'var(--accent)' }}>uBass</span> — float, energia bassi 0-1</div>
+              <div><span style={{ color: 'var(--accent)' }}>uMid</span> — float, energia medi 0-1</div>
+              <div><span style={{ color: 'var(--accent)' }}>uHigh</span> — float, energia alti 0-1</div>
+              <div><span style={{ color: 'var(--accent)' }}>uEnergy</span> — float, energia totale 0-1</div>
+              <div><span style={{ color: 'var(--accent)' }}>uBeat</span> — float, 1.0 sul beat, decade</div>
+              <div><span style={{ color: 'var(--accent)' }}>uColor1..3</span> — vec3, colori palette</div>
+              <div><span style={{ color: 'var(--accent)' }}>uResolution</span> — vec2, dimensioni viewport</div>
+              <div><span style={{ color: 'var(--accent)' }}>vUv</span> — vec2, coordinate UV 0..1</div>
             </div>
           </details>
         </div>
       )}
     </div>
   )
-}
-
-const catLabel: React.CSSProperties = {
-  fontSize: '8px',
-  fontWeight: 700,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '1.2px',
-  marginBottom: '3px',
 }

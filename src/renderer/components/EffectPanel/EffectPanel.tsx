@@ -13,7 +13,7 @@ interface EffectPanelProps {
 // Effects organized by category
 export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: string; icon: string }[] }[] = [
   {
-    name: 'Geometric',
+    name: 'Geometrici',
     effects: [
       { id: 'tunnel', label: 'Tunnel', icon: '◎' },
       { id: 'kaleidoscope', label: 'Kaleido', icon: '✦' },
@@ -25,7 +25,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
     ],
   },
   {
-    name: 'Organic',
+    name: 'Organici',
     effects: [
       { id: 'fluid', label: 'Fluid', icon: '≋' },
       { id: 'plasma', label: 'Plasma', icon: '◈' },
@@ -36,7 +36,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
     ],
   },
   {
-    name: 'Motion',
+    name: 'Movimento',
     effects: [
       { id: 'particles', label: 'Particle', icon: '⁂' },
       { id: 'starfield', label: 'Stars', icon: '✧' },
@@ -46,7 +46,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
     ],
   },
   {
-    name: 'Digital',
+    name: 'Digitali',
     effects: [
       { id: 'matrix', label: 'Matrix', icon: '▤' },
       { id: 'grid', label: 'Grid', icon: '⊞' },
@@ -57,27 +57,27 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
 
 const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; icon: string; desc: string }[] }[] = [
   {
-    name: 'Glow & Color',
+    name: 'Glow & Colore',
     effects: [
-      { id: 'bloom', label: 'Bloom', icon: '✦', desc: 'Bright glow diffusion' },
-      { id: 'chromatic', label: 'Chromatic', icon: '◐', desc: 'Lens prism aberration' },
-      { id: 'rgb-split', label: 'RGB Split', icon: '▥', desc: 'Channel color offset' },
-      { id: 'invert', label: 'Invert', icon: '◑', desc: 'Negative colors' },
+      { id: 'bloom', label: 'Bloom', icon: '✦', desc: 'Diffusione del glow' },
+      { id: 'chromatic', label: 'Chromatic', icon: '◐', desc: 'Aberrazione prismatica' },
+      { id: 'rgb-split', label: 'RGB Split', icon: '▥', desc: 'Offset canali colore' },
+      { id: 'invert', label: 'Invert', icon: '◑', desc: 'Colori in negativo' },
     ],
   },
   {
-    name: 'Distortion',
+    name: 'Distorsione',
     effects: [
-      { id: 'feedback', label: 'Feedback', icon: '↻', desc: 'Echo motion trail' },
-      { id: 'mirror', label: 'Mirror', icon: '⎸', desc: 'Horizontal symmetry' },
-      { id: 'pixelate', label: 'Pixelate', icon: '▦', desc: 'Retro pixel blocks' },
+      { id: 'feedback', label: 'Feedback', icon: '↻', desc: 'Scia in feedback' },
+      { id: 'mirror', label: 'Mirror', icon: '⎸', desc: 'Simmetria orizzontale' },
+      { id: 'pixelate', label: 'Pixelate', icon: '▦', desc: 'Pixel retrò' },
     ],
   },
   {
-    name: 'Film & Texture',
+    name: 'Pellicola & Texture',
     effects: [
-      { id: 'filmgrain', label: 'Film Grain', icon: '⁘', desc: 'Analog noise texture' },
-      { id: 'scanlines', label: 'Scanlines', icon: '≡', desc: 'CRT monitor lines' },
+      { id: 'filmgrain', label: 'Film Grain', icon: '⁘', desc: 'Grana analogica' },
+      { id: 'scanlines', label: 'Scanlines', icon: '≡', desc: 'Righe CRT' },
     ],
   },
 ]
@@ -336,86 +336,50 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   return (
     <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
       {/* Section tabs — always visible */}
-      <div style={{
-        display: 'flex', borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-tertiary)',
-      }}>
+      <div className="tab-bar">
         {[
-          { id: 'fx' as Section, label: 'Effects', count: 21 },
+          { id: 'fx' as Section, label: 'Effetti', count: 21 },
           { id: 'post' as Section, label: `Post FX`, count: activePosts.size },
-          { id: 'color' as Section, label: 'Colors', count: null },
+          { id: 'color' as Section, label: 'Colori', count: null },
         ].map(tab => (
           <button
             key={tab.id}
+            className={`tab${section === tab.id ? ' active' : ''}`}
             onClick={() => setSection(tab.id)}
-            style={{
-              flex: 1, padding: '7px 4px',
-              background: section === tab.id ? 'var(--bg-secondary)' : 'transparent',
-              color: section === tab.id ? 'var(--accent)' : 'var(--text-muted)',
-              fontSize: '9px', fontWeight: 700, letterSpacing: '0.8px',
-              textTransform: 'uppercase',
-              borderBottom: section === tab.id ? '2px solid var(--accent)' : '2px solid transparent',
-              transition: 'all 0.12s',
-            }}
+            title={`Mostra sezione ${tab.label}`}
           >
             {tab.label}
-            {tab.count !== null && (
-              <span style={{
-                marginLeft: '3px', fontSize: '8px',
-                color: section === tab.id ? 'var(--accent-dim)' : 'var(--text-muted)',
-                opacity: 0.7,
-              }}>
-                {tab.count}
-              </span>
-            )}
+            {tab.count !== null && <span className="tab-count">{tab.count}</span>}
           </button>
         ))}
       </div>
 
-      <div style={{ padding: '8px' }}>
+      <div style={{ padding: 'var(--s2)' }}>
         {/* ====== EFFECTS TAB ====== */}
         {section === 'fx' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="u-col">
             {/* Search */}
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search effects..."
-              style={{
-                width: '100%', padding: '5px 8px',
-                borderRadius: '4px', border: '1px solid var(--border)',
-                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-                fontSize: '10px',
-              }}
+              placeholder="Cerca effetti…"
+              title="Filtra gli effetti per nome"
+              style={{ width: '100%', fontSize: 'var(--fs-xs)' }}
             />
 
             {/* Active effect indicator */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '4px 8px', borderRadius: '4px',
-              background: 'var(--accent-glow)', border: '1px solid var(--accent)',
-            }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 4px var(--accent)' }} />
-              <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {activeEffect}
-              </span>
+            <div className="active-banner">
+              <div className="status-dot on" />
+              <span className="active-banner-label">{activeEffect}</span>
             </div>
 
             {/* Per-effect params + audio mapping */}
             <ParamControls engine={engine} key={activeEffect} />
 
             {/* Transition settings */}
-            <div style={{
-              padding: '6px', borderRadius: '4px',
-              background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-            }}>
-              <div style={{
-                fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
-                textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '4px',
-              }}>
-                Transition
-              </div>
+            <div className="sub-card">
+              <div className="cat-label">Transizione</div>
               {/* Type selector */}
               <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
                 {([
@@ -427,11 +391,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 ] as const).map(t => (
                   <button
                     key={t.id}
+                    className={`pill${transitionType === t.id ? ' active' : ''}`}
+                    title={`Transizione ${t.label} al cambio effetto`}
                     onClick={() => {
                       setTransitionType(t.id)
                       engine?.setTransitionType(t.id)
                     }}
-                    style={pillStyle(transitionType === t.id)}
                   >
                     {t.label}
                   </button>
@@ -439,10 +404,11 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </div>
               {/* Duration */}
               <div className="slider-row">
-                <span className="label">Time</span>
+                <span className="label">Tempo</span>
                 <input
                   type="range" min={0} max={3} step={0.1}
                   value={transitionDuration}
+                  title="Durata della transizione in secondi"
                   onChange={e => {
                     const v = parseFloat(e.target.value)
                     setTransitionDuration(v)
@@ -458,22 +424,18 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </div>
               {/* Beat sync */}
               <div
+                className="u-row"
                 onClick={() => {
                   const v = !transitionBeatSync
                   setTransitionBeatSync(v)
                   engine?.setTransitionBeatSync(v)
                 }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '3px 0', cursor: 'pointer', marginTop: '2px',
-                }}
+                title="La transizione parte sul prossimo beat"
+                style={{ padding: '3px 0', cursor: 'pointer', marginTop: '2px' }}
               >
                 <div className={`toggle${transitionBeatSync ? ' active' : ''}`} />
-                <span style={{
-                  fontSize: '9px',
-                  color: transitionBeatSync ? 'var(--text-primary)' : 'var(--text-muted)',
-                }}>
-                  Wait for beat
+                <span className="u-hint" style={transitionBeatSync ? { color: 'var(--text-primary)' } : undefined}>
+                  Attendi il beat
                 </span>
               </div>
             </div>
@@ -486,14 +448,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               if (filtered.length === 0) return null
               return (
                 <div key={cat.name}>
-                  <div style={{
-                    fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
-                    textTransform: 'uppercase', letterSpacing: '1.2px',
-                    marginBottom: '3px', paddingLeft: '2px',
-                  }}>
-                    {cat.name}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2px' }}>
+                  <div className="cat-label">{cat.name}</div>
+                  <div className="fx-grid">
                     {filtered.map(fx => {
                       const isActive = activeEffect === fx.id
                       const thumb = getThumb(fx.id)
@@ -501,26 +457,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                         <button
                           key={fx.id}
                           onClick={() => selectEffect(fx.id)}
-                          className={thumb ? 'fx-thumb' : undefined}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                            padding: '5px 6px', borderRadius: '4px',
-                            border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                            background: thumb
-                              ? thumbBackground(thumb, isActive)
-                              : isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                            fontSize: '9px', fontWeight: isActive ? 600 : 400,
-                            cursor: 'pointer', transition: 'all 0.1s',
-                            textAlign: 'left', overflow: 'hidden',
-                          }}
+                          className={`fx-btn${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
+                          title={`Effetto ${fx.label}`}
+                          style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
                         >
-                          <span style={{ fontSize: '11px', lineHeight: 1, flexShrink: 0, opacity: isActive ? 1 : 0.5 }}>
-                            {fx.icon}
-                          </span>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {fx.label}
-                          </span>
+                          <span className="fx-ico">{fx.icon}</span>
+                          <span className="fx-name">{fx.label}</span>
                         </button>
                       )
                     })}
@@ -532,15 +474,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {/* ISF library — shaders from ~/.djtographikz/isf */}
             {(isfEffects.length > 0 || isfFailed.length > 0) && (
               <div>
-                <div style={{
-                  fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
-                  textTransform: 'uppercase', letterSpacing: '1.2px',
-                  marginBottom: '3px', paddingLeft: '2px',
-                }}>
-                  ISF
-                </div>
+                <div className="cat-label">ISF</div>
                 {isfEffects.length > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2px' }}>
+                  <div className="fx-grid">
                     {isfEffects
                       .filter(fx => !search || fx.name.toLowerCase().includes(searchLower))
                       .map(fx => {
@@ -549,20 +485,11 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                           <button
                             key={fx.name}
                             onClick={() => selectIsf(fx)}
-                            title={fx.name}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '4px',
-                              padding: '5px 6px', borderRadius: '4px',
-                              border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                              background: isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                              fontSize: '9px', fontWeight: isActive ? 600 : 400,
-                              cursor: 'pointer', transition: 'all 0.1s',
-                              textAlign: 'left', overflow: 'hidden',
-                            }}
+                            title={`Shader ISF: ${fx.name}`}
+                            className={`fx-btn${isActive ? ' active' : ''}`}
                           >
-                            <span style={{ fontSize: '11px', lineHeight: 1, flexShrink: 0, opacity: isActive ? 1 : 0.5 }}>ƒ</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span className="fx-ico">ƒ</span>
+                            <span className="fx-name">
                               {fx.name.replace(/\.(fs|frag|glsl)$/i, '')}
                             </span>
                           </button>
@@ -571,22 +498,16 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                   </div>
                 )}
                 {isfError && (
-                  <div style={{ fontSize: '9px', color: '#ff4444', marginTop: '3px' }}>
+                  <div className="u-hint" style={{ color: 'var(--danger)', marginTop: '3px' }}>
                     Shader non valido: {isfError}
                   </div>
                 )}
                 {isfFailed.length > 0 && (
-                  <div
-                    title={isfFailed.join(', ')}
-                    style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '3px' }}
-                  >
+                  <div className="u-hint" title={isfFailed.join(', ')} style={{ marginTop: '3px' }}>
                     {isfFailed.length} shader ignorati (non-generator o rotti)
                   </div>
                 )}
-                <div style={{
-                  fontSize: '8px', color: 'var(--text-muted)', marginTop: '3px',
-                  fontFamily: 'ui-monospace, monospace',
-                }}>
+                <div className="u-hint" style={{ marginTop: '3px', fontFamily: 'var(--font-mono)' }}>
                   Cartella: ~/.djtographikz/isf
                 </div>
               </div>
@@ -596,22 +517,16 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
         {/* ====== POST FX TAB ====== */}
         {section === 'post' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="u-col">
             {/* Active chain — order and wet/dry both change the look a lot */}
             {postChain.length > 0 && (
-              <div style={{
-                padding: '4px 6px', borderRadius: '4px',
-                background: 'var(--accent-glow)', border: '1px solid var(--accent)',
-                display: 'flex', flexDirection: 'column', gap: '3px',
-              }}>
-                <div style={{ fontSize: '8px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '1px' }}>
-                  CHAIN (top → bottom)
-                </div>
+              <div className="active-banner" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '3px' }}>
+                <div className="active-banner-label">Catena (alto → basso)</div>
                 {postChain.map((entry, i) => (
                   <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <span style={{ fontSize: '8px', color: 'var(--text-muted)', width: '10px' }}>{i + 1}</span>
-                    <span style={{
-                      fontSize: '9px', color: 'var(--accent)', width: '54px',
+                    <span className="u-hint" style={{ width: '12px' }}>{i + 1}</span>
+                    <span className="u-hint" style={{
+                      color: 'var(--accent)', width: '54px',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {entry.id}
@@ -623,9 +538,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       style={{ flex: 1 }}
                       title="Wet / dry"
                     />
-                    <button onClick={() => movePost(entry.id, -1)} disabled={i === 0} style={tinyBtn}>↑</button>
-                    <button onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} style={tinyBtn}>↓</button>
-                    <button onClick={() => togglePost(entry.id)} style={{ ...tinyBtn, color: '#ff4444' }}>×</button>
+                    <button className="tiny-btn" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0}>↑</button>
+                    <button className="tiny-btn" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1}>↓</button>
+                    <button className="tiny-btn danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)}>×</button>
                   </div>
                 ))}
               </div>
@@ -633,45 +548,24 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
             {POST_CATEGORIES.map(cat => (
               <div key={cat.name}>
-                <div style={{
-                  fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
-                  textTransform: 'uppercase', letterSpacing: '1.2px',
-                  marginBottom: '3px', paddingLeft: '2px',
-                }}>
-                  {cat.name}
-                </div>
+                <div className="cat-label">{cat.name}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {cat.effects.map(fx => {
                     const isActive = activePosts.has(fx.id)
                     return (
                       <div
                         key={fx.id}
+                        className={`row-item${isActive ? ' active' : ''}`}
                         onClick={() => togglePost(fx.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          padding: '5px 6px', borderRadius: '4px', cursor: 'pointer',
-                          background: isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                          border: isActive ? '1px solid rgba(0,255,136,0.2)' : '1px solid var(--border)',
-                          transition: 'all 0.1s',
-                        }}
+                        title={`${isActive ? 'Disattiva' : 'Attiva'} ${fx.label}`}
                       >
-                        <span style={{
-                          fontSize: '13px', lineHeight: 1, flexShrink: 0,
-                          opacity: isActive ? 1 : 0.4,
-                        }}>
+                        <span style={{ fontSize: '13px', lineHeight: 1, flexShrink: 0, opacity: isActive ? 1 : 0.4 }}>
                           {fx.icon}
                         </span>
                         <div className={`toggle${isActive ? ' active' : ''}`} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '10px', fontWeight: isActive ? 600 : 400,
-                            color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                          }}>
-                            {fx.label}
-                          </div>
-                          <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                            {fx.desc}
-                          </div>
+                          <div className="row-title">{fx.label}</div>
+                          <div className="row-sub">{fx.desc}</div>
                         </div>
                       </div>
                     )
@@ -684,27 +578,19 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
         {/* ====== COLORS TAB ====== */}
         {section === 'color' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="u-col" style={{ gap: '10px' }}>
             {/* Palette grid */}
             <div>
-              <div style={catLabel}>Palette</div>
+              <div className="cat-label">Palette</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '3px' }}>
                 {COLOR_PRESETS.map((preset, i) => {
                   const isActive = activeColorPreset === i
                   return (
                     <button
                       key={preset.label}
+                      className={`pal-btn${isActive ? ' active' : ''}`}
                       onClick={() => selectColorPreset(i)}
-                      title={preset.label}
-                      style={{
-                        padding: '4px 2px 3px',
-                        borderRadius: '4px',
-                        border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                        background: isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                        cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-                        transition: 'all 0.1s',
-                      }}
+                      title={`Palette ${preset.label}`}
                     >
                       <div style={{ display: 'flex', gap: '1px' }}>
                         {preset.colors.map((c, j) => (
@@ -714,13 +600,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                           }} />
                         ))}
                       </div>
-                      <span style={{
-                        fontSize: '8px',
-                        color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                        fontWeight: isActive ? 600 : 400,
-                      }}>
-                        {preset.label}
-                      </span>
+                      <span className="pal-name">{preset.label}</span>
                     </button>
                   )
                 })}
@@ -730,17 +610,10 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {/* Custom palette */}
             <div>
               <button
+                className={`pill${activeColorPreset === CUSTOM_INDEX ? ' active' : ''}`}
                 onClick={() => selectColorPreset(CUSTOM_INDEX)}
-                style={{
-                  width: '100%', padding: '5px 8px',
-                  borderRadius: '4px',
-                  border: activeColorPreset === CUSTOM_INDEX ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  background: activeColorPreset === CUSTOM_INDEX ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                  color: activeColorPreset === CUSTOM_INDEX ? 'var(--accent)' : 'var(--text-secondary)',
-                  cursor: 'pointer', fontSize: '10px',
-                  fontWeight: activeColorPreset === CUSTOM_INDEX ? 600 : 400,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                }}
+                title="Palette personalizzata: scegli i tre colori"
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <div style={{ display: 'flex', gap: '2px' }}>
                   {customColors.map((c, j) => (
@@ -756,9 +629,10 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       <input
                         type="color"
                         value={customColors[i]}
+                        title={`Colore ${i + 1} della palette custom`}
                         onChange={e => updateCustomColor(i as 0 | 1 | 2, e.target.value)}
                       />
-                      <span style={{ fontSize: '7px', color: 'var(--text-muted)' }}>{label}</span>
+                      <span className="u-hint">{label}</span>
                     </div>
                   ))}
                 </div>
@@ -771,6 +645,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               <input
                 type="range" min={0} max={1} step={0.05}
                 value={transitionSpeed}
+                title="Velocità della transizione colore"
                 onChange={e => handleTransitionSpeed(parseFloat(e.target.value))}
               />
               <NumberInput
@@ -782,7 +657,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
             {/* Master colour grade — the pass that makes it look graded, not raw */}
             <div>
-              <div style={catLabel}>Grade</div>
+              <div className="cat-label">Grade</div>
               {([
                 { key: 'exposure' as const, label: 'Expos', min: 0.2, max: 2, step: 0.05 },
                 { key: 'contrast' as const, label: 'Contr', min: 0.5, max: 2, step: 0.05 },
@@ -808,32 +683,30 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
             {/* Palette Cycling */}
             <div>
-              <div style={catLabel}>Cycling</div>
+              <div className="cat-label">Ciclo palette</div>
               <div
+                className="u-row"
                 onClick={toggleCycle}
+                title="Cambia palette automaticamente a tempo o a beat"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '4px 6px', borderRadius: '4px', cursor: 'pointer',
+                  padding: '4px 6px', borderRadius: 'var(--r-sm)', cursor: 'pointer',
                   background: cycleEnabled ? 'var(--accent-glow)' : 'transparent',
                   marginBottom: '4px',
                 }}
               >
                 <div className={`toggle${cycleEnabled ? ' active' : ''}`} />
-                <span style={{
-                  fontSize: '10px',
-                  color: cycleEnabled ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}>
-                  {cycleEnabled ? 'Active' : 'Enable'}
+                <span className="u-hint" style={cycleEnabled ? { color: 'var(--text-primary)' } : undefined}>
+                  {cycleEnabled ? 'Attivo' : 'Attiva'}
                 </span>
               </div>
 
               <div style={{ display: 'flex', gap: '3px', marginBottom: '4px' }}>
-                <button onClick={() => handleCycleBeatSync(false)} style={pillStyle(!cycleBeatSync)}>Timer</button>
-                <button onClick={() => handleCycleBeatSync(true)} style={pillStyle(cycleBeatSync)}>Beat</button>
+                <button className={`pill${!cycleBeatSync ? ' active' : ''}`} title="Cambio palette a intervalli di tempo" onClick={() => handleCycleBeatSync(false)}>Timer</button>
+                <button className={`pill${cycleBeatSync ? ' active' : ''}`} title="Cambio palette sincronizzato ai beat" onClick={() => handleCycleBeatSync(true)}>Beat</button>
               </div>
 
               <div className="slider-row" style={{ marginBottom: '4px' }}>
-                <span className="label">{cycleBeatSync ? 'Beats' : 'Intrvl'}</span>
+                <span className="label">{cycleBeatSync ? 'Beat' : 'Intrvl'}</span>
                 <input
                   type="range"
                   min={cycleBeatSync ? 1 : 2}
@@ -859,15 +732,10 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 {COLOR_PRESETS.map((preset, i) => (
                   <button
                     key={preset.label}
+                    className={`pal-btn${cycleSelection.has(i) ? ' active' : ''}`}
                     onClick={() => toggleCyclePreset(i)}
-                    title={preset.label}
-                    style={{
-                      padding: '2px', borderRadius: '3px',
-                      border: cycleSelection.has(i) ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      background: cycleSelection.has(i) ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                      cursor: 'pointer', opacity: cycleSelection.has(i) ? 1 : 0.4,
-                      display: 'flex', justifyContent: 'center', gap: '1px',
-                    }}
+                    title={`${cycleSelection.has(i) ? 'Escludi' : 'Includi'} ${preset.label} nel ciclo`}
+                    style={{ padding: '2px', flexDirection: 'row', opacity: cycleSelection.has(i) ? 1 : 0.4, gap: '1px' }}
                   >
                     {preset.colors.map((c, j) => (
                       <div key={j} style={{ width: '8px', height: '8px', borderRadius: '1px', background: c }} />
@@ -881,34 +749,4 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       </div>
     </div>
   )
-}
-
-function pillStyle(active: boolean): React.CSSProperties {
-  return {
-    flex: 1, padding: '4px 6px', borderRadius: '3px',
-    border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-    background: active ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-    fontSize: '9px', fontWeight: active ? 600 : 400, cursor: 'pointer',
-  }
-}
-
-const catLabel: React.CSSProperties = {
-  fontSize: '8px',
-  fontWeight: 700,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '1.2px',
-  marginBottom: '3px',
-}
-
-const tinyBtn: React.CSSProperties = {
-  padding: '0 3px',
-  borderRadius: '2px',
-  border: 'none',
-  background: 'transparent',
-  color: 'var(--text-secondary)',
-  fontSize: '9px',
-  cursor: 'pointer',
-  lineHeight: 1,
 }

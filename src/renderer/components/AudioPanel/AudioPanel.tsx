@@ -7,10 +7,10 @@ interface AudioPanelProps {
   engine: Engine | null
 }
 
-const BPM_MODES: { id: BpmMode; label: string }[] = [
-  { id: 'auto', label: 'Auto' },
-  { id: 'tap', label: 'Tap' },
-  { id: 'manual', label: 'Manual' },
+const BPM_MODES: { id: BpmMode; label: string; hint: string }[] = [
+  { id: 'auto', label: 'Auto', hint: 'Rileva il BPM automaticamente dal segnale audio' },
+  { id: 'tap', label: 'Tap', hint: 'Batti il tempo a mano con il pulsante TAP' },
+  { id: 'manual', label: 'Manuale', hint: 'Imposta il BPM a mano' },
 ]
 
 const AUDIO_STORE_KEY = 'djtographikz-audio'
@@ -64,7 +64,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
       setError(null)
     } catch (err: any) {
       console.error('Failed to enumerate devices:', err)
-      setError(`Cannot access audio: ${err.message}`)
+      setError(`Accesso audio negato: ${err.message}`)
     }
   }
 
@@ -144,7 +144,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   }, [engine])
 
   const startAudio = async () => {
-    if (!engine) { setError('Engine not ready'); return }
+    if (!engine) { setError('Engine non pronto'); return }
     try {
       setError(null)
       await engine.audioAnalyzer.start(selectedDevice || undefined)
@@ -153,7 +153,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
       drawSpectrum()
     } catch (err: any) {
       console.error('Failed to start audio:', err)
-      setError(`Audio error: ${err.message}`)
+      setError(`Errore audio: ${err.message}`)
     }
   }
 
@@ -249,45 +249,31 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>Audio Input</span>
+      <div
+        className="panel-header"
+        onClick={() => setCollapsed(!collapsed)}
+        title={collapsed ? 'Espandi Ingresso audio' : 'Comprimi Ingresso audio'}
+      >
+        <span>Ingresso audio</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {error && (
-            <div style={{
-              padding: '6px 8px',
-              background: 'rgba(255,68,68,0.15)',
-              border: '1px solid rgba(255,68,68,0.3)',
-              borderRadius: '4px',
-              fontSize: '11px',
-              color: '#ff6666'
-            }}>
-              {error}
-            </div>
-          )}
+        <div className="u-col">
+          {error && <div className="u-error">{error}</div>}
           <div>
-            <div className="label">Device ({devices.length} found)</div>
+            <div className="label">Dispositivo ({devices.length} trovati)</div>
             <select
               value={selectedDevice}
               onChange={e => setSelectedDevice(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '6px 8px',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: '4px',
-                fontSize: '12px'
-              }}
+              title="Sorgente audio da analizzare"
+              style={{ width: '100%' }}
             >
               {devices.length === 0 && (
-                <option value="">No audio devices found</option>
+                <option value="">Nessun dispositivo audio</option>
               )}
               {devices.map(d => (
                 <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Audio Input ${d.deviceId.slice(0, 8)}`}
+                  {d.label || `Ingresso audio ${d.deviceId.slice(0, 8)}`}
                 </option>
               ))}
             </select>
@@ -296,31 +282,33 @@ export function AudioPanel({ engine }: AudioPanelProps) {
             <button
               className={`btn ${audioActive ? 'btn-danger' : 'btn-primary'}`}
               onClick={audioActive ? stopAudio : startAudio}
+              title={audioActive ? 'Ferma l\'analisi audio' : 'Avvia l\'analisi audio'}
               style={{ flex: 1 }}
             >
-              {audioActive ? 'Stop Audio' : 'Start Audio'}
+              {audioActive ? 'Ferma audio' : 'Avvia audio'}
             </button>
             <button
               className="btn btn-secondary"
               onClick={refreshDevices}
-              title="Refresh device list"
+              title="Aggiorna la lista dei dispositivi"
             >
-              Refresh
+              Aggiorna
             </button>
           </div>
 
           {/* Input Gain — amplify weak mic signals */}
           {audioActive && (
             <div>
-              <div style={catLabel}>Input Gain</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', width: '18px' }}>1x</span>
+              <div className="cat-label">Gain ingresso</div>
+              <div className="u-row">
+                <span className="u-hint" style={{ width: '18px' }}>1x</span>
                 <input
                   type="range"
                   min={1} max={10} step={0.5}
                   value={inputGain}
+                  title="Amplifica i segnali deboli (es. microfono lontano)"
                   onChange={e => handleInputGain(parseFloat(e.target.value))}
-                  style={{ flex: 1, height: '14px' }}
+                  style={{ flex: 1 }}
                 />
                 <NumberInput
                   value={inputGain}
@@ -347,23 +335,24 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
           {/* Beat Sensitivity */}
           <div>
-            <div style={catLabel}>Beat Sensitivity</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', width: '28px' }}>Low</span>
+            <div className="cat-label">Sensibilità beat</div>
+            <div className="u-row">
+              <span className="u-hint" style={{ width: '28px' }}>Min</span>
               <input
                 type="range"
                 min={0} max={1} step={0.05}
                 value={sensitivity}
+                title="Quanto facilmente scatta il rilevamento del beat"
                 onChange={e => handleSensitivity(parseFloat(e.target.value))}
-                style={{ flex: 1, height: '14px' }}
+                style={{ flex: 1 }}
               />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', width: '28px', textAlign: 'right' }}>High</span>
+              <span className="u-hint" style={{ width: '28px', textAlign: 'right' }}>Max</span>
             </div>
           </div>
 
           {/* BPM Section */}
           <div>
-            <div style={catLabel}>
+            <div className="cat-label" style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               BPM
               <span style={{
                 marginLeft: '8px',
@@ -375,12 +364,11 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                 {displayBpm}
               </span>
               {bpmMode === 'auto' && confidence > 0 && (
-                <span style={{
+                <span className="u-hint" style={{
                   marginLeft: '6px',
-                  fontSize: '9px',
                   color: confidence > 0.5 ? 'var(--accent)' : 'var(--text-muted)',
                 }}>
-                  {confidence > 0.5 ? 'locked' : 'detecting...'}
+                  {confidence > 0.5 ? 'agganciato' : 'rilevo…'}
                 </span>
               )}
               <span style={{ flex: 1 }} />
@@ -388,7 +376,6 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                 className="btn btn-secondary btn-sm"
                 onClick={() => scaleBpm(0.5)}
                 title="Dimezza il BPM (il detector ha agganciato il doppio tempo)"
-                style={{ padding: '1px 6px', fontSize: '9px' }}
               >
                 ×½
               </button>
@@ -396,7 +383,6 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                 className="btn btn-secondary btn-sm"
                 onClick={() => scaleBpm(2)}
                 title="Raddoppia il BPM (il detector ha agganciato il mezzo tempo)"
-                style={{ padding: '1px 6px', fontSize: '9px' }}
               >
                 ×2
               </button>
@@ -407,18 +393,9 @@ export function AudioPanel({ engine }: AudioPanelProps) {
               {BPM_MODES.map(mode => (
                 <button
                   key={mode.id}
+                  className={`pill${bpmMode === mode.id ? ' active' : ''}`}
+                  title={mode.hint}
                   onClick={() => handleBpmMode(mode.id)}
-                  style={{
-                    flex: 1,
-                    padding: '5px 6px',
-                    borderRadius: '4px',
-                    border: bpmMode === mode.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    background: bpmMode === mode.id ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                    color: bpmMode === mode.id ? 'var(--accent)' : 'var(--text-secondary)',
-                    fontSize: '11px',
-                    fontWeight: bpmMode === mode.id ? 600 : 400,
-                    cursor: 'pointer',
-                  }}
                 >
                   {mode.label}
                 </button>
@@ -430,6 +407,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
               <button
                 className="btn btn-primary"
                 onClick={handleTap}
+                title="Batti il tempo: un click per ogni beat"
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -444,10 +422,11 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
             {/* Manual BPM input */}
             {bpmMode === 'manual' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="u-row">
                 <button
                   className="btn btn-secondary"
                   onClick={() => handleManualBpm(manualBpm - 1)}
+                  title="Diminuisci il BPM di 1"
                   style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
                 >
                   -
@@ -456,14 +435,11 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                   type="number"
                   min={60} max={300}
                   value={manualBpm}
+                  title="BPM manuale (60-300)"
                   onChange={e => handleManualBpm(parseInt(e.target.value) || 128)}
                   style={{
                     flex: 1,
-                    padding: '6px 8px',
-                    background: 'var(--bg-tertiary)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '4px',
+                    minWidth: 0,
                     fontSize: '14px',
                     fontWeight: 700,
                     textAlign: 'center',
@@ -473,6 +449,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                 <button
                   className="btn btn-secondary"
                   onClick={() => handleManualBpm(manualBpm + 1)}
+                  title="Aumenta il BPM di 1"
                   style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
                 >
                   +
@@ -482,24 +459,19 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
             {/* Auto mode info + reset */}
             {bpmMode === 'auto' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
-                  flex: 1,
-                }}>
+              <div className="u-row">
+                <div className="u-hint" style={{ flex: 1 }}>
                   {audioActive
                     ? (confidence > 0.5
-                      ? `Detected: ${displayBpm} BPM`
-                      : 'Listening...')
-                    : 'Start audio to detect BPM'}
+                      ? `Rilevato: ${displayBpm} BPM`
+                      : 'In ascolto…')
+                    : 'Avvia l\'audio per rilevare il BPM'}
                 </div>
                 {audioActive && (
                   <button
-                    className="btn btn-secondary"
+                    className="btn btn-secondary btn-sm"
                     onClick={() => engine?.audioAnalyzer.resetBpm()}
-                    style={{ fontSize: '10px', padding: '3px 8px' }}
-                    title="Re-detect BPM (use when track changes)"
+                    title="Rileva di nuovo il BPM (usa al cambio traccia)"
                   >
                     Reset
                   </button>
@@ -511,16 +483,4 @@ export function AudioPanel({ engine }: AudioPanelProps) {
       )}
     </div>
   )
-}
-
-const catLabel: React.CSSProperties = {
-  fontSize: '9px',
-  fontWeight: 700,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '1px',
-  marginBottom: '4px',
-  display: 'flex',
-  alignItems: 'baseline',
-  gap: '4px',
 }
