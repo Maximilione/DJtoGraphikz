@@ -137,6 +137,37 @@ export function App() {
     URL.revokeObjectURL(url)
   }, [engine])
 
+  // WebM recording of the preview canvas — zero deps, saves on stop
+  const [recording, setRecording] = useState(false)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const toggleRecording = useCallback(() => {
+    if (recorderRef.current) {
+      recorderRef.current.stop()
+      recorderRef.current = null
+      setRecording(false)
+      return
+    }
+    if (!canvasRef.current) return
+    const stream = canvasRef.current.captureStream(60)
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9' : 'video/webm'
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 })
+    const chunks: Blob[] = []
+    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+    rec.onstop = () => {
+      stream.getTracks().forEach(t => t.stop())
+      const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+    rec.start(1000) // 1s chunks so a crash loses at most a second
+    recorderRef.current = rec
+    setRecording(true)
+  }, [])
+
   const toggleVJ = useCallback((on: boolean) => {
     vjRef.current.setEnabled(on)
     setVjEnabled(on)
@@ -314,6 +345,13 @@ export function App() {
         <div className="spacer" />
         <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Salva screenshot PNG">
           📷
+        </button>
+        <button
+          className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary'}`}
+          onClick={toggleRecording}
+          title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
+        >
+          {recording ? '⏹' : '🔴'}
         </button>
         <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)">
           📱

@@ -1,5 +1,10 @@
-export type AudioSource = 'none' | 'bass' | 'mid' | 'high' | 'energy' | 'beat'
-export const AUDIO_SOURCES: AudioSource[] = ['none', 'bass', 'mid', 'high', 'energy', 'beat']
+export type AudioSource =
+  | 'none' | 'bass' | 'mid' | 'high' | 'energy' | 'beat'
+  | 'lfo-sine' | 'lfo-saw' | 'lfo-square'
+export const AUDIO_SOURCES: AudioSource[] = [
+  'none', 'bass', 'mid', 'high', 'energy', 'beat',
+  'lfo-sine', 'lfo-saw', 'lfo-square',
+]
 
 export interface EffectParam {
   key: string      // uniform name (custom shaders) or engine param ('speed', 'reactivity')
@@ -14,6 +19,8 @@ export interface ParamState {
   value: number
   source: AudioSource
   depth: number
+  /** LFO sources only: beats per cycle (tempo-synced). Default 4 = one bar. */
+  lfoRate?: number
 }
 
 // Engine-level params available on every effect without touching the shaders:

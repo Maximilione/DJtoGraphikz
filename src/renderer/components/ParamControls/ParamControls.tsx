@@ -85,6 +85,18 @@ export function ParamControls({ engine }: ParamControlsProps) {
                   </span>
                 </>
               )}
+              {st.source.startsWith('lfo-') && (
+                <select
+                  value={st.lfoRate || 4}
+                  onChange={e => { engine.setParamMapping(def.key, st.source, st.depth, parseFloat(e.target.value)); force() }}
+                  title="Velocità LFO in battute per ciclo"
+                  style={{ fontSize: '9px', padding: '1px 3px' }}
+                >
+                  {[0.25, 0.5, 1, 2, 4, 8, 16, 32].map(r => (
+                    <option key={r} value={r}>{r < 1 ? `1/${1 / r}` : r} beat</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         )
