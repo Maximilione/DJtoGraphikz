@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, screen, session, systemPreferences } from 
 import { join } from 'path'
 import { setupIpcHandlers } from './ipc-handlers'
 import { setupRemoteServer } from './remote-server'
+import { setupOscServer } from './osc-server'
 
 let controlWindow: BrowserWindow | null = null
 let outputWindow: BrowserWindow | null = null
@@ -143,6 +144,7 @@ app.whenReady().then(async () => {
 
   setupIpcHandlers(controlWindow, outputWindow)
   setupRemoteServer(controlWindow)
+  setupOscServer(controlWindow)
 
   // Forward engine state from control to output window (cache for replay)
   ipcMain.on('engine:state-update', (_event, state) => {

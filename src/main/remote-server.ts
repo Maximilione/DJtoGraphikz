@@ -32,6 +32,10 @@ let remoteLooks: unknown[] = []
 // Bumped on every looks push; the page re-fetches thumbs only when it changes
 let looksRev = 0
 
+// osc-server reads the same caches — one source of truth for catalogs/state
+export const getRemoteDefs = () => remoteDefs
+export const getLastEngineState = () => lastEngineState
+
 function lanIp(): string {
   for (const addrs of Object.values(networkInterfaces())) {
     for (const a of addrs ?? []) {
