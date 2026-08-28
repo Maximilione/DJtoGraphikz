@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.11.0-beta] — 2026-08-28
+
+### Added
+- **MIDI learn** — pannello MIDI (Pro, sidebar destra) su Web MIDI nativa: armi Learn su un target, muovi un controllo sul controller e il binding è fatto (persistito). Target: master, crossfade A/B, motion blur, wet/dry dei 9 post, i 5 controlli grade, trigger tap/blackout/freeze/AutoVJ e i 16 slot del Look Bank. CC = fader (o bottone con soglia), note = trigger; i comandi passano dallo stesso dispatch di telefono e OSC
+
+### Changed
+- Dispatch comandi unificato in App: telefono, OSC e MIDI guidano l'engine dallo stesso switch
+
 ## [0.10.0-beta] — 2026-08-28
 
 ### Added

@@ -1137,3 +1137,13 @@ input[type="color"] {
   /* the inline thumb background wins over class backgrounds — border/color still signal state */
   color: var(--accent);
 }
+
+/* ---- MIDI panel ---- */
+.midi-panel { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+.midi-status { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; padding: 2px 0; }
+.midi-last { color: var(--accent); }
+.midi-learning { color: var(--accent); font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.midi-group { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-muted); margin-top: 6px; }
+.midi-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+.midi-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.midi-binding { font-family: var(--font-mono); font-size: 9px; color: var(--text-secondary); width: 72px; text-align: right; }
