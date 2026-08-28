@@ -92,6 +92,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
                   key={fx.id}
                   className={`simple-fx${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
                   onClick={() => selectEffect(fx.id)}
+                  title={`Effetto ${fx.label}`}
                   style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
                 >
                   <span className="fx-icon">{fx.icon}</span>
@@ -111,7 +112,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
             key={p.label}
             className={`simple-palette${activePalette === i ? ' active' : ''}`}
             onClick={() => selectPalette(i)}
-            title={p.label}
+            title={`Palette ${p.label}`}
           >
             {p.colors.map((c, j) => <span key={j} style={{ background: c }} />)}
           </button>

@@ -20,7 +20,7 @@ const api = {
   // Web remote
   getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
   resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),
-  onRemoteCommand: (callback: (cmd: { type: string; value?: unknown }) => void) => {
+  onRemoteCommand: (callback: (cmd: { type: string; value?: unknown; source?: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, cmd: any) => callback(cmd)
     ipcRenderer.on('remote:cmd', handler)
     return () => { ipcRenderer.removeListener('remote:cmd', handler) }
@@ -31,6 +31,16 @@ const api = {
     ipcRenderer.send('remote:looks', looks),
   // AutoVJ status pushed by the renderer so the phone stays in sync
   sendRemoteVj: (vj: { enabled: boolean; genre: string }) => ipcRenderer.send('remote:vj', vj),
+
+  // Output window status (U1.3)
+  getOutputInfo: (): Promise<{ open: boolean; fullscreen: boolean; display: string }> =>
+    ipcRenderer.invoke('output:info'),
+  reopenOutput: () => ipcRenderer.send('output:reopen'),
+  onOutputChanged: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('output:changed', handler)
+    return () => { ipcRenderer.removeListener('output:changed', handler) }
+  },
 
   // Display operations
   listDisplays: () => ipcRenderer.invoke('displays:list'),

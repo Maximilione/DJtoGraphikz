@@ -2,6 +2,28 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.12.0-beta] — 2026-08-28
+
+Batch usabilità + redesign: l'intera roadmap U1-U5 e D1-D8 in una release.
+
+### Added
+- **PANIC** (tasto P + bottone) — un gesto riporta a stato sicuro: post azzerati, crossfade/motion blur 0, master 1, blackout/freeze off, AutoVJ off
+- **Indicatori live in top bar** — pallino che pulsa col beat (grigio se l'audio non gira), banner ambra durante la riconnessione audio, chip stato finestra output (display + fullscreen) con bottone Riapri
+- **Toast azioni esterne** — quando un comando arriva da telefono o OSC l'operatore vede cosa è successo ("Look 3 · telefono"); gli stream degli slider si compattano
+- **Menu aiuto vero** — "?" apre Scorciatoie (cheat-sheet, anche col tasto ?), Guida rapida in italiano, Rifai configurazione
+- **Onboarding v2 + 8 look di fabbrica** — il Look Bank non parte mai vuoto: Tunnel Acid, Kaleido Trance, Dark Grid, Fluid Ambient, Strobo Glitch, Sacred Minimal, Fire Gabber, Starfield Chill (alcuni già con mappature audio/LFO)
+- **Modalità LIVE** — terza vista accanto a Simple/Pro: preview massima + striscia Look Bank, nient'altro; beat flash opzionale sul bordo preview
+- **Look Bank pro** — rinomina col doppio click, riordino drag&drop
+- **Undo leggero** — cancellazioni (look, media, binding MIDI) con toast "Annulla" 5s
+- **Remote**: vibrazione al tap, layout landscape con rail laterale, favicon occhio
+
+### Changed
+- **Redesign completo** — design system a token (spaziature, tipo min 11px, elevazioni stratificate, accent verde solo per stati attivi), slider/select/campi/bottoni custom con focus visibile, scrollbar custom, micro-motion 140ms con rispetto di prefers-reduced-motion, grana scanline impercettibile sul fondo
+- **Top bar a gruppi logici** (brand · modalità · trasporto · cattura/output · aiuto) con icone SVG coerenti al posto delle emoji, mini-logo occhio
+- **UI tutta in italiano** — termini tecnici DJ/VJ restano in inglese (wet, beat, crossfader…); tooltip sistematici con hotkey su ogni controllo
+- **Sidebar destra ad accordion** — un pannello aperto alla volta (Media/Preset/Shader/MIDI), stato persistito; il Look Bank resta sempre disponibile
+- README riscritto in italiano: quick-start in 7 passi per la prima serata
+
 ## [0.11.0-beta] — 2026-08-28
 
 ### Added

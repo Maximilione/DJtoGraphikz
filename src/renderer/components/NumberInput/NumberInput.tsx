@@ -104,43 +104,18 @@ export function NumberInput({
       {editing ? (
         <input
           ref={inputRef}
+          className="num-edit"
           type="text"
           value={editText}
           onChange={e => setEditText(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
-          style={{
-            width: '100%',
-            padding: '1px 3px',
-            borderRadius: '2px',
-            border: '1px solid var(--accent)',
-            background: 'var(--bg-primary)',
-            color: 'var(--accent)',
-            fontSize: '9px',
-            fontFamily: 'var(--font-mono)',
-            textAlign: 'right',
-            outline: 'none',
-          }}
         />
       ) : (
         <span
+          className="num-value"
           onDoubleClick={startEdit}
           title="Doppio-click per scrivere; click poi rotella/frecce per regolare"
-          style={{
-            width: '100%',
-            textAlign: 'right',
-            fontSize: '9px',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-secondary)',
-            cursor: 'ns-resize',
-            userSelect: 'none',
-            padding: '1px 3px',
-            borderRadius: '2px',
-            border: '1px solid transparent',
-            transition: 'border-color 0.1s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-light)')}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
         >
           {formatValue(value, step)}{suffix}
         </span>
