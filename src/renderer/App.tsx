@@ -8,6 +8,7 @@ import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
+import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
@@ -253,12 +254,12 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [engine, toggleVJ])
 
-  // Phone remote → engine. Commands arrive from the main process HTTP server.
-  useEffect(() => {
+  // Shared command dispatch — phone remote, OSC (via remote:cmd) and MIDI all
+  // land here so every surface drives the engine identically
+  const dispatchCmd = useCallback((cmd: { type: string; value?: unknown }) => {
     if (!engine) return
-    return window.api.onRemoteCommand(cmd => {
-      const v = cmd.value as any
-      switch (cmd.type) {
+    const v = cmd.value as any
+    switch (cmd.type) {
         case 'effect': toggleVJ(false); engine.setEffect(v); break
         case 'post': engine.togglePost(v); break
         case 'palette': engine.setColors(v[0], v[1], v[2]); break
@@ -267,7 +268,7 @@ export function App() {
         case 'brightness': setBrightness(v); engine.setBrightness(v); break
         case 'blackout': setBlackout(!!v); engine.setBlackout(!!v); break
         case 'freeze': setFrozen(!!v); engine.setFreeze(!!v); break
-        case 'autovj': toggleVJ(!!v); break
+        case 'autovj': toggleVJ(v === '__toggle__' ? !vjRef.current.isEnabled() : !!v); break
         case 'genre': changeVJGenre(v); break
         case 'postAmount': engine.setPostAmount(v.id, v.value); break
         case 'postMove': engine.movePost(v.id, v.delta); break
@@ -291,9 +292,14 @@ export function App() {
           engine.audioAnalyzer.setBpmMode('tap')
           engine.audioAnalyzer.tap()
           break
-      }
-    })
+    }
   }, [engine, toggleVJ, changeVJGenre])
+
+  // Phone remote / OSC → engine (commands arrive from the main process)
+  useEffect(() => {
+    if (!engine) return
+    return window.api.onRemoteCommand(dispatchCmd)
+  }, [engine, dispatchCmd])
 
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
 
@@ -445,6 +451,7 @@ export function App() {
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
+            <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
           </div>
         )}
       </div>

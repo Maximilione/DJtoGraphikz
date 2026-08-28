@@ -53,7 +53,7 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 5. [x] **AutoVJ Bag + downbeat** — fatto in v0.7.0: bag per effetti/post/palette, switch sul giro di battuta
 6. [x] **Parametri curati per i 21 effetti** — fatto in v0.7.0: 50 uniform veri, slider + audio mapping automatici
 7. [x] **LFO come sorgente parametri** — fatto in v0.8.0: sine/saw/square tempo-sync, rate 1/4…32 battute, anche dal telefono
-8. [ ] **MIDI learn** — Web MIDI nativa; learn su crossfader, master, wet/dry, trigger Look Bank. [storico + studio A5] · 1-2g
+8. [x] **MIDI learn** — fatto in v0.11.0: pannello MIDI in Pro, learn su master/crossfade/motion blur/wet dei 9 post/grade/trigger (tap, blackout, freeze, autovj) e 16 slot Look Bank; binding persistiti
 9. [x] **Video recording WebM** — fatto in v0.8.0: 🔴 in top bar, VP9 12Mbps, salva alla pressione di ⏹
 10. [x] **Media library persistente** — fatto in v0.10.0: asset copiati in ~/.djtographikz/assets, sezione Libreria nel pannello Media, ri-aggiunta a un tap
 11. [x] **OSC input** — fatto in v0.10.0: UDP :9700, /djg/* per tutti i comandi del remote, throttle 33ms, TouchOSC pronto
