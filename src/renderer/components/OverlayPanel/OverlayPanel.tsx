@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { usePanelCollapsed } from '../usePanelCollapsed'
+import { pushToast } from '../Toasts/Toasts'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -32,7 +34,7 @@ function mimeFor(name: string): string {
 interface LibraryItem { name: string; path: string }
 
 export function OverlayPanel({ engine }: OverlayPanelProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, toggleCollapsed] = usePanelCollapsed('media', false, 'right')
   const [overlays, setOverlays] = useState<OverlayItem[]>([])
   // When multiple cameras exist we show an inline picker instead of adding blindly
   const [webcamChoices, setWebcamChoices] = useState<MediaDeviceInfo[] | null>(null)
@@ -100,10 +102,38 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     }
   }, [engine, refresh])
 
-  const deleteFromLibrary = useCallback(async (name: string) => {
-    // Removes from the library only — active overlays stay on screen
-    await window.api?.libraryDelete(name).catch(() => {})
+  const deleteFromLibrary = useCallback(async (item: LibraryItem) => {
+    // Removes from the library only — active overlays stay on screen.
+    // U3.4 — undo: images/GIFs are small, capture the bytes BEFORE deleting
+    // and re-save on Annulla. Videos can be huge: no undo, plain toast.
+    // ponytail: video undo would mean buffering GB in RAM — re-import is one tap
+    let dataUrl: string | null = null
+    if (IMAGE_RE.test(item.name)) {
+      try {
+        const bytes = await window.api.readFile(item.path)
+        const blob = new Blob([bytes], { type: mimeFor(item.name) })
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(blob)
+        })
+      } catch { /* unreadable — fall through to delete without undo */ }
+    }
+    await window.api?.libraryDelete(item.name).catch(() => {})
     loadLibrary()
+    if (dataUrl) {
+      const saved = dataUrl
+      pushToast('Rimosso dalla libreria', `lib-del-${item.name}`, {
+        label: 'Annulla',
+        fn: async () => {
+          await window.api?.librarySave(item.name, saved).catch(() => {})
+          loadLibrary()
+        },
+      })
+    } else {
+      pushToast('Rimosso dalla libreria')
+    }
   }, [loadLibrary])
 
   const addText = useCallback(() => {
@@ -162,16 +192,20 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
+      <div
+        className="panel-header"
+        onClick={toggleCollapsed}
+        title={collapsed ? 'Espandi pannello Media' : 'Comprimi pannello Media'}
+      >
         <span>Media</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="u-col">
           <div className="media-add">
-            <button onClick={importImage}>🖼 Immagine/GIF</button>
-            <button onClick={importVideo}>🎬 Video</button>
-            <button onClick={onWebcamClick}>📷 Webcam</button>
+            <button onClick={importImage} title="Importa un'immagine o una GIF come overlay">🖼 Immagine/GIF</button>
+            <button onClick={importVideo} title="Importa un video come overlay">🎬 Video</button>
+            <button onClick={onWebcamClick} title="Aggiungi la webcam come overlay">📷 Webcam</button>
           </div>
 
           {webcamChoices && (
@@ -197,6 +231,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
             <input
               type="text"
               placeholder="Testo overlay…"
+              title="Testo da mostrare sopra i visual (Invio per aggiungere)"
               value={textValue}
               onChange={e => setTextValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addText() }}
@@ -207,7 +242,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
               onChange={e => setTextColor(e.target.value)}
               title="Colore testo"
             />
-            <button onClick={addText} disabled={!textValue.trim()}>Aggiungi</button>
+            <button onClick={addText} disabled={!textValue.trim()} title="Aggiungi il testo come overlay">Aggiungi</button>
           </div>
 
           {library.length > 0 && (
@@ -218,7 +253,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                   key={item.path}
                   item={item}
                   onAdd={() => addFromLibrary(item)}
-                  onDelete={() => deleteFromLibrary(item.name)}
+                  onDelete={() => deleteFromLibrary(item)}
                 />
               ))}
             </div>
@@ -264,6 +299,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                       <button
                         key={mode.id}
                         className={overlay.gifSync === mode.id ? 'active' : ''}
+                        title={mode.id === 'beat' ? 'GIF avanza sul beat' : mode.id === 'bpm' ? 'GIF sincronizzata al BPM' : 'GIF a velocità propria'}
                         onClick={() => updateOverlay(overlay.id, { gifSync: mode.id })}
                       >
                         {mode.label}
@@ -274,14 +310,14 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
               )}
 
               <SliderRow
-                label="Opacity"
+                label="Opacità"
                 value={overlay.opacity}
                 min={0} max={1} step={0.05}
                 onChange={v => updateOverlay(overlay.id, { opacity: v })}
               />
 
               <SliderRow
-                label="Scale"
+                label="Scala"
                 value={overlay.scale}
                 min={0.05} max={2} step={0.05}
                 onChange={v => updateOverlay(overlay.id, { scale: v })}

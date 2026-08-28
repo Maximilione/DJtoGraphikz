@@ -1371,3 +1371,245 @@ input[type="color"]:focus {
   width: 80px;
   text-align: right;
 }
+
+/* ============================================================
+   Component utilities — inline-style migration (batch U3.x)
+   Everything below is append-only; components reference these
+   instead of inline style blobs. 11px (--fs-xs) floor everywhere.
+   ============================================================ */
+
+/* micro text */
+.u-hint { font-size: var(--fs-xs); color: var(--text-muted); }
+.u-value {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.u-error {
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 68, 85, 0.12);
+  border: 1px solid rgba(255, 68, 85, 0.35);
+  font-size: var(--fs-xs);
+  color: var(--danger);
+}
+
+/* layout helpers */
+.u-col { display: flex; flex-direction: column; gap: var(--s2); }
+.u-row { display: flex; align-items: center; gap: 6px; }
+
+/* pill segmented buttons */
+.pill {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.pill:hover:not(.active) { background: var(--bg3); border-color: var(--line-strong); }
+.pill.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* panel section tabs (EffectPanel) */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg2);
+}
+.tab {
+  flex: 1;
+  padding: 7px 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+}
+.tab:hover:not(.active) { color: var(--text-secondary); }
+.tab.active {
+  background: var(--bg1);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-count { margin-left: 3px; font-size: var(--fs-xs); opacity: 0.7; }
+
+/* 3-col effect grid (Pro mode) — .fx-btn draws the buttons */
+.fx-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; }
+.fx-btn { display: flex; align-items: center; gap: 4px; }
+.fx-btn .fx-ico { font-size: 12px; line-height: 1; flex-shrink: 0; opacity: 0.5; }
+.fx-btn.active .fx-ico { opacity: 1; }
+.fx-btn .fx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* active-state banner (current effect, now playing) */
+.active-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+}
+.active-banner .active-banner-label {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* bordered sub-card inside a panel */
+.sub-card {
+  padding: 6px;
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+}
+
+/* selectable list row with title + subtitle (genres, post FX, presets) */
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.row-item:hover:not(.active) { background: var(--bg3); border-color: var(--line-strong); }
+.row-item.active { background: var(--accent-glow); border-color: var(--accent); }
+.row-item .row-title { font-size: var(--fs-xs); color: var(--text-secondary); }
+.row-item.active .row-title { color: var(--text-primary); font-weight: 600; }
+.row-item .row-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* palette swatch button */
+.pal-btn {
+  padding: 4px 2px 3px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.pal-btn:hover:not(.active) { border-color: var(--line-strong); }
+.pal-btn.active { border-color: var(--accent); background: var(--accent-glow); }
+.pal-btn .pal-name { font-size: var(--fs-xs); color: var(--text-muted); }
+.pal-btn.active .pal-name { color: var(--accent); font-weight: 600; }
+
+/* borderless micro button (chain reorder, playlist builder) */
+.tiny-btn {
+  padding: 0 3px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.tiny-btn:hover:not(:disabled) { color: var(--text-primary); }
+.tiny-btn:disabled { opacity: 0.35; cursor: default; }
+.tiny-btn.danger { color: var(--danger); }
+
+/* NumberInput */
+.num-value {
+  width: 100%;
+  text-align: right;
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  cursor: ns-resize;
+  user-select: none;
+  padding: 1px 3px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+.num-value:hover { border-color: var(--line-strong); }
+.num-edit {
+  width: 100%;
+  padding: 1px 3px !important;
+  border-radius: 2px !important;
+  border: 1px solid var(--accent) !important;
+  background: var(--bg0) !important;
+  color: var(--accent) !important;
+  font-size: var(--fs-xs) !important;
+  font-family: var(--font-mono) !important;
+  text-align: right;
+  outline: none;
+}
+
+/* GLSL code editor (ShaderEditor) */
+.code-edit {
+  width: 100%;
+  height: 200px;
+  padding: 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--bg0);
+  color: #c8d0e0;
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.code-edit.error { border-color: var(--danger); }
+
+/* U3.3 — Look Bank: empty-slot save hint, rename input, drag feedback */
+.look-slot.empty::after { content: '+'; }
+.look-slot.empty:hover::after {
+  content: '+ salva';
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.look-slot.drag-over { border-color: var(--accent-dim); }
+.look-slot .look-rename {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  padding: 1px 3px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  color: var(--text-primary) !important;
+  font-size: var(--fs-xs) !important;
+  outline: none;
+  box-shadow: none !important;
+}
+
+/* U3.4 — toast with undo action */
+.toast.toast-action { pointer-events: auto; }
+.toast-undo {
+  margin-left: var(--s2);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.toast-undo:hover { color: var(--accent-dim); }

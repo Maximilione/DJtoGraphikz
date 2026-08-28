@@ -33,17 +33,8 @@ export function ParamControls({ engine }: ParamControlsProps) {
   }
 
   return (
-    <div onPointerDown={onPointerDown} style={{
-      padding: '6px', borderRadius: '4px',
-      background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-      display: 'flex', flexDirection: 'column', gap: '4px',
-    }}>
-      <div style={{
-        fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
-        textTransform: 'uppercase', letterSpacing: '1.2px',
-      }}>
-        Parametri
-      </div>
+    <div onPointerDown={onPointerDown} className="sub-card" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div className="cat-label">Parametri</div>
       {defs.map(def => {
         const st = engine.getParamState(def.key)
         const step = (def.max - def.min) / 100
@@ -67,7 +58,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
                 value={st.source}
                 onChange={e => { engine.setParamMapping(def.key, e.target.value as AudioSource, st.depth); force() }}
                 title="Sorgente audio che modula questo parametro"
-                style={{ fontSize: '9px', padding: '1px 3px' }}
+                style={{ fontSize: 'var(--fs-xs)', padding: '1px 3px' }}
               >
                 {AUDIO_SOURCES.map(s => <option key={s} value={s}>{s === 'none' ? '— audio' : s}</option>)}
               </select>
@@ -77,10 +68,10 @@ export function ParamControls({ engine }: ParamControlsProps) {
                     type="range" min={-1} max={1} step={0.05}
                     value={st.depth}
                     onChange={e => { engine.setParamMapping(def.key, st.source, parseFloat(e.target.value)); force() }}
-                    style={{ flex: 1, height: '10px' }}
+                    style={{ flex: 1 }}
                     title="Profondità di modulazione (negativa = inverte)"
                   />
-                  <span style={{ fontSize: '8px', color: 'var(--text-muted)', width: '26px', textAlign: 'right' }}>
+                  <span className="u-value" style={{ width: '40px', flexShrink: 0 }}>
                     {st.depth > 0 ? '+' : ''}{Math.round(st.depth * 100)}%
                   </span>
                 </>
@@ -90,7 +81,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
                   value={st.lfoRate || 4}
                   onChange={e => { engine.setParamMapping(def.key, st.source, st.depth, parseFloat(e.target.value)); force() }}
                   title="Velocità LFO in battute per ciclo"
-                  style={{ fontSize: '9px', padding: '1px 3px' }}
+                  style={{ fontSize: 'var(--fs-xs)', padding: '1px 3px' }}
                 >
                   {[0.25, 0.5, 1, 2, 4, 8, 16, 32].map(r => (
                     <option key={r} value={r}>{r < 1 ? `1/${1 / r}` : r} beat</option>

@@ -53,11 +53,11 @@ export function DeckPanel({ engine }: DeckPanelProps) {
         value={crossfade}
         onChange={e => changeCrossfade(parseFloat(e.target.value))}
         style={{ flex: 1 }}
-        title="Crossfader between deck A and deck B"
+        title="Crossfader tra deck A e deck B"
       />
       <span className="deck-label">B</span>
 
-      <select value={deckB} onChange={e => changeDeckB(e.target.value as EffectId)} title="Deck B effect">
+      <select value={deckB} onChange={e => changeDeckB(e.target.value as EffectId)} title="Effetto sul deck B">
         {EFFECTS.map(id => <option key={id} value={id}>{id}</option>)}
       </select>
 
@@ -67,15 +67,16 @@ export function DeckPanel({ engine }: DeckPanelProps) {
           setBlend(e.target.value as BlendMode)
           engine?.setBlendMode(e.target.value as BlendMode)
         }}
-        title="Blend mode"
+        title="Modalità di blend tra i due deck"
       >
         {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
       </select>
 
-      <span className="deck-label" title="Temporal motion blur">BLUR</span>
+      <span className="deck-label" title="Motion blur temporale">BLUR</span>
       <input
         type="range" min={0} max={0.95} step={0.05}
         value={motionBlur}
+        title="Intensità del motion blur"
         onChange={e => {
           const v = parseFloat(e.target.value)
           setMotionBlur(v)
