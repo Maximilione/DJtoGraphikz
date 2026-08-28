@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.8.0-beta] — 2026-08-28
+
+### Added
+- **LFO come sorgente parametri** — sine/saw/square accanto a bass/mid/high in ogni mappatura, sincronizzati al tempo (rate in battute: 1/4…32, default 4 = una battuta); funzionano anche sull'output window e dal telefono (le sorgenti arrivano da /defs)
+- **Registrazione WebM** — bottone 🔴 in top bar: registra la preview (VP9, 12Mbps, chunk da 1s), ⏹ salva il file. Zero dipendenze
+
+### Removed
+- Dead code: API template IPC mai usata (save/load/list/delete) e componente TemplateManager orfano
+
 ## [0.7.2-beta] — 2026-08-18
 
 Batch di hardening da audit completo (24 finding verificati nel codice).
