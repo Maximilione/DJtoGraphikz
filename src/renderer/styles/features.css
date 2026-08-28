@@ -1,0 +1,75 @@
+/* Usability features (U1.x) — additive on top of global.css tokens */
+
+/* U1.1 — PANIC: danger styling, ma discreto finché non ci passi sopra */
+.btn-panic {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  opacity: 0.65;
+}
+.btn-panic:hover {
+  opacity: 1;
+  background: var(--danger);
+  color: #fff;
+}
+
+/* U1.2 — beat dot: flash gestito via mutazione DOM diretta (nessun setState per frame) */
+.beat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  flex: none;
+}
+.beat-dot-off { background: var(--text-muted); }
+
+/* U1.2 — banner audio: static, il layout si sposta una volta sola (niente overlay) */
+.audio-banner {
+  background: rgba(255, 170, 0, 0.12);
+  border-bottom: 1px solid var(--warning);
+  color: var(--warning);
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+/* U1.3 — chip stato output */
+.output-chip {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.output-reopen {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.output-reopen:hover { background: var(--accent-bg); }
+
+/* U1.4 — toast azioni esterne */
+.toast-stack {
+  position: fixed;
+  right: 12px;
+  bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 1000;
+  pointer-events: none;
+}
+.toast {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.15s ease-out;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
