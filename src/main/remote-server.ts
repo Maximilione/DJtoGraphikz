@@ -145,7 +145,7 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
       try {
         const cmd = JSON.parse(await readBody(req))
         if (typeof cmd?.type !== 'string') { json(res, 400, { error: 'bad cmd' }); return }
-        controlWindow.webContents.send('remote:cmd', cmd)
+        controlWindow.webContents.send('remote:cmd', { ...cmd, source: 'telefono' })
         json(res, 200, { ok: true })
       } catch {
         json(res, 400, { error: 'bad request' })
@@ -221,9 +221,11 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>DJtoGraphikz Remote</title>
+<meta name="theme-color" content="#0a0a0e">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a0a0e'/><path d='M8 14a8 8 0 0 1 16 0' stroke='%2300ff88' stroke-width='2.5' fill='none'/><rect x='5' y='13' width='4' height='8' rx='2' fill='%2300ff88'/><rect x='23' y='13' width='4' height='8' rx='2' fill='%2300ff88'/><ellipse cx='16' cy='20' rx='6' ry='4' fill='none' stroke='%2300ff88' stroke-width='2'/><circle cx='16' cy='20' r='2' fill='%2300ff88'/></svg>">
 <style>
   :root {
-    --bg:#08080a; --panel:#131318; --panel2:#1a1a21; --line:#26262f;
+    --bg:#0a0a0e; --panel:#131318; --panel2:#1a1a22; --line:#26262f;
     --ink:#e8e8f0; --mute:#8888a0; --acc:#00ff88; --danger:#ff4455;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px;
   }
@@ -235,19 +237,19 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     font-family:-apple-system,system-ui,sans-serif;
     touch-action:manipulation; overscroll-behavior-y:none;
   }
-  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  .micro { font-size:10px; letter-spacing:1.5px; text-transform:uppercase;
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+  .micro { font-size:11px; letter-spacing:1.2px; text-transform:uppercase;
     color:var(--mute); font-family:ui-monospace,monospace; }
-  .sect { font-size:10px; letter-spacing:2px; color:var(--mute); text-transform:uppercase;
+  .sect { font-size:11px; letter-spacing:1.2px; color:var(--mute); text-transform:uppercase;
     margin:20px 0 10px; font-family:ui-monospace,monospace; }
   .sect:first-child { margin-top:4px; }
   .hint { color:var(--mute); font-size:12px; padding:10px 2px; }
   button {
     font:inherit; color:var(--ink); background:var(--panel);
     border:1px solid var(--line); border-radius:10px; min-height:48px;
-    touch-action:manipulation; transition:transform .08s;
+    touch-action:manipulation; transition:transform .12s;
   }
-  button:active { transform:scale(.96); }
+  button:active { transform:scale(.97); }
   button.on { border-color:var(--acc); color:var(--acc);
     background:rgba(0,255,136,.08); box-shadow:0 0 12px rgba(0,255,136,.18); }
   button:disabled { opacity:.35; }
@@ -266,10 +268,10 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   #pair { position:fixed; inset:0; background:var(--bg); z-index:50;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:var(--s4); padding:24px; }
-  #pair h1 { font-size:15px; letter-spacing:3px; color:var(--acc); font-family:ui-monospace,monospace; }
+  #pair h1 { font-size:15px; letter-spacing:3px; color:var(--ink); font-family:ui-monospace,monospace; }
   #pair p { color:var(--mute); font-size:13px; text-align:center; }
   #code { background:var(--panel); border:1px solid var(--line); color:var(--ink);
-    border-radius:12px; font-size:34px; text-align:center; letter-spacing:12px;
+    border-radius:10px; font-size:34px; text-align:center; letter-spacing:12px;
     width:260px; padding:14px 0 14px 12px; font-family:ui-monospace,monospace; }
   #code:focus { outline:none; border-color:var(--acc); }
   #err { color:var(--danger); font-size:13px; min-height:18px; }
@@ -277,7 +279,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     font-size:15px; letter-spacing:2px; border:0; }
 
   /* ---- top strip ---- */
-  #strip { position:sticky; top:0; z-index:20; background:rgba(8,8,10,.94);
+  #strip { position:sticky; top:0; z-index:20; background:rgba(10,10,14,.94);
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
     padding:calc(8px + env(safe-area-inset-top)) var(--s3) var(--s2); }
@@ -288,7 +290,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .bpmbox { width:64px; flex:none; display:flex; flex-direction:column; align-items:center;
     justify-content:center; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; gap:1px; }
-  #bpm { font-size:16px; font-weight:700; color:var(--acc); }
+  #bpm { font-size:16px; font-weight:700; color:var(--ink); }
   .srow2 { display:flex; gap:var(--s2); align-items:center; margin-top:var(--s1); }
   .srow2 input { flex:1; height:36px; }
   #ver { flex:none; opacity:.7; }
@@ -296,11 +298,11 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   /* ---- layout ---- */
   main { padding:var(--s3) var(--s3) calc(84px + env(safe-area-inset-bottom)); }
   #tabs { position:fixed; bottom:0; left:0; right:0; z-index:20; display:flex; gap:var(--s1);
-    background:rgba(8,8,10,.96); border-top:1px solid var(--line);
+    background:rgba(10,10,14,.96); border-top:1px solid var(--line);
     padding:6px var(--s2) calc(6px + env(safe-area-inset-bottom)); }
   #tabs button { flex:1; border:0; background:none; border-radius:10px; min-height:52px;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-    color:var(--mute); font-size:9px; letter-spacing:1px; font-family:ui-monospace,monospace; }
+    color:var(--mute); font-size:11px; letter-spacing:1.2px; font-family:ui-monospace,monospace; }
   #tabs button .ti { font-size:17px; line-height:1; }
   #tabs button.on { color:var(--acc); background:rgba(0,255,136,.08); box-shadow:none; border:0; }
 
@@ -308,12 +310,12 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .lookgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s2); }
   .look { position:relative; aspect-ratio:16/11; border:1px solid var(--line);
     border-radius:10px; overflow:hidden; background:var(--panel);
-    transition:transform .08s; }
-  .look:active { transform:scale(.94); }
+    transition:transform .12s; }
+  .look:active { transform:scale(.95); }
   .look img { width:100%; height:100%; object-fit:cover; display:block; }
-  .look .n { position:absolute; top:3px; left:5px; font-size:10px; color:var(--acc);
-    font-family:ui-monospace,monospace; text-shadow:0 0 4px #000; }
-  .look .nm { position:absolute; bottom:0; left:0; right:0; font-size:9px; padding:2px 4px;
+  .look .n { position:absolute; top:3px; left:5px; font-size:11px; color:var(--ink);
+    font-family:ui-monospace,monospace; font-variant-numeric:tabular-nums; text-shadow:0 0 4px #000; }
+  .look .nm { position:absolute; bottom:0; left:0; right:0; font-size:11px; padding:2px 4px;
     background:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .look.empty { opacity:.25; pointer-events:none; display:flex; align-items:center;
     justify-content:center; color:var(--mute); font-size:12px; font-family:ui-monospace,monospace; }
@@ -323,44 +325,45 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s2); }
   .grid3 button { padding:12px 4px; font-size:12px; }
   .prow { display:flex; align-items:center; gap:var(--s3); }
-  .plbl { width:78px; flex:none; font-size:10px; letter-spacing:1px; text-transform:uppercase;
+  .plbl { width:78px; flex:none; font-size:11px; letter-spacing:1.2px; text-transform:uppercase;
     color:var(--mute); font-family:ui-monospace,monospace; }
   .prow input { flex:1; }
-  .pval { width:44px; flex:none; text-align:right; font-size:11px;
-    font-family:ui-monospace,monospace; }
+  .pval { width:48px; flex:none; text-align:right; font-size:12px;
+    font-family:ui-monospace,monospace; font-variant-numeric:tabular-nums; }
   .maprow { display:flex; align-items:center; gap:var(--s3); margin:-6px 0 var(--s2) 0;
     padding-left:90px; }
-  .maprow select { flex:none; width:96px; min-height:40px; padding:6px 8px; font-size:12px; }
+  .maprow select { flex:none; width:96px; min-height:40px; padding:6px 8px; font-size:12px;
+    border-radius:8px; }
   .maprow input { flex:1; height:38px; accent-color:var(--mute); }
 
   /* ---- MIX ---- */
   .xrow { display:flex; align-items:center; gap:var(--s3); }
   .xrow .xl { flex:none; width:20px; text-align:center; font-weight:800; font-size:15px;
-    color:var(--acc); font-family:ui-monospace,monospace; }
+    color:var(--mute); font-family:ui-monospace,monospace; }
   .xrow input { flex:1; height:56px; }
   .seg { display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  .seg button { flex:1; border:0; border-radius:0; min-height:46px; font-size:11px;
+  .seg button { flex:1; border:0; border-radius:0; min-height:46px; font-size:12px;
     font-family:ui-monospace,monospace; box-shadow:none; }
   .seg button.on { background:rgba(0,255,136,.14); box-shadow:none; }
   .seg button + button { border-left:1px solid var(--line); }
   .chainrow { display:flex; align-items:center; gap:var(--s2); background:var(--panel);
     border:1px solid var(--line); border-radius:10px; padding:4px var(--s2);
     margin-bottom:var(--s2); }
-  .chainrow .nm { width:66px; flex:none; font-size:11px; font-family:ui-monospace,monospace;
+  .chainrow .nm { width:66px; flex:none; font-size:12px; font-family:ui-monospace,monospace;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .chainrow input { flex:1; height:40px; }
   .chainrow button { flex:none; min-height:42px; min-width:42px; padding:0;
-    background:var(--panel2); font-size:14px; }
+    background:var(--panel2); font-size:14px; border-radius:8px; }
   .addgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s2);
     margin-top:var(--s2); }
-  .addgrid button { min-height:44px; font-size:11px; color:var(--mute); }
+  .addgrid button { min-height:44px; font-size:12px; color:var(--mute); border-radius:8px; }
 
   /* ---- COLORI ---- */
   .palgrid { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--s2); }
   .palbtn { display:flex; align-items:center; gap:var(--s2); padding:8px 10px; min-height:52px; }
   .palbtn .sw { display:flex; gap:3px; flex:none; }
   .palbtn .sw span { width:18px; height:18px; border-radius:4px; display:block; }
-  .palbtn .plabel { font-size:11px; font-family:ui-monospace,monospace; color:var(--mute); }
+  .palbtn .plabel { font-size:12px; font-family:ui-monospace,monospace; color:var(--mute); }
   .palbtn.on .plabel { color:var(--acc); }
 
   /* ---- SETUP ---- */
@@ -372,6 +375,19 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .dot.ok { background:var(--acc); }
   #unpair { width:100%; margin-top:var(--s3); color:var(--danger);
     border-color:rgba(255,68,85,.4); font-weight:700; letter-spacing:1px; }
+
+  /* ---- landscape phone: bottom tabs become a left rail ---- */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #tabs { top:0; bottom:0; right:auto; left:0; width:auto; z-index:21;
+      flex-direction:column; justify-content:center; border-top:0;
+      border-right:1px solid var(--line);
+      padding:6px 6px 6px calc(6px + env(safe-area-inset-left)); }
+    #tabs button { flex:none; min-width:58px; }
+    #strip { padding-left:calc(78px + env(safe-area-inset-left)); }
+    main { padding:var(--s3) calc(var(--s3) + env(safe-area-inset-right)) var(--s4)
+      calc(78px + env(safe-area-inset-left)); }
+    .lookgrid { grid-template-columns:repeat(8,1fr); }
+  }
 </style>
 </head>
 <body>
@@ -476,6 +492,9 @@ const GRADE_KEYS = ['exposure', 'contrast', 'saturation', 'lift', 'vignette']
 const local = { autovj: false }
 
 function $(id){ return document.getElementById(id) }
+// Haptics: 10ms tick on any button, 25ms on look trigger / blackout.
+// iOS Safari ignores navigator.vibrate silently — fine.
+function buzz(ms){ try { navigator.vibrate && navigator.vibrate(ms) } catch (_) {} }
 function auth(){ return { Authorization: 'Bearer ' + token } }
 function logout(){ localStorage.removeItem('djg-token'); location.reload() }
 function num(v, d){ return typeof v === 'number' ? v : d }
@@ -524,6 +543,7 @@ function setOn(node, on){ if (node) node.classList.toggle('on', on) }
 document.addEventListener('pointerdown', function(e){
   const t = e.target
   if (t && t.type === 'range' && t.dataset.dk) dragging[t.dataset.dk] = true
+  if (t && t.closest && t.closest('button')) buzz(10)
 }, { passive: true })
 document.addEventListener('pointerup', function(){ dragging = {} }, { passive: true })
 document.addEventListener('pointercancel', function(){ dragging = {} }, { passive: true })
@@ -629,6 +649,7 @@ function renderLooks(looks){
     d.appendChild(el('span', 'n', String(i + 1)))
     d.appendChild(el('span', 'nm', l.name))
     d.addEventListener('click', function(){
+      buzz(25)
       cmd({ type: 'look', value: i })
       d.classList.add('flash')
       setTimeout(function(){ d.classList.remove('flash') }, 350)
@@ -834,6 +855,7 @@ function wireStatic(){
 
   // blackout/freeze: optimistic toggle, next poll confirms
   $('blackout').addEventListener('click', function(){
+    buzz(25)
     const on = !this.classList.contains('on')
     this.classList.toggle('on', on)
     cmd({ type: 'blackout', value: on })
