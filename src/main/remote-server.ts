@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { randomBytes, randomInt, timingSafeEqual } from 'crypto'
 import { networkInterfaces } from 'os'
+import { AUDIO_SOURCES } from '../engine/EffectParams'
 
 // Web remote: phone on the same wifi opens the QR, enters the pairing code,
 // gets a session token and drives the engine over plain HTTP.
@@ -128,7 +129,7 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
         effects: [], posts: [], palettes: [], genres: [], blendModes: [], transitionTypes: [],
         ...(remoteDefs || {}),
         version: app.getVersion(),
-        paramSources: ['none', 'bass', 'mid', 'high', 'energy', 'beat'],
+        paramSources: AUDIO_SOURCES,
         looks: remoteLooks,
         looksRev,
       })

@@ -52,9 +52,9 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 4. [x] **Vocabolario audio esteso** — fatto in v0.7.0: uBassHit/uMidHit/uHighHit, uBassTime/uHighTime, uSub/uPresence su tutti gli effetti (anche ISF); starfield/glitch/fire li usano già
 5. [x] **AutoVJ Bag + downbeat** — fatto in v0.7.0: bag per effetti/post/palette, switch sul giro di battuta
 6. [x] **Parametri curati per i 21 effetti** — fatto in v0.7.0: 50 uniform veri, slider + audio mapping automatici
-7. [ ] **LFO come sorgente parametri** — sine/saw/square accanto a bass/mid/high in ParamControls, rate in beat. Era "se avanza tempo": con ParamControls costa ½ giornata. [storico, riclassificato ↑] · ½g
+7. [x] **LFO come sorgente parametri** — fatto in v0.8.0: sine/saw/square tempo-sync, rate 1/4…32 battute, anche dal telefono
 8. [ ] **MIDI learn** — Web MIDI nativa; learn su crossfader, master, wet/dry, trigger Look Bank. [storico + studio A5] · 1-2g
-9. [ ] **Video recording WebM** — canvas.captureStream + MediaRecorder, zero dipendenze; serve anche a documentare i test. [storico + studio A6] · ½g
+9. [x] **Video recording WebM** — fatto in v0.8.0: 🔴 in top bar, VP9 12Mbps, salva alla pressione di ⏹
 10. [ ] **Media library persistente** — oggi gli overlay muoiono al riavvio: copia in ~/.djtographikz/assets, ricarico all'avvio, pannello con anteprime. [studio A7] · 1g
 11. [ ] **OSC input** — dgram UDP built-in nel main, parser ~80 righe, stessi target del MIDI. Apre TouchOSC dal telefono. [storico, riclassificato ↑ dal parcheggio] · 1g
 12. [ ] **Thumbnail effetti** — render offline 1 frame per effetto, cache su disco: griglia visiva come le scene card. [studio B10] · ½g

@@ -1,12 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
-  // Template operations
-  saveTemplate: (name: string, data: string) => ipcRenderer.invoke('template:save', name, data),
-  loadTemplate: (name: string) => ipcRenderer.invoke('template:load', name),
-  listTemplates: () => ipcRenderer.invoke('template:list'),
-  deleteTemplate: (name: string) => ipcRenderer.invoke('template:delete', name),
-
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
