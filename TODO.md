@@ -47,46 +47,46 @@ reversibile e trovabile senza manuale.
 
 ### U1 — Sicurezza live & feedback (prima di tutto: fiducia)
 
-- [ ] **U1.1 Panic button** — un tasto (P) e un bottone sempre visibile: torna a stato sicuro (effetto pulito, niente post, brightness 1, blackout/freeze off, AutoVJ off). Quando qualcosa va storto sul palco serve UN gesto, non dieci · S
-- [ ] **U1.2 Indicatore audio globale** — pallino che pulsa col beat in top bar (visibile da ogni vista) + banner giallo "Audio perso — riconnessione…" quando l'analyzer sta ritentando (esporre lo stato di recovery da AudioAnalyzer): oggi il recovery è silenzioso e l'utente non sa se l'app sente la musica · S/M
-- [ ] **U1.3 Stato output in top bar** — chip "Output · Display 2 · fullscreen" / "Output chiusa" + bottone Riapri (ensureOutputWindow esiste già, manca solo la UI): il proiettore è la cosa più importante e oggi non ha indicatore · S
-- [ ] **U1.4 Toast azioni esterne** — notifica discreta 2s quando un comando arriva da telefono/OSC/MIDI ("Look 3 · telefono"): con più superfici attive l'operatore al laptop deve capire perché lo schermo è cambiato da solo · M
+- [x] **U1.1 Panic button** — un tasto (P) e un bottone sempre visibile: torna a stato sicuro (effetto pulito, niente post, brightness 1, blackout/freeze off, AutoVJ off). Quando qualcosa va storto sul palco serve UN gesto, non dieci · S
+- [x] **U1.2 Indicatore audio globale** — pallino che pulsa col beat in top bar (visibile da ogni vista) + banner giallo "Audio perso — riconnessione…" quando l'analyzer sta ritentando (esporre lo stato di recovery da AudioAnalyzer): oggi il recovery è silenzioso e l'utente non sa se l'app sente la musica · S/M
+- [x] **U1.3 Stato output in top bar** — chip "Output · Display 2 · fullscreen" / "Output chiusa" + bottone Riapri (ensureOutputWindow esiste già, manca solo la UI): il proiettore è la cosa più importante e oggi non ha indicatore · S
+- [x] **U1.4 Toast azioni esterne** — notifica discreta 2s quando un comando arriva da telefono/OSC/MIDI ("Look 3 · telefono"): con più superfici attive l'operatore al laptop deve capire perché lo schermo è cambiato da solo · M
 
 ### U2 — Scoperta e apprendimento (la feature che non trovi non esiste)
 
-- [ ] **U2.1 Cheat-sheet scorciatoie** — overlay col tasto ? : hotkey, Shift+click, gesti del remote; oggi le scorciatoie vivono in una riga di testo nella bottom bar · S
-- [ ] **U2.2 Menu aiuto unico** — il bottone "?" apre un menu (Scorciatoie / Guida rapida / Rifai configurazione) invece di rilanciare l'onboarding a sorpresa · S
-- [ ] **U2.3 Onboarding v2 + look di fabbrica** — passo finale guidato "salva il tuo primo look" + 8 look precaricati curati per genere: il Look Bank vuoto al primo avvio è un muro, pieno è un invito · M
-- [ ] **U2.4 Tooltip sistematici** — passata su OGNI controllo: title in italiano, coerente, con l'hotkey tra parentesi dove esiste · M
+- [x] **U2.1 Cheat-sheet scorciatoie** — overlay col tasto ? : hotkey, Shift+click, gesti del remote; oggi le scorciatoie vivono in una riga di testo nella bottom bar · S
+- [x] **U2.2 Menu aiuto unico** — il bottone "?" apre un menu (Scorciatoie / Guida rapida / Rifai configurazione) invece di rilanciare l'onboarding a sorpresa · S
+- [x] **U2.3 Onboarding v2 + look di fabbrica** — passo finale guidato "salva il tuo primo look" + 8 look precaricati curati per genere: il Look Bank vuoto al primo avvio è un muro, pieno è un invito · M
+- [x] **U2.4 Tooltip sistematici** — passata su OGNI controllo: title in italiano, coerente, con l'hotkey tra parentesi dove esiste · M
 
 ### U3 — Riduzione carico cognitivo
 
-- [ ] **U3.1 Lingua unica** — UI tutta in italiano (oggi metà inglese metà italiano: "Effects/Wet/Master" vs "Libreria/Testo overlay") · M
-- [ ] **U3.2 Sidebar destra ad accordion** — 6 pannelli impilati sono una soup: uno aperto alla volta, stato aperto/chiuso persistito tra i riavvii · S/M
-- [ ] **U3.3 Look Bank pro** — rinomina con doppio click, riordino drag&drop, hint sullo slot vuoto ("click = salva il look corrente") · M
-- [ ] **U3.4 Undo leggero** — cancellazioni (look, media, binding) con toast "Annulla" 5s invece di distruzione immediata · M
+- [x] **U3.1 Lingua unica** — UI tutta in italiano (oggi metà inglese metà italiano: "Effects/Wet/Master" vs "Libreria/Testo overlay") · M
+- [x] **U3.2 Sidebar destra ad accordion** — 6 pannelli impilati sono una soup: uno aperto alla volta, stato aperto/chiuso persistito tra i riavvii · S/M
+- [x] **U3.3 Look Bank pro** — rinomina con doppio click, riordino drag&drop, hint sullo slot vuoto ("click = salva il look corrente") · M
+- [x] **U3.4 Undo leggero** — cancellazioni (look, media, binding) con toast "Annulla" 5s invece di distruzione immediata · M
 
 ### U4 — Modalità performance
 
-- [ ] **U4.1 Performance mode** — tasto/toggle: preview grande + Look Bank + master/blackout/freeze e basta; tutto il resto sparisce. La vista da usare QUANDO si suona, Simple/Pro sono viste da preparazione · M/L
-- [ ] **U4.2 Beat flash sul bordo preview** — conferma visiva del beat anche a pannello audio chiuso (toggle, off di default) · S
-- [ ] **U4.3 Remote: haptics + landscape** — vibrazione sul tap (navigator.vibrate), layout orizzontale per tablet · S/M
+- [x] **U4.1 Performance mode** — tasto/toggle: preview grande + Look Bank + master/blackout/freeze e basta; tutto il resto sparisce. La vista da usare QUANDO si suona, Simple/Pro sono viste da preparazione · M/L
+- [x] **U4.2 Beat flash sul bordo preview** — conferma visiva del beat anche a pannello audio chiuso (toggle, off di default) · S
+- [x] **U4.3 Remote: haptics + landscape** — vibrazione sul tap (navigator.vibrate), layout orizzontale per tablet · S/M
 
 ### U5 — Carta
 
-- [ ] **U5.1 README quick-start** — per chi apre l'app la prima volta senza di te: 10 righe, screenshot, dal .dmg alla prima visual · S
-- [ ] **U5.2 Guida rapida in-app** — pannello scrollabile in italiano raggiungibile dal menu aiuto (U2.2) · M
+- [x] **U5.1 README quick-start** — per chi apre l'app la prima volta senza di te: 10 righe, screenshot, dal .dmg alla prima visual · S
+- [x] **U5.2 Guida rapida in-app** — pannello scrollabile in italiano raggiungibile dal menu aiuto (U2.2) · M
 
 ### D — Redesign visivo (lo stato attuale è "dev-UI": font 10px, slider nativi, emoji come icone, inline-style ovunque)
 
-- [ ] **D1 Design system foundation** — token unici in CSS custom properties: scala spaziature (4/8/12/16/24), scala tipografica (min 12px, oggi si scende a 8px), raggi, elevazioni (bg0/bg1/bg2 stratificati), disciplina dell'accent (#00ff88 SOLO per stati attivi/vivi, non decorazione); eliminare la soup di inline-style dai componenti → classi · M
-- [ ] **D2 Tipografia** — font vero impacchettato in locale (UI + mono per i dati, niente CDN in Electron), gerarchia label/valori/sezioni, uppercase micro-label con letterspacing coerente, tabular-nums su BPM/valori · S/M
-- [ ] **D3 Kit controlli custom** — slider con track/fill/thumb disegnati (i range nativi macOS stonano sul dark), select, toggle switch riusabile (quello del Media panel promosso a componente), bottoni con stati hover/active/focus visibili, focus keyboard visibile ovunque · M
-- [ ] **D4 Layout & densità** — preview come protagonista (cornice, più respiro), top bar riorganizzata in gruppi logici (trasporto · look · output · utility) invece della fila piatta di 12 controlli, ritmo verticale nei pannelli con divisori e intestazioni vere · M
-- [ ] **D5 Identità dentro l'app** — il logo occhio in top bar con l'iride che pulsa col beat (identità + indicatore audio U1.2 in un colpo solo), micro-texture scanline/grain a bassissima opacità sulle superfici, coerente col mondo tekno senza sporcare la leggibilità · S/M
-- [ ] **D6 Icone vere** — set SVG inline coerente al posto delle emoji (📷🔴📱?) nei bottoni: stroke uniforme, stesso peso del logo · S/M
-- [ ] **D7 Micro-motion** — transizioni 120-180ms su hover/apertura pannelli/tab, glow solo sugli stati attivi, rispetto di prefers-reduced-motion; NIENTE animazioni decorative continue (la festa è sul proiettore, non sulla UI) · S
-- [ ] **D8 Remote allineato** — stessi token/tipografia/controlli sulla pagina mobile, così telefono e desktop sembrano lo stesso software · M
+- [x] **D1 Design system foundation** — token unici in CSS custom properties: scala spaziature (4/8/12/16/24), scala tipografica (min 12px, oggi si scende a 8px), raggi, elevazioni (bg0/bg1/bg2 stratificati), disciplina dell'accent (#00ff88 SOLO per stati attivi/vivi, non decorazione); eliminare la soup di inline-style dai componenti → classi · M
+- [x] **D2 Tipografia** — font vero impacchettato in locale (UI + mono per i dati, niente CDN in Electron), gerarchia label/valori/sezioni, uppercase micro-label con letterspacing coerente, tabular-nums su BPM/valori · S/M
+- [x] **D3 Kit controlli custom** — slider con track/fill/thumb disegnati (i range nativi macOS stonano sul dark), select, toggle switch riusabile (quello del Media panel promosso a componente), bottoni con stati hover/active/focus visibili, focus keyboard visibile ovunque · M
+- [x] **D4 Layout & densità** — preview come protagonista (cornice, più respiro), top bar riorganizzata in gruppi logici (trasporto · look · output · utility) invece della fila piatta di 12 controlli, ritmo verticale nei pannelli con divisori e intestazioni vere · M
+- [x] **D5 Identità dentro l'app** — il logo occhio in top bar con l'iride che pulsa col beat (identità + indicatore audio U1.2 in un colpo solo), micro-texture scanline/grain a bassissima opacità sulle superfici, coerente col mondo tekno senza sporcare la leggibilità · S/M
+- [x] **D6 Icone vere** — set SVG inline coerente al posto delle emoji (📷🔴📱?) nei bottoni: stroke uniforme, stesso peso del logo · S/M
+- [x] **D7 Micro-motion** — transizioni 120-180ms su hover/apertura pannelli/tab, glow solo sugli stati attivi, rispetto di prefers-reduced-motion; NIENTE animazioni decorative continue (la festa è sul proiettore, non sulla UI) · S
+- [x] **D8 Remote allineato** — stessi token/tipografia/controlli sulla pagina mobile, così telefono e desktop sembrano lo stesso software · M
 
 Intreccio consigliato con la UX: U1 (piccolo, subito) → **D1-D3 fondamenta** → U2/U3 costruiti già sul kit nuovo → D4-D6 → U4.1 performance mode (nasce direttamente col design nuovo) → D7-D8.
 
