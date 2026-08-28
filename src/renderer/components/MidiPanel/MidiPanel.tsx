@@ -1,6 +1,8 @@
-import React, { useEffect, useReducer, useState } from 'react'
+import React, { useEffect, useReducer } from 'react'
 import type { Engine } from '@engine/Engine'
 import { midi, MIDI_TARGETS, bindingLabel } from '../../midi'
+import { usePanelCollapsed } from '../usePanelCollapsed'
+import { pushToast } from '../Toasts/Toasts'
 
 interface MidiPanelProps {
   engine: Engine | null
@@ -9,7 +11,7 @@ interface MidiPanelProps {
 
 /** MIDI learn: arm a target, touch a knob/pad, done. Bindings persist. */
 export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, toggleCollapsed] = usePanelCollapsed('midi', true, 'right')
   const [, force] = useReducer((x: number) => x + 1, 0)
 
   useEffect(() => {
@@ -23,9 +25,19 @@ export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
   const groups = [...new Set(MIDI_TARGETS.map(t => t.group))]
   const learning = midi.learning()
 
+  const clearWithUndo = (targetId: string, label: string) => {
+    const b = midi.getBinding(targetId)
+    if (!b) return
+    midi.clearBinding(targetId)
+    pushToast(`Binding rimosso: ${label}`, `midi-clear-${targetId}`, {
+      label: 'Annulla',
+      fn: () => midi.setBinding(targetId, b),
+    })
+  }
+
   return (
     <div className="panel">
-      <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
+      <div className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Espandi pannello MIDI' : 'Comprimi pannello MIDI'}>
         <span>MIDI</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
@@ -40,7 +52,7 @@ export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
           {learning && (
             <div className="midi-learning">
               Muovi un controllo MIDI per assegnarlo…{' '}
-              <button className="btn btn-secondary btn-sm" onClick={() => midi.cancelLearn()}>Annulla</button>
+              <button className="btn btn-secondary btn-sm" title="Annulla l'assegnazione MIDI" onClick={() => midi.cancelLearn()}>Annulla</button>
             </div>
           )}
           {groups.map(g => (
@@ -54,13 +66,14 @@ export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
                     <span className="midi-binding">{bindingLabel(b)}</span>
                     <button
                       className={`btn btn-sm ${learning === t.id ? 'btn-danger' : 'btn-secondary'}`}
+                      title={learning === t.id ? 'Annulla learn' : 'Assegna un controllo MIDI: premi e poi muovi un knob/pad'}
                       onClick={() => (learning === t.id ? midi.cancelLearn() : midi.learn(t.id))}
                     >
                       {learning === t.id ? '…' : 'Learn'}
                     </button>
                     {b && (
                       <button className="btn btn-secondary btn-sm" title="Rimuovi binding"
-                        onClick={() => midi.clearBinding(t.id)}>✕</button>
+                        onClick={() => clearWithUndo(t.id, t.label)}>✕</button>
                     )}
                   </div>
                 )

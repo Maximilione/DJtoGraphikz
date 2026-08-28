@@ -1,5 +1,7 @@
+import './styles/features.css'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { AudioPanel } from './components/AudioPanel/AudioPanel'
+import { Toasts, pushToast } from './components/Toasts/Toasts'
 import { EffectPanel } from './components/EffectPanel/EffectPanel'
 import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
@@ -11,14 +13,19 @@ import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
+import { HelpMenu } from './components/Help/HelpMenu'
+import { CheatSheet } from './components/Help/CheatSheet'
+import { QuickGuide } from './components/Help/QuickGuide'
+import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { EFFECT_CATEGORIES, COLOR_PRESETS } from './components/EffectPanel/EffectPanel'
 
-type UIMode = 'simple' | 'pro'
+type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
 const SETTINGS_KEY = 'djtographikz-settings'
+const BEATFLASH_KEY = 'djtographikz-beatflash'
 
 // Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
 const HOTKEY_EFFECTS: EffectId[] = EFFECT_CATEGORIES.flatMap(c => c.effects.map(e => e.id)).slice(0, 10)
@@ -32,6 +39,27 @@ const POST_LABELS: Record<PostId, string> = {
 }
 const TRANSITION_TYPES: Record<TransitionType, true> = {
   crossfade: true, 'wipe-left': true, 'wipe-down': true, radial: true, dissolve: true,
+}
+
+// Short Italian verb for external-command toasts (U1.4)
+function cmdToastLabel(type: string, v: any): string {
+  switch (type) {
+    case 'effect': return `Effetto ${v}`
+    case 'post': return `Post ${v}`
+    case 'palette': return 'Palette'
+    case 'crossfade': return `Crossfade ${Math.round(v * 100)}%`
+    case 'deckB': return `Deck B ${v}`
+    case 'brightness': return `Master ${Math.round(v * 100)}%`
+    case 'blackout': return v ? 'Blackout ON' : 'Blackout OFF'
+    case 'freeze': return v ? 'Freeze ON' : 'Freeze OFF'
+    case 'autovj': return v === '__toggle__' ? 'AutoVJ' : v ? 'AutoVJ ON' : 'AutoVJ OFF'
+    case 'genre': return `Genere ${v}`
+    case 'motionBlur': return `Motion blur ${Math.round(v * 100)}%`
+    case 'look': return `Look ${Number(v) + 1}`
+    case 'tap': return 'Tap BPM'
+    case 'panic': return 'PANIC'
+    default: return type
+  }
 }
 
 function loadSettings(): Partial<EngineState> | null {
@@ -55,6 +83,15 @@ export function App() {
   const [showRemote, setShowRemote] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDED_KEY))
 
+  // U2.1/U2.2 — menu aiuto + overlay scorciatoie/guida
+  const [showHelpMenu, setShowHelpMenu] = useState(false)
+  const [showCheatSheet, setShowCheatSheet] = useState(false)
+  const [showQuickGuide, setShowQuickGuide] = useState(false)
+
+  // U4.2 — flash del bordo preview sul beat (opt-in, persistito)
+  const [beatFlash, setBeatFlash] = useState(() => localStorage.getItem(BEATFLASH_KEY) === '1')
+  const beatFlashRef = useRef<HTMLDivElement>(null)
+
   // AutoVJ lives here so Simple and Pro views share one instance
   const vjRef = useRef<AutoVJ>(new AutoVJ())
   const [vjEnabled, setVjEnabled] = useState(false)
@@ -63,6 +100,16 @@ export function App() {
 
   // Displays for the output-monitor picker
   const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean }[]>([])
+
+  // U1.2 — beat dot (flashed via direct DOM mutation, no setState per frame) + audio status
+  const beatDotRef = useRef<HTMLSpanElement>(null)
+  const [audioStatus, setAudioStatus] = useState<'running' | 'reconnecting' | 'stopped'>('stopped')
+
+  // U1.3 — output window status chip
+  const [outputInfo, setOutputInfo] = useState<{ open: boolean; fullscreen: boolean; display: string } | null>(null)
+  const refreshOutputInfo = useCallback(() => {
+    window.api?.getOutputInfo?.().then(setOutputInfo).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -126,6 +173,55 @@ export function App() {
     window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {})
   }, [])
 
+  // U1.2 — flash the beat dot on beatDetected: direct DOM mutation on the ref,
+  // instant jump to scale+glow then a CSS transition decays it back
+  useEffect(() => {
+    if (!engine) return
+    return engine.onAudioFrame((beat) => {
+      const el = beatDotRef.current
+      if (!beat || !el) return
+      el.style.transition = 'none'
+      el.style.transform = 'scale(1.5)'
+      el.style.boxShadow = '0 0 10px var(--accent)'
+      void el.offsetWidth
+      el.style.transition = 'transform 0.25s ease-out, box-shadow 0.25s ease-out'
+      el.style.transform = 'scale(1)'
+      el.style.boxShadow = 'none'
+    })
+  }, [engine])
+
+  // U4.2 — flash sul bordo della preview a ogni beat: stessa tecnica del beat
+  // dot, mutazione DOM diretta sul ref (nessun setState per frame)
+  useEffect(() => {
+    if (!engine || !beatFlash) return
+    const unsub = engine.onAudioFrame((beat) => {
+      const el = beatFlashRef.current
+      if (!beat || !el) return
+      el.style.transition = 'none'
+      el.style.opacity = '1'
+      void el.offsetWidth
+      el.style.transition = 'opacity 180ms ease-out'
+      el.style.opacity = '0'
+    })
+    return () => {
+      unsub()
+      if (beatFlashRef.current) beatFlashRef.current.style.opacity = '0'
+    }
+  }, [engine, beatFlash])
+
+  // U1.2 — poll audio status: 'reconnecting' shows the banner, a user stop is fine
+  useEffect(() => {
+    if (!engine) return
+    const id = window.setInterval(() => setAudioStatus(engine.audioAnalyzer.getStatus()), 1000)
+    return () => clearInterval(id)
+  }, [engine])
+
+  // U1.3 — output window status: on mount + whenever main signals a change
+  useEffect(() => {
+    refreshOutputInfo()
+    return window.api?.onOutputChanged?.(refreshOutputInfo)
+  }, [refreshOutputInfo])
+
   const screenshot = useCallback(async () => {
     if (!engine) return
     const blob = await engine.screenshot()
@@ -183,6 +279,19 @@ export function App() {
     try { window.api?.sendRemoteVj({ enabled: vjRef.current.isEnabled(), genre: g }) } catch (_) {}
   }, [])
 
+  // U1.1 — PANIC: back to a clean, visible baseline in one gesture.
+  // The current effect stays on purpose: switching it mid-panic is more jarring.
+  const panic = useCallback(() => {
+    if (!engine) return
+    engine.setActivePosts([])
+    engine.setCrossfade(0)
+    engine.setMotionBlur(0)
+    engine.setBrightness(1); setBrightness(1)
+    engine.setBlackout(false); setBlackout(false)
+    engine.setFreeze(false); setFrozen(false)
+    toggleVJ(false)
+  }, [engine, toggleVJ])
+
   const changeMode = useCallback((m: UIMode) => {
     setMode(m)
     localStorage.setItem(MODE_KEY, m)
@@ -234,6 +343,11 @@ export function App() {
         setBlackout(prev => { engine.setBlackout(!prev); return !prev })
       } else if (k === 'f') {
         setFrozen(prev => { engine.setFreeze(!prev); return !prev })
+      } else if (k === 'p') {
+        panic()
+      } else if (e.key === '?') {
+        // U2.2 — Shift+/ apre/chiude direttamente la cheat sheet
+        setShowCheatSheet(prev => !prev)
       } else if (e.key === '[') {
         setBrightness(prev => { const v = Math.max(0, prev - 0.05); engine.setBrightness(v); return v })
       } else if (e.key === ']') {
@@ -252,14 +366,15 @@ export function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [engine, toggleVJ])
+  }, [engine, toggleVJ, panic])
 
   // Shared command dispatch — phone remote, OSC (via remote:cmd) and MIDI all
   // land here so every surface drives the engine identically
-  const dispatchCmd = useCallback((cmd: { type: string; value?: unknown }) => {
+  const dispatchCmd = useCallback((cmd: { type: string; value?: unknown; source?: string }) => {
     if (!engine) return
     const v = cmd.value as any
     switch (cmd.type) {
+        case 'panic': panic(); break
         case 'effect': toggleVJ(false); engine.setEffect(v); break
         case 'post': engine.togglePost(v); break
         case 'palette': engine.setColors(v[0], v[1], v[2]); break
@@ -293,7 +408,11 @@ export function App() {
           engine.audioAnalyzer.tap()
           break
     }
-  }, [engine, toggleVJ, changeVJGenre])
+    // U1.4 — toast for external surfaces (phone/OSC). MIDI cmds arrive without
+    // source and stay silent: MIDI is the operator's own hands.
+    // Keyed on cmd.type so a slider stream collapses into one updating toast.
+    if (cmd.source) pushToast(`${cmdToastLabel(cmd.type, v)} · ${cmd.source}`, cmd.type)
+  }, [engine, toggleVJ, changeVJGenre, panic])
 
   // Phone remote / OSC → engine (commands arrive from the main process)
   useEffect(() => {
@@ -307,106 +426,186 @@ export function App() {
     <div className="app-layout">
       {showOnboarding && <Onboarding onDone={finishOnboarding} />}
       {showRemote && <RemoteModal onClose={() => setShowRemote(false)} />}
+      {showHelpMenu && (
+        <HelpMenu
+          onShortcuts={() => { setShowHelpMenu(false); setShowCheatSheet(true) }}
+          onGuide={() => { setShowHelpMenu(false); setShowQuickGuide(true) }}
+          onOnboarding={() => { setShowHelpMenu(false); setShowOnboarding(true) }}
+          onClose={() => setShowHelpMenu(false)}
+        />
+      )}
+      {showCheatSheet && <CheatSheet onClose={() => setShowCheatSheet(false)} />}
+      {showQuickGuide && <QuickGuide onClose={() => setShowQuickGuide(false)} />}
 
-      {/* Top bar */}
+      {/* Top bar — D4: controlli raggruppati (identità · modalità · master · output · aiuto) */}
       <div className="top-bar">
-        <span className="title">DJtoGraphikz</span>
+        <div className="tb-group">
+          <span className="tb-eye"><IconEye /></span>
+          <span className="title">DJtoGraphikz</span>
+          <span
+            ref={beatDotRef}
+            className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
+            title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
+          />
+        </div>
 
-        {/* Simple / Pro switch */}
-        <div className="mode-switch">
-          <button className={mode === 'simple' ? 'active' : ''} onClick={() => changeMode('simple')}>
-            SIMPLE
+        {/* Simple / Pro / Live switch */}
+        <div className="tb-group">
+          <div className="mode-switch">
+            <button
+              className={mode === 'simple' ? 'active' : ''}
+              onClick={() => changeMode('simple')}
+              title="Modalità Simple — controlli essenziali"
+            >
+              SIMPLE
+            </button>
+            <button
+              className={mode === 'pro' ? 'active' : ''}
+              onClick={() => changeMode('pro')}
+              title="Modalità Pro — tutti i pannelli"
+            >
+              PRO
+            </button>
+            <button
+              className={mode === 'live' ? 'active' : ''}
+              onClick={() => changeMode('live')}
+              title="Modalità Live — solo preview e Look Bank"
+            >
+              LIVE
+            </button>
+          </div>
+        </div>
+
+        <div className="tb-group">
+          <span className="deck-label" title="Luminosità master ([ / ])">MASTER</span>
+          <input
+            className="tb-master"
+            type="range" min={0} max={1} step={0.01}
+            value={brightness}
+            onChange={e => {
+              const v = parseFloat(e.target.value)
+              setBrightness(v)
+              engine?.setBrightness(v)
+            }}
+            title="Luminosità master ([ / ])"
+          />
+          <button
+            className={`btn btn-sm ${blackout ? 'btn-danger' : 'btn-secondary'}`}
+            onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
+            title="Blackout (B)"
+          >
+            BLACK
           </button>
-          <button className={mode === 'pro' ? 'active' : ''} onClick={() => changeMode('pro')}>
-            PRO
+          <button
+            className={`btn btn-sm ${frozen ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
+            title="Freeze (F)"
+          >
+            FREEZE
+          </button>
+          <button
+            className="btn btn-sm btn-panic"
+            onClick={panic}
+            title="PANIC — reset visuali a uno stato pulito (P)"
+          >
+            PANIC
           </button>
         </div>
 
-        <span className="deck-label" title="Master brightness ([ / ])">MASTER</span>
-        <input
-          type="range" min={0} max={1} step={0.01}
-          value={brightness}
-          onChange={e => {
-            const v = parseFloat(e.target.value)
-            setBrightness(v)
-            engine?.setBrightness(v)
-          }}
-          style={{ width: '90px' }}
-        />
-        <button
-          className={`btn btn-sm ${blackout ? 'btn-danger' : 'btn-secondary'}`}
-          onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
-          title="Blackout (B)"
-        >
-          BLACK
-        </button>
-        <button
-          className={`btn btn-sm ${frozen ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
-          title="Freeze frame (F)"
-        >
-          FREEZE
-        </button>
-
         <div className="spacer" />
-        <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Salva screenshot PNG">
-          📷
-        </button>
-        <button
-          className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary'}`}
-          onClick={toggleRecording}
-          title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
-        >
-          {recording ? '⏹' : '🔴'}
-        </button>
-        <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)">
-          📱
-        </button>
-        {displays.length > 1 && (
-          <select
-            defaultValue=""
-            onChange={e => {
-              const id = parseInt(e.target.value)
-              if (!isNaN(id)) window.api?.moveOutputToDisplay(id)
-            }}
-            title="Sposta la finestra di output su un display"
+
+        <div className="tb-group">
+          <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG">
+            <IconCamera />
+          </button>
+          <button
+            className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary'}`}
+            onClick={toggleRecording}
+            title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
           >
-            <option value="" disabled>Output su…</option>
-            {displays.map(d => (
-              <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
-            ))}
+            {recording ? <IconStop /> : <IconRecord />}
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)">
+            <IconPhone />
+          </button>
+          {outputInfo && (outputInfo.open ? (
+            <span className="output-chip" title="Stato della finestra di output">
+              <IconMonitor size={14} />
+              Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
+            </span>
+          ) : (
+            <button
+              className="btn btn-sm output-reopen"
+              onClick={() => window.api?.reopenOutput?.()}
+              title="La finestra di output è chiusa — riaprila"
+            >
+              <IconMonitor size={14} />
+              Riapri output
+            </button>
+          ))}
+          {displays.length > 1 && (
+            <select
+              defaultValue=""
+              onChange={e => {
+                const id = parseInt(e.target.value)
+                if (!isNaN(id)) window.api?.moveOutputToDisplay(id)
+              }}
+              title="Sposta la finestra di output su un display"
+            >
+              <option value="" disabled>Output su…</option>
+              {displays.map(d => (
+                <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
+              ))}
+            </select>
+          )}
+          <select
+            value={outputRes}
+            onChange={e => {
+              setOutputRes(e.target.value)
+              const [w, h] = e.target.value.split('x').map(Number)
+              engine?.setRenderSize(w, h)
+              window.api?.setOutputResolution(w, h)
+            }}
+            title="Risoluzione di uscita"
+          >
+            <option value="1280x720">720p</option>
+            <option value="1920x1080">1080p</option>
+            <option value="2560x1440">1440p</option>
+            <option value="3840x2160">4K</option>
           </select>
-        )}
-        <select
-          value={outputRes}
-          onChange={e => {
-            setOutputRes(e.target.value)
-            const [w, h] = e.target.value.split('x').map(Number)
-            engine?.setRenderSize(w, h)
-            window.api?.setOutputResolution(w, h)
-          }}
-          title="Risoluzione di uscita"
-        >
-          <option value="1280x720">720p</option>
-          <option value="1920x1080">1080p</option>
-          <option value="2560x1440">1440p</option>
-          <option value="3840x2160">4K</option>
-        </select>
-        <button className="btn btn-secondary btn-sm" onClick={() => window.api?.toggleOutputFullscreen()} title="Fullscreen finestra di output">
-          Fullscreen
-        </button>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => setShowOnboarding(true)}
-          title="Rivedi la configurazione guidata"
-        >
-          ?
-        </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              window.api?.toggleOutputFullscreen()
+              // fullscreen flips have no dedicated event — re-read after the switch
+              setTimeout(refreshOutputInfo, 400)
+            }}
+            title="Fullscreen della finestra di output"
+          >
+            <IconFullscreen />
+          </button>
+        </div>
+
+        <div className="tb-group">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowHelpMenu(v => !v)}
+            title="Aiuto — scorciatoie, guida, configurazione (?)"
+          >
+            <IconHelp />
+          </button>
+        </div>
       </div>
 
-      {/* Main layout */}
-      <div className="main-area">
+      {/* U1.2 — slim static banner: layout shifts once, no overlay on the preview */}
+      {audioStatus === 'reconnecting' && (
+        <div className="audio-banner">⚠ Audio perso — riconnessione in corso…</div>
+      )}
+
+      {/* Main layout — U4.1: in live niente sidebar, solo preview + Look Bank */}
+      <div className={`main-area${mode === 'live' ? ' live-layout' : ''}`}>
         {/* Left sidebar */}
+        {mode !== 'live' && (
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
           <AudioPanel engine={engine} />
           {mode === 'simple' ? (
@@ -434,14 +633,22 @@ export function App() {
             </>
           )}
         </div>
+        )}
 
-        {/* Center — Preview (+ deck crossfader in pro) */}
+        {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className="center-area">
           <div className="preview-container">
             <canvas ref={canvasRef} className="preview-canvas" />
+            {/* U4.2 — bordo che lampeggia sul beat (opacity via DOM diretto) */}
+            <div ref={beatFlashRef} className="beat-flash" />
             <span className="preview-label">PREVIEW</span>
           </div>
           {mode === 'pro' && <DeckPanel engine={engine} />}
+          {mode === 'live' && engine && (
+            <div className="live-lookbank">
+              <LookBank engine={engine} />
+            </div>
+          )}
         </div>
 
         {/* Right sidebar — pro only */}
@@ -464,8 +671,21 @@ export function App() {
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}
         {frozen && <><span>|</span><span style={{ color: 'var(--accent)' }}>FROZEN</span></>}
         <div className="spacer" />
-        <span>B blackout · F freeze · [ ] master · 1-0 effetti · QWER post · Space tap</span>
+        <label className="beatflash-toggle" title="Flash del bordo preview a ogni beat">
+          <input
+            type="checkbox"
+            checked={beatFlash}
+            onChange={e => {
+              setBeatFlash(e.target.checked)
+              try { localStorage.setItem(BEATFLASH_KEY, e.target.checked ? '1' : '0') } catch (_) {}
+            }}
+          />
+          flash beat
+        </label>
+        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · Space tap</span>
       </div>
+
+      <Toasts />
     </div>
   )
 }

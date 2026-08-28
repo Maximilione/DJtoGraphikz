@@ -106,9 +106,18 @@ function createOutputWindow(): BrowserWindow {
 
   win.on('closed', () => {
     if (outputWindow === win) outputWindow = null
+    notifyOutputChanged()
   })
 
+  notifyOutputChanged()
   return win
+}
+
+// Control window keeps a status chip in sync (U1.3)
+function notifyOutputChanged() {
+  if (controlWindow && !controlWindow.isDestroyed()) {
+    controlWindow.webContents.send('output:changed')
+  }
 }
 
 // Single instance: recreate on demand if the user closed it
@@ -194,6 +203,21 @@ app.whenReady().then(async () => {
       win.setSimpleFullScreen(true)
     }
   })
+
+  // Output window status for the control-window chip (U1.3)
+  ipcMain.handle('output:info', () => {
+    const win = outputWindow
+    if (!win || win.isDestroyed()) return { open: false, fullscreen: false, display: '' }
+    const d = screen.getDisplayMatching(win.getBounds())
+    const idx = screen.getAllDisplays().findIndex(x => x.id === d.id)
+    return {
+      open: true,
+      fullscreen: win.isFullScreen() || win.isSimpleFullScreen(),
+      display: d.label || `Display ${idx + 1}`,
+    }
+  })
+
+  ipcMain.on('output:reopen', () => { ensureOutputWindow() })
 
   // Get available displays
   ipcMain.handle('displays:list', () => {

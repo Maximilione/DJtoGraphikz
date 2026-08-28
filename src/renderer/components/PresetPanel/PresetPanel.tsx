@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, Preset, Playlist, EffectId, PostId } from '@engine/Engine'
+import { usePanelCollapsed } from '../usePanelCollapsed'
 
 interface PresetPanelProps {
   engine: Engine | null
@@ -31,7 +32,7 @@ function savePlaylistsToStorage(playlists: Playlist[]) {
 }
 
 export function PresetPanel({ engine }: PresetPanelProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, toggleCollapsed] = usePanelCollapsed('presets', false, 'right')
   const [tab, setTab] = useState<'presets' | 'playlist'>('presets')
 
   // Presets
@@ -255,24 +256,28 @@ export function PresetPanel({ engine }: PresetPanelProps) {
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>Presets & Playlist</span>
+      <div
+        className="panel-header"
+        onClick={toggleCollapsed}
+        title={collapsed ? 'Espandi Preset & Playlist' : 'Comprimi Preset & Playlist'}
+      >
+        <span>Preset & Playlist</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="u-col" style={{ gap: '10px' }}>
           {/* Tab switcher */}
           <div style={{ display: 'flex', gap: '4px' }}>
-            <button onClick={() => setTab('presets')} style={pillStyle(tab === 'presets')}>
-              Presets ({presets.length})
+            <button className={`pill${tab === 'presets' ? ' active' : ''}`} title="Mostra i preset salvati" onClick={() => setTab('presets')}>
+              Preset ({presets.length})
             </button>
-            <button onClick={() => setTab('playlist')} style={pillStyle(tab === 'playlist')}>
+            <button className={`pill${tab === 'playlist' ? ' active' : ''}`} title="Mostra le playlist" onClick={() => setTab('playlist')}>
               Playlist ({playlists.length})
             </button>
           </div>
 
           {tab === 'presets' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="u-col">
               {/* Save current as preset */}
               <div style={{ display: 'flex', gap: '4px' }}>
                 <input
@@ -280,22 +285,19 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                   value={presetName}
                   onChange={e => setPresetName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && savePreset()}
-                  placeholder="Preset name..."
-                  style={inputStyle}
+                  placeholder="Nome preset…"
+                  title="Nome del preset da salvare"
+                  style={{ flex: 1, minWidth: 0 }}
                 />
-                <button onClick={savePreset} style={btnStyle} disabled={!presetName.trim()}>
-                  Save
+                <button className="btn btn-secondary" title="Salva lo stato corrente come preset" onClick={savePreset} disabled={!presetName.trim()}>
+                  Salva
                 </button>
               </div>
 
               {/* Preset list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '200px', overflowY: 'auto' }}>
                 {presets.map((p, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '4px 6px', borderRadius: '4px',
-                    background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-                  }}>
+                  <div key={i} className="row-item" style={{ cursor: 'default' }}>
                     {/* Color dots */}
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {p.colors.map((c, j) => (
@@ -304,126 +306,116 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                         }} />
                       ))}
                     </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="row-title" style={{ color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.name}
                     </span>
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-                      {p.effect}
-                    </span>
-                    <button onClick={() => applyPreset(p)} style={smallBtnStyle} title="Apply">
+                    <span className="row-sub">{p.effect}</span>
+                    <button className="btn btn-secondary btn-sm" onClick={() => applyPreset(p)} title="Applica preset">
                       ▶
                     </button>
-                    <button onClick={() => {
+                    <button className="btn btn-secondary btn-sm" onClick={() => {
                       setBuildingPlaylist(prev => [...prev, p])
-                    }} style={smallBtnStyle} title="Add to playlist builder">
+                    }} title="Aggiungi alla playlist in costruzione">
                       +
                     </button>
-                    <button onClick={() => deletePreset(i)} style={{ ...smallBtnStyle, color: '#ff4444' }} title="Delete">
+                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deletePreset(i)} title="Elimina preset">
                       ×
                     </button>
                   </div>
                 ))}
                 {presets.length === 0 && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
-                    No presets saved yet
+                  <div className="u-hint" style={{ textAlign: 'center', padding: 'var(--s2)' }}>
+                    Nessun preset salvato
                   </div>
                 )}
               </div>
 
               {/* Import / Export */}
               <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={importPresets} style={{ ...btnStyle, flex: 1 }}>Import</button>
-                <button onClick={exportPresets} style={{ ...btnStyle, flex: 1 }} disabled={presets.length === 0}>Export</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} title="Importa preset da file JSON" onClick={importPresets}>Importa</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} title="Esporta i preset in un file JSON" onClick={exportPresets} disabled={presets.length === 0}>Esporta</button>
               </div>
             </div>
           )}
 
           {tab === 'playlist' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="u-col">
               {/* Now playing */}
               {playing && activePlaylist && (
-                <div style={{
-                  padding: '6px 8px', borderRadius: '4px',
-                  background: 'var(--accent-glow)', border: '1px solid var(--accent)',
-                }}>
-                  <div style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>
-                    NOW PLAYING: {activePlaylist.name}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-primary)', marginTop: '3px' }}>
+                <div className="active-banner" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div className="active-banner-label">In riproduzione: {activePlaylist.name}</div>
+                  <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-primary)', marginTop: '3px' }}>
                     {playlistIndex + 1}/{activePlaylist.presets.length}: {activePlaylist.presets[playlistIndex]?.name}
                   </div>
                   <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                    <button onClick={playlistPrev} style={btnStyle}>Prev</button>
-                    <button onClick={playlistNext} style={btnStyle}>Next</button>
-                    <button onClick={stopPlaylist} style={{ ...btnStyle, color: '#ff4444' }}>Stop</button>
+                    <button className="btn btn-secondary btn-sm" title="Preset precedente" onClick={playlistPrev}>Prec</button>
+                    <button className="btn btn-secondary btn-sm" title="Preset successivo" onClick={playlistNext}>Succ</button>
+                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} title="Ferma la playlist" onClick={stopPlaylist}>Stop</button>
                   </div>
                 </div>
               )}
 
               {/* Playlist builder */}
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                Build Playlist
-              </div>
+              <div className="cat-label" style={{ color: 'var(--accent)' }}>Crea playlist</div>
 
               {buildingPlaylist.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '120px', overflowY: 'auto' }}>
                   {buildingPlaylist.map((p, i) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: '4px',
-                      padding: '3px 6px', borderRadius: '3px',
-                      background: 'var(--bg-secondary)',
-                      fontSize: '10px', color: 'var(--text-secondary)',
+                    <div key={i} className="u-row" style={{
+                      gap: '4px', padding: '3px 6px', borderRadius: 'var(--r-sm)',
+                      background: 'var(--bg1)',
+                      fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)',
                     }}>
-                      <span style={{ color: 'var(--text-muted)', width: '16px' }}>{i + 1}.</span>
+                      <span className="u-hint" style={{ width: '16px' }}>{i + 1}.</span>
                       <div style={{ display: 'flex', gap: '1px' }}>
                         {p.colors.map((c, j) => (
                           <div key={j} style={{ width: '6px', height: '6px', borderRadius: '1px', background: c }} />
                         ))}
                       </div>
                       <span style={{ flex: 1 }}>{p.name}</span>
-                      <span style={{ color: 'var(--text-muted)' }}>{p.effect}</span>
+                      <span className="u-hint">{p.effect}</span>
                       {/* Move up */}
                       {i > 0 && (
-                        <button onClick={() => {
+                        <button className="tiny-btn" title="Sposta su" onClick={() => {
                           const next = [...buildingPlaylist]
                           ;[next[i - 1], next[i]] = [next[i], next[i - 1]]
                           setBuildingPlaylist(next)
-                        }} style={tinyBtnStyle}>↑</button>
+                        }}>↑</button>
                       )}
                       {/* Move down */}
                       {i < buildingPlaylist.length - 1 && (
-                        <button onClick={() => {
+                        <button className="tiny-btn" title="Sposta giù" onClick={() => {
                           const next = [...buildingPlaylist]
                           ;[next[i], next[i + 1]] = [next[i + 1], next[i]]
                           setBuildingPlaylist(next)
-                        }} style={tinyBtnStyle}>↓</button>
+                        }}>↓</button>
                       )}
-                      <button onClick={() => {
+                      <button className="tiny-btn danger" title="Togli dalla playlist" onClick={() => {
                         setBuildingPlaylist(prev => prev.filter((_, j) => j !== i))
-                      }} style={{ ...tinyBtnStyle, color: '#ff4444' }}>×</button>
+                      }}>×</button>
                     </div>
                   ))}
                 </div>
               )}
 
               {buildingPlaylist.length === 0 && (
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center', padding: '4px' }}>
-                  Click + on presets to add them here
+                <div className="u-hint" style={{ textAlign: 'center', padding: '4px' }}>
+                  Premi + su un preset per aggiungerlo qui
                 </div>
               )}
 
               {/* Advance settings */}
               <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={() => setAdvanceMode('timer')} style={pillStyle(advanceMode === 'timer')}>
+                <button className={`pill${advanceMode === 'timer' ? ' active' : ''}`} title="Avanza a intervalli di tempo" onClick={() => setAdvanceMode('timer')}>
                   Timer
                 </button>
-                <button onClick={() => setAdvanceMode('beats')} style={pillStyle(advanceMode === 'beats')}>
+                <button className={`pill${advanceMode === 'beats' ? ' active' : ''}`} title="Avanza sincronizzato ai beat" onClick={() => setAdvanceMode('beats')}>
                   Beat Sync
                 </button>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', width: '52px', flexShrink: 0 }}>
-                  {advanceMode === 'timer' ? 'Interval' : 'Beats'}
+              <div className="u-row">
+                <span className="u-hint" style={{ width: '52px', flexShrink: 0 }}>
+                  {advanceMode === 'timer' ? 'Intervallo' : 'Beat'}
                 </span>
                 <input
                   type="range"
@@ -431,10 +423,11 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                   max={advanceMode === 'timer' ? 60 : 64}
                   step={1}
                   value={advanceInterval}
+                  title={advanceMode === 'timer' ? 'Secondi tra un preset e il successivo' : 'Beat tra un preset e il successivo'}
                   onChange={e => setAdvanceInterval(parseInt(e.target.value))}
-                  style={{ flex: 1, height: '14px' }}
+                  style={{ flex: 1 }}
                 />
-                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', width: '28px', textAlign: 'right' }}>
+                <span className="u-value" style={{ width: '28px', flexShrink: 0 }}>
                   {advanceInterval}{advanceMode === 'timer' ? 's' : 'b'}
                 </span>
               </div>
@@ -446,51 +439,47 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                   value={playlistName}
                   onChange={e => setPlaylistName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && savePlaylist()}
-                  placeholder="Playlist name..."
-                  style={inputStyle}
+                  placeholder="Nome playlist…"
+                  title="Nome della playlist da salvare"
+                  style={{ flex: 1, minWidth: 0 }}
                 />
-                <button onClick={savePlaylist} style={btnStyle} disabled={!playlistName.trim() || buildingPlaylist.length === 0}>
-                  Save
+                <button className="btn btn-secondary" title="Salva la playlist" onClick={savePlaylist} disabled={!playlistName.trim() || buildingPlaylist.length === 0}>
+                  Salva
                 </button>
               </div>
 
               {/* Saved playlists */}
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: '4px' }}>
-                Saved Playlists
+              <div className="cat-label" style={{ color: 'var(--accent)', marginTop: '4px' }}>
+                Playlist salvate
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '150px', overflowY: 'auto' }}>
                 {playlists.map((pl, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '5px 6px', borderRadius: '4px',
-                    background: activePlaylist === pl ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                    border: activePlaylist === pl ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-primary)', flex: 1 }}>
+                  <div key={i} className={`row-item${activePlaylist === pl ? ' active' : ''}`} style={{ cursor: 'default' }}>
+                    <span className="row-title" style={{ color: 'var(--text-primary)', flex: 1 }}>
                       {pl.name}
                     </span>
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-                      {pl.presets.length} presets · {pl.advanceMode === 'timer' ? `${pl.advanceInterval}s` : `${pl.advanceInterval}b`}
+                    <span className="row-sub">
+                      {pl.presets.length} preset · {pl.advanceMode === 'timer' ? `${pl.advanceInterval}s` : `${pl.advanceInterval}b`}
                     </span>
-                    <button onClick={() => startPlaylist(pl)} style={smallBtnStyle} title="Play">
+                    <button className="btn btn-secondary btn-sm" onClick={() => startPlaylist(pl)} title="Avvia playlist">
                       ▶
                     </button>
-                    <button onClick={() => deletePlaylist(i)} style={{ ...smallBtnStyle, color: '#ff4444' }} title="Delete">
+                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deletePlaylist(i)} title="Elimina playlist">
                       ×
                     </button>
                   </div>
                 ))}
                 {playlists.length === 0 && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
-                    No playlists saved yet
+                  <div className="u-hint" style={{ textAlign: 'center', padding: 'var(--s2)' }}>
+                    Nessuna playlist salvata
                   </div>
                 )}
               </div>
 
               {/* Import / Export */}
               <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={importPlaylists} style={{ ...btnStyle, flex: 1 }}>Import</button>
-                <button onClick={exportPlaylists} style={{ ...btnStyle, flex: 1 }} disabled={playlists.length === 0}>Export</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} title="Importa playlist da file JSON" onClick={importPlaylists}>Importa</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} title="Esporta le playlist in un file JSON" onClick={exportPlaylists} disabled={playlists.length === 0}>Esporta</button>
               </div>
             </div>
           )}
@@ -498,39 +487,4 @@ export function PresetPanel({ engine }: PresetPanelProps) {
       )}
     </div>
   )
-}
-
-function pillStyle(active: boolean): React.CSSProperties {
-  return {
-    flex: 1, padding: '5px 6px', borderRadius: '4px',
-    border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-    background: active ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-    fontSize: '11px', fontWeight: active ? 600 : 400, cursor: 'pointer',
-  }
-}
-
-const inputStyle: React.CSSProperties = {
-  flex: 1, padding: '5px 8px', borderRadius: '4px',
-  border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
-  color: 'var(--text-primary)', fontSize: '11px', outline: 'none',
-}
-
-const btnStyle: React.CSSProperties = {
-  padding: '5px 10px', borderRadius: '4px',
-  border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
-  color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer',
-}
-
-const smallBtnStyle: React.CSSProperties = {
-  padding: '2px 6px', borderRadius: '3px',
-  border: '1px solid var(--border)', background: 'var(--bg-secondary)',
-  color: 'var(--text-secondary)', fontSize: '10px', cursor: 'pointer',
-  lineHeight: 1,
-}
-
-const tinyBtnStyle: React.CSSProperties = {
-  padding: '1px 4px', borderRadius: '2px',
-  border: 'none', background: 'transparent',
-  color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer',
 }

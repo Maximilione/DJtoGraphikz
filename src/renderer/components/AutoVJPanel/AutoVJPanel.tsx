@@ -11,14 +11,14 @@ interface AutoVJPanelProps {
 }
 
 const GENRES: { id: Genre; label: string; desc: string }[] = [
-  { id: 'acid-techno', label: 'Acid Techno', desc: 'Fast, psychedelic, neon' },
-  { id: 'hard-tekno', label: 'Hard Tekno', desc: 'Aggressive, intense, fast switches' },
-  { id: 'dark-industrial', label: 'Dark Industrial', desc: 'Glitchy, monochrome, digital' },
-  { id: 'minimal-hypnotic', label: 'Minimal', desc: 'Slow, flowing, hypnotic' },
-  { id: 'trance', label: 'Trance', desc: 'Colorful, smooth, dreamy' },
-  { id: 'drum-n-bass', label: 'Drum & Bass', desc: 'Rapid, energetic, particles' },
-  { id: 'ambient', label: 'Ambient', desc: 'Calm, fluid, soft colors' },
-  { id: 'gabber', label: 'Gabber', desc: 'Maximum chaos, glitch, fast' },
+  { id: 'acid-techno', label: 'Acid Techno', desc: 'Veloce, psichedelico, neon' },
+  { id: 'hard-tekno', label: 'Hard Tekno', desc: 'Aggressivo, intenso, cambi rapidi' },
+  { id: 'dark-industrial', label: 'Dark Industrial', desc: 'Glitch, monocromo, digitale' },
+  { id: 'minimal-hypnotic', label: 'Minimal', desc: 'Lento, fluido, ipnotico' },
+  { id: 'trance', label: 'Trance', desc: 'Colorato, morbido, sognante' },
+  { id: 'drum-n-bass', label: 'Drum & Bass', desc: 'Rapido, energico, particelle' },
+  { id: 'ambient', label: 'Ambient', desc: 'Calmo, fluido, colori tenui' },
+  { id: 'gabber', label: 'Gabber', desc: 'Caos totale, glitch, velocissimo' },
 ]
 
 export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
@@ -27,33 +27,30 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={() => setCollapsed(!collapsed)}>
+      <div
+        className="panel-header"
+        onClick={() => setCollapsed(!collapsed)}
+        title={collapsed ? 'Espandi Auto VJ' : 'Comprimi Auto VJ'}
+      >
         <span>Auto VJ</span>
         <span>{collapsed ? '+' : '-'}</span>
       </div>
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="u-col">
           {/* Enable toggle */}
           <div
+            className={`row-item${vjEnabled ? ' active' : ''}`}
             onClick={() => onToggle(!vjEnabled)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '6px 8px', borderRadius: '4px', cursor: 'pointer',
-              background: vjEnabled ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-              border: vjEnabled ? '1px solid var(--accent)' : '1px solid var(--border)',
-            }}
+            title="Cambia effetti, post-FX e colori da solo, a tempo di musica"
           >
             <div className={`toggle${vjEnabled ? ' active' : ''}`} />
             <div style={{ flex: 1 }}>
-              <div style={{
-                fontSize: '11px', fontWeight: vjEnabled ? 600 : 400,
-                color: vjEnabled ? 'var(--accent)' : 'var(--text-secondary)',
-              }}>
-                {vjEnabled ? 'Auto VJ Active' : 'Enable Auto VJ'}
+              <div className="row-title" style={vjEnabled ? { color: 'var(--accent)' } : undefined}>
+                {vjEnabled ? 'Auto VJ attivo' : 'Attiva Auto VJ'}
               </div>
               {vjEnabled && (
-                <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                  {vjStatus.count} switches | current: {vjStatus.current || '—'}
+                <div className="row-sub">
+                  {vjStatus.count} cambi · ora: {vjStatus.current || '—'}
                 </div>
               )}
             </div>
@@ -61,37 +58,21 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
 
           {/* Genre selector */}
           <div>
-            <div style={catLabel}>Genre</div>
+            <div className="cat-label">Genere</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {GENRES.map(g => {
                 const isActive = vjGenre === g.id
                 return (
                   <div
                     key={g.id}
+                    className={`row-item${isActive ? ' active' : ''}`}
                     onClick={() => onGenre(g.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      padding: '5px 6px', borderRadius: '4px', cursor: 'pointer',
-                      background: isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
-                      border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      transition: 'all 0.1s',
-                    }}
+                    title={`Stile ${g.label}: ${g.desc.toLowerCase()}`}
                   >
-                    <div style={{
-                      width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
-                      background: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                      boxShadow: isActive ? '0 0 4px var(--accent)' : 'none',
-                    }} />
+                    <div className={`status-dot ${isActive ? 'on' : 'off'}`} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: '10px', fontWeight: isActive ? 600 : 400,
-                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      }}>
-                        {g.label}
-                      </div>
-                      <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
-                        {g.desc}
-                      </div>
+                      <div className="row-title">{g.label}</div>
+                      <div className="row-sub">{g.desc}</div>
                     </div>
                   </div>
                 )
@@ -100,29 +81,29 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
           </div>
 
           {/* Genre info */}
-          <details style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
-            <summary style={{ cursor: 'pointer', marginBottom: '4px' }}>
-              {config.label} config
+          <details className="u-hint">
+            <summary style={{ cursor: 'pointer', marginBottom: '4px' }} title="Dettagli della configurazione del genere">
+              Configurazione {config.label}
             </summary>
             <div style={{ paddingLeft: '6px', lineHeight: '1.6' }}>
               <div>
-                <span style={{ color: 'var(--accent)' }}>Effects:</span>{' '}
+                <span style={{ color: 'var(--accent)' }}>Effetti:</span>{' '}
                 {config.effects.join(', ')}
               </div>
               <div>
-                <span style={{ color: 'var(--accent)' }}>Switch:</span>{' '}
-                every {config.switchBeats} beats ({config.transitionStyle})
+                <span style={{ color: 'var(--accent)' }}>Cambio:</span>{' '}
+                ogni {config.switchBeats} beat ({config.transitionStyle})
               </div>
               <div>
-                <span style={{ color: 'var(--accent)' }}>Energy threshold:</span>{' '}
+                <span style={{ color: 'var(--accent)' }}>Soglia energia:</span>{' '}
                 {(config.energyThreshold * 100).toFixed(0)}%
               </div>
               <div>
-                <span style={{ color: 'var(--accent)' }}>Post combos:</span>{' '}
+                <span style={{ color: 'var(--accent)' }}>Combo post-FX:</span>{' '}
                 {config.postSets.length}
               </div>
               <div>
-                <span style={{ color: 'var(--accent)' }}>Palettes:</span>{' '}
+                <span style={{ color: 'var(--accent)' }}>Palette:</span>{' '}
                 {config.palettes.length}
               </div>
               {/* Palette swatches */}
@@ -141,13 +122,4 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
       )}
     </div>
   )
-}
-
-const catLabel: React.CSSProperties = {
-  fontSize: '8px',
-  fontWeight: 700,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '1.2px',
-  marginBottom: '3px',
 }

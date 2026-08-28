@@ -142,7 +142,7 @@ export function setupOscServer(controlWindow: BrowserWindow): void {
   const trailing = new Map<string, { cmd: unknown }>()
 
   const emit = (cmd: unknown) => {
-    if (!controlWindow.isDestroyed()) controlWindow.webContents.send('remote:cmd', cmd)
+    if (!controlWindow.isDestroyed()) controlWindow.webContents.send('remote:cmd', { ...(cmd as Record<string, unknown>), source: 'osc' })
   }
 
   const send = (addr: string, cmd: unknown) => {

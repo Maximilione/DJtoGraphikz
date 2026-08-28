@@ -53,7 +53,7 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
           >
             Nuovo codice
           </button>
-          <button className="btn btn-primary btn-sm" onClick={onClose}>Chiudi</button>
+          <button className="btn btn-primary btn-sm" title="Chiudi la finestra" onClick={onClose}>Chiudi</button>
         </div>
       </div>
     </div>

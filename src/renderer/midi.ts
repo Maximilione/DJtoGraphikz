@@ -146,6 +146,14 @@ class MidiEngine {
     this.notify()
   }
 
+  // U3.4 — restore a binding removed by mistake (undo toast)
+  setBinding(targetId: string, b: MidiBinding) {
+    this.bindings[targetId] = b
+    this.persist()
+    this.rebuildReverse()
+    this.notify()
+  }
+
   onChange(fn: () => void): () => void {
     this.listeners.add(fn)
     return () => { this.listeners.delete(fn) }
