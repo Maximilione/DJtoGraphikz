@@ -73,3 +73,70 @@
   from { opacity: 0; transform: translateX(12px); }
   to { opacity: 1; transform: none; }
 }
+
+/* ============================================================
+   Batch usability/design (D4, D6, U2.x, U4.x) — append-only
+   ============================================================ */
+
+/* D4 — top bar a gruppi: gap interno --s2, separatore 1px tra gruppi */
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+.top-bar .tb-group:not(:first-child) {
+  border-left: 1px solid var(--line);
+  padding-left: var(--s2);
+}
+
+/* D6 — occhio del logo prima del titolo */
+.tb-eye {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+/* master slider (era inline width:90px) */
+.tb-master { width: 90px; }
+
+/* chip output con icona */
+.output-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+}
+
+/* U4.1 — modalità live: preview massima + striscia Look Bank sotto */
+.live-layout .preview-container { padding: var(--s3); }
+.live-lookbank {
+  flex-shrink: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--s1);
+  border-top: 1px solid var(--line);
+  background: var(--bg0);
+}
+.live-lookbank .panel { margin-bottom: 0; }
+/* la griglia 4x4 del LookBank si distende in orizzontale (8 colonne, 2 righe) */
+.live-lookbank .look-bank-grid { grid-template-columns: repeat(8, 1fr); }
+
+/* U4.2 — flash accent sul bordo della preview a ogni beat.
+   Opacity mutata via DOM diretto (come il beat dot), transition 180ms. */
+.beat-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 18px 2px var(--accent);
+  opacity: 0;
+}
+
+/* U4.2 — toggle "flash beat" nella barra di stato */
+.beatflash-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  cursor: pointer;
+  color: var(--text-muted);
+  user-select: none;
+}
+.beatflash-toggle input { cursor: pointer; }
