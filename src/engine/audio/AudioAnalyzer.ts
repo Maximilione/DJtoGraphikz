@@ -86,6 +86,11 @@ export class AudioAnalyzer {
 
   get isRunning() { return this.running }
 
+  getStatus(): 'running' | 'reconnecting' | 'stopped' {
+    if (this.restartTimer) return 'reconnecting'
+    return this.running ? 'running' : 'stopped'
+  }
+
   // Auto-recovery: the audio device can die under us (Bluetooth profile
   // switch, device unplug, Chromium "AudioContext encountered an error") —
   // without this the app silently stops reacting to the mic until restart.
