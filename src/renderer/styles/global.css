@@ -1125,3 +1125,15 @@ input[type="color"] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ===== Effect thumbnails (fxThumbs) ===== */
+/* Background image + dark overlay arrive inline (thumbBackground());
+   the class keeps the label readable over any snapshot. */
+.fx-thumb {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.fx-thumb.active,
+.fx-thumb:hover {
+  /* the inline thumb background wins over class backgrounds — border/color still signal state */
+  color: var(--accent);
+}

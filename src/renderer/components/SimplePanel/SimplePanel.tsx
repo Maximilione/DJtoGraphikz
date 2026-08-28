@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId } from '@engine/Engine'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { EFFECT_CATEGORIES, COLOR_PRESETS } from '../EffectPanel/EffectPanel'
+import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 
 interface SimplePanelProps {
   engine: Engine | null
@@ -29,6 +30,9 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
     sync(engine.getCurrentEffect(), engine.getCurrentColors())
     return engine.onState(state => sync(state.activeEffect, state.colors))
   }, [engine])
+
+  // Thumbnails: capture from the live engine ~1.5s after each effect change
+  useFxThumbs(engine, activeEffect)
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
@@ -80,16 +84,21 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
         <div key={cat.name}>
           <div className="simple-cat">{cat.name}</div>
           <div className="simple-grid">
-            {cat.effects.map(fx => (
-              <button
-                key={fx.id}
-                className={`simple-fx${activeEffect === fx.id && !vjEnabled ? ' active' : ''}`}
-                onClick={() => selectEffect(fx.id)}
-              >
-                <span className="fx-icon">{fx.icon}</span>
-                {fx.label}
-              </button>
-            ))}
+            {cat.effects.map(fx => {
+              const isActive = activeEffect === fx.id && !vjEnabled
+              const thumb = getThumb(fx.id)
+              return (
+                <button
+                  key={fx.id}
+                  className={`simple-fx${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
+                  onClick={() => selectEffect(fx.id)}
+                  style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
+                >
+                  <span className="fx-icon">{fx.icon}</span>
+                  {fx.label}
+                </button>
+              )
+            })}
           </div>
         </div>
       ))}
