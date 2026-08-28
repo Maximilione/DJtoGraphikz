@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.9.0-beta] — 2026-08-28
+
+### Added
+- **Logo e icona app** — marchio vettoriale disegnato a mano (occhio con cuffie DJ sopra e bozza di console sotto, verde neon su dark come l'identità dell'app): `build/icon.svg` sorgente, `build/icon.icns` generata con margini Apple standard e collegata a electron-builder — il .dmg non usa più l'icona default di Electron
+
 ## [0.8.0-beta] — 2026-08-28
 
 ### Added
