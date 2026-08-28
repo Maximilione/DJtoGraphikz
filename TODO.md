@@ -55,11 +55,11 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 7. [x] **LFO come sorgente parametri** — fatto in v0.8.0: sine/saw/square tempo-sync, rate 1/4…32 battute, anche dal telefono
 8. [ ] **MIDI learn** — Web MIDI nativa; learn su crossfader, master, wet/dry, trigger Look Bank. [storico + studio A5] · 1-2g
 9. [x] **Video recording WebM** — fatto in v0.8.0: 🔴 in top bar, VP9 12Mbps, salva alla pressione di ⏹
-10. [ ] **Media library persistente** — oggi gli overlay muoiono al riavvio: copia in ~/.djtographikz/assets, ricarico all'avvio, pannello con anteprime. [studio A7] · 1g
-11. [ ] **OSC input** — dgram UDP built-in nel main, parser ~80 righe, stessi target del MIDI. Apre TouchOSC dal telefono. [storico, riclassificato ↑ dal parcheggio] · 1g
-12. [ ] **Thumbnail effetti** — render offline 1 frame per effetto, cache su disco: griglia visiva come le scene card. [studio B10] · ½g
-13. [ ] **Libreria ISF su cartella** — ~/.djtographikz/isf scansionata all'avvio, ogni generator valido diventa un effetto coi suoi slider. [storico ISF + studio B11] · 1g
-14. [ ] **Text overlay** — testo su CanvasTexture nella pipeline overlay esistente (nome evento, logo serata). [storico, riclassificato ↑] · ½g
+10. [x] **Media library persistente** — fatto in v0.10.0: asset copiati in ~/.djtographikz/assets, sezione Libreria nel pannello Media, ri-aggiunta a un tap
+11. [x] **OSC input** — fatto in v0.10.0: UDP :9700, /djg/* per tutti i comandi del remote, throttle 33ms, TouchOSC pronto
+12. [x] **Thumbnail effetti** — fatto in v0.10.0: cattura lazy dal vivo (frame pulito), griglie come scene card
+13. [x] **Libreria ISF su cartella** — fatto in v0.10.0: categoria ISF nel pannello Effects, errori GLSL inline
+14. [x] **Text overlay** — fatto in v0.10.0: testo + colore nel pannello Media, tutti i controlli overlay e i post-FX gratis
 15. [ ] **GIF export** — retrocesso: il recording WebM (punto 9) copre quasi tutti gli usi. [storico, riclassificato ↓] · ½g
 16. [x] **Web remote control** — fatto in v0.6.0, portato a parità completa in v0.7.0: data-driven (/defs + versione), tab LIVE/FX/MIX/COLORI/SETUP, Look Bank e parametri sul telefono
 

@@ -9,9 +9,11 @@ window.api?.onEngineState((state: any) => engine.applyRemoteState(state))
 window.api?.onAudioData((data: any) => engine.setAudioData(data))
 
 window.api?.onOverlayAdd((data: any) => {
-  const added = data.source
-    ? engine.addVideoOverlay(data.name, data.source, data.id)
-    : engine.addOverlay(data.name, data.dataUrl, data.id)
+  const added = data.source?.kind === 'text'
+    ? Promise.resolve(engine.addTextOverlay(data.source.text, data.source, data.id))
+    : data.source
+      ? engine.addVideoOverlay(data.name, data.source, data.id)
+      : engine.addOverlay(data.name, data.dataUrl, data.id)
   added.then(overlay => {
     engine.updateOverlay(overlay.id, {
       opacity: data.opacity, scale: data.scale,

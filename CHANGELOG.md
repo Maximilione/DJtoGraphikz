@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.10.0-beta] — 2026-08-28
+
+### Added
+- **Media library persistente** — immagini/GIF/video importati vengono copiati in `~/.djtographikz/assets` e compaiono nella sezione Libreria del pannello Media: dopo un riavvio si ri-aggiungono con un tap (la webcam è un device, non si persiste)
+- **Text overlay** — testo con color picker nel pannello Media, renderizzato su canvas trasparente nella pipeline overlay: opacity/scale/offset/displace e tutti i post-FX si applicano gratis, sincronizzato alla finestra di output
+- **OSC input** — server UDP su :9700 (TouchOSC e qualsiasi controller OSC): `/djg/brightness`, `/djg/crossfade`, `/djg/effect` (per nome o `/djg/effect/N`), `/djg/post`, `/djg/look/N`, `/djg/grade/*`, `/djg/param/<chiave>` (scalato al range reale), blackout/freeze/autovj/tap/motionblur; throttle per address, parser OSC 1.0 con bundle
+- **Thumbnail effetti** — le griglie diventano scene card visive: cattura automatica dal vivo quando l'effetto è pulito a schermo (niente custom shader/crossfade/blackout), cache locale, l'AutoVJ popola la banca da solo
+- **Libreria ISF su cartella** — i generator in `~/.djtographikz/isf` compaiono come categoria ISF nel pannello Effects; quelli rotti o non-generator sono elencati come ignorati con l'errore GLSL esatto alla selezione
+
 ## [0.9.0-beta] — 2026-08-28
 
 ### Added

@@ -1,6 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
+  // Media library (persistent under ~/.djtographikz/assets)
+  librarySave: (name: string, dataUrl: string): Promise<{ name: string; path: string }> =>
+    ipcRenderer.invoke('library:save', name, dataUrl),
+  librarySaveCopy: (name: string, sourcePath: string): Promise<{ name: string; path: string }> =>
+    ipcRenderer.invoke('library:save-copy', name, sourcePath),
+  libraryList: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('library:list'),
+  libraryDelete: (name: string): Promise<void> => ipcRenderer.invoke('library:delete', name),
+
+  // ISF folder (~/.djtographikz/isf)
+  listIsf: (): Promise<{ name: string; source: string }[]> => ipcRenderer.invoke('isf:list'),
+
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),

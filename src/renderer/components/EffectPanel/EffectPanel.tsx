@@ -1,7 +1,10 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
+import type { EffectParam } from '@engine/EffectParams'
+import { loadISF } from '@engine/IsfLoader'
 import { NumberInput } from '../NumberInput/NumberInput'
 import { ParamControls } from '../ParamControls/ParamControls'
+import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 
 interface EffectPanelProps {
   engine: Engine | null
@@ -119,6 +122,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [transitionDuration, setTransitionDuration] = useState(0.8)
   const [transitionBeatSync, setTransitionBeatSync] = useState(false)
 
+  // ISF library (~/.djtographikz/isf)
+  const [isfEffects, setIsfEffects] = useState<{ name: string; frag: string; params: EffectParam[] }[]>([])
+  const [isfFailed, setIsfFailed] = useState<string[]>([])
+  const [isfActive, setIsfActive] = useState<string | null>(null)
+  const [isfError, setIsfError] = useState<string | null>(null)
+
   // Cycling state
   const [cycleEnabled, setCycleEnabled] = useState(false)
   const [cycleBeatSync, setCycleBeatSync] = useState(false)
@@ -169,13 +178,52 @@ export function EffectPanel({ engine }: EffectPanelProps) {
         setCycleInterval(Math.round(state.cycle.intervalMs / 1000))
         setCycleBeats(state.cycle.beatsPerSwitch)
       }
+      // custom shader dropped (stock effect selected anywhere) → ISF highlight off
+      if (!state.customShader) setIsfActive(null)
     })
   }, [engine])
+
+  // Thumbnails: capture from the live engine ~1.5s after each effect change
+  useFxThumbs(engine, activeEffect)
+
+  // ISF library: read ~/.djtographikz/isf once on mount, parse each file
+  React.useEffect(() => {
+    let alive = true
+    window.api?.listIsf?.()
+      .then(files => {
+        if (!alive) return
+        const ok: { name: string; frag: string; params: EffectParam[] }[] = []
+        const failed: string[] = []
+        for (const f of files) {
+          try {
+            const res = loadISF(f.source, f.name)
+            if ('error' in res) failed.push(f.name)
+            else ok.push({ name: f.name, frag: res.fragment, params: res.params })
+          } catch {
+            failed.push(f.name)
+          }
+        }
+        setIsfEffects(ok)
+        setIsfFailed(failed)
+      })
+      .catch(() => { /* IPC unavailable (old preload) — section stays hidden */ })
+    return () => { alive = false }
+  }, [])
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
     engine.setEffect(id)
     setActiveEffect(id)
+  }, [engine])
+
+  const selectIsf = useCallback((fx: { name: string; frag: string; params: EffectParam[] }) => {
+    if (!engine) return
+    if (engine.setCustomShader(fx.frag, fx.params)) {
+      setIsfActive(fx.name)
+      setIsfError(null)
+    } else {
+      setIsfError(engine.getLastShaderError() || 'errore sconosciuto')
+    }
   }, [engine])
 
   const togglePost = useCallback((id: PostId) => {
@@ -448,15 +496,19 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2px' }}>
                     {filtered.map(fx => {
                       const isActive = activeEffect === fx.id
+                      const thumb = getThumb(fx.id)
                       return (
                         <button
                           key={fx.id}
                           onClick={() => selectEffect(fx.id)}
+                          className={thumb ? 'fx-thumb' : undefined}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '4px',
                             padding: '5px 6px', borderRadius: '4px',
                             border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                            background: isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
+                            background: thumb
+                              ? thumbBackground(thumb, isActive)
+                              : isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
                             color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
                             fontSize: '9px', fontWeight: isActive ? 600 : 400,
                             cursor: 'pointer', transition: 'all 0.1s',
@@ -476,6 +528,69 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 </div>
               )
             })}
+
+            {/* ISF library — shaders from ~/.djtographikz/isf */}
+            {(isfEffects.length > 0 || isfFailed.length > 0) && (
+              <div>
+                <div style={{
+                  fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)',
+                  textTransform: 'uppercase', letterSpacing: '1.2px',
+                  marginBottom: '3px', paddingLeft: '2px',
+                }}>
+                  ISF
+                </div>
+                {isfEffects.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2px' }}>
+                    {isfEffects
+                      .filter(fx => !search || fx.name.toLowerCase().includes(searchLower))
+                      .map(fx => {
+                        const isActive = isfActive === fx.name
+                        return (
+                          <button
+                            key={fx.name}
+                            onClick={() => selectIsf(fx)}
+                            title={fx.name}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 6px', borderRadius: '4px',
+                              border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
+                              background: isActive ? 'var(--accent-glow)' : 'var(--bg-tertiary)',
+                              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                              fontSize: '9px', fontWeight: isActive ? 600 : 400,
+                              cursor: 'pointer', transition: 'all 0.1s',
+                              textAlign: 'left', overflow: 'hidden',
+                            }}
+                          >
+                            <span style={{ fontSize: '11px', lineHeight: 1, flexShrink: 0, opacity: isActive ? 1 : 0.5 }}>ƒ</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {fx.name.replace(/\.(fs|frag|glsl)$/i, '')}
+                            </span>
+                          </button>
+                        )
+                      })}
+                  </div>
+                )}
+                {isfError && (
+                  <div style={{ fontSize: '9px', color: '#ff4444', marginTop: '3px' }}>
+                    Shader non valido: {isfError}
+                  </div>
+                )}
+                {isfFailed.length > 0 && (
+                  <div
+                    title={isfFailed.join(', ')}
+                    style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '3px' }}
+                  >
+                    {isfFailed.length} shader ignorati (non-generator o rotti)
+                  </div>
+                )}
+                <div style={{
+                  fontSize: '8px', color: 'var(--text-muted)', marginTop: '3px',
+                  fontFamily: 'ui-monospace, monospace',
+                }}>
+                  Cartella: ~/.djtographikz/isf
+                </div>
+              </div>
+            )}
           </div>
         )}
 
