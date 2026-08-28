@@ -39,6 +39,46 @@
 - [x] **Pannello Media unificato** — immagini/GIF/video/webcam stesso flusso, thumbnail live, scelta camera (v0.7.0)
 - [x] **Remote mobile a parità completa** — data-driven, sempre allineato alla versione dell'app (v0.7.0)
 
+## ROADMAP USABILITÀ (2026-08-28) — obiettivo: intuitivo da usare al buio, sotto pressione, da chiunque
+
+Il software è feature-complete; ora il collo di bottiglia è la UX. Principio guida: durante un live
+l'utente ha 2 secondi di attenzione, poca luce e le mani occupate — ogni azione deve essere visibile,
+reversibile e trovabile senza manuale.
+
+### U1 — Sicurezza live & feedback (prima di tutto: fiducia)
+
+- [ ] **U1.1 Panic button** — un tasto (P) e un bottone sempre visibile: torna a stato sicuro (effetto pulito, niente post, brightness 1, blackout/freeze off, AutoVJ off). Quando qualcosa va storto sul palco serve UN gesto, non dieci · S
+- [ ] **U1.2 Indicatore audio globale** — pallino che pulsa col beat in top bar (visibile da ogni vista) + banner giallo "Audio perso — riconnessione…" quando l'analyzer sta ritentando (esporre lo stato di recovery da AudioAnalyzer): oggi il recovery è silenzioso e l'utente non sa se l'app sente la musica · S/M
+- [ ] **U1.3 Stato output in top bar** — chip "Output · Display 2 · fullscreen" / "Output chiusa" + bottone Riapri (ensureOutputWindow esiste già, manca solo la UI): il proiettore è la cosa più importante e oggi non ha indicatore · S
+- [ ] **U1.4 Toast azioni esterne** — notifica discreta 2s quando un comando arriva da telefono/OSC/MIDI ("Look 3 · telefono"): con più superfici attive l'operatore al laptop deve capire perché lo schermo è cambiato da solo · M
+
+### U2 — Scoperta e apprendimento (la feature che non trovi non esiste)
+
+- [ ] **U2.1 Cheat-sheet scorciatoie** — overlay col tasto ? : hotkey, Shift+click, gesti del remote; oggi le scorciatoie vivono in una riga di testo nella bottom bar · S
+- [ ] **U2.2 Menu aiuto unico** — il bottone "?" apre un menu (Scorciatoie / Guida rapida / Rifai configurazione) invece di rilanciare l'onboarding a sorpresa · S
+- [ ] **U2.3 Onboarding v2 + look di fabbrica** — passo finale guidato "salva il tuo primo look" + 8 look precaricati curati per genere: il Look Bank vuoto al primo avvio è un muro, pieno è un invito · M
+- [ ] **U2.4 Tooltip sistematici** — passata su OGNI controllo: title in italiano, coerente, con l'hotkey tra parentesi dove esiste · M
+
+### U3 — Riduzione carico cognitivo
+
+- [ ] **U3.1 Lingua unica** — UI tutta in italiano (oggi metà inglese metà italiano: "Effects/Wet/Master" vs "Libreria/Testo overlay") · M
+- [ ] **U3.2 Sidebar destra ad accordion** — 6 pannelli impilati sono una soup: uno aperto alla volta, stato aperto/chiuso persistito tra i riavvii · S/M
+- [ ] **U3.3 Look Bank pro** — rinomina con doppio click, riordino drag&drop, hint sullo slot vuoto ("click = salva il look corrente") · M
+- [ ] **U3.4 Undo leggero** — cancellazioni (look, media, binding) con toast "Annulla" 5s invece di distruzione immediata · M
+
+### U4 — Modalità performance
+
+- [ ] **U4.1 Performance mode** — tasto/toggle: preview grande + Look Bank + master/blackout/freeze e basta; tutto il resto sparisce. La vista da usare QUANDO si suona, Simple/Pro sono viste da preparazione · M/L
+- [ ] **U4.2 Beat flash sul bordo preview** — conferma visiva del beat anche a pannello audio chiuso (toggle, off di default) · S
+- [ ] **U4.3 Remote: haptics + landscape** — vibrazione sul tap (navigator.vibrate), layout orizzontale per tablet · S/M
+
+### U5 — Carta
+
+- [ ] **U5.1 README quick-start** — per chi apre l'app la prima volta senza di te: 10 righe, screenshot, dal .dmg alla prima visual · S
+- [ ] **U5.2 Guida rapida in-app** — pannello scrollabile in italiano raggiungibile dal menu aiuto (U2.2) · M
+
+Ordine consigliato: U1 intero → U2.1+U2.2 → U3.2 → U2.3 → resto. U1+U2 ≈ 2 giorni.
+
 ## ORDINE DI LAVORO — lista unica riconciliata (storico + studio 2026-08-06)
 
 Ogni voce: [origine] · effort. Riclassificati rispetto al vecchio TODO: LFO e Text overlay
