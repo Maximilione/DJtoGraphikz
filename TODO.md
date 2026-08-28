@@ -77,6 +77,19 @@ reversibile e trovabile senza manuale.
 - [ ] **U5.1 README quick-start** — per chi apre l'app la prima volta senza di te: 10 righe, screenshot, dal .dmg alla prima visual · S
 - [ ] **U5.2 Guida rapida in-app** — pannello scrollabile in italiano raggiungibile dal menu aiuto (U2.2) · M
 
+### D — Redesign visivo (lo stato attuale è "dev-UI": font 10px, slider nativi, emoji come icone, inline-style ovunque)
+
+- [ ] **D1 Design system foundation** — token unici in CSS custom properties: scala spaziature (4/8/12/16/24), scala tipografica (min 12px, oggi si scende a 8px), raggi, elevazioni (bg0/bg1/bg2 stratificati), disciplina dell'accent (#00ff88 SOLO per stati attivi/vivi, non decorazione); eliminare la soup di inline-style dai componenti → classi · M
+- [ ] **D2 Tipografia** — font vero impacchettato in locale (UI + mono per i dati, niente CDN in Electron), gerarchia label/valori/sezioni, uppercase micro-label con letterspacing coerente, tabular-nums su BPM/valori · S/M
+- [ ] **D3 Kit controlli custom** — slider con track/fill/thumb disegnati (i range nativi macOS stonano sul dark), select, toggle switch riusabile (quello del Media panel promosso a componente), bottoni con stati hover/active/focus visibili, focus keyboard visibile ovunque · M
+- [ ] **D4 Layout & densità** — preview come protagonista (cornice, più respiro), top bar riorganizzata in gruppi logici (trasporto · look · output · utility) invece della fila piatta di 12 controlli, ritmo verticale nei pannelli con divisori e intestazioni vere · M
+- [ ] **D5 Identità dentro l'app** — il logo occhio in top bar con l'iride che pulsa col beat (identità + indicatore audio U1.2 in un colpo solo), micro-texture scanline/grain a bassissima opacità sulle superfici, coerente col mondo tekno senza sporcare la leggibilità · S/M
+- [ ] **D6 Icone vere** — set SVG inline coerente al posto delle emoji (📷🔴📱?) nei bottoni: stroke uniforme, stesso peso del logo · S/M
+- [ ] **D7 Micro-motion** — transizioni 120-180ms su hover/apertura pannelli/tab, glow solo sugli stati attivi, rispetto di prefers-reduced-motion; NIENTE animazioni decorative continue (la festa è sul proiettore, non sulla UI) · S
+- [ ] **D8 Remote allineato** — stessi token/tipografia/controlli sulla pagina mobile, così telefono e desktop sembrano lo stesso software · M
+
+Intreccio consigliato con la UX: U1 (piccolo, subito) → **D1-D3 fondamenta** → U2/U3 costruiti già sul kit nuovo → D4-D6 → U4.1 performance mode (nasce direttamente col design nuovo) → D7-D8.
+
 Ordine consigliato: U1 intero → U2.1+U2.2 → U3.2 → U2.3 → resto. U1+U2 ≈ 2 giorni.
 
 ## ORDINE DI LAVORO — lista unica riconciliata (storico + studio 2026-08-06)
