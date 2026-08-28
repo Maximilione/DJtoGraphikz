@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- DJtoGraphikz — occhio (visual) + cuffie (DJ) + console. Verde neon su dark, palette dell'app. -->
+  <defs>
+    <radialGradient id="irisGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a6ffd6"/>
+      <stop offset="45%" stop-color="#00ff88"/>
+      <stop offset="100%" stop-color="#00b35f"/>
+    </radialGradient>
+  </defs>
+
+  <!-- sfondo icona -->
+  <rect x="0" y="0" width="512" height="512" rx="114" fill="#0a0a0e"/>
+  <rect x="14" y="14" width="484" height="484" rx="102" fill="none" stroke="#1c1c26" stroke-width="4"/>
+
+  <!-- CUFFIE: archetto sopra l'occhio -->
+  <path d="M 122 268 L 122 232 A 134 134 0 0 1 390 232 L 390 268"
+        fill="none" stroke="#00ff88" stroke-width="30" stroke-linecap="round"/>
+  <!-- padiglioni -->
+  <rect x="94" y="248" width="52" height="88" rx="20" fill="#00ff88"/>
+  <rect x="366" y="248" width="52" height="88" rx="20" fill="#00ff88"/>
+  <rect x="108" y="264" width="24" height="56" rx="10" fill="#0a0a0e" opacity="0.35"/>
+  <rect x="380" y="264" width="24" height="56" rx="10" fill="#0a0a0e" opacity="0.35"/>
+
+  <!-- OCCHIO: mandorla -->
+  <path d="M 148 292 Q 256 192 364 292 Q 256 392 148 292 Z"
+        fill="#0a0a0e" stroke="#e8e8f0" stroke-width="12" stroke-linejoin="round"/>
+  <!-- iride -->
+  <circle cx="256" cy="292" r="50" fill="url(#irisGlow)"/>
+  <!-- pupilla -->
+  <circle cx="256" cy="292" r="23" fill="#0a0a0e"/>
+  <!-- riflesso -->
+  <circle cx="272" cy="276" r="7" fill="#e8e8f0"/>
+
+  <!-- CONSOLE: bozza mixer sotto -->
+  <rect x="140" y="396" width="232" height="60" rx="12"
+        fill="none" stroke="#00ff88" stroke-width="10"/>
+  <!-- fader verticali -->
+  <line x1="180" y1="410" x2="180" y2="442" stroke="#00ff88" stroke-width="7" stroke-linecap="round"/>
+  <line x1="216" y1="410" x2="216" y2="442" stroke="#00ff88" stroke-width="7" stroke-linecap="round"/>
+  <line x1="252" y1="410" x2="252" y2="442" stroke="#00ff88" stroke-width="7" stroke-linecap="round"/>
+  <!-- cursori fader ad altezze diverse -->
+  <rect x="169" y="414" width="22" height="9" rx="4" fill="#e8e8f0"/>
+  <rect x="205" y="428" width="22" height="9" rx="4" fill="#e8e8f0"/>
+  <rect x="241" y="420" width="22" height="9" rx="4" fill="#e8e8f0"/>
+  <!-- manopole -->
+  <circle cx="308" cy="426" r="13" fill="none" stroke="#00ff88" stroke-width="7"/>
+  <circle cx="348" cy="426" r="13" fill="none" stroke="#00ff88" stroke-width="7"/>
+  <line x1="308" y1="426" x2="308" y2="416" stroke="#e8e8f0" stroke-width="5" stroke-linecap="round"/>
+  <line x1="348" y1="426" x2="356" y2="420" stroke="#e8e8f0" stroke-width="5" stroke-linecap="round"/>
+</svg>
