@@ -70,8 +70,11 @@ export interface OverlayItem {
   gifSync: GifSyncMode
   /** >0 turns the overlay into a displacement map instead of a layer */
   displace: number
-  /** Set for video/webcam overlays so the output window can recreate them */
-  source?: { kind: 'video'; path: string } | { kind: 'webcam'; deviceId?: string }
+  /** Set for video/webcam/text overlays so the output window can recreate them */
+  source?:
+    | { kind: 'video'; path: string }
+    | { kind: 'webcam'; deviceId?: string }
+    | { kind: 'text'; text: string; font?: string; color?: string; size?: number }
   // Internal — managed by engine
   _texture?: THREE.Texture
   _canvas?: HTMLCanvasElement
@@ -1305,6 +1308,60 @@ export class Engine {
       try {
         window.api?.sendOverlayAdd({
           id, name, dataUrl: '', opacity: overlay.opacity, scale: overlay.scale,
+          offsetX: overlay.offsetX, offsetY: overlay.offsetY, visible: overlay.visible,
+          gifSync: overlay.gifSync, displace: overlay.displace, source,
+        })
+      } catch (_) {}
+    }
+
+    return overlay
+  }
+
+  /** Text rendered to a canvas, then straight into the normal overlay pipeline. */
+  addTextOverlay(
+    text: string,
+    opts?: { font?: string; color?: string; size?: number },
+    existingId?: string
+  ): OverlayItem {
+    const id = existingId || `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const size = opts?.size ?? 120
+    const font = `bold ${size}px ${opts?.font ?? 'sans-serif'}`
+    const color = opts?.color ?? '#ffffff'
+    const letterSpacing = `${Math.round(size * 0.04)}px`
+
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')!
+    ctx.font = font
+    ctx.letterSpacing = letterSpacing
+    const pad = Math.round(size * 0.25)
+    canvas.width = Math.max(2, Math.ceil(ctx.measureText(text).width) + pad * 2)
+    canvas.height = Math.ceil(size * 1.4)
+    // resizing the canvas resets the context state
+    ctx.font = font
+    ctx.letterSpacing = letterSpacing
+    ctx.fillStyle = color
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, pad, canvas.height / 2)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+
+    const source = { kind: 'text' as const, text, font: opts?.font, color, size }
+    const overlay: OverlayItem = {
+      id, name: text, dataUrl: '',
+      opacity: 1.0, scale: 0.3, offsetX: 0, offsetY: 0,
+      visible: true, gifSync: 'free', displace: 0,
+      source,
+      _texture: texture,
+      _canvas: canvas,
+    }
+    this.overlays.push(overlay)
+
+    if (!this.remote) {
+      try {
+        window.api?.sendOverlayAdd({
+          id, name: text, dataUrl: '', opacity: overlay.opacity, scale: overlay.scale,
           offsetX: overlay.offsetX, offsetY: overlay.offsetY, visible: overlay.visible,
           gifSync: overlay.gifSync, displace: overlay.displace, source,
         })
