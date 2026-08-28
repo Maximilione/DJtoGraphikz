@@ -256,6 +256,7 @@ export class Engine {
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
   private audioScale = 1     // reactivity multiplier applied to audio uniforms
+  private beatClock = 0      // continuous beat counter driving tempo-synced LFOs
 
   // Motion blur + bloom helpers
   private motionBlur = 0
@@ -945,23 +946,35 @@ export class Engine {
     this.emitState()
   }
 
-  setParamMapping(key: string, source: AudioSource, depth: number) {
+  setParamMapping(key: string, source: AudioSource, depth: number, lfoRate?: number) {
     const st = this.getParamState(key)
     st.source = source
     st.depth = Math.max(-1, Math.min(1, depth))
+    if (typeof lfoRate === 'number') st.lfoRate = Math.max(0.25, Math.min(64, lfoRate))
     this.emitState()
   }
 
-  /** Live param value: slider base + audio modulation over the full range */
+  /** Live param value: slider base + audio/LFO modulation over the full range */
   private effParamValue(def: EffectParam): number {
     const st = this.paramBucket()[def.key]
     const base = st?.value ?? def.default
     if (!st || st.source === 'none' || st.depth === 0) return base
-    const audio: Record<Exclude<AudioSource, 'none'>, number> = {
-      bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh,
-      energy: this.smoothEnergy, beat: this.beatPulse,
+
+    let mod: number
+    if (st.source.startsWith('lfo-')) {
+      // Tempo-synced LFO: lfoRate beats per cycle, phase from the beat clock
+      const phase = (this.beatClock / (st.lfoRate || 4)) % 1
+      mod = st.source === 'lfo-sine' ? 0.5 + 0.5 * Math.sin(phase * Math.PI * 2)
+          : st.source === 'lfo-saw' ? phase
+          : phase < 0.5 ? 1 : 0 // lfo-square
+    } else {
+      const audio: Record<string, number> = {
+        bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh,
+        energy: this.smoothEnergy, beat: this.beatPulse,
+      }
+      mod = audio[st.source] ?? 0
     }
-    const v = base + audio[st.source as Exclude<AudioSource, 'none'>] * st.depth * (def.max - def.min)
+    const v = base + mod * st.depth * (def.max - def.min)
     return Math.max(def.min, Math.min(def.max, v))
   }
 
@@ -1534,6 +1547,8 @@ export class Engine {
     // breakdown freezes bass-driven motion and the drop restarts it
     this.bassTime += dt * this.smoothBass
     this.highTime += dt * this.smoothHigh
+    // Beat clock for tempo-synced LFOs (works in remote mode too — bpm over IPC)
+    this.beatClock += dt * ((bpm || 128) / 60)
 
     // Per-frame audio listeners (AutoVJ, playlist beat-advance)
     for (const fn of this.audioFrameListeners) {
