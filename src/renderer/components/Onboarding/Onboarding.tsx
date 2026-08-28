@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import { seedFactoryLooks } from '../../factoryLooks'
 
 export interface OnboardingResult {
   deviceId: string
@@ -11,7 +12,7 @@ interface OnboardingProps {
   onDone: (result: OnboardingResult | null) => void  // null = skipped
 }
 
-/** First-launch wizard: device → genre → go. Never shown again after done/skip. */
+/** First-launch wizard: device → genre → look bank → go. Never shown again after done/skip. */
 export function Onboarding({ onDone }: OnboardingProps) {
   const [step, setStep] = useState(0)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -35,7 +36,8 @@ export function Onboarding({ onDone }: OnboardingProps) {
     })()
   }, [])
 
-  const steps = ['Audio', 'Stile', 'Via!']
+  const steps = ['Audio', 'Stile', 'Look', 'Via!']
+  const last = steps.length - 1
 
   return (
     <div className="onboarding-backdrop">
@@ -54,7 +56,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
           <>
             <h2>Da dove arriva la musica?</h2>
             <p className="onboarding-hint">
-              Scegli l'ingresso audio: line-in dal mixer, microfono del laptop o cavo audio virtuale.
+              Line-in dal mixer, microfono del laptop o cavo audio virtuale. Si cambia quando vuoi.
             </p>
             {error && <div className="onboarding-error">{error}</div>}
             <select
@@ -76,7 +78,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
           <>
             <h2>Che musica suoni stasera?</h2>
             <p className="onboarding-hint">
-              Il genere imposta effetti, colori e velocità di cambio. Puoi cambiarlo quando vuoi.
+              Il genere imposta effetti, colori e ritmo dei cambi. Modificabile in ogni momento.
             </p>
             <div className="onboarding-genres">
               {(Object.entries(GENRE_CONFIGS) as [Genre, typeof GENRE_CONFIGS[Genre]][]).map(([id, cfg]) => (
@@ -96,18 +98,30 @@ export function Onboarding({ onDone }: OnboardingProps) {
             </div>
             <label className="onboarding-check">
               <input type="checkbox" checked={autoVJ} onChange={e => setAutoVJ(e.target.checked)} />
-              Auto VJ: cambia effetti e colori da solo, a tempo di musica
+              Auto VJ: effetti e colori cambiano da soli, a tempo di musica
             </label>
           </>
         )}
 
         {step === 2 && (
           <>
+            <h2>Il tuo primo look</h2>
+            <p className="onboarding-hint">
+              Il Look Bank è una griglia 4×4: click su uno slot salva quello che vedi,
+              <b> Shift+1-0</b> lo richiama al volo.
+              <br /><br />
+              Trovi già <b>8 look di fabbrica</b> pronti negli slot 1-8: parti da lì e sovrascrivili quando vuoi.
+            </p>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
             <h2>Tutto pronto</h2>
             <p className="onboarding-hint">
-              Collega il proiettore o un secondo schermo: la finestra di output va in fullscreen da sola.
+              Collega il proiettore o un secondo schermo: l'output va in fullscreen da solo.
               <br /><br />
-              Scorciatoie: <b>B</b> blackout · <b>F</b> freeze · <b>[</b> / <b>]</b> luminosità
+              Scorciatoie: <b>B</b> blackout · <b>F</b> freeze · <b>[</b> / <b>]</b> luminosità · <b>?</b> aiuto
             </p>
             <div className="onboarding-summary">
               <div><span>Audio</span>{devices.find(d => d.deviceId === deviceId)?.label || 'Default'}</div>
@@ -128,14 +142,14 @@ export function Onboarding({ onDone }: OnboardingProps) {
               Indietro
             </button>
           )}
-          {step < 2 ? (
+          {step < last ? (
             <button className="btn btn-primary" onClick={() => setStep(step + 1)}>
               Avanti
             </button>
           ) : (
             <button
               className="btn btn-primary onboarding-start"
-              onClick={() => onDone({ deviceId, genre, autoVJ })}
+              onClick={() => { seedFactoryLooks(); onDone({ deviceId, genre, autoVJ }) }}
             >
               ▶ INIZIA
             </button>
