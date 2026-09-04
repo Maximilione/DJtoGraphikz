@@ -1,8 +1,22 @@
 # DJtoGraphikz
 
+[![Ultima release](https://img.shields.io/github/v/release/Maximilione/DJtoGraphikz?label=ultima%20versione&color=00cc6a)](https://github.com/Maximilione/DJtoGraphikz/releases/latest)
+
 Generatore di visual audio-reattivi in tempo reale per serate tekno. Ascolta il mixer (o qualsiasi ingresso audio) e proietta grafica animata a tempo su un secondo schermo o proiettore. App desktop Electron, offline, macOS/Windows/Linux.
 
 <!-- screenshot -->
+
+## Download
+
+**[⬇ Scarica l'ultima versione](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installer generati automaticamente a ogni release:
+
+| Sistema | File |
+|---------|------|
+| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` |
+| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` |
+| Linux | `DJtoGraphikz-X.Y.Z.AppImage` |
+
+Le build non sono firmate/notarizzate: su macOS al primo avvio usa **tasto destro → Apri**; su Windows conferma in SmartScreen ("Esegui comunque").
 
 ## Quick start (prima serata, senza aiuto)
 
