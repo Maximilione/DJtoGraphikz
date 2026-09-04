@@ -534,7 +534,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                             key={fx.name}
                             onClick={() => selectIsf(fx)}
                             title={`Shader ISF: ${fx.name}`}
-                            className={`fx-btn${isActive ? ' active' : ''}`}
+                            className={`fx-btn fx-btn-isf${isActive ? ' active' : ''}`}
                           >
                             <span className="fx-ico">ƒ</span>
                             <span className="fx-name">

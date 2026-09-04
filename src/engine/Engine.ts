@@ -782,8 +782,13 @@ export class Engine {
   private validateMaterial(mat: THREE.ShaderMaterial): string | null {
     let error: string | null = null
     const prevHandler = this.renderer.debug.onShaderError
-    this.renderer.debug.onShaderError = (gl, _program, _vs, fs) => {
-      error = (gl.getShaderInfoLog(fs) || 'unknown GLSL error').trim()
+    this.renderer.debug.onShaderError = (gl, program, vs, fs) => {
+      // the failure can live in the fragment, the vertex, or the LINK stage —
+      // "unknown GLSL error" hid every link failure (e.g. varying mismatches)
+      const fsLog = (gl.getShaderInfoLog(fs) || '').trim()
+      const vsLog = (gl.getShaderInfoLog(vs) || '').trim()
+      const progLog = (gl.getProgramInfoLog(program) || '').trim()
+      error = fsLog || vsLog || (progLog ? `link: ${progLog}` : 'unknown GLSL error')
     }
     const prevMat = this.quad.material
     this.quad.material = mat

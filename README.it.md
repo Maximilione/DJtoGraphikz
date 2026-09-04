@@ -75,7 +75,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Output e registrazione
 
-- Doppia finestra: controllo + output fullscreen su qualsiasi display, risoluzione 720p-4K.
+- Doppia finestra: controllo + output fullscreen su qualsiasi display, risoluzione 720p-4K; preview riducibile a striscia per dare spazio ai pannelli.
 - **Registrazione WebM** (🔴 in top bar, VP9 12Mbps) e **screenshot PNG** (📷).
 
 ## Sviluppo
