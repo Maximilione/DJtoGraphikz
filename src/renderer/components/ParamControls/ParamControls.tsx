@@ -2,6 +2,8 @@ import React, { useEffect, useReducer, useRef } from 'react'
 import type { Engine } from '@engine/Engine'
 import { AUDIO_SOURCES, type AudioSource } from '@engine/EffectParams'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { smartMap } from '../../smartMap'
+import { pushToast } from '../Toasts/Toasts'
 
 interface ParamControlsProps {
   engine: Engine | null
@@ -34,7 +36,21 @@ export function ParamControls({ engine }: ParamControlsProps) {
 
   return (
     <div onPointerDown={onPointerDown} className="sub-card" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <div className="cat-label">Parametri</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="cat-label" style={{ margin: 0 }}>Parametri</div>
+        <button
+          className="btn"
+          style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+          title="Mappa automaticamente i parametri all'audio (bass/mid/high/energy/beat/LFO) in base al nome — Annulla dal toast"
+          onClick={() => {
+            const r = smartMap(engine)
+            force()
+            pushToast(`Smart map: ${r.count} parametri mappati`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
+          }}
+        >
+          ⚡ Smart map
+        </button>
+      </div>
       {defs.map(def => {
         const st = engine.getParamState(def.key)
         const step = (def.max - def.min) / 100
