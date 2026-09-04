@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.16.1-beta] — 2026-09-04
+
+### Fixed
+- Hoisting degli init globali ISF più robusto: dichiarazioni multiple sulla stessa riga (`float a = 1., b = TIME;`) gestite senza corrompere il codice, `true`/`false` riconosciuti come costanti, commenti a blocco ignorati nel conteggio delle graffe — verificato su tutti i 3.722 generator del sito
+
 ## [0.16.0-beta] — 2026-09-04
 
 ### Changed
