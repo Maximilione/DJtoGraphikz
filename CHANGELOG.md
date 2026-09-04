@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.16.0-beta] — 2026-09-04
+
+### Changed
+- **Smart map v2** — non più solo nomi: analizza il sorgente GLSL per capire cosa fa davvero ogni parametro (scala le coordinate → bass, alimenta i colori → LFO lento, dentro sin/cos col tempo → LFO saw, soglie/branch → beat), pesa la profondità sull'impatto (uniform usate ovunque = modulazione più gentile) e applica un budget di ruoli (max 2 parametri per banda audio, gli altri su LFO sfalsati) così il risultato respira invece di strobare tutto insieme
+
 ## [0.15.0-beta] — 2026-09-04
 
 ### Changed
