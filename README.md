@@ -8,15 +8,21 @@ Generatore di visual audio-reattivi in tempo reale per serate tekno. Ascolta il 
 
 ## Download
 
-**[⬇ Scarica l'ultima versione](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installer generati automaticamente a ogni release:
+**[⬇ Scarica l'ultima versione](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installer generati automaticamente a ogni release. Scarica solo il file per il tuo sistema (i `.blockmap` e i `.yml` servono all'auto-update, ignorali):
 
-| Sistema | File |
-|---------|------|
-| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` |
-| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` |
-| Linux | `DJtoGraphikz-X.Y.Z.AppImage` |
+| Sistema | File | Installazione |
+| --------- | ------ | --------------- |
+| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` | Apri il `.dmg` e trascina l'app in **Applicazioni** |
+| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` | Doppio click sull'installer e segui la procedura |
+| Linux | `DJtoGraphikz-X.Y.Z.AppImage` | `chmod +x` sul file e avvialo direttamente (nessuna installazione) |
 
-Le build non sono firmate/notarizzate: su macOS al primo avvio usa **tasto destro → Apri**; su Windows conferma in SmartScreen ("Esegui comunque").
+Le build non sono firmate/notarizzate, quindi al primo avvio il sistema mostra un avviso:
+
+- **macOS** — se compare "app danneggiata" o "sviluppatore non verificato": tasto destro sull'app → **Apri** → **Apri** di nuovo nel popup. Se non basta: `xattr -cr /Applications/DJtoGraphikz.app` nel Terminale, poi riapri.
+- **Windows** — SmartScreen blocca l'installer: **Ulteriori informazioni** → **Esegui comunque**.
+- **Linux** — nessun avviso; se il doppio click non funziona, avvia da terminale: `./DJtoGraphikz-X.Y.Z.AppImage`.
+
+Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per ascoltare il mixer) e, solo se usi la webcam come sorgente, alla **camera**.
 
 ## Quick start (prima serata, senza aiuto)
 
