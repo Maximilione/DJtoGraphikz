@@ -2,6 +2,19 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.14.0-beta] — 2026-09-04
+
+### Added
+- **Libreria ISF online** — "Sfoglia online…" nel pannello Effects: cerca tra ~3.700 generator di editor.isf.video (con thumbnail, ordinati per stelle) e importali con un click in `~/.djtographikz/isf`
+- **Import file ISF** — "Importa file…" accetta `.fs`/`.frag`/`.glsl` e gli **.zip scaricati dal sito** (estrae il `.fs`, il `.vs` non serve); errore di parsing mostrato subito nel toast
+- **Smart map** — un tasto mappa automaticamente i parametri dello shader ISF attivo sull'audio (bass/mid/high/energy/beat/LFO) in base al nome del parametro
+- **Input image negli ISF** — gli shader con input `image` ora caricano: un bottone per input permette di scegliere l'immagine, che arriva anche alla finestra output
+- Compatibilità ISF estesa: input `color`/`point2D` fissati al default, `long` come slider, `event` mappato sul beat, input "mouse" animato con drift automatico, macro `IMG_*`/`PASSINDEX`/`TIMEDELTA`/`DATE`
+
+### Fixed
+- **Fullscreen output**: avanti/indietro ripetuto poteva lasciare lo schermo nero — colpa del mix tra fullscreen nativo e `simpleFullScreen` su macOS, ora si usa solo il secondo ovunque (toggle, creazione finestra, cambio display)
+- Nome app nei menu: `app.setName('DJtoGraphikz')` — in sviluppo la barra macOS mostra comunque "Electron" (è l'Info.plist del binario dev), l'app pacchettizzata mostra il nome giusto
+
 ## [0.13.1-beta] — 2026-09-04
 
 ### Fixed
