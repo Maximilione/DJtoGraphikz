@@ -1629,16 +1629,18 @@ export class Engine {
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
-    if (this.perfEmaMs > 24 && this.perfScale > 0.5) {
-      // under ~42fps: drop 20% (note: a 30Hz display lands here too — softer
-      // buffers on a 30Hz projector are invisible, so no special case)
-      this.perfScale = Math.max(0.5, this.perfScale * 0.8)
-      this.perfCooldown = 45
+    if (this.perfEmaMs > 24 && this.perfScale > 0.3) {
+      // under ~42fps: step proportional to how late we are, so a volumetric
+      // raymarcher at 15fps converges in 2 steps instead of crawling down.
+      // (a 30Hz display lands here too — softer buffers there are invisible)
+      const step = Math.max(0.55, Math.min(0.9, Math.sqrt(16.7 / this.perfEmaMs)))
+      this.perfScale = Math.max(0.3, this.perfScale * step)
+      this.perfCooldown = this.perfEmaMs > 40 ? 20 : 45
       this.setRenderSize(this.outputWidth, this.outputHeight)
       console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
     } else if (this.perfEmaMs < 17 && this.perfScale < 1) {
       // headroom: climb back slowly, long cooldown so it can't oscillate
-      this.perfScale = Math.min(1, this.perfScale / 0.8)
+      this.perfScale = Math.min(1, this.perfScale / 0.85)
       this.perfCooldown = 300
       this.setRenderSize(this.outputWidth, this.outputHeight)
     }
