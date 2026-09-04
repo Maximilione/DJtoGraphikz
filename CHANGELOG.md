@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.13.1-beta] — 2026-09-04
+
+### Fixed
+- **Telefono: rilevamento app chiusa** — se l'app si chiude (o cade il wifi) la pagina mobile mostra un banner a schermo intero "App non raggiungibile" dopo 2 poll falliti, invece di restare con i controlli congelati; sparisce da solo al ritorno della connessione
+
 ## [0.13.0-beta] — 2026-09-04
 
 ### Added
