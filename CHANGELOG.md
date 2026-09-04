@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.21.0-beta] — 2026-09-04
+
+### Changed
+- **Pass di performance sul motore**: niente depth/stencil buffer (pipeline a quad fullscreen, non servono — meno memoria e banda), clear rimossi prima dei pass opachi (12+ per frame risparmiati), `powerPreference: high-performance` (su laptop dual-GPU usa la discreta)
+- **Blackout a costo zero** — a schermo nero la GPU riposa invece di renderizzare frame moltiplicati per zero
+- **Post FX con wet a 0 saltati** — un effetto in catena col fader a zero non costa più nulla
+- La risoluzione dinamica ignora gli spike isolati (compilazione shader, GC): il cambio effetto non fa più scalare la risoluzione
+
 ## [0.20.1-beta] — 2026-09-04
 
 ### Fixed
