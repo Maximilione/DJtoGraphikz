@@ -24,7 +24,31 @@ const fnum = (v: unknown, d: number) => {
  * most ISF shaders were written). Split `float x = TIME * 2.;` at global scope
  * into a bare declaration + an assignment injected at the top of main().
  */
-function hoistGlobalInits(body: string): { body: string; inits: string[] } {
+// constant expressions (numbers, true/false, constructors of those) are legal
+function nonConstExpr(expr: string): boolean {
+  const refs = expr
+    .replace(/\b(vec[234]|mat[234]|float|int|bool)\s*\(/g, '(')
+    .replace(/\b(true|false)\b/g, '')
+  return /[A-Za-z_]/.test(refs)
+}
+
+/** Split on commas at parenthesis depth 0 ("a = f(1.,2.), b = 3." → 2 parts) */
+function splitTopLevel(s: string): string[] {
+  const parts: string[] = []
+  let depth = 0, start = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '(') depth++
+    else if (c === ')') depth--
+    else if (c === ',' && depth === 0) { parts.push(s.slice(start, i)); start = i + 1 }
+  }
+  parts.push(s.slice(start))
+  return parts
+}
+
+function hoistGlobalInits(rawBody: string): { body: string; inits: string[] } {
+  // block comments blanked (newlines kept) so braces inside them don't skew depth
+  const body = rawBody.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
   const inits: string[] = []
   let depth = 0
   const lines = body.split('\n').map(line => {
@@ -32,13 +56,24 @@ function hoistGlobalInits(body: string): { body: string; inits: string[] } {
     const d = depth
     depth += (code.match(/\{/g) || []).length - (code.match(/\}/g) || []).length
     if (d !== 0) return line
-    const m = code.match(/^\s*(const\s+)?(float|int|bool|vec[234]|mat[234])\s+([A-Za-z_]\w*)\s*=\s*(.+);\s*$/)
-    if (!m) return line
-    // constant expressions (numbers, constructors of numbers) are legal — keep
-    const refs = m[4].replace(/\b(vec[234]|mat[234]|float|int|bool)\s*\(/g, '(')
-    if (!/[A-Za-z_]/.test(refs)) return line
-    inits.push(`${m[3]} = ${m[4]};`)
-    return `${m[2]} ${m[3]};` // const dropped: it gets assigned in main
+    const m = code.match(/^\s*(const\s+)?(float|int|bool|vec[234]|mat[234])\s+(.+);\s*$/)
+    if (!m || !m[3].includes('=')) return line
+    const decls: string[] = []
+    const lineInits: string[] = []
+    for (const part of splitTopLevel(m[3])) {
+      const pm = part.match(/^\s*([A-Za-z_]\w*)\s*(?:=\s*([\s\S]+))?\s*$/)
+      if (!pm) return line // arrays or anything odd: leave the line untouched
+      const expr = pm[2]?.trim()
+      if (expr && nonConstExpr(expr)) {
+        decls.push(pm[1])
+        lineInits.push(`${pm[1]} = ${expr};`)
+      } else {
+        decls.push(expr ? `${pm[1]} = ${expr}` : pm[1])
+      }
+    }
+    if (lineInits.length === 0) return line
+    inits.push(...lineInits)
+    return `${m[2]} ${decls.join(', ')};` // const dropped: assigned in main
   })
   return { body: lines.join('\n'), inits }
 }
