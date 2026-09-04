@@ -20,6 +20,7 @@ Ad ogni batch di modifiche committato:
 ## README (obbligatorio)
 
 - Il README va tenuto **sempre allineato** allo stato dell'app: ogni batch che aggiunge/cambia funzionalità visibili all'utente aggiorna anche la sezione Funzioni e, se serve, il Quick start.
+- Il README è bilingue: `README.md` (inglese, principale) + `README.it.md` (italiano). Ogni modifica va applicata a **entrambi**.
 - Le release sono automatiche: il push di un tag `v*` fa partire la GitHub Action che compila mac/win/linux e pubblica gli installer — il link "ultima versione" nel README punta a `releases/latest` e non va mai cambiato a mano.
 
 ## Convenzioni
