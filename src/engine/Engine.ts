@@ -126,6 +126,8 @@ export interface EngineState {
   }
   customShader?: string
   customParams?: EffectParam[]
+  customImageInputs?: string[]
+  customImages?: Record<string, string>
   effectParams?: Record<string, Record<string, ParamState>>
   /** Param defs of the ACTIVE effect — read-only, for remote UIs */
   paramDefs?: EffectParam[]
@@ -255,6 +257,11 @@ export class Engine {
   // Per-effect parameters (speed/reactivity + custom shader uniforms), audio-mappable
   private paramState: Record<string, Record<string, ParamState>> = {}
   private customParamDefs: EffectParam[] = []
+  private customImageInputs: string[] = []
+  /** dataURL per image input — rides the snapshot so the output window matches */
+  private customImages: Record<string, string> = {}
+  private customTextures: Record<string, THREE.Texture> = {}
+  private whiteTexture: THREE.DataTexture | null = null
   private usingCustom = false
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
@@ -794,9 +801,10 @@ export class Engine {
   }
 
   /** Load a custom GLSL fragment shader as the active effect */
-  setCustomShader(fragSource: string, params?: EffectParam[]): boolean {
+  setCustomShader(fragSource: string, params?: EffectParam[], imageInputs?: string[]): boolean {
     try {
       const defs = params ?? this.customParamDefs
+      const imgs = imageInputs ?? this.customImageInputs
       const uniforms: Record<string, THREE.IUniform> = {
         uTime: { value: 0 },
         uBass: { value: 0 },
@@ -820,6 +828,8 @@ export class Engine {
       }
       // Custom shader params (e.g. from ISF INPUTS) become uniforms driven per-frame
       for (const d of defs) uniforms[d.key] = { value: d.default }
+      // Image inputs: previously loaded texture or 1x1 white until the user picks one
+      for (const n of imgs) uniforms[n] = { value: this.customTextures[n] ?? this.getWhiteTexture() }
       const mat = new THREE.ShaderMaterial({
         vertexShader: FULLSCREEN_VERT,
         fragmentShader: fragSource,
@@ -839,6 +849,7 @@ export class Engine {
       this.mainMaterial = mat
       this.quad.material = this.mainMaterial
       this.customParamDefs = defs
+      this.customImageInputs = imgs
       this.usingCustom = true
       this.customShaderSource = fragSource
       this.emitState()
@@ -847,6 +858,33 @@ export class Engine {
       console.error('[Engine] Custom shader compile error:', e)
       return false
     }
+  }
+
+  private getWhiteTexture(): THREE.DataTexture {
+    if (!this.whiteTexture) {
+      this.whiteTexture = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
+      this.whiteTexture.needsUpdate = true
+    }
+    return this.whiteTexture
+  }
+
+  getCustomImageInputs(): string[] { return this.usingCustom ? [...this.customImageInputs] : [] }
+  getCustomImages(): Record<string, string> { return { ...this.customImages } }
+
+  /** Assign a picture (dataURL) to an ISF image input of the active custom shader */
+  setCustomImage(name: string, dataUrl: string) {
+    if (!this.customImageInputs.includes(name)) return
+    this.customImages[name] = dataUrl
+    new THREE.TextureLoader().load(dataUrl, tex => {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+      this.customTextures[name]?.dispose()
+      this.customTextures[name] = tex
+      if (this.usingCustom) {
+        const u = (this.mainMaterial as THREE.ShaderMaterial).uniforms[name]
+        if (u) u.value = tex
+      }
+    })
+    this.emitState()
   }
 
   /** Send custom shader to output window via IPC */
@@ -1037,7 +1075,10 @@ export class Engine {
   applySettings(state: Partial<EngineState>) {
     const duration = this.transitionDuration
     this.transitionDuration = 0 // switch instantly while restoring
-    if (state.customShader) this.setCustomShader(state.customShader, state.customParams || [])
+    if (state.customShader) {
+      this.setCustomShader(state.customShader, state.customParams || [], state.customImageInputs || [])
+      for (const [n, d] of Object.entries(state.customImages || {})) this.setCustomImage(n, d)
+    }
     else if (state.activeEffect) this.setEffect(state.activeEffect)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) {
@@ -1095,7 +1136,12 @@ export class Engine {
       // Recompile only when the source actually changed — the shader now
       // rides every snapshot, and validation renders are not free
       if (!this.usingCustom || state.customShader !== this.customShaderSource) {
-        this.setCustomShader(state.customShader, state.customParams || [])
+        this.setCustomShader(state.customShader, state.customParams || [], state.customImageInputs || [])
+      }
+      if (state.customImages) {
+        for (const [n, d] of Object.entries(state.customImages)) {
+          if (this.customImages[n] !== d) this.setCustomImage(n, d)
+        }
       }
     } else {
       // Transition params always come from the control window
@@ -1516,6 +1562,8 @@ export class Engine {
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
       customParams: this.usingCustom ? this.customParamDefs : undefined,
+      customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
+      customImages: this.usingCustom ? this.customImages : undefined,
       transitionType: this.transitionType,
       transitionDuration: this.transitionDuration,
       transitionBeatSync: this.transitionBeatSync,
