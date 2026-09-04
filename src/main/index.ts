@@ -83,11 +83,17 @@ function createOutputWindow(): BrowserWindow {
   // Prevent throttling when output window loses focus (critical for dual-window VJ)
   win.webContents.setBackgroundThrottling(false)
 
-  // If no external display, show as a regular window for dev
+  // If no external display, show as a regular window for dev.
+  // Fullscreen waits for ready-to-show: applying simpleFullScreen on a window
+  // that isn't laid out yet leaves it OFF-CENTER on macOS (bounds half-applied)
   if (!externalDisplay) {
     win.setSize(960, 540)
   } else {
-    win.setSimpleFullScreen(true)
+    win.once('ready-to-show', () => {
+      if (win.isDestroyed()) return
+      win.setBounds(externalDisplay.bounds)
+      win.setSimpleFullScreen(true)
+    })
   }
 
   if (process.env.ELECTRON_RENDERER_URL) {
