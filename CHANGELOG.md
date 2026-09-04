@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.19.0-beta] — 2026-09-04
+
+### Changed
+- **Lettura BPM di nuova generazione** (tecniche da BTrack/aubio/Mixxx): onset **SuperFlux** (flux contro il massimo locale del frame precedente — i glissato e i pad non contano più come colpi), tempo via **comb filterbank a 4 armoniche** sull'autocorrelazione con **prior di Rayleigh** a 126 BPM (gli errori d'ottava si risolvono verso il range club), interpolazione parabolica per precisione sub-frame, mediana degli ultimi 5 candidati (una finestra sporca non strappa il tempo). Test: 90/124/130/150/174 BPM entro ±2, cambio tempo 130→140 riagganciato in 5 secondi.
+
 ## [0.18.0-beta] — 2026-09-04
 
 ### Changed
