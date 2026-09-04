@@ -373,6 +373,14 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%;
     background:var(--danger); margin-right:6px; }
   .dot.ok { background:var(--acc); }
+  /* full-screen banner when the app stops answering (2+ failed polls) */
+  #lost { position:fixed; inset:0; z-index:99; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px; text-align:center;
+    background:rgba(0,0,0,.88); backdrop-filter:blur(4px); padding:24px; }
+  #lost .big { font-size:20px; font-weight:800; color:var(--danger); letter-spacing:1px; }
+  #lost .sub { font-size:13px; color:var(--mute); max-width:280px; line-height:1.5; }
+  #lost .dot { animation: lostpulse 1.2s infinite; }
+  @keyframes lostpulse { 50% { opacity:.2 } }
   #unpair { width:100%; margin-top:var(--s3); color:var(--danger);
     border-color:rgba(255,68,85,.4); font-weight:700; letter-spacing:1px; }
 
@@ -468,6 +476,12 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <button id="unpair">SCOLLEGA</button>
     </section>
   </main>
+
+  <div id="lost" hidden>
+    <i class="dot"></i>
+    <div class="big">APP NON RAGGIUNGIBILE</div>
+    <div class="sub">DJtoGraphikz &egrave; chiusa o il wifi &egrave; caduto. Riprovo in automatico &mdash; riapri l'app o controlla la rete.</div>
+  </div>
 
   <nav id="tabs">
     <button id="tb_live" class="on"><span class="ti">&#9673;</span>LIVE</button>
@@ -840,9 +854,13 @@ async function poll(){
   }
 }
 
+let connFails = 0
 function conn(ok){
   $('conn').classList.toggle('ok', ok)
   setText($('connt'), ok ? 'Connesso' : 'Offline')
+  connFails = ok ? 0 : connFails + 1
+  // one missed poll can be wifi hiccup; two means the app is gone
+  $('lost').hidden = connFails < 2
 }
 
 // ---- static wiring ----
