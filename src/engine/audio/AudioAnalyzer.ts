@@ -1,4 +1,5 @@
 import { createRealtimeBpmAnalyzer } from 'realtime-bpm-analyzer'
+import { BeatTracker } from './BeatTracker'
 
 export interface AudioData {
   sub: number
@@ -39,12 +40,11 @@ export class AudioAnalyzer {
   private bpmAnalyzerNode: AudioWorkletNode | null = null
   private bpmAnalyzer: any = null
 
-  // Beat detection — spectral flux (works across all frequency ranges)
-  private prevSpectrum: Float32Array = new Float32Array(0)
-  private fluxHistory: number[] = []
-  private readonly FLUX_HISTORY_SIZE = 80     // ~1.3s at 60fps
-  private beatCooldownUntil = 0
-  private minBeatIntervalMs = 200
+  // Beat detection lives in BeatTracker (pure DSP, unit-testable):
+  // log-flux onsets, median+MAD threshold, PLL phase, own ACF tempo
+  private tracker = new BeatTracker()
+  private specBuf: Float32Array = new Float32Array(0)
+  private readonly FLUX_HISTORY_SIZE = 80     // ~1.3s at 60fps (per-band hits)
   private sensitivity = 1.4
 
   // BPM from library
@@ -66,11 +66,6 @@ export class AudioAnalyzer {
   // Adaptive normalization — quiet tracks stay alive, loud ones stop clipping
   private peakEnergy = 0.2
   private readonly NOISE_GATE = 0.015
-
-  // Beat phase tracking (continuous, resynced on each detected beat)
-  private beatPhase = 0
-  private beatIndex = 0
-  private lastPhaseTime = 0
 
   private data: AudioData = {
     sub: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0,
@@ -212,11 +207,11 @@ export class AudioAnalyzer {
     }
 
     this.freqData = new Uint8Array(this.analyser.frequencyBinCount)
-    this.prevSpectrum = new Float32Array(this.analyser.frequencyBinCount)
+    this.specBuf = new Float32Array(this.analyser.frequencyBinCount)
     this.running = true
 
     // Reset detection state
-    this.fluxHistory = []
+    this.tracker.reset()
     this.bandFluxHistory = [[], [], []]
     this.libraryBpm = 0
     this.libraryConfidence = 0
@@ -294,6 +289,7 @@ export class AudioAnalyzer {
   setSensitivity(value: number) {
     // value 0..1 → multiplier 1.05..2.0 (higher sensitivity = lower multiplier)
     this.sensitivity = 1.05 + (1.0 - value) * 0.95
+    this.tracker.sensitivity = this.sensitivity
   }
 
   getSensitivity(): number {
@@ -369,37 +365,25 @@ export class AudioAnalyzer {
     this.data.presence = norm(this.data.presence)
     this.data.energy = norm(rawEnergy)
 
-    // --- Beat detection via SPECTRAL FLUX ---
-    // Spectral flux measures the overall change in the spectrum frame-to-frame.
-    // Unlike bass-only detection, this works with any mic (laptop, line-in, etc.)
-    // because it detects ANY sudden energy increase across all frequencies.
+    // --- Beat tracking (BeatTracker: log-flux, PLL, ACF tempo) ---
     const now = performance.now()
-    let flux = 0
-    const bandFlux = [0, 0, 0] // bass / mid / high
-    for (let i = 0; i < this.freqData.length; i++) {
-      const curr = this.freqData[i] / 255
-      const prev = this.prevSpectrum[i]
-      const diff = curr - prev
-      // Only count positive flux (onset = energy increase)
-      if (diff > 0) {
-        // Weight lower frequencies more (kick-heavy music)
-        // but still include mids/highs so laptop mics work
-        const w = i < binCount / 8 ? 3.0
-               : i < binCount / 4 ? 2.0
-               : i < binCount / 2 ? 1.0
-               : 0.5
-        flux += diff * w
+    if (this.specBuf.length !== binCount) this.specBuf = new Float32Array(binCount)
+    for (let i = 0; i < binCount; i++) this.specBuf[i] = this.freqData[i] / 255
 
-        // Per-band onset flux (kick / snare-synth / hats)
-        const hz = i * binHz
-        if (hz < 250) bandFlux[0] += diff
-        else if (hz >= 500 && hz < 2000) bandFlux[1] += diff
-        else if (hz >= 4000 && hz < 12000) bandFlux[2] += diff
-      }
-      this.prevSpectrum[i] = curr
-    }
-    // Normalize by bin count
-    flux /= binCount
+    // the tracker free-runs on the best external tempo we have; its own ACF
+    // estimate fills in while the library is still stabilizing
+    this.tracker.externalBpm = this.bpmMode === 'auto'
+      ? (this.libraryStable ? this.libraryBpm : 0)
+      : this.manualBpm
+    const bandFlux = [0, 0, 0]
+    const bt = this.tracker.update(this.specBuf, binHz, now, bandFlux, gated === 1)
+
+    this.data.beatDetected = bt.beat
+    if (bt.beat) this.beatDecay = 1.0
+    this.beatDecay *= 0.88
+    this.data.beatPhase = bt.beatPhase
+    this.data.barPhase = bt.barPhase
+    this.data.bpm = this.getEffectiveBpm()
 
     // Per-band hit pulses: adaptive threshold per band, decaying envelope
     for (let b = 0; b < 3; b++) {
@@ -420,63 +404,6 @@ export class AudioAnalyzer {
     this.data.midHit = gated * this.bandPulse[1]
     this.data.highHit = gated * this.bandPulse[2]
 
-    // Push to history
-    this.fluxHistory.push(flux)
-    if (this.fluxHistory.length > this.FLUX_HISTORY_SIZE) {
-      this.fluxHistory.shift()
-    }
-
-    this.data.beatDetected = false
-
-    if (this.fluxHistory.length >= 10) {
-      // Adaptive threshold: mean + sensitivity * stddev
-      const mean = this.fluxHistory.reduce((a, b) => a + b, 0) / this.fluxHistory.length
-      let sqDiffSum = 0
-      for (const f of this.fluxHistory) {
-        sqDiffSum += (f - mean) ** 2
-      }
-      const stddev = Math.sqrt(sqDiffSum / this.fluxHistory.length)
-
-      const threshold = mean + stddev * this.sensitivity
-
-      // Very low absolute floor — allows detection even with quiet signals
-      const isAboveThreshold = flux > threshold && flux > 0.003
-      const cooldownPassed = now >= this.beatCooldownUntil
-
-      if (isAboveThreshold && cooldownPassed) {
-        this.data.beatDetected = true
-        this.beatDecay = 1.0
-
-        const currentBpm = this.getEffectiveBpm()
-        if (currentBpm > 0) {
-          this.beatCooldownUntil = now + (60000 / currentBpm) * 0.55
-        } else {
-          this.beatCooldownUntil = now + this.minBeatIntervalMs
-        }
-      }
-    }
-
-    // Beat decay
-    this.beatDecay *= 0.88
-
-    this.data.bpm = this.getEffectiveBpm()
-
-    // Continuous beat phase — free-runs on BPM, resyncs on every detected beat.
-    // Lets shaders anticipate the beat instead of only reacting to it.
-    const dtSec = this.lastPhaseTime ? Math.min((now - this.lastPhaseTime) / 1000, 0.5) : 0
-    this.lastPhaseTime = now
-    this.beatPhase += dtSec * (this.data.bpm / 60)
-    while (this.beatPhase >= 1) {
-      this.beatPhase -= 1
-      this.beatIndex = (this.beatIndex + 1) % 4
-    }
-    if (this.data.beatDetected) {
-      this.beatPhase = 0
-      this.beatIndex = (this.beatIndex + 1) % 4
-    }
-    this.data.beatPhase = this.beatPhase
-    this.data.barPhase = (this.beatIndex + this.beatPhase) / 4
-
     this.data.spectrum = this.freqData
 
     return this.data
@@ -489,6 +416,9 @@ export class AudioAnalyzer {
         return this.manualBpm
       case 'auto':
       default:
+        // stable library wins; then our live ACF estimate; then whatever's left
+        if (this.libraryStable && this.libraryBpm > 0) return this.libraryBpm
+        if (this.tracker.acfConfidence > 0.6 && this.tracker.acfBpm > 0) return Math.round(this.tracker.acfBpm)
         return this.libraryBpm > 0 ? this.libraryBpm : this.manualBpm
     }
   }
