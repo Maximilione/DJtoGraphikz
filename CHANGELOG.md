@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.22.0-beta] — 2026-09-04
+
+### Changed
+- **Effetto Fire rifatto** — domain-warped fbm (le fiamme leccano e si arricciano invece di scorrere rumore statico), rampa di temperatura tinta dalla palette (glow → corpo → caldo → cuore bianco), letto di braci sul fondo, scintille con sfarfallio; il kick fa balzare la fiamma, i bassi ne alimentano il vigore, gli alti accendono le scintille
+
 ## [0.21.1-beta] — 2026-09-04
 
 ### Fixed
