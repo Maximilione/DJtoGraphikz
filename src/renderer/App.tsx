@@ -88,6 +88,17 @@ export function App() {
   const [showCheatSheet, setShowCheatSheet] = useState(false)
   const [showQuickGuide, setShowQuickGuide] = useState(false)
 
+  // Preview riducibile: compatta la striscia video, i pannelli prendono spazio
+  const [previewCompact, setPreviewCompact] = React.useState(() => localStorage.getItem('djtographikz-preview-compact') === '1')
+  const togglePreviewCompact = React.useCallback(() => {
+    setPreviewCompact(c => {
+      try { localStorage.setItem('djtographikz-preview-compact', c ? '0' : '1') } catch { /* full */ }
+      return !c
+    })
+    // engine resizes on window resize — the class toggle alone doesn't fire it
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+  }, [])
+
   // U4.2 — flash del bordo preview sul beat (opt-in, persistito)
   const [beatFlash, setBeatFlash] = useState(() => localStorage.getItem(BEATFLASH_KEY) === '1')
   const beatFlashRef = useRef<HTMLDivElement>(null)
@@ -637,8 +648,17 @@ export function App() {
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className="center-area">
-          <div className="preview-container">
+          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}>
             <canvas ref={canvasRef} className="preview-canvas" />
+            {mode !== 'live' && (
+              <button
+                className="preview-toggle"
+                onClick={togglePreviewCompact}
+                title={previewCompact ? 'Espandi la preview' : 'Riduci la preview (i pannelli prendono lo spazio)'}
+              >
+                {previewCompact ? '▴ espandi' : '▾ riduci'}
+              </button>
+            )}
             {/* U4.2 — bordo che lampeggia sul beat (opacity via DOM diretto) */}
             <div ref={beatFlashRef} className="beat-flash" />
             <span className="preview-label">PREVIEW</span>
