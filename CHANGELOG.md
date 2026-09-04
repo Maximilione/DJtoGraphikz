@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.20.0-beta] — 2026-09-04
+
+### Added
+- **Risoluzione dinamica** — gli shader pesanti (raymarcher ISF) non fanno più laggare tutto: se il frame rate scende sotto ~42fps i buffer di rendering scalano automaticamente (fino al 50%) e risalgono da soli quando c'è margine; mai durante una transizione, warmup all'avvio, ogni finestra si adatta per conto suo. `uResolution` resta quella di output, quindi l'inquadratura non cambia.
+
 ## [0.19.0-beta] — 2026-09-04
 
 ### Changed
