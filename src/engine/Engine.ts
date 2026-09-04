@@ -244,7 +244,7 @@ export class Engine {
   private perfScale = 1
   private perfEmaMs = 16.7
   private perfLastNow = 0
-  private perfCooldown = 120 // warmup: boot jank must not downscale
+  private perfCooldown = 300 // ~5s warmup: boot + output-window spawn jank must not downscale
   private perfSpikeLast = false
 
   // Deck B + crossfader
