@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.17.0-beta] — 2026-09-04
+
+### Added
+- **Preview riducibile** — bottone "▾ riduci" sulla preview: diventa una striscia da 150px e i pannelli prendono lo spazio; persistito, disattivo in modalità LIVE
+
+### Changed
+- Nomi degli shader ISF su due righe invece dell'ellissi — si legge il nome completo
+- Errori shader dettagliati anche per i fallimenti di **link** (varying mancanti, ecc.): niente più "unknown GLSL error"
+
 ## [0.16.1-beta] — 2026-09-04
 
 ### Fixed

@@ -75,7 +75,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Output and recording
 
-- Dual window: control + fullscreen output on any display, 720p-4K resolution.
+- Dual window: control + fullscreen output on any display, 720p-4K resolution; the preview can shrink to a strip to give panels more room.
 - **WebM recording** (🔴 in the top bar, VP9 12Mbps) and **PNG screenshots** (📷).
 
 ## Development
