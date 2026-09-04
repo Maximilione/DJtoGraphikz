@@ -1,4 +1,8 @@
 import { app, BrowserWindow, ipcMain, screen, session, systemPreferences } from 'electron'
+
+// Menu/dock/notifications name (the bold macOS menu-bar name in dev still reads
+// "Electron" from the dev binary's Info.plist — the packaged app shows this)
+app.setName('DJtoGraphikz')
 import { join } from 'path'
 import { setupIpcHandlers } from './ipc-handlers'
 import { setupRemoteServer } from './remote-server'
@@ -64,7 +68,8 @@ function createOutputWindow(): BrowserWindow {
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
-    fullscreen: !!externalDisplay,
+    // Fullscreen is applied AFTER creation via simpleFullScreen — mixing native
+    // fullscreen (here) with the simple one (toggle) breaks the window on macOS
     frame: false,
     backgroundColor: '#000000',
     paintWhenInitiallyHidden: true,
@@ -81,6 +86,8 @@ function createOutputWindow(): BrowserWindow {
   // If no external display, show as a regular window for dev
   if (!externalDisplay) {
     win.setSize(960, 540)
+  } else {
+    win.setSimpleFullScreen(true)
   }
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -192,13 +199,13 @@ app.whenReady().then(async () => {
     ensureOutputWindow().webContents.send('output:set-resolution', w, h)
   })
 
-  // Toggle output fullscreen (simpleFullScreen for instant switch on macOS)
+  // Toggle output fullscreen. simpleFullScreen ONLY — it's instant on macOS and,
+  // unlike the native one, doesn't fight the window state when toggled fast.
   ipcMain.on('output:toggle-fullscreen', () => {
     const win = ensureOutputWindow()
-    const current = win.isFullScreen() || win.isSimpleFullScreen()
-    if (current) {
+    if (win.isSimpleFullScreen() || win.isFullScreen()) {
       win.setSimpleFullScreen(false)
-      win.setFullScreen(false)
+      if (win.isFullScreen()) win.setFullScreen(false) // legacy native state
     } else {
       win.setSimpleFullScreen(true)
     }
@@ -229,13 +236,16 @@ app.whenReady().then(async () => {
     }))
   })
 
-  // Move output to specific display
+  // Move output to specific display (exit fullscreen first: setBounds is a
+  // no-op while fullscreen, the window would "move" to the same display)
   ipcMain.on('output:move-to-display', (_event, displayId: number) => {
     const display = screen.getAllDisplays().find(d => d.id === displayId)
     if (display) {
       const win = ensureOutputWindow()
+      win.setSimpleFullScreen(false)
+      if (win.isFullScreen()) win.setFullScreen(false)
       win.setBounds(display.bounds)
-      win.setFullScreen(true)
+      win.setSimpleFullScreen(true)
     }
   })
 })
