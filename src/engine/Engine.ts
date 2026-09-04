@@ -245,6 +245,7 @@ export class Engine {
   private perfEmaMs = 16.7
   private perfLastNow = 0
   private perfCooldown = 120 // warmup: boot jank must not downscale
+  private perfSpikeLast = false
 
   // Deck B + crossfader
   private deckBEffect: EffectId = 'plasma'
@@ -383,7 +384,8 @@ export class Engine {
     this.audioAnalyzer = new AudioAnalyzer()
     this.clock = new THREE.Clock()
 
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false })
+    // Fullscreen-quad pipeline: no depth, no stencil, no MSAA — pure fill rate
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(1)
     this.renderer.autoClear = false
     // Filmic tone mapping + sRGB output: saturated neons stop clipping to white on a projector
@@ -421,6 +423,7 @@ export class Engine {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
+      depthBuffer: false, // fullscreen quads never depth-test — saves memory + clear bandwidth on every pass
     }
     this.rtA = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtB = new THREE.WebGLRenderTarget(1920, 1080, opts)
@@ -1625,7 +1628,15 @@ export class Engine {
     const last = this.perfLastNow
     this.perfLastNow = nowMs
     if (!last) return
-    this.perfEmaMs = this.perfEmaMs * 0.9 + Math.min(nowMs - last, 100) * 0.1
+    const d = Math.min(nowMs - last, 100)
+    // a lone spike is a shader compile or a GC pause, not GPU load — skip it
+    // (only one in a row: sustained slowness must still raise the EMA)
+    if (d > Math.max(40, this.perfEmaMs * 3) && !this.perfSpikeLast) {
+      this.perfSpikeLast = true
+      return
+    }
+    this.perfSpikeLast = false
+    this.perfEmaMs = this.perfEmaMs * 0.9 + d * 0.1
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
@@ -1750,6 +1761,14 @@ export class Engine {
     // Update main effect uniforms
     this.applyEffectUniforms(this.mainMaterial, time)
 
+    // Blackout: paint black, skip the whole pipeline — the GPU idles while
+    // the room is dark instead of rendering frames multiplied by zero
+    if (this.blackout && !this.freezeRequested) {
+      this.renderMaster(this.rtA.texture) // masterMaterial outputs black when blackout
+      this.syncAudioToOutput(bpm, beatDetected)
+      return
+    }
+
     // Frozen: keep showing the captured frame, skip the whole pipeline
     if (this.frozen && !this.freezeRequested) {
       this.renderMaster(this.rtFreeze.texture)
@@ -1757,9 +1776,8 @@ export class Engine {
       return
     }
 
-    // Render deck A → rtA
+    // Render deck A → rtA (no clear: opaque fullscreen quad)
     this.renderer.setRenderTarget(this.rtA)
-    this.renderer.clear()
     this.renderer.render(this.scene, this.camera)
 
     // Effect transition blending
@@ -1776,7 +1794,6 @@ export class Engine {
         this.quad.material = this.transitionOldMaterial
         this.applyEffectUniforms(this.transitionOldMaterial, time)
         this.renderer.setRenderTarget(this.rtTransition)
-        this.renderer.clear()
         this.renderer.render(this.scene, this.camera)
 
         // Restore new material
@@ -1798,7 +1815,6 @@ export class Engine {
       this.quad.material = this.deckBMaterial
       this.applyEffectUniforms(this.deckBMaterial, time)
       this.renderer.setRenderTarget(this.rtDeckB)
-      this.renderer.clear()
       this.renderer.render(this.scene, this.camera)
       this.quad.material = this.mainMaterial
 
@@ -1866,6 +1882,7 @@ export class Engine {
     for (const entry of this.postChain) {
       const mat = this.postMaterials.get(entry.id)
       if (!mat) continue
+      if (entry.amount < 0.01) continue // dry pass: full GPU cost, zero visible effect
 
       if (entry.id === 'bloom') {
         this.renderBloom(read, write, entry.amount)
@@ -1943,7 +1960,7 @@ export class Engine {
   private renderPass(mat: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget | null) {
     this.postQuad.material = mat
     this.renderer.setRenderTarget(target)
-    this.renderer.clear()
+    // no clear: the opaque fullscreen quad overwrites every pixel
     this.renderer.render(this.postScene, this.camera)
   }
 
