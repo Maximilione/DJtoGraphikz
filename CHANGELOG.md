@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.13.0-beta] — 2026-09-04
+
+### Added
+- **Release automatiche multi-piattaforma** — GitHub Action su ogni tag `v*`: compila e pubblica gli installer per macOS (.dmg), Windows (.exe) e Linux (.AppImage) nella release GitHub; badge e sezione Download nel README puntano sempre all'ultima versione
+- Icona anche per le build Windows/Linux (build/icon.png dall'SVG sorgente)
+
+### Changed
+- Regola di progetto in CLAUDE.md: README sempre allineato allo stato dell'app
+
 ## [0.12.0-beta] — 2026-08-28
 
 Batch usabilità + redesign: l'intera roadmap U1-U5 e D1-D8 in una release.
