@@ -69,7 +69,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 - Live GLSL editor with validation (broken shaders are rejected with the exact error).
 - **Online ISF library** — browse ~3,700 generators from [editor.isf.video](https://editor.isf.video) with thumbnails and search, one-click import; "Import file…" also accepts the `.zip` downloaded from the site.
-- Shaders in `~/.djtographikz/isf` show up as a category in the Effects panel, with automatic audio-mappable sliders; **Smart map** hooks them to the audio in one shot based on parameter names.
+- Shaders in `~/.djtographikz/isf` show up as a category in the Effects panel, with automatic audio-mappable sliders.
+- **⚡ Smart map** (at the top of the Parameters panel, for any effect): one button maps every parameter to the audio based on its name, with Undo in the toast.
 - Shaders with **image inputs**: pick a picture for each input and it feeds the shader (on the output window too).
 
 ### Output and recording
