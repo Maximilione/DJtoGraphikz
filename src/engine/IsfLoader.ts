@@ -5,12 +5,19 @@ export interface IsfResult {
   params: EffectParam[]
   name: string
   warnings: string[]
+  /** sampler2D inputs (ISF type "image") — the user picks a picture for each */
+  imageInputs: string[]
 }
 
 // ponytail: generator-only ISF support (float/bool inputs). Filters, audio
 // inputs, multi-pass, imported textures → clear error, add if ever needed.
 
-const UNSUPPORTED_TYPES = new Set(['image', 'audio', 'audioFFT', 'event', 'point2D', 'color', 'long'])
+const UNSUPPORTED_TYPES = new Set(['audio', 'audioFFT'])
+
+const fnum = (v: unknown, d: number) => {
+  const n = typeof v === 'number' && isFinite(v) ? v : d
+  return Number.isInteger(n) ? n.toFixed(1) : String(n)
+}
 
 /**
  * Parse an ISF fragment shader: read the JSON header, turn float/bool INPUTS
@@ -30,8 +37,9 @@ export function loadISF(source: string, fileName = 'ISF'): IsfResult | { error: 
 
   const body = source.replace(match[0], '')
 
-  // Generators only — filters and multi-pass need infrastructure we don't have
-  if (/\binputImage\b|\bIMG_THIS_PIXEL\b|\bIMG_PIXEL\b|\bIMG_NORM_PIXEL\b|\bIMG_SIZE\b/.test(body)) {
+  // True filters only — generators that sample their own image INPUTS are fine
+  // (IMG_* is mapped to texture2D in the prelude)
+  if (/\binputImage\b/.test(body)) {
     return { error: 'Questo ISF è un filtro (usa inputImage) — supportiamo solo i generator' }
   }
   if (Array.isArray(meta.PASSES) && meta.PASSES.length > 1) {
@@ -41,6 +49,7 @@ export function loadISF(source: string, fileName = 'ISF'): IsfResult | { error: 
   const warnings: string[] = []
   const params: EffectParam[] = []
   const uniformDecls: string[] = []
+  const imageInputs: string[] = []
 
   for (const input of meta.INPUTS ?? []) {
     const name = input.NAME
@@ -56,6 +65,39 @@ export function loadISF(source: string, fileName = 'ISF'): IsfResult | { error: 
       uniformDecls.push(`uniform ${type === 'bool' ? 'bool' : 'float'} ${name};`)
       // bool uniforms are driven with 0/1 floats; three.js coerces on upload
       params.push({ key: name, label: input.LABEL || name, min, max, default: Math.max(min, Math.min(max, def)) })
+    } else if (type === 'long') {
+      // dropdown-style int: expose as a stepless float slider over VALUES range
+      const vals: number[] = Array.isArray(input.VALUES) && input.VALUES.length ? input.VALUES : [0, 1]
+      const min = Math.min(...vals)
+      const max = Math.max(...vals)
+      const def = typeof input.DEFAULT === 'number' ? input.DEFAULT : min
+      uniformDecls.push(`uniform float ${name}_f;\n#define ${name} int(${name}_f + 0.5)`)
+      params.push({ key: `${name}_f`, label: input.LABEL || name, min, max, default: Math.max(min, Math.min(max, def)) })
+    } else if (type === 'color') {
+      // fixed at its default — palette already drives the look via uColor1-3
+      const d = Array.isArray(input.DEFAULT) ? input.DEFAULT : [1, 1, 1, 1]
+      uniformDecls.push(`#define ${name} vec4(${fnum(d[0], 1)}, ${fnum(d[1], 1)}, ${fnum(d[2], 1)}, ${fnum(d[3], 1)})`)
+      warnings.push(`input colore "${name}" fissato al default`)
+    } else if (type === 'point2D') {
+      const d = Array.isArray(input.DEFAULT) ? input.DEFAULT : [0.5, 0.5]
+      if (/mouse|cursor|pointer|touch/i.test(name)) {
+        // no mouse on a projector — slow Lissajous drift around the default.
+        // Defaults ≤1 are normalized coords, bigger ones are pixels (ISF allows both)
+        const norm = Math.abs(Number(d[0]) || 0) <= 1 && Math.abs(Number(d[1]) || 0) <= 1
+        const amp = norm ? '0.25' : '0.25 * uResolution'
+        uniformDecls.push(`#define ${name} (vec2(${fnum(d[0], 0.5)}, ${fnum(d[1], 0.5)}) + ${amp} * vec2(sin(uTime * 0.31), cos(uTime * 0.23)))`)
+        warnings.push(`input point2D "${name}" animato in automatico`)
+      } else {
+        uniformDecls.push(`#define ${name} vec2(${fnum(d[0], 0.5)}, ${fnum(d[1], 0.5)})`)
+        warnings.push(`input point2D "${name}" fissato al default`)
+      }
+    } else if (type === 'image') {
+      uniformDecls.push(`uniform sampler2D ${name};`)
+      imageInputs.push(name)
+    } else if (type === 'event') {
+      // one-shot triggers need per-frame plumbing we don't have — map to beat
+      uniformDecls.push(`#define ${name} (uBeat > 0.5)`)
+      warnings.push(`input event "${name}" mappato sul beat`)
     } else if (UNSUPPORTED_TYPES.has(type)) {
       warnings.push(`input "${name}" (${type}) ignorato`)
       // declare it anyway with a neutral value so the shader still compiles?
@@ -82,6 +124,14 @@ uniform vec3 uColor3;
 #define isf_FragNormCoord vUv
 #define vv_FragNormCoord vUv
 #define FRAMEINDEX int(uTime * 60.0)
+#define PASSINDEX 0
+#define TIMEDELTA (1.0 / 60.0)
+#define DATE vec4(2026.0, 1.0, 1.0, uTime)
+#define IMG_NORM_PIXEL(i,c) texture2D(i,c)
+#define IMG_PIXEL(i,c) texture2D(i,(c)/uResolution)
+#define IMG_THIS_NORM_PIXEL(i) texture2D(i,vUv)
+#define IMG_THIS_PIXEL(i) texture2D(i,vUv)
+#define IMG_SIZE(i) uResolution
 ${uniformDecls.join('\n')}
 `
 
@@ -90,5 +140,6 @@ ${uniformDecls.join('\n')}
     params,
     name: meta.DESCRIPTION || fileName,
     warnings,
+    imageInputs,
   }
 }

@@ -140,3 +140,47 @@
   user-select: none;
 }
 .beatflash-toggle input { cursor: pointer; }
+
+/* ---- Libreria ISF online (IsfBrowser) ---- */
+.isfb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--s2, 8px);
+}
+.isfb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg2, #16161c);
+  border: 1px solid var(--border, #2a2a33);
+  border-radius: var(--r-md, 6px);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--t-fast, 140ms);
+}
+.isfb-card:hover:not(:disabled) { border-color: var(--accent, #00ff88); }
+.isfb-card:disabled { opacity: 0.6; cursor: wait; }
+.isfb-card img, .isfb-noimg {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-radius: var(--r-sm, 4px);
+  background: var(--bg0, #0a0a0e);
+}
+.isfb-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #666);
+  font-size: 24px;
+}
+.isfb-title {
+  font-size: var(--fs-xs, 11px);
+  color: var(--text-primary, #eee);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.isfb-user { font-size: 10px; color: var(--text-muted, #888); }
+.isfb-more { width: 100%; margin-top: var(--s2, 8px); padding: 8px; }

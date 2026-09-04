@@ -11,6 +11,11 @@ const api = {
 
   // ISF folder (~/.djtographikz/isf)
   listIsf: (): Promise<{ name: string; source: string }[]> => ipcRenderer.invoke('isf:list'),
+  browseIsf: (force?: boolean): Promise<{ id: string; title: string; user: string; thumb: string; stars: number }[]> =>
+    ipcRenderer.invoke('isf:browse', force),
+  importIsfOnline: (id: string, title: string): Promise<{ name: string; source: string }> =>
+    ipcRenderer.invoke('isf:import-online', id, title),
+  importIsfFile: (): Promise<{ name: string; source: string }[]> => ipcRenderer.invoke('isf:import-file'),
 
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
