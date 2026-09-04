@@ -1,89 +1,91 @@
 # DJtoGraphikz
 
-[![Ultima release](https://img.shields.io/github/v/release/Maximilione/DJtoGraphikz?label=ultima%20versione&color=00cc6a)](https://github.com/Maximilione/DJtoGraphikz/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/Maximilione/DJtoGraphikz?label=latest%20version&color=00cc6a)](https://github.com/Maximilione/DJtoGraphikz/releases/latest)
 
-Generatore di visual audio-reattivi in tempo reale per serate tekno. Ascolta il mixer (o qualsiasi ingresso audio) e proietta grafica animata a tempo su un secondo schermo o proiettore. App desktop Electron, offline, macOS/Windows/Linux.
+**English** · [Italiano](README.it.md)
+
+Real-time audio-reactive visual generator for tekno nights. It listens to the mixer (or any audio input) and projects animated graphics in sync with the music on a second screen or projector. Electron desktop app, offline, macOS/Windows/Linux.
 
 <!-- screenshot -->
 
 ## Download
 
-**[⬇ Scarica l'ultima versione](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installer generati automaticamente a ogni release. Scarica solo il file per il tuo sistema (i `.blockmap` e i `.yml` servono all'auto-update, ignorali):
+**[⬇ Download the latest version](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installers are built automatically on every release. Download only the file for your system (the `.blockmap` and `.yml` files are used by auto-update, ignore them):
 
-| Sistema | File | Installazione |
+| System | File | Install |
 | --------- | ------ | --------------- |
-| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` | Apri il `.dmg` e trascina l'app in **Applicazioni** |
-| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` | Doppio click sull'installer e segui la procedura |
-| Linux | `DJtoGraphikz-X.Y.Z.AppImage` | `chmod +x` sul file e avvialo direttamente (nessuna installazione) |
+| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` | Open the `.dmg` and drag the app into **Applications** |
+| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` | Double-click the installer and follow the steps |
+| Linux | `DJtoGraphikz-X.Y.Z.AppImage` | `chmod +x` the file and run it directly (no install) |
 
-Le build non sono firmate/notarizzate, quindi al primo avvio il sistema mostra un avviso:
+Builds are not signed/notarized, so the OS shows a warning on first launch:
 
-- **macOS** — se compare "app danneggiata" o "sviluppatore non verificato": tasto destro sull'app → **Apri** → **Apri** di nuovo nel popup. Se non basta: `xattr -cr /Applications/DJtoGraphikz.app` nel Terminale, poi riapri.
-- **Windows** — SmartScreen blocca l'installer: **Ulteriori informazioni** → **Esegui comunque**.
-- **Linux** — nessun avviso; se il doppio click non funziona, avvia da terminale: `./DJtoGraphikz-X.Y.Z.AppImage`.
+- **macOS** — if you see "app is damaged" or "unidentified developer": right-click the app → **Open** → **Open** again in the popup. If that's not enough: `xattr -cr /Applications/DJtoGraphikz.app` in Terminal, then reopen.
+- **Windows** — SmartScreen blocks the installer: **More info** → **Run anyway**.
+- **Linux** — no warning; if double-click doesn't work, run from a terminal: `./DJtoGraphikz-X.Y.Z.AppImage`.
 
-Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per ascoltare il mixer) e, solo se usi la webcam come sorgente, alla **camera**.
+On first launch the app asks for **microphone/audio input** access (needed to listen to the mixer) and, only if you use the webcam as a source, for the **camera**.
 
-## Quick start (prima serata, senza aiuto)
+## Quick start (first night, no help needed)
 
-1. Installa dal `.dmg` (trascina l'app in Applicazioni) e aprila.
-2. Al primo avvio parte l'onboarding: scegli l'**ingresso audio** (line-in dal mixer o microfono) e il **genere** musicale.
-3. Fatto: l'**AutoVJ** parte da solo e cambia effetti, post-FX e palette a tempo di musica.
-4. Tasti da sapere subito: **B** blackout · **F** freeze · **Space** tap BPM · **Shift+1-0** richiama i look salvati.
-5. Collega il telefono: bottone **📱** in top bar → inquadra il **QR** → inserisci il **codice** a 6 cifre. Il telefono (stessa wifi) controlla tutto.
-6. Manda l'output sul proiettore: scegli il display dal **selettore monitor** e premi **Fullscreen**.
-7. Se qualcosa non torna, il bottone **?** rilancia la configurazione.
+1. Install from the `.dmg` (drag the app into Applications) and open it.
+2. On first launch the onboarding starts: pick the **audio input** (line-in from the mixer or microphone) and the music **genre**.
+3. Done: **AutoVJ** starts on its own and switches effects, post-FX and palettes in time with the music.
+4. Keys to know right away: **B** blackout · **F** freeze · **Space** tap BPM · **Shift+1-0** recalls saved looks.
+5. Connect your phone: **📱** button in the top bar → scan the **QR** → enter the 6-digit **code**. The phone (same wifi) controls everything.
+6. Send the output to the projector: pick the display from the **monitor selector** and press **Fullscreen**.
+7. If something's off, the **?** button relaunches the setup.
 
-## Funzioni
+## Features
 
-### Motore visivo
+### Visual engine
 
-- **21 effetti GLSL** in 4 categorie (Geometric, Organic, Motion, Digital), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
-- **50 parametri curati** — 2-3 slider veri per effetto (segments, density, zoom, twist…), ognuno **mappabile all'audio** (bass/mid/high/energy/beat, depth ±100%) o a un **LFO** tempo-sync (sine/saw/square, rate 1/4…32 battute).
-- **Look Bank** — griglia 4×4 con thumbnail reali: click su slot vuoto salva il look completo, click applica con transizione, hotkey Shift+1-0.
-- **Deck A/B + crossfader** — secondo deck con 5 blend mode (mix, add, screen, multiply, difference); il deck B fa da blind mode.
-- **Post-FX chain** — 9 effetti riordinabili con wet/dry per effetto (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + color grade master (exposure/contrast/saturation/lift/vignette), tone mapping ACES, motion blur temporale.
-- **16 palette** + editor custom, transizioni colore fluide, cycling a timer o a beat.
-- **AutoVJ** — 8 generi, rotazione senza ripetizioni (bag), switch sul downbeat, energia adattiva.
+- **21 GLSL effects** in 4 categories (Geometric, Organic, Motion, Digital), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+- **50 curated parameters** — 2-3 real sliders per effect (segments, density, zoom, twist…), each **mappable to audio** (bass/mid/high/energy/beat, depth ±100%) or to a tempo-synced **LFO** (sine/saw/square, rate 1/4…32 beats).
+- **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
+- **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
+- **Post-FX chain** — 9 reorderable effects with per-effect wet/dry (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + master color grade (exposure/contrast/saturation/lift/vignette), ACES tone mapping, temporal motion blur.
+- **16 palettes** + custom editor, smooth color transitions, timer- or beat-based cycling.
+- **AutoVJ** — 8 genres, no-repeat rotation (bag), switches on the downbeat, adaptive energy.
 
 ### Audio
 
-- Beat detection a spectral flux con soglia adattiva; BPM auto (realtime-bpm-analyzer), tap, manuale, ×½/×2.
-- Envelope follower, auto-gain, noise gate, input gain; auto-recovery se il device audio cade.
-- Vocabolario esteso per gli shader: hit per banda (kick/synth/hats), clock gated, sub/presence, beat/bar phase.
+- Spectral-flux beat detection with adaptive threshold; auto BPM (realtime-bpm-analyzer), tap, manual, ×½/×2.
+- Envelope follower, auto-gain, noise gate, input gain; auto-recovery if the audio device drops.
+- Extended vocabulary for shaders: per-band hits (kick/synth/hats), gated clocks, sub/presence, beat/bar phase.
 
 ### Media
 
-- **Pannello Media unificato**: immagini/GIF, video, **webcam** e **testo** come overlay — stessi controlli (opacity, scale, posizione, displacement) e tutti i post-FX gratis.
-- GIF sincronizzate al beat/BPM; libreria persistente in `~/.djtographikz/assets` (ri-aggiunta a un tap dopo il riavvio).
+- **Unified Media panel**: images/GIFs, video, **webcam** and **text** as overlays — same controls (opacity, scale, position, displacement) and all post-FX for free.
+- GIFs synced to beat/BPM; persistent library in `~/.djtographikz/assets` (re-add with one tap after restart).
 
-### Controllo remoto
+### Remote control
 
-- **Telefono** — server HTTP integrato, pairing via QR + codice a 6 cifre, fino a 4 dispositivi: la pagina mobile controlla tutto (Look Bank, parametri, post chain, grade, deck B, AutoVJ) ed è sempre allineata alla versione dell'app.
-- **OSC** — server UDP su `:9700`, indirizzi `/djg/*` (`/djg/effect`, `/djg/look/N`, `/djg/param/<chiave>`, `/djg/crossfade`, blackout/freeze/autovj/tap…). Pronto per TouchOSC.
-- **MIDI learn** — pannello MIDI (Pro): armi Learn, muovi un controllo sul controller, binding fatto e persistito. CC = fader, note = trigger.
+- **Phone** — built-in HTTP server, pairing via QR + 6-digit code, up to 4 devices: the mobile page controls everything (Look Bank, parameters, post chain, grade, deck B, AutoVJ) and always stays aligned with the app version.
+- **OSC** — UDP server on `:9700`, `/djg/*` addresses (`/djg/effect`, `/djg/look/N`, `/djg/param/<key>`, `/djg/crossfade`, blackout/freeze/autovj/tap…). TouchOSC-ready.
+- **MIDI learn** — MIDI panel (Pro): arm Learn, move a control on your controller, binding made and persisted. CC = fader, notes = triggers.
 
-### Shader e ISF
+### Shaders and ISF
 
-- Editor GLSL live con validazione (gli shader rotti vengono respinti con l'errore esatto).
-- **Libreria ISF**: i generator in `~/.djtographikz/isf` compaiono come categoria nel pannello Effects, con slider automatici audio-mappabili.
+- Live GLSL editor with validation (broken shaders are rejected with the exact error).
+- **ISF library**: generators in `~/.djtographikz/isf` show up as a category in the Effects panel, with automatic audio-mappable sliders.
 
-### Output e registrazione
+### Output and recording
 
-- Doppia finestra: controllo + output fullscreen su qualsiasi display, risoluzione 720p-4K.
-- **Registrazione WebM** (🔴 in top bar, VP9 12Mbps) e **screenshot PNG** (📷).
+- Dual window: control + fullscreen output on any display, 720p-4K resolution.
+- **WebM recording** (🔴 in the top bar, VP9 12Mbps) and **PNG screenshots** (📷).
 
-## Sviluppo
+## Development
 
 ```bash
-yarn            # dipendenze
-yarn dev        # sviluppo (Electron + Vite)
-npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # verifica minima
-yarn package:mac   # .dmg (anche package:win / package:linux)
+yarn            # dependencies
+yarn dev        # development (Electron + Vite)
+npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # minimal check
+yarn package:mac   # .dmg (also package:win / package:linux)
 ```
 
-Regole di progetto (versioning, flusso git): [CLAUDE.md](CLAUDE.md). Storia delle versioni: [CHANGELOG.md](CHANGELOG.md).
+Project rules (versioning, git flow): [CLAUDE.md](CLAUDE.md). Version history: [CHANGELOG.md](CHANGELOG.md).
 
-## Licenza
+## License
 
 MIT
