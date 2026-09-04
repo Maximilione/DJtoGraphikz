@@ -239,6 +239,13 @@ export class Engine {
   /** Ordered post-FX chain — order matters as much as which effects are on */
   private postChain: { id: PostId; amount: number }[] = [{ id: 'bloom', amount: 1 }]
 
+  // Dynamic resolution: heavy shaders (ISF raymarchers) drop the render-target
+  // scale until the frame rate holds, then climb back when there's headroom
+  private perfScale = 1
+  private perfEmaMs = 16.7
+  private perfLastNow = 0
+  private perfCooldown = 120 // warmup: boot jank must not downscale
+
   // Deck B + crossfader
   private deckBEffect: EffectId = 'plasma'
   private deckBMaterial: THREE.ShaderMaterial | null = null
@@ -542,9 +549,10 @@ export class Engine {
     this.outputHeight = h
     this.resolution.set(w, h)
 
-    // Preview renders at most 1080p worth of pixels — same look, less GPU
+    // Preview renders at most 1080p worth of pixels — same look, less GPU.
+    // perfScale kicks in when the GPU can't hold the frame rate.
     const cap = this.remote ? 3840 : 1920
-    const scale = Math.min(1, cap / w)
+    const scale = Math.min(1, cap / w) * this.perfScale
     const bw = Math.max(2, Math.round(w * scale))
     const bh = Math.max(2, Math.round(h * scale))
 
@@ -1612,7 +1620,32 @@ export class Engine {
     }
   }
 
+  private updatePerfScale() {
+    const nowMs = performance.now()
+    const last = this.perfLastNow
+    this.perfLastNow = nowMs
+    if (!last) return
+    this.perfEmaMs = this.perfEmaMs * 0.9 + Math.min(nowMs - last, 100) * 0.1
+    if (--this.perfCooldown > 0) return
+    // resizing render targets discards them — never mid-transition
+    if (this.transitionProgress >= 0) return
+    if (this.perfEmaMs > 24 && this.perfScale > 0.5) {
+      // under ~42fps: drop 20% (note: a 30Hz display lands here too — softer
+      // buffers on a 30Hz projector are invisible, so no special case)
+      this.perfScale = Math.max(0.5, this.perfScale * 0.8)
+      this.perfCooldown = 45
+      this.setRenderSize(this.outputWidth, this.outputHeight)
+      console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
+    } else if (this.perfEmaMs < 17 && this.perfScale < 1) {
+      // headroom: climb back slowly, long cooldown so it can't oscillate
+      this.perfScale = Math.min(1, this.perfScale / 0.8)
+      this.perfCooldown = 300
+      this.setRenderSize(this.outputWidth, this.outputHeight)
+    }
+  }
+
   private renderFrame() {
+    this.updatePerfScale()
     const time = this.clock.getElapsedTime()
     // Frame delta from elapsed time — clock.getDelta() is consumed by getElapsedTime()
     const dt = Math.min(time - this.lastFrameTime, 0.25)
