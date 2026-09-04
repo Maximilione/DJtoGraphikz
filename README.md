@@ -50,7 +50,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Audio
 
-- Spectral-flux beat detection with adaptive threshold; auto BPM (realtime-bpm-analyzer), tap, manual, ×½/×2.
+- Log-scale spectral-flux beat tracking with median+MAD threshold, phase-locked loop and its own kick-band autocorrelation BPM estimator; auto BPM (dual estimator), tap, manual, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery if the audio device drops.
 - Extended vocabulary for shaders: per-band hits (kick/synth/hats), gated clocks, sub/presence, beat/bar phase.
 
