@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.15.0-beta] — 2026-09-04
+
+### Changed
+- **Smart map spostato e potenziato** — ora è in testa al pannello **Parametri** (visibile per qualsiasi effetto, non solo ISF): euristica più ricca (beat/strobe, hue/palette su LFO lento, phase/wave su saw, bool pulsati sul beat), abbassa la base dei parametri troppo alti per dare headroom alla modulazione, e il toast ha **Annulla** che ripristina valori e mapping precedenti
+
+### Fixed
+- **Shader ISF che non compilavano** ("global variable initializers must be constant expressions", "l-value required"): gli inizializzatori globali non costanti (legali su GL desktop, vietati in WebGL) vengono spostati automaticamente in cima a `main()`, e gli input color/point2D sono ora variabili vere (assegnabili) invece di `#define`
+
 ## [0.14.0-beta] — 2026-09-04
 
 ### Added
