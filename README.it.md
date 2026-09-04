@@ -68,7 +68,9 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 ### Shader e ISF
 
 - Editor GLSL live con validazione (gli shader rotti vengono respinti con l'errore esatto).
-- **Libreria ISF**: i generator in `~/.djtographikz/isf` compaiono come categoria nel pannello Effects, con slider automatici audio-mappabili.
+- **Libreria ISF online** — sfoglia ~3.700 generator di [editor.isf.video](https://editor.isf.video) con thumbnail e ricerca, import con un click; "Importa file…" accetta anche gli `.zip` scaricati dal sito.
+- Gli shader in `~/.djtographikz/isf` compaiono come categoria nel pannello Effects, con slider automatici audio-mappabili; **Smart map** li aggancia all'audio in un colpo solo in base al nome.
+- Shader con **input image**: scegli un'immagine per ogni input e finisce dentro lo shader (anche sull'output).
 
 ### Output e registrazione
 
@@ -84,7 +86,11 @@ npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit 
 yarn package:mac   # .dmg (anche package:win / package:linux)
 ```
 
-Regole di progetto (versioning, flusso git): [CLAUDE.md](CLAUDE.md). Storia delle versioni: [CHANGELOG.md](CHANGELOG.md).
+Regole di progetto (versioning, flusso git): [CLAUDE.md](CLAUDE.md).
+
+## Changelog
+
+Le novità di ogni versione sono in [CHANGELOG.md](CHANGELOG.md) (formato Keep a Changelog) e nelle note di ogni [release](https://github.com/Maximilione/DJtoGraphikz/releases).
 
 ## Licenza
 
