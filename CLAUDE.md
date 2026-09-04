@@ -17,6 +17,11 @@ Ad ogni batch di modifiche committato:
 - Fine batch: commit `chore(release): vX.Y.Z-beta`, merge su main con `--no-ff` (il merge commit delimita il batch), tag annotato `vX.Y.Z-beta` sul merge, push di main + tag.
 - Il branch feature si cancella dopo il merge; il prossimo batch riparte da main con un branch nuovo.
 
+## README (obbligatorio)
+
+- Il README va tenuto **sempre allineato** allo stato dell'app: ogni batch che aggiunge/cambia funzionalità visibili all'utente aggiorna anche la sezione Funzioni e, se serve, il Quick start.
+- Le release sono automatiche: il push di un tag `v*` fa partire la GitHub Action che compila mac/win/linux e pubblica gli installer — il link "ultima versione" nel README punta a `releases/latest` e non va mai cambiato a mano.
+
 ## Convenzioni
 
 - Commit: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`).
