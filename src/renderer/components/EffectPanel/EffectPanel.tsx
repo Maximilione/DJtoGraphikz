@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
-import type { EffectParam, AudioSource } from '@engine/EffectParams'
+import type { EffectParam } from '@engine/EffectParams'
 import { loadISF } from '@engine/IsfLoader'
 import { NumberInput } from '../NumberInput/NumberInput'
 import { ParamControls } from '../ParamControls/ParamControls'
@@ -252,32 +252,6 @@ export function EffectPanel({ engine }: EffectPanelProps) {
     inp.click()
   }, [engine])
 
-  // Smart mapping: guess an audio source for each ISF param from its name,
-  // round-robin fallback so every param gets something audio-reactive
-  const smartMapIsf = useCallback(() => {
-    if (!engine) return
-    const rules: [RegExp, AudioSource, number, number?][] = [
-      [/zoom|scale|size|radius|amp/i, 'bass', 0.5],
-      [/bright|intens|glow|light|exposure|gain|amount|alpha|opacity/i, 'energy', 0.6],
-      [/glitch|noise|distort|chaos|shake|jitter/i, 'high', 0.6],
-      [/detail|iter|count|num|segment|density|complex|freq/i, 'mid', 0.4],
-      [/twist|rot|angle|spin|swirl/i, 'lfo-sine', 0.5, 8],
-      [/offset|shift|slide|scroll/i, 'lfo-saw', 0.3, 16],
-      [/hue|color|sat|tint/i, 'lfo-sine', 0.4, 32],
-      [/speed|rate|vel|flow/i, 'energy', 0.4],
-      [/beat|pulse|flash|strobe|kick/i, 'beat', 0.8],
-    ]
-    const fallback: AudioSource[] = ['bass', 'high', 'mid', 'energy']
-    let fi = 0, n = 0
-    for (const def of engine.getParamDefs()) {
-      if (def.key === 'speed' || def.key === 'reactivity') continue
-      const rule = rules.find(([re]) => re.test(def.key) || re.test(def.label))
-      if (rule) engine.setParamMapping(def.key, rule[1], rule[2], rule[3])
-      else engine.setParamMapping(def.key, fallback[fi++ % fallback.length], 0.45)
-      n++
-    }
-    pushToast(n > 0 ? `Smart map: ${n} parametri mappati all'audio` : 'Nessun parametro da mappare', 'isf-smartmap')
-  }, [engine])
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
@@ -546,14 +520,6 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
                 <button className="btn" onClick={() => setIsfBrowserOpen(true)}>Sfoglia online…</button>
                 <button className="btn" onClick={importIsfFiles}>Importa file…</button>
-                <button
-                  className="btn"
-                  disabled={!isfActive}
-                  onClick={smartMapIsf}
-                  title="Mappa automaticamente i parametri dello shader ISF attivo su bass/mid/high/energy/LFO in base al nome"
-                >
-                  ⚡ Smart map
-                </button>
               </div>
               {(isfEffects.length > 0 || isfFailed.length > 0) && (
               <div>
