@@ -22,6 +22,10 @@ const ENV_SIZE = 512            // ~8.5s onset envelope for tempo autocorrelatio
 const BPM_MIN = 70
 const BPM_MAX = 190
 
+function acfAt(acf: Float32Array, i: number, max: number): number {
+  return i >= 0 && i <= max ? acf[i] : 0
+}
+
 /** median of a small array (copies + sorts — fine at 60Hz sizes) */
 function median(a: number[]): number {
   const s = [...a].sort((x, y) => x - y)
@@ -34,6 +38,7 @@ export class BeatTracker {
   private f1 = 0                       // flux one frame ago (peak-picking)
   private f2 = 0                       // flux two frames ago
   private prevLogSpec: Float32Array = new Float32Array(0)
+  private currLogSpec: Float32Array = new Float32Array(0)
 
   // Onset envelope ring for tempo autocorrelation
   private env = new Float32Array(ENV_SIZE)
@@ -44,6 +49,7 @@ export class BeatTracker {
 
   acfBpm = 0
   acfConfidence = 0
+  private tempoCandidates: number[] = []
 
   // Phase-locked loop
   private phase = 0
@@ -68,11 +74,13 @@ export class BeatTracker {
     this.fluxHistory = []
     this.f1 = this.f2 = 0
     this.prevLogSpec = new Float32Array(0)
+    this.currLogSpec = new Float32Array(0)
     this.env.fill(0)
     this.envPos = 0
     this.envFrames = 0
     this.acfBpm = 0
     this.acfConfidence = 0
+    this.tempoCandidates = []
     this.phase = 0
     this.beatIndex = 0
     this.lastBeatAt = 0
@@ -91,7 +99,10 @@ export class BeatTracker {
    */
   update(spectrum: ArrayLike<number>, binHz: number, nowMs: number, bandFluxOut?: number[], active = true): BeatFrame {
     const n = spectrum.length
-    if (this.prevLogSpec.length !== n) this.prevLogSpec = new Float32Array(n)
+    if (this.prevLogSpec.length !== n) {
+      this.prevLogSpec = new Float32Array(n)
+      this.currLogSpec = new Float32Array(n)
+    }
 
     // --- onset strength: positive log-magnitude flux, kick-weighted ---
     // log compression makes the flux level-independent: a quiet club feed and
@@ -100,7 +111,14 @@ export class BeatTracker {
     let lowFlux = 0
     for (let i = 0; i < n; i++) {
       const curr = Math.log1p((spectrum[i] as number) * 8)
-      const diff = curr - this.prevLogSpec[i]
+      // SuperFlux: compare against the MAX of the previous frame's neighborhood
+      // (±2 bins) — vibrato and tonal movement stop counting as onsets
+      let prevMax = this.prevLogSpec[i]
+      if (i > 1 && this.prevLogSpec[i - 2] > prevMax) prevMax = this.prevLogSpec[i - 2]
+      if (i > 0 && this.prevLogSpec[i - 1] > prevMax) prevMax = this.prevLogSpec[i - 1]
+      if (i < n - 1 && this.prevLogSpec[i + 1] > prevMax) prevMax = this.prevLogSpec[i + 1]
+      if (i < n - 2 && this.prevLogSpec[i + 2] > prevMax) prevMax = this.prevLogSpec[i + 2]
+      const diff = curr - prevMax
       if (diff > 0) {
         const w = i < n / 8 ? 3.0 : i < n / 4 ? 2.0 : i < n / 2 ? 1.0 : 0.5
         flux += diff * w
@@ -112,8 +130,12 @@ export class BeatTracker {
           else if (hz < 250) bandFluxOut[0] += diff
         }
       }
-      this.prevLogSpec[i] = curr
+      this.currLogSpec[i] = curr
     }
+    // swap buffers: neighbors of the PREVIOUS frame must stay intact all loop
+    const swap = this.prevLogSpec
+    this.prevLogSpec = this.currLogSpec
+    this.currLogSpec = swap
     flux /= n
     lowFlux /= n
 
@@ -259,32 +281,58 @@ export class BeatTracker {
     const msPerFrame = this.frameDtMs
     const lagMin = Math.max(2, Math.floor(60000 / BPM_MAX / msPerFrame))
     const lagMax = Math.min(N - 1, Math.ceil(60000 / BPM_MIN / msPerFrame))
-    const acf = new Float32Array(lagMax + 1)
-    for (let lag = lagMin; lag <= lagMax; lag++) {
+    const lagTop = Math.min(N - 1, lagMax * 4 + 1)
+    const acf = new Float32Array(lagTop + 1)
+    for (let lag = lagMin; lag <= lagTop; lag++) {
       let s = 0
       for (let i = lag; i < N; i++) s += e[i] * e[i - lag]
       acf[lag] = s / norm
     }
 
+    // comb filterbank over the ACF (BTrack-style): a true tempo scores on all
+    // its harmonics, an alias only on some — with a Rayleigh prior around 126
+    // BPM so octave errors resolve toward the club range
+    const rayleighPeak = 60000 / 126 / msPerFrame // lag of 126 BPM
     let bestLag = 0, bestScore = 0
     for (let lag = lagMin; lag <= lagMax; lag++) {
-      // reward the harmonic (half tempo) so 130 beats its 260 alias
-      let score = acf[lag] + 0.5 * (2 * lag <= lagMax ? acf[2 * lag] : 0)
-      const bpm = 60000 / (lag * msPerFrame)
-      if (bpm >= 118 && bpm <= 152) score *= 1.1 // club prior
+      let score = 0
+      for (let k = 1; k <= 4; k++) {
+        const kl = k * lag
+        if (kl >= N) break
+        // ±1 lag tolerance per harmonic: real music jitters
+        const a = Math.max(acfAt(acf, kl - 1, lagTop), acfAt(acf, kl, lagTop), acfAt(acf, kl + 1, lagTop))
+        score += a / k
+      }
+      const r = lag / (rayleighPeak * rayleighPeak) * Math.exp(-(lag * lag) / (2 * rayleighPeak * rayleighPeak))
+      score *= r * rayleighPeak * 1.65 // normalized so the peak of the prior ≈ 1
       if (score > bestScore) { bestScore = score; bestLag = lag }
     }
     if (!bestLag) return
 
-    const bpm = 60000 / (bestLag * msPerFrame)
-    const conf = Math.max(0, Math.min(1, bestScore * 2))
-    // smooth: jumpy estimates lower confidence instead of yanking the tempo
-    if (this.acfBpm > 0 && Math.abs(bpm - this.acfBpm) < 3) {
-      this.acfBpm = this.acfBpm * 0.8 + bpm * 0.2
-      this.acfConfidence = Math.min(1, this.acfConfidence + 0.15)
+    // parabolic interpolation around the winning lag → sub-frame BPM precision
+    let lagF = bestLag
+    if (bestLag > lagMin && bestLag < lagMax) {
+      const y0 = acf[bestLag - 1], y1 = acf[bestLag], y2 = acf[bestLag + 1]
+      const denom = y0 - 2 * y1 + y2
+      if (Math.abs(denom) > 1e-9) lagF = bestLag + 0.5 * (y0 - y2) / denom
+    }
+    const bpm = 60000 / (lagF * msPerFrame)
+
+    // median of the recent raw candidates: one bad window can't yank the tempo
+    this.tempoCandidates.push(bpm)
+    if (this.tempoCandidates.length > 5) this.tempoCandidates.shift()
+    if (this.tempoCandidates.length < 3) return
+    const sorted = [...this.tempoCandidates].sort((a, b) => a - b)
+    const medBpm = sorted[sorted.length >> 1]
+    // agreement among candidates = confidence
+    const spread = sorted[sorted.length - 1] - sorted[0]
+
+    if (this.acfBpm > 0 && Math.abs(medBpm - this.acfBpm) < 3) {
+      this.acfBpm = this.acfBpm * 0.8 + medBpm * 0.2
+      this.acfConfidence = Math.min(1, this.acfConfidence + (spread < 2 ? 0.2 : 0.05))
     } else {
-      this.acfBpm = bpm
-      this.acfConfidence = conf * 0.5
+      this.acfBpm = medBpm
+      this.acfConfidence = spread < 2 ? 0.4 : 0.2
     }
   }
 }
