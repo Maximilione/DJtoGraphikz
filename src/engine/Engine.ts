@@ -964,6 +964,7 @@ export class Engine {
   }
 
   isUsingCustomShader(): boolean { return this.usingCustom }
+  getCustomShaderSource(): string { return this.usingCustom ? this.customShaderSource : '' }
 
   private paramBucket(): Record<string, ParamState> {
     const key = this.usingCustom ? '__custom__' : this.currentEffect
