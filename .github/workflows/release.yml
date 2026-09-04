@@ -1,0 +1,37 @@
+name: Release
+
+# Ogni tag v* compila gli installer per macOS/Windows/Linux e li pubblica
+# nella release GitHub corrispondente. Avviabile anche a mano.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      - run: yarn build
+
+      # CSC_IDENTITY_AUTO_DISCOVERY=false: niente firma in CI (build unsigned,
+      # su Mac si apre con tasto destro → Apri)
+      - run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
