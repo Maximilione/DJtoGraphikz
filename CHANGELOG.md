@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.21.1-beta] — 2026-09-04
+
+### Fixed
+- **Finestra output decentrata**: il fullscreen veniva applicato prima che la finestra fosse pronta (regressione 0.14.0) — ora aspetta `ready-to-show` e riapplica i bounds del display
+- La risoluzione dinamica non scatta più durante l'avvio (warmup portato a ~5 secondi: lo spawn della finestra output rallenta i primi frame)
+
 ## [0.21.0-beta] — 2026-09-04
 
 ### Changed
