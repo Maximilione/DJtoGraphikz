@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.20.1-beta] — 2026-09-04
+
+### Fixed
+- Risoluzione dinamica più aggressiva per i raymarcher volumetrici (es. "Cloudy Shapes": 32 step × 8 shadow step per pixel) — passo di riduzione proporzionale al ritardo (da 15fps converge a fluido in ~1s invece di 12), pavimento al 30% invece del 50%
+
 ## [0.20.0-beta] — 2026-09-04
 
 ### Added
