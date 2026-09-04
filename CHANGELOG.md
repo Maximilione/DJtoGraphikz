@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.18.0-beta] — 2026-09-04
+
+### Changed
+- **Motore audio riscritto (BeatTracker)** — onset in scala logaritmica (indipendente dal volume), soglia mediana+MAD (regge i build-up), peak-picking anti doppi trigger, **fase agganciata con PLL** (correzione morbida, mai strappi sui falsi beat), rilevamento anti-fase (se si aggancia sugli hats si corregge da solo), **stima BPM propria** ad autocorrelazione sulla banda kick (niente alias 3:2 dagli hats) che copre i buchi della libreria, downbeat stimato dall'energia dei 4 slot. Verificato con pattern sintetici: 130/174/124 BPM entro ±2, 100% dei beat allineati, zero doppi, silenzio muto.
+- **Mappatura parametri rifatta** — ogni parametro ha una **chip colorata** (verde=bass, ambra=mid, azzurro=high, rosso=beat, viola=LFO) che mostra sorgente e profondità; tocca la chip e si apre un editor con griglia di sorgenti a bersagli grandi, slider profondità e velocità LFO a bottoni. Niente più menu a tendina microscopici.
+
 ## [0.17.0-beta] — 2026-09-04
 
 ### Added
