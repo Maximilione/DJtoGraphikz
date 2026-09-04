@@ -70,7 +70,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 - Editor GLSL live con validazione (gli shader rotti vengono respinti con l'errore esatto).
 - **Libreria ISF online** — sfoglia ~3.700 generator di [editor.isf.video](https://editor.isf.video) con thumbnail e ricerca, import con un click; "Importa file…" accetta anche gli `.zip` scaricati dal sito.
 - Gli shader in `~/.djtographikz/isf` compaiono come categoria nel pannello Effects, con slider automatici audio-mappabili.
-- **⚡ Smart map** (in testa al pannello Parametri, per qualsiasi effetto): un tasto mappa tutti i parametri all'audio in base al nome, con Annulla nel toast.
+- **⚡ Smart map** (in testa al pannello Parametri, per qualsiasi effetto): un tasto mappa tutti i parametri all'audio analizzando nome e uso reale nel codice dello shader (geometria→bass, colori→LFO lento, soglie→beat), con budget di ruoli per non strobare tutto insieme e Annulla nel toast.
 - Shader con **input image**: scegli un'immagine per ogni input e finisce dentro lo shader (anche sull'output).
 
 ### Output e registrazione
