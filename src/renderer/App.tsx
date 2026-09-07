@@ -74,6 +74,8 @@ function loadSettings(): Partial<EngineState> | null {
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [engine, setEngine] = useState<Engine | null>(null)
+  const engineRef = React.useRef<Engine | null>(null)
+  engineRef.current = engine
   const [fps, setFps] = useState(0)
   const [outputRes, setOutputRes] = useState('1920x1080')
   const [brightness, setBrightness] = useState(1)
@@ -304,6 +306,8 @@ export function App() {
 
   const changeVJGenre = useCallback((g: Genre) => {
     vjRef.current.setGenre(g)
+    // the genre is the best tempo hint we have — center the BPM search on it
+    engineRef.current?.audioAnalyzer.setTempoPrior(GENRE_CONFIGS[g].preferredBpm)
     setVjGenre(g)
     try { window.api?.sendRemoteVj({ enabled: vjRef.current.isEnabled(), genre: g }) } catch (_) {}
   }, [])

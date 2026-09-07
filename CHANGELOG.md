@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.0-beta] — 2026-09-07
+
+### Changed
+- **BPM v4** — envelope degli onset su **griglia fissa a 100Hz con timestamp reali** (il jitter del frame rate e la risoluzione dinamica non spostano più il tempo: errore max ±0.5%, prima ~±1.5%), **voto a doppia banda** (kick + spettro pieno: il tempo regge anche nei breakdown senza cassa), e **prior di genere**: il genere scelto nell'AutoVJ centra la ricerca del tempo (dnb cerca intorno a 174, ambient a 95 — gli errori d'ottava spariscono). 10 casi di test sintetici tutti verdi, incluso frame timing casuale 12-24ms
+
 ## [0.25.1-beta] — 2026-09-07
 
 ### Fixed

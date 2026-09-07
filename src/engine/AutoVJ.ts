@@ -38,6 +38,8 @@ export interface GenreConfig {
   transitionStyle: 'fast' | 'medium' | 'slow'
   switchBeats: number           // beats between effect changes
   energyThreshold: number       // 0-1, above this = high energy mode
+  /** typical BPM of the genre — centers the beat tracker's tempo prior */
+  preferredBpm: number
 }
 
 // shorthand builders keep the tables readable
@@ -73,6 +75,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'fast',
     switchBeats: 16,
     energyThreshold: 0.4,
+    preferredBpm: 140,
   },
   'dark-industrial': {
     label: 'Dark Industrial',
@@ -101,6 +104,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'medium',
     switchBeats: 32,
     energyThreshold: 0.5,
+    preferredBpm: 135,
   },
   'minimal-hypnotic': {
     label: 'Minimal Hypnotic',
@@ -129,6 +133,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'slow',
     switchBeats: 64,
     energyThreshold: 0.3,
+    preferredBpm: 128,
   },
   'hard-tekno': {
     label: 'Hard Tekno',
@@ -158,6 +163,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'fast',
     switchBeats: 16,
     energyThreshold: 0.5,
+    preferredBpm: 155,
   },
   'trance': {
     label: 'Trance',
@@ -187,6 +193,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'slow',
     switchBeats: 32,
     energyThreshold: 0.35,
+    preferredBpm: 138,
   },
   'drum-n-bass': {
     label: 'Drum & Bass',
@@ -215,6 +222,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'fast',
     switchBeats: 8,
     energyThreshold: 0.45,
+    preferredBpm: 174,
   },
   'ambient': {
     label: 'Ambient',
@@ -244,6 +252,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'slow',
     switchBeats: 64,
     energyThreshold: 0.2,
+    preferredBpm: 95,
   },
   'gabber': {
     label: 'Gabber',
@@ -271,6 +280,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'fast',
     switchBeats: 8,
     energyThreshold: 0.6,
+    preferredBpm: 185,
   },
   'tech-house': {
     label: 'Tech House',
@@ -298,6 +308,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'medium',
     switchBeats: 32,
     energyThreshold: 0.4,
+    preferredBpm: 125,
   },
   'psytrance': {
     label: 'Psytrance',
@@ -325,6 +336,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'fast',
     switchBeats: 16,
     energyThreshold: 0.45,
+    preferredBpm: 145,
   },
 }
 
