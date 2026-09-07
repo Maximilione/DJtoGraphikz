@@ -6,7 +6,10 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; cursor: none; }
-    canvas { display: block; width: 100%; height: 100%; }
+    /* letterbox: the engine sizes the canvas to the output aspect ratio,
+       the body centers it — a resized window shows bars, never distortion */
+    body { display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; }
   </style>
 </head>
 <body>

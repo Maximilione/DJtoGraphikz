@@ -26,4 +26,8 @@ window.api?.onOverlayAdd((data: any) => {
 window.api?.onOverlayRemove((id: string) => engine.removeOverlay(id))
 window.api?.onOverlayUpdate((id: string, updates: any) => engine.updateOverlay(id, updates))
 
-window.api?.onOutputResolution((w: number, h: number) => engine.setRenderSize(w, h))
+window.api?.onOutputResolution((w: number, h: number) => {
+  engine.setRenderSize(w, h)
+  // the letterbox depends on the output aspect — recompute it
+  window.dispatchEvent(new Event('resize'))
+})
