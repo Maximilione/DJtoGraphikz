@@ -5,6 +5,14 @@ const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
 const engine = new Engine(canvas, { remote: true })
 engine.start()
 
+// Release gate: hand back the real projector frame on request
+window.api?.onSelfTestShot?.(() => {
+  engine.screenshot().then(blob => {
+    if (!blob) return
+    blob.arrayBuffer().then(buf => window.api?.sendSelfTestData?.(buf))
+  })
+})
+
 // Tell main we are actually painting, so it can enter fullscreen safely
 {
   let announced = false
@@ -23,16 +31,16 @@ engine.start()
 // "No signal" placard: distinguishes a window that is present but idle from a
 // window that never made it onto the projector at all.
 const noSignal = document.getElementById('nosignal')
-let lastStateAt = 0
 let lastFrames = -1
 setInterval(() => {
   if (!noSignal) return
-  const h = engine.health()
-  const frames = Number((h.match(/frames=(\d+)/) || [])[1] ?? 0)
-  const stalled = frames === lastFrames
+  const frames = Number((engine.health().match(/frames=(\d+)/) || [])[1] ?? 0)
+  // Only a stalled renderer is a real "no signal": a projector painting the
+  // current look receives no state updates at all when nothing changes, and
+  // flagging that would put the placard on top of a working visual.
+  const stalled = lastFrames >= 0 && frames === lastFrames
   lastFrames = frames
-  const noState = lastStateAt === 0 && performance.now() > 8000
-  noSignal.classList.toggle('on', noState || stalled)
+  noSignal.classList.toggle('on', stalled)
 }, 2000)
 
 // Heartbeat: a black projector must be explainable from the log alone
@@ -43,7 +51,7 @@ setInterval(() => {
   } catch { /* no api */ }
 }, 5000)
 
-window.api?.onEngineState((state: any) => { lastStateAt = performance.now(); engine.applyRemoteState(state) })
+window.api?.onEngineState((state: any) => engine.applyRemoteState(state))
 window.api?.onAudioData((data: any) => engine.setAudioData(data))
 
 window.api?.onOverlayAdd((data: any) => {
