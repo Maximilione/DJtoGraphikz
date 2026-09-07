@@ -104,6 +104,12 @@ function createOutputWindow(): BrowserWindow {
     win.loadFile(join(__dirname, '../renderer/output.html'))
   }
 
+  // Output renderer errors were invisible until now: without this, a broken
+  // projector window fails silently and looks like "black screen"
+  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level >= 2) console.error(`[OUTPUT ERROR] ${message} (${sourceId}:${line})`)
+  })
+
   // Initial-state handshake: replay cached engine state + overlays so the
   // projector never sits on defaults (output-main.ts subscribes at load)
   win.webContents.on('did-finish-load', () => {
