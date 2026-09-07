@@ -83,6 +83,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 - Dual window: control + fullscreen output on any display, 720p-4K resolution; the preview can shrink to a strip to give panels more room.
 - **WebM recording** (🔴 in the top bar, VP9 12Mbps) and **PNG screenshots** (📷).
 - **Update notifications** — the app checks GitHub releases and links you to the newest installer.
+- **Session log** — every run writes to `~/.djtographikz/logs/` (app, control window and projector window, plus display topology); open it from **?** -> "Apri log della sessione" and attach it to a bug report.
 
 ## Development
 
