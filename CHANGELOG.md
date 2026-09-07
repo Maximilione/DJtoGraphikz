@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.25.1-beta] — 2026-09-07
+
+### Fixed
+- **PS2 e Snow rifatti da zero** (il primo tentativo era piatto e brutto — verificato con render reali stavolta): le torri PS2 sono ora **prismi 3D veri** (raycast a colonne con facce, occlusione, corridoio di camera, riflessi e lucciole nella nebbia blu); la pista da snowboard ha **camera che banka in curva**, alberi e porte slalom proiettati in 3D con bandierine, tavola in campo, spray e salto sul kick
+
 ## [0.25.0-beta] — 2026-09-07
 
 ### Added
