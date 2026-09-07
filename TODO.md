@@ -137,9 +137,9 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 
 Rilettura del parcheggio: due voci NON richiedono native addon, e manca l'auto-update.
 
-- [ ] **Auto-update** — electron-updater: la Action pubblica già latest.yml/blockmap, manca solo il wiring; con una release al giorno scaricare il .dmg a mano è il collo di bottiglia. Nota: su macOS l'update automatico richiede firma (altrimenti solo notifica "nuova versione" + link) · S/M
-- [ ] **DMX via ArtNet** — riclassificato: ArtNet è UDP puro, ZERO native addon (già facciamo OSC UDP in main). Luci a tempo col beat/energia: fixture map semplice, colore dalla palette, dimmer dall'energia · M
-- [ ] **Projection mapping (keystone/quad-warp)** — riclassificato: è un pass shader sull'output, zero addon. Proiettore storto = ogni serata; 4 angoli trascinabili · M
+- [x] **Notifica aggiornamenti** — fatto in v0.23.0: check GitHub releases ogni 6h, toast "Scarica" con link (build non firmate = niente auto-install, notifica onesta)
+- [x] **DMX via ArtNet** — fatto in v0.23.0: pannello Luci DMX, PAR RGB su palette + energia/bass/beat, UDP :6454, zero native addon
+- [x] **Projection mapping** — fatto in v0.23.0: pannello Mapping, 4 angoli trascinabili, omografia su CPU + warp nel master shader, stato persistito
 - [ ] **GIF export** — retrocesso, coperto dal recording WebM · ½g
 
 ## PARCHEGGIO — native addon veri, restano parcheggiati
