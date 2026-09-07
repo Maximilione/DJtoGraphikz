@@ -19,6 +19,8 @@ const GENRES: { id: Genre; label: string; desc: string }[] = [
   { id: 'drum-n-bass', label: 'Drum & Bass', desc: 'Rapido, energico, particelle' },
   { id: 'ambient', label: 'Ambient', desc: 'Calmo, fluido, colori tenui' },
   { id: 'gabber', label: 'Gabber', desc: 'Caos totale, glitch, velocissimo' },
+  { id: 'tech-house', label: 'Tech House', desc: 'Groove caldo, geometrie morbide' },
+  { id: 'psytrance', label: 'Psytrance', desc: 'Frattali, caleidoscopi, acidissimo' },
 ]
 
 export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {

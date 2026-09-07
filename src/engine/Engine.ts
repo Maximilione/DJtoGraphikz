@@ -36,6 +36,8 @@ import neonpolyFrag from './shaders/neonpoly.frag?raw'
 import inkflowFrag from './shaders/inkflow.frag?raw'
 import raymarchFrag from './shaders/raymarch.frag?raw'
 import ripplesFrag from './shaders/ripples.frag?raw'
+import ps2towersFrag from './shaders/ps2towers.frag?raw'
+import snowrideFrag from './shaders/snowride.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -105,6 +107,7 @@ export type EffectId =
   | 'hexagons' | 'dna'
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
+  | 'ps2towers' | 'snowride'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -230,6 +233,8 @@ const EFFECT_SHADERS: Record<EffectId, string> = {
   inkflow: inkflowFrag,
   raymarch: raymarchFrag,
   ripples: ripplesFrag,
+  ps2towers: ps2towersFrag,
+  snowride: snowrideFrag,
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']
