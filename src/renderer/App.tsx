@@ -150,9 +150,15 @@ export function App() {
 
     // Wire AutoVJ → engine
     const vj = vjRef.current
-    vj.onEffectChange = (effect) => {
-      eng.setEffect(effect)
-      setVjStatus(prev => ({ current: effect, count: prev.count + 1 }))
+    vj.onSceneChange = (scene) => {
+      eng.setEffect(scene.effect)
+      // tuned params + audio mappings make the scene, not just the effect
+      for (const [key, sp] of Object.entries(scene.params ?? {})) {
+        if (typeof sp.value === 'number') eng.setParamValue(key, sp.value)
+        if (sp.source) eng.setParamMapping(key, sp.source, sp.depth ?? 0.5, sp.lfoRate)
+        else eng.setParamMapping(key, 'none', 0.5)
+      }
+      setVjStatus(prev => ({ current: scene.effect, count: prev.count + 1 }))
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
@@ -173,7 +179,7 @@ export function App() {
     setEngine(eng)
     return () => {
       unsubscribe()
-      vj.onEffectChange = null
+      vj.onSceneChange = null
       vj.onPostChange = null
       vj.onPaletteChange = null
       eng.dispose()
