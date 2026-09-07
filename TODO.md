@@ -39,6 +39,23 @@
 - [x] **Pannello Media unificato** — immagini/GIF/video/webcam stesso flusso, thumbnail live, scelta camera (v0.7.0)
 - [x] **Remote mobile a parità completa** — data-driven, sempre allineato alla versione dell'app (v0.7.0)
 
+## BATCH 2026-09-04 (v0.13 → v0.22) — tutto fatto
+
+- [x] **Release automatiche multi-OS** — GitHub Action su tag `v*`: .dmg/.exe/.AppImage pubblicati da soli (v0.13.0)
+- [x] **README bilingue** — inglese principale + italiano, istruzioni installazione per OS, changelog linkato
+- [x] **Telefono: banner disconnessione** — overlay fullscreen quando l'app non risponde (v0.13.1)
+- [x] **Libreria ISF online** — browser di ~3.700 generator da editor.isf.video, thumbnail, ricerca, import 1 click; import file .fs/.zip (v0.14.0)
+- [x] **Compatibilità ISF estesa** — 97% dei generator del sito carica: hoist init globali (GLSL ES), input color/point2D/long/event/image, macro IMG_*, mouse animato (v0.15-0.16.1)
+- [x] **Input image negli ISF** — picker immagine per input, texture sincronizzata sull'output (v0.14.0)
+- [x] **Smart map v2** — mappa i parametri all'audio analizzando nome + uso reale nel sorgente GLSL, budget di ruoli, undo (v0.16.0)
+- [x] **Motore audio BeatTracker** — SuperFlux, soglia mediana+MAD, fase PLL con anti-fase, downbeat stimato, BPM proprio ad autocorrelazione banda kick con comb+Rayleigh; harness sintetico 90-174 BPM ±2 (v0.18-0.19)
+- [x] **Mappatura parametri a chip** — chip colorate per sorgente, editor a bersagli grandi (v0.18.0)
+- [x] **Risoluzione dinamica** — gli shader pesanti (raymarcher ISF) scalano i buffer invece di laggare, floor 30%, spike-proof (v0.20-0.21)
+- [x] **Pass performance** — depth/clear eliminati, blackout a costo zero, dry-post skip, high-performance GPU (v0.21.0)
+- [x] **Fix crash fullscreen macOS** — output decentrato/crash in _NSEnterFullScreenTransition: fullscreen dopo ready-to-show (v0.21.1)
+- [x] **Fire rifatto** — domain warping, rampa temperatura, braci, scintille (v0.22.0)
+- [x] **Preview riducibile**, nomi ISF completi, errori di link leggibili (v0.17.0)
+
 ## ROADMAP USABILITÀ (2026-08-28) — obiettivo: intuitivo da usare al buio, sotto pressione, da chiunque
 
 Il software è feature-complete; ora il collo di bottiglia è la UX. Principio guida: durante un live
@@ -116,18 +133,23 @@ della serata), OSC spostato fuori dal parcheggio (niente native addon), GIF expo
 15. [ ] **GIF export** — retrocesso: il recording WebM (punto 9) copre quasi tutti gli usi. [storico, riclassificato ↓] · ½g
 16. [x] **Web remote control** — fatto in v0.6.0, portato a parità completa in v0.7.0: data-driven (/defs + versione), tab LIVE/FX/MIX/COLORI/SETUP, Look Bank e parametri sul telefono
 
-## PARCHEGGIO — confermato dallo studio
+## CANDIDATI PROSSIMO BATCH (riclassificati 2026-09-07)
 
-Native addon per piattaforma o feature da prodotto maturo con utenza; nessuno sblocca il salto di livello:
+Rilettura del parcheggio: due voci NON richiedono native addon, e manca l'auto-update.
+
+- [ ] **Auto-update** — electron-updater: la Action pubblica già latest.yml/blockmap, manca solo il wiring; con una release al giorno scaricare il .dmg a mano è il collo di bottiglia. Nota: su macOS l'update automatico richiede firma (altrimenti solo notifica "nuova versione" + link) · S/M
+- [ ] **DMX via ArtNet** — riclassificato: ArtNet è UDP puro, ZERO native addon (già facciamo OSC UDP in main). Luci a tempo col beat/energia: fixture map semplice, colore dalla palette, dimmer dall'energia · M
+- [ ] **Projection mapping (keystone/quad-warp)** — riclassificato: è un pass shader sull'output, zero addon. Proiettore storto = ogni serata; 4 angoli trascinabili · M
+- [ ] **GIF export** — retrocesso, coperto dal recording WebM · ½g
+
+## PARCHEGGIO — native addon veri, restano parcheggiati
 
 - [ ] **Syphon/Spout output** — condivisione texture GPU (native addon macOS/Win)
 - [ ] **NDI output** — video via rete (SDK nativo)
 - [ ] **Ableton Link** — sync BPM via rete (native addon)
-- [ ] **DMX output via ArtNet** — controllo luci
-- [ ] **Projection mapping** — keystone/quad-warp
 - [ ] **3D geometry scenes** — mesh audio-reattive
 - [ ] **Plugin architecture** — sistema plugin terze parti
-- [ ] **Gamepad/HID support**
+- [ ] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
 
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
