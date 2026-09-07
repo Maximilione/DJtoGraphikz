@@ -22,6 +22,18 @@ const api = {
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
   readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
 
+  // Update check (notification-only: unsigned builds can't self-install)
+  onUpdateAvailable: (callback: (info: { version: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => callback(info)
+    ipcRenderer.on('update:available', handler)
+    return () => { ipcRenderer.removeListener('update:available', handler) }
+  },
+  openReleasesPage: () => ipcRenderer.send('update:open'),
+
+  // ArtNet DMX (main wraps the values in ArtDMX packets)
+  sendDmxFrame: (frame: { host: string; universe: number; values: number[] }) =>
+    ipcRenderer.send('dmx:frame', frame),
+
   // Web remote
   getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
   resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),

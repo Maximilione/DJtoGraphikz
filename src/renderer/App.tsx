@@ -11,6 +11,8 @@ import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
+import { MappingPanel } from './components/MappingPanel/MappingPanel'
+import { DmxPanel } from './components/DmxPanel/DmxPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { HelpMenu } from './components/Help/HelpMenu'
@@ -182,6 +184,16 @@ export function App() {
   // Enumerate displays for the monitor picker
   useEffect(() => {
     window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {})
+  }, [])
+
+  // Update check: main pings GitHub, we show a toast with a download link
+  useEffect(() => {
+    return window.api?.onUpdateAvailable?.(({ version }) => {
+      pushToast(`Nuova versione ${version} disponibile`, 'update', {
+        label: 'Scarica',
+        fn: () => window.api?.openReleasesPage?.(),
+      })
+    })
   }, [])
 
   // U1.2 — flash the beat dot on beatDetected: direct DOM mutation on the ref,
@@ -678,6 +690,8 @@ export function App() {
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
+            <MappingPanel engine={engine} />
+            <DmxPanel engine={engine} />
             <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
           </div>
         )}
