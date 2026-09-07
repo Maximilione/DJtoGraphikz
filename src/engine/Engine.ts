@@ -531,7 +531,14 @@ export class Engine {
 
   private handleResize = () => {
     if (this.remote) {
-      this.renderer.setSize(window.innerWidth, window.innerHeight)
+      // Letterbox: biggest rect with the OUTPUT aspect that fits the window —
+      // a resized/windowed output shows black bars instead of stretching
+      const outAspect = this.outputWidth / this.outputHeight
+      let w = window.innerWidth
+      let h = window.innerHeight
+      if (w / h > outAspect) w = Math.round(h * outAspect)
+      else h = Math.round(w / outAspect)
+      this.renderer.setSize(w, h)
       this.setRenderSize(this.outputWidth, this.outputHeight)
       return
     }
