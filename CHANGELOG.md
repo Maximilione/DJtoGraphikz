@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.22.1-beta] — 2026-09-07
+
+### Fixed
+- **Finestra output ridimensionata: niente più video deformato** — il canvas mantiene il rateo della risoluzione di output con letterbox (bande nere) invece di stirarsi alla forma della finestra; verificato con cattura reale a 800×700
+
 ## [0.22.0-beta] — 2026-09-04
 
 ### Changed
