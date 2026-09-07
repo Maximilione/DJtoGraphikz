@@ -67,6 +67,13 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'raymarch', label: 'Lattice', icon: '⌗' },
     ],
   },
+  {
+    name: 'Videogame',
+    effects: [
+      { id: 'ps2towers', label: 'PS2', icon: '▊' },
+      { id: 'snowride', label: 'Snow', icon: '❅' },
+    ],
+  },
 ]
 
 const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; icon: string; desc: string }[] }[] = [

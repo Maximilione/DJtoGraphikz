@@ -15,6 +15,8 @@ export type Genre =
   | 'drum-n-bass'
   | 'ambient'
   | 'gabber'
+  | 'tech-house'
+  | 'psytrance'
 
 export interface SceneParam {
   value?: number
@@ -56,6 +58,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'neonpoly', params: { sides: v(5), layers: v(6), thickness: a(1, 'mid', 0.5) } },
       { effect: 'plasma', params: { speed: v(1.1), zoom: a(1.3, 'bass', 0.4) } },
       { effect: 'raymarch', params: { repscale: v(2.2), glowk: a(1, 'energy', 0.5), camfov: a(1, 'bass', -0.25) } },
+      { effect: 'strobegrid', params: { cells: v(14), litratio: a(0.28, 'energy', 0.35), chaos: v(0.8) } },
+      { effect: 'shatter', params: { shards: v(16), burst: a(1.2, 'bass', 0.45), edgeglow: v(1) } },
+      { effect: 'tunnel', params: { speed: v(0.9), sides: v(12), twist: a(0.3, 'lfo-saw', 0.5, 16), ringdensity: v(6) } },
+      { effect: 'hexagons', params: { zoom: v(6), wavefreq: a(3, 'bass', 0.5) } },
+      { effect: 'dna', params: { speed: v(1.2), reactivity: v(1.3) } },
     ],
     postSets: [['bloom'], ['bloom', 'feedback'], ['bloom', 'chromatic'], ['bloom', 'rgb-split']],
     palettes: [
@@ -79,6 +86,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'pulsecity', params: { columns: v(26), gapw: v(0.2), punch: a(1.2, 'bass', 0.4) } },
       { effect: 'voronoi', params: { cells: v(12), edgewidth: a(0.04, 'high', 0.4) } },
       { effect: 'hexagons', params: { zoom: v(4), wavefreq: a(2.5, 'bass', 0.45) } },
+      { effect: 'lasers', params: { beams: v(5), spread: v(0.5), sweep: a(0.5, 'lfo-saw', 0.4, 16) } },
+      { effect: 'moire', params: { speed: v(0.8), density: v(90), moireoff: v(0.08), rotspeed: a(0.3, 'bass', 0.4) } },
+      { effect: 'vortex', params: { speed: v(0.8), arms: v(4), twist: v(2.2), pull: a(0.6, 'bass', 0.4) } },
+      { effect: 'fire', params: { falloff: v(1.1), turbulence: a(0.5, 'mid', 0.4), sparks: v(4) } },
+      { effect: 'tunnel', params: { speed: v(1), sides: v(4), twist: a(0.2, 'high', 0.4), ringdensity: v(12) } },
     ],
     postSets: [['bloom', 'scanlines'], ['bloom', 'filmgrain'], ['feedback', 'invert'], ['chromatic', 'scanlines']],
     palettes: [
@@ -102,6 +114,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'waves', params: { count: v(5), amp: a(0.09, 'bass', 0.35), freq: v(2.5) } },
       { effect: 'orbits', params: { speed: v(0.8), bodies: v(6), orbitr: v(0.5), trail: v(0.7) } },
       { effect: 'ripples', params: { spreadv: v(1.2), heightk: a(0.9, 'bass', 0.35), sheen: v(1.1) } },
+      { effect: 'ps2towers', params: { speed: v(0.7), towers: v(20), foglevel: v(1.3), orbit: v(0.5) } },
+      { effect: 'metaballs', params: { count: v(5), size: a(0.09, 'bass', 0.3), threshold: v(1.2) } },
+      { effect: 'sacred', params: { speed: v(0.7), zoom: a(1, 'lfo-sine', 0.25, 32), radius: v(0.3), ringfreq: v(6) } },
+      { effect: 'hexagons', params: { speed: v(0.7), zoom: v(3), wavefreq: a(1.5, 'lfo-sine', 0.3, 16) } },
+      { effect: 'kaleidoscope', params: { speed: v(0.7), segments: v(6), zoom: a(1, 'lfo-sine', 0.25, 32), detail: v(2.2) } },
     ],
     postSets: [['bloom'], ['bloom', 'feedback'], ['feedback']],
     palettes: [
@@ -126,6 +143,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'vortex', params: { speed: v(1.4), arms: v(5), twist: v(2), pull: a(1.2, 'bass', 0.5) } },
       { effect: 'pulsecity', params: { columns: v(18), gapw: v(0.12), punch: a(1.5, 'bass', 0.4) } },
       { effect: 'fractal', params: { iterations: v(30), zoom: a(1.4, 'bass', 0.45), morph: a(0.22, 'lfo-saw', 0.4, 4) } },
+      { effect: 'rings', params: { speed: v(1.6), ringcount: v(14), spacing: a(0.06, 'bass', 0.5), gapfreq: v(8) } },
+      { effect: 'moire', params: { speed: v(1.3), density: v(75), moireoff: a(0.18, 'bass', 0.4), rotspeed: v(0.9) } },
+      { effect: 'neonpoly', params: { speed: v(1.4), sides: v(3), layers: v(7), thickness: a(1.5, 'bass', 0.6) } },
+      { effect: 'grid', params: { speed: v(1.5), density: v(2.2), fogamt: v(0.15), wavefreq: a(2.8, 'bass', 0.5) } },
+      { effect: 'dna', params: { speed: v(1.6), reactivity: v(1.5) } },
     ],
     postSets: [['bloom', 'rgb-split'], ['bloom', 'chromatic', 'filmgrain'], ['feedback', 'bloom'], ['pixelate', 'bloom']],
     palettes: [
@@ -149,6 +171,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'neonpoly', params: { sides: v(6), layers: v(7), thickness: a(0.9, 'lfo-sine', 0.4, 8) } },
       { effect: 'waves', params: { count: v(7), amp: a(0.1, 'bass', 0.4), freq: v(3) } },
       { effect: 'fluid', params: { zoom: v(1.3), swirl: a(1.4, 'lfo-sine', 0.35, 16) } },
+      { effect: 'ps2towers', params: { towers: v(32), foglevel: v(0.9), orbit: a(0.8, 'energy', 0.3) } },
+      { effect: 'snowride', params: { pistewidth: v(1.2), curviness: a(0.8, 'lfo-sine', 0.4, 32), gates: v(5) } },
+      { effect: 'plasma', params: { speed: v(0.9), zoom: v(1.1), ringfreq: a(14, 'lfo-sine', 0.3, 16) } },
+      { effect: 'lissajous', params: { freqa: v(3), freqb: a(5, 'lfo-sine', 0.25, 32), size: v(0.45) } },
+      { effect: 'ripples', params: { spreadv: v(1.6), heightk: a(1.1, 'bass', 0.4), sheen: v(1.4) } },
     ],
     postSets: [['bloom', 'feedback'], ['bloom', 'chromatic'], ['bloom']],
     palettes: [
@@ -173,6 +200,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'tunnel', params: { speed: v(1.4), sides: v(8), twist: a(0.6, 'high', 0.4), ringdensity: v(9) } },
       { effect: 'strobegrid', params: { cells: v(14), litratio: v(0.25), chaos: a(0.8, 'high', 0.3) } },
       { effect: 'orbits', params: { speed: v(1.5), bodies: v(12), orbitr: v(0.6), trail: a(0.6, 'energy', 0.4) } },
+      { effect: 'snowride', params: { speed: v(1.5), pistewidth: v(0.8), curviness: v(1.3), gates: v(9) } },
+      { effect: 'vortex', params: { speed: v(1.3), arms: v(4), twist: a(1.8, 'high', 0.4), pull: v(1.1) } },
+      { effect: 'raymarch', params: { speed: v(1.3), repscale: v(3), glowk: a(1.2, 'energy', 0.5), camfov: v(0.9) } },
+      { effect: 'fractal', params: { iterations: v(24), zoom: a(1.2, 'bass', 0.5), morph: a(0.18, 'lfo-saw', 0.5, 2) } },
+      { effect: 'waves', params: { speed: v(1.4), count: v(8), amp: a(0.11, 'bass', 0.5), freq: v(4) } },
     ],
     postSets: [['bloom', 'rgb-split'], ['bloom', 'chromatic'], ['feedback', 'bloom']],
     palettes: [
@@ -196,6 +228,11 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'orbits', params: { speed: v(0.55), bodies: v(5), orbitr: v(0.55), trail: v(0.85) } },
       { effect: 'terrain', params: { speed: v(0.6), ridges: v(8), horizon: v(0.55), glowamt: v(0.8) } },
       { effect: 'plasma', params: { speed: v(0.6), zoom: v(1), ringfreq: a(12, 'lfo-sine', 0.25, 32) } },
+      { effect: 'ps2towers', params: { speed: v(0.5), towers: v(16), foglevel: v(1.6), orbit: v(0.3) } },
+      { effect: 'terrain', params: { speed: v(0.45), ridges: v(6), horizon: v(0.6), glowamt: v(0.6) } },
+      { effect: 'sacred', params: { speed: v(0.5), zoom: v(1.1), radius: v(0.35), ringfreq: a(6, 'lfo-sine', 0.2, 32) } },
+      { effect: 'mandala', params: { speed: v(0.5), symmetry: v(10), ringfreq: a(6, 'lfo-sine', 0.2, 32) } },
+      { effect: 'lissajous', params: { speed: v(0.5), freqa: v(2), freqb: v(3), size: v(0.5) } },
     ],
     postSets: [['bloom', 'feedback'], ['bloom'], ['feedback']],
     palettes: [
@@ -220,6 +257,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       { effect: 'raymarch', params: { speed: v(1.8), repscale: v(3.2), glowk: v(1.5), camfov: v(0.85) } },
       { effect: 'moire', params: { speed: v(1.5), density: v(85), moireoff: v(0.2), rotspeed: v(1.2) } },
       { effect: 'vortex', params: { speed: v(1.8), arms: v(6), twist: v(2.5), pull: v(1.6) } },
+      { effect: 'pulsecity', params: { speed: v(1.6), columns: v(12), gapw: v(0.08), punch: v(2) } },
+      { effect: 'rings', params: { speed: v(2), ringcount: v(16), spacing: v(0.05), gapfreq: v(8) } },
+      { effect: 'fractal', params: { speed: v(1.7), iterations: v(40), zoom: a(1.6, 'bass', 0.5), morph: v(0.3) } },
+      { effect: 'particles', params: { speed: v(1.8), count: v(40), size: a(0.015, 'bass', 0.6), spread: v(1.2) } },
     ],
     postSets: [['bloom', 'rgb-split', 'filmgrain'], ['bloom', 'pixelate'], ['chromatic', 'scanlines', 'bloom'], ['invert', 'bloom']],
     palettes: [
@@ -230,6 +271,60 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     transitionStyle: 'fast',
     switchBeats: 8,
     energyThreshold: 0.6,
+  },
+  'tech-house': {
+    label: 'Tech House',
+    scenes: [
+      { effect: 'metaballs', params: { count: v(7), size: a(0.1, 'bass', 0.4), threshold: v(1) } },
+      { effect: 'voronoi', params: { cells: v(9), edgewidth: a(0.05, 'mid', 0.4) } },
+      { effect: 'hexagons', params: { zoom: v(5), wavefreq: a(2, 'bass', 0.4) } },
+      { effect: 'pulsecity', params: { columns: v(22), gapw: v(0.18), punch: a(1, 'bass', 0.4) } },
+      { effect: 'orbits', params: { bodies: v(8), orbitr: v(0.55), trail: v(0.6) } },
+      { effect: 'rings', params: { ringcount: v(8), spacing: a(0.09, 'bass', 0.35), gapfreq: v(5) } },
+      { effect: 'waves', params: { count: v(6), amp: a(0.08, 'bass', 0.4), freq: v(3) } },
+      { effect: 'fluid', params: { zoom: v(1.2), swirl: a(1.2, 'lfo-sine', 0.3, 16) } },
+      { effect: 'moire', params: { density: v(38), moireoff: a(0.1, 'lfo-sine', 0.3, 16), rotspeed: v(0.45) } },
+      { effect: 'neonpoly', params: { sides: v(6), layers: v(5), thickness: a(0.8, 'mid', 0.45) } },
+      { effect: 'kaleidoscope', params: { segments: v(10), zoom: a(1.1, 'bass', 0.3), detail: v(2) } },
+      { effect: 'ripples', params: { spreadv: v(1.4), heightk: a(1, 'bass', 0.4), sheen: v(1.2) } },
+    ],
+    postSets: [['bloom'], ['bloom', 'chromatic'], ['bloom', 'filmgrain'], ['bloom', 'feedback']],
+    palettes: [
+      ['#ff6b35', '#f7c59f', '#1a535c'],
+      ['#ffd700', '#daa520', '#b8860b'],
+      ['#ff71ce', '#01cdfe', '#b967ff'],
+      ['#0077b6', '#00b4d8', '#90e0ef'],
+    ],
+    transitionStyle: 'medium',
+    switchBeats: 32,
+    energyThreshold: 0.4,
+  },
+  'psytrance': {
+    label: 'Psytrance',
+    scenes: [
+      { effect: 'fractal', params: { iterations: v(36), zoom: a(1.3, 'bass', 0.5), morph: a(0.25, 'lfo-sine', 0.5, 8) } },
+      { effect: 'kaleidoscope', params: { segments: v(16), zoom: a(1.3, 'bass', 0.45), detail: v(2.8) } },
+      { effect: 'sacred', params: { zoom: a(1.2, 'lfo-sine', 0.4, 16), radius: v(0.32), ringfreq: v(8) } },
+      { effect: 'mandala', params: { symmetry: v(14), ringfreq: a(7, 'bass', 0.4) } },
+      { effect: 'vortex', params: { arms: v(6), twist: a(2.2, 'lfo-sine', 0.4, 8), pull: a(1, 'bass', 0.5) } },
+      { effect: 'moire', params: { density: v(65), moireoff: a(0.15, 'lfo-sine', 0.45, 8), rotspeed: v(0.8) } },
+      { effect: 'plasma', params: { speed: v(1.2), zoom: a(1.4, 'bass', 0.45), ringfreq: v(20) } },
+      { effect: 'warp', params: { zoom: v(1.3), warpamt: a(1.5, 'mid', 0.5), linefreq: v(8) } },
+      { effect: 'raymarch', params: { repscale: v(2.5), glowk: a(1.2, 'energy', 0.5), camfov: a(1.1, 'bass', -0.3) } },
+      { effect: 'neonpoly', params: { sides: v(7), layers: v(8), thickness: a(1.1, 'lfo-sine', 0.5, 4) } },
+      { effect: 'starfield', params: { speed: v(1.4), tile: v(6), density: a(0.5, 'energy', 0.35) } },
+      { effect: 'dna', params: { speed: v(1.3), reactivity: v(1.4) } },
+    ],
+    postSets: [['bloom', 'feedback'], ['bloom', 'chromatic'], ['bloom', 'rgb-split'], ['bloom']],
+    palettes: [
+      ['#00ff00', '#aaff00', '#00ff88'],
+      ['#00ff88', '#ff00ff', '#4444ff'],
+      ['#00ff87', '#60efff', '#ff00e5'],
+      ['#f72585', '#7209b7', '#3a0ca3'],
+    ],
+    transitionStyle: 'fast',
+    switchBeats: 16,
+    energyThreshold: 0.45,
   },
 }
 

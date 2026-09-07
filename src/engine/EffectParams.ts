@@ -182,6 +182,16 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glowk', label: 'Glow', min: 0, max: 2, default: 1 },
     { key: 'camfov', label: 'FOV', min: 0.6, max: 1.6, default: 1 },
   ],
+  ps2towers: [
+    { key: 'towers', label: 'Towers', min: 8, max: 48, default: 28 },
+    { key: 'foglevel', label: 'Fog', min: 0, max: 2, default: 1 },
+    { key: 'orbit', label: 'Orbit', min: 0, max: 2, default: 0.8 },
+  ],
+  snowride: [
+    { key: 'pistewidth', label: 'Piste', min: 0.4, max: 2, default: 1 },
+    { key: 'curviness', label: 'Curve', min: 0, max: 2, default: 0.9 },
+    { key: 'gates', label: 'Gates', min: 0, max: 11, default: 6 },
+  ],
   ripples: [
     { key: 'spreadv', label: 'Spread', min: 0.5, max: 3, default: 1.5 },
     { key: 'heightk', label: 'Height', min: 0.2, max: 2.5, default: 1 },
