@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.23.0-beta] — 2026-09-07
+
+### Added
+- **Notifica aggiornamenti** — l'app controlla le release GitHub ogni 6 ore e mostra un toast "Nuova versione X — Scarica" che apre la pagina di download (le build non firmate non possono auto-installarsi, quindi il flusso onesto è notifica + link)
+- **Projection mapping (keystone/quad-warp)** — pannello Mapping: trascina i 4 angoli per adattare l'immagine a un proiettore storto; omografia calcolata su CPU, warp nel master shader, nero fuori dal quad, stato sincronizzato sull'output e persistito, reset con Annulla
+- **Luci DMX via ArtNet** — pannello Luci DMX: PAR RGB che seguono la palette e pulsano con energia/bass/beat, flash sul beat opzionale; UDP :6454 broadcast o verso un nodo specifico, universo/canale base/numero fixture configurabili — nessun hardware richiesto oltre a un'interfaccia ArtNet
+
 ## [0.22.1-beta] — 2026-09-07
 
 ### Fixed
