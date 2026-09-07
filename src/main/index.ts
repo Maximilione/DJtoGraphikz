@@ -146,7 +146,18 @@ function createOutputWindow(): BrowserWindow {
     win.once('ready-to-show', () => {
       if (win.isDestroyed()) return
       outputDisplayId = externalDisplay.id
-      setOutputFullscreen(win, true)
+      // Going fullscreen before the renderer has painted its first frame is
+      // exactly when the projector comes up black: the macOS fullscreen
+      // transition catches a window that is not compositing yet. Wait for the
+      // output renderer to report a real frame (with a safety timeout).
+      let entered = false
+      const goFullscreen = () => {
+        if (entered || win.isDestroyed()) return
+        entered = true
+        setOutputFullscreen(win, true)
+      }
+      ipcMain.once('output:painted', goFullscreen)
+      setTimeout(goFullscreen, 2500)
     })
   }
 

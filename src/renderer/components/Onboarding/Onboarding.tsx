@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { listAudioInputs } from '../../audioDevices'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { seedFactoryLooks } from '../../factoryLooks'
 
@@ -24,10 +25,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
   useEffect(() => {
     (async () => {
       try {
-        const tmp = await navigator.mediaDevices.getUserMedia({ audio: true })
-        tmp.getTracks().forEach(t => t.stop())
-        const all = await navigator.mediaDevices.enumerateDevices()
-        const inputs = all.filter(d => d.kind === 'audioinput')
+        const inputs = await listAudioInputs()
         setDevices(inputs)
         if (inputs.length > 0) setDeviceId(inputs[0].deviceId)
       } catch (err: any) {
