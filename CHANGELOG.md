@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.25.0-beta] — 2026-09-07
+
+### Added
+- **Categoria Videogame** — 2 effetti nuovi (35 totali): **PS2** (le torri della boot screen PlayStation 2: prismi luminosi nella nebbia blu, camera orbitante, il kick alza torri nuove) e **Snow** (gameplay snowboard alla 1080°: pista pseudo-3D che serpeggia, porte slalom, spray di neve, salto sul kick, velocità dai bassi)
+- **2 generi AutoVJ nuovi** — Tech House (groove caldo, geometrie morbide) e Psytrance (frattali e caleidoscopi acidi): 10 generi totali
+
+### Changed
+- **Preset AutoVJ ampliati** — ogni genere passa da ~9 a ~14 scene curate: 136 scene totali, 126 mapping audio, con varianti accordate degli stessi effetti e i nuovi effetti videogame distribuiti dove hanno senso (PS2 in ambient/trance/minimal, Snow in trance/dnb)
+
 ## [0.24.0-beta] — 2026-09-07
 
 ### Added
