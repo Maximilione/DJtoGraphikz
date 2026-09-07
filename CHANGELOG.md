@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.24.0-beta] — 2026-09-07
+
+### Added
+- **12 effetti nuovi (la libreria passa a 33)** — Lasers (fasci con sweep), Strobe (LED wall a pattern sul kick), Vortex (spirale ipnotica), Terrain (synthwave), Orbits (sistemi orbitali con scie), Shatter (voronoi che esplode sul kick), Moiré (op-art), City (skyline-equalizer), Neon (poligoni nested), Ink (inchiostro marmorizzato), Lattice (raymarch 3D infinito), Ripples (acqua con onde dai colpi) — tutti col vocabolario audio esteso e 2-3 parametri curati
+
+### Changed
+- **AutoVJ a scene curate** — ogni genere ora ruota su ~9 scene complete (effetto + parametri accordati + mapping audio/LFO scelti musicalmente) invece di soli nomi di effetto: 73 scene, 70 mapping. Il cambio non eredita più i parametri rimasti dalla sessione — ogni switch è un look che funziona
+
 ## [0.23.0-beta] — 2026-09-07
 
 ### Added
