@@ -10,10 +10,27 @@
        the body centers it — a resized window shows bars, never distortion */
     body { display: flex; align-items: center; justify-content: center; }
     canvas { display: block; }
+    /* A projector that shows nothing must say so: without this, "window on the
+       wrong screen", "renderer dead" and "black content" all look identical. */
+    #nosignal {
+      position: fixed; inset: 0; display: none;
+      align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+      font: 600 22px/1.4 system-ui, sans-serif; color: #00ff88;
+      letter-spacing: 3px; text-transform: uppercase; background: #000;
+    }
+    #nosignal small {
+      font-size: 13px; font-weight: 400; letter-spacing: 1px;
+      color: #8b8ba3; text-transform: none;
+    }
+    #nosignal.on { display: flex; }
   </style>
 </head>
 <body>
   <canvas id="output-canvas"></canvas>
+  <div id="nosignal">
+    DJtoGraphikz &middot; in attesa di segnale
+    <small>La finestra di output &egrave; su questo schermo. Se resta cos&igrave;, il problema &egrave; il collegamento con la finestra di controllo.</small>
+  </div>
   <script type="module" src="./output-main.ts"></script>
 </body>
 </html>
