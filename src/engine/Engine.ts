@@ -1604,6 +1604,11 @@ export class Engine {
 
   getCurrentEffect(): EffectId { return this.currentEffect }
   getActivePosts(): PostId[] { return this.postChain.map(p => p.id) }
+  /** Live smoothed audio levels (already envelope-followed) — for DMX etc. */
+  getAudioLevels(): { bass: number; mid: number; high: number; energy: number; beatPulse: number } {
+    return { bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh, energy: this.smoothEnergy, beatPulse: this.beatPulse }
+  }
+
   getCurrentColors(): [string, string, string] {
     return [
       '#' + this.colors[0].getHexString(),
