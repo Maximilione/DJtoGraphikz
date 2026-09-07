@@ -35,6 +35,8 @@ const api = {
   openLogFolder: () => ipcRenderer.send('log:open'),
   logToFile: (tag: string, message: string) => ipcRenderer.send('log:renderer', tag, message),
   notifyOutputPainted: () => ipcRenderer.send('output:painted'),
+  onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
+  sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 
   // ArtNet DMX (main wraps the values in ArtDMX packets)
   sendDmxFrame: (frame: { host: string; universe: number; values: number[] }) =>
