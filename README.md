@@ -73,10 +73,16 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 - **⚡ Smart map** (at the top of the Parameters panel, for any effect): one button maps every parameter to the audio by analyzing its name and its actual use in the shader code (geometry→bass, colors→slow LFO, thresholds→beat), with a role budget so everything doesn't strobe together and Undo in the toast.
 - Shaders with **image inputs**: pick a picture for each input and it feeds the shader (on the output window too).
 
+### Lights and stage
+
+- **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
+- **Projection mapping** — drag the 4 corners (keystone/quad-warp) to fit a skewed projector.
+
 ### Output and recording
 
 - Dual window: control + fullscreen output on any display, 720p-4K resolution; the preview can shrink to a strip to give panels more room.
 - **WebM recording** (🔴 in the top bar, VP9 12Mbps) and **PNG screenshots** (📷).
+- **Update notifications** — the app checks GitHub releases and links you to the newest installer.
 
 ## Development
 
