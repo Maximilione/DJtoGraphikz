@@ -83,6 +83,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 - Doppia finestra: controllo + output fullscreen su qualsiasi display, risoluzione 720p-4K; preview riducibile a striscia per dare spazio ai pannelli.
 - **Registrazione WebM** (🔴 in top bar, VP9 12Mbps) e **screenshot PNG** (📷).
 - **Notifica aggiornamenti** — l'app controlla le release GitHub e ti porta all'installer più recente.
+- **Log di sessione** — ogni avvio scrive in `~/.djtographikz/logs/` (programma, finestra di controllo e finestra output, piu' la topologia degli schermi); si apre da **?** -> "Apri log della sessione" e si allega a una segnalazione.
 
 ## Sviluppo
 

@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.2-beta] — 2026-09-07
+
+### Added
+- **Log di sessione su file** — ogni avvio scrive in `~/.djtographikz/logs/`: errori del programma, della finestra di controllo **e della finestra output**, piu' la topologia degli schermi e dove finiscono le finestre. Si apre dal menu **?** -> "Apri log della sessione": per segnalare un problema basta allegare il file (restano le ultime 10 sessioni)
+
+### Fixed
+- **Effetto Vortex rifatto** — disegnava una macchia piatta invece della spirale: la funzione dei bracci era invertita e copriva quasi tutto lo schermo. Ora sono spire sottili che confluiscono in un cuore luminoso
+- **Proiettore su Space diverso (macOS)** — la finestra output viene ora fissata su tutti gli Space: uno dei modi in cui il secondo schermo resta nero pur risultando "visibile" al sistema
+- La risoluzione non crolla piu' al 30% quando il watchdog di rendering subentra: i frame temporizzati non vengono piu' scambiati per GPU in affanno
+
 ## [0.26.1-beta] — 2026-09-07
 
 ### Fixed
