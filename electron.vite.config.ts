@@ -25,6 +25,8 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    // DJG_VITE_PORT: run a second dev instance next to a live one (smoke tests)
+    server: process.env.DJG_VITE_PORT ? { port: +process.env.DJG_VITE_PORT, strictPort: true } : undefined,
     build: {
       rollupOptions: {
         input: {
