@@ -24,6 +24,18 @@ import ringsFrag from './shaders/rings.frag?raw'
 import fireFrag from './shaders/fire.frag?raw'
 import hexagonsFrag from './shaders/hexagons.frag?raw'
 import dnaFrag from './shaders/dna.frag?raw'
+import lasersFrag from './shaders/lasers.frag?raw'
+import strobegridFrag from './shaders/strobegrid.frag?raw'
+import vortexFrag from './shaders/vortex.frag?raw'
+import terrainFrag from './shaders/terrain.frag?raw'
+import orbitsFrag from './shaders/orbits.frag?raw'
+import shatterFrag from './shaders/shatter.frag?raw'
+import moireFrag from './shaders/moire.frag?raw'
+import pulsecityFrag from './shaders/pulsecity.frag?raw'
+import neonpolyFrag from './shaders/neonpoly.frag?raw'
+import inkflowFrag from './shaders/inkflow.frag?raw'
+import raymarchFrag from './shaders/raymarch.frag?raw'
+import ripplesFrag from './shaders/ripples.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -91,6 +103,8 @@ export type EffectId =
   | 'sacred' | 'fractal' | 'particles' | 'starfield' | 'metaballs' | 'mandala'
   | 'grid' | 'waves' | 'lissajous' | 'fluid' | 'glitch' | 'rings' | 'fire'
   | 'hexagons' | 'dna'
+  | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
+  | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -204,6 +218,18 @@ const EFFECT_SHADERS: Record<EffectId, string> = {
   fire: fireFrag,
   hexagons: hexagonsFrag,
   dna: dnaFrag,
+  lasers: lasersFrag,
+  strobegrid: strobegridFrag,
+  vortex: vortexFrag,
+  terrain: terrainFrag,
+  orbits: orbitsFrag,
+  shatter: shatterFrag,
+  moire: moireFrag,
+  pulsecity: pulsecityFrag,
+  neonpoly: neonpolyFrag,
+  inkflow: inkflowFrag,
+  raymarch: raymarchFrag,
+  ripples: ripplesFrag,
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']
