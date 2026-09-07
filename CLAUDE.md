@@ -29,3 +29,4 @@ Ad ogni batch di modifiche committato:
 - La finestra di output riusa `Engine` in modalità `remote` — mai duplicare pipeline tra le due finestre.
 - Stato condiviso finestre: sempre attraverso `stateSnapshot()` / `applyRemoteState()`, mai campi ad-hoc.
 - Verifica minima prima di committare: `npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build`.
+- **Prima di ogni release (obbligatorio): `yarn check:output`.** Avvia l'app, cattura il frame che la finestra output sta davvero dipingendo e fallisce se e' nero, uniforme o fermo. Log e contatori di frame non bastano: una release e' uscita con il proiettore nero mentre i numeri erano sani. Nessun tag senza questo controllo verde.

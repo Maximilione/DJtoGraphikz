@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.7-beta] — 2026-09-07
+
+### Fixed
+- **"In attesa di segnale" appariva sopra un visual funzionante** — il cartello introdotto nella 0.26.5 si accendeva quando la finestra di controllo non aveva aggiornamenti da inviare, anche con il proiettore che disegnava correttamente. Ora compare solo se il rendering e' davvero fermo
+
+### Added
+- **Controllo del proiettore prima delle release** (`yarn check:output`) — avvia l'app, cattura il frame che la finestra output sta realmente dipingendo e boccia la build se e' nero, uniforme o congelato: i contatori di frame da soli non bastavano a garantire che sullo schermo ci fosse qualcosa
+
 ## [0.26.6-beta] — 2026-09-07
 
 ### Fixed

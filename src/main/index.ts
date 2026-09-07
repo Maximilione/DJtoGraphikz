@@ -214,6 +214,25 @@ function ensureOutputWindow(): BrowserWindow {
 
 app.whenReady().then(async () => {
   setupDebugLog()
+
+  // Self-test hook (DJG_SELFTEST=<file>): grabs what the projector is actually
+  // painting and quits. Used by scripts/check-output.py as a release gate —
+  // logs and frame counters proved not to be enough on their own.
+  if (process.env.DJG_SELFTEST) {
+    ipcMain.on('selftest:data', async (_e, buf: ArrayBuffer) => {
+      try {
+        const { writeFileSync } = await import('fs')
+        writeFileSync(process.env.DJG_SELFTEST!, Buffer.from(buf))
+        console.log('[SelfTest] frame del proiettore salvato:', buf.byteLength, 'byte')
+      } catch (err) { console.error('[SelfTest] salvataggio fallito:', err) }
+      setTimeout(() => app.quit(), 300)
+    })
+    setTimeout(() => {
+      if (outputWindow && !outputWindow.isDestroyed()) outputWindow.webContents.send('selftest:shot')
+      else { console.error('[SelfTest] nessuna finestra output'); app.quit() }
+    }, 14000)
+    setTimeout(() => { console.error('[SelfTest] timeout'); app.quit() }, 25000)
+  }
   // On macOS, request microphone access at OS level before anything else
   if (process.platform === 'darwin') {
     const micStatus = systemPreferences.getMediaAccessStatus('microphone')
