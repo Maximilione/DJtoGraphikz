@@ -184,6 +184,16 @@ export function App() {
     window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {})
   }, [])
 
+  // Update check: main pings GitHub, we show a toast with a download link
+  useEffect(() => {
+    return window.api?.onUpdateAvailable?.(({ version }) => {
+      pushToast(`Nuova versione ${version} disponibile`, 'update', {
+        label: 'Scarica',
+        fn: () => window.api?.openReleasesPage?.(),
+      })
+    })
+  }, [])
+
   // U1.2 — flash the beat dot on beatDetected: direct DOM mutation on the ref,
   // instant jump to scale+glow then a CSS transition decays it back
   useEffect(() => {
