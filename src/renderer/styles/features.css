@@ -279,3 +279,18 @@
 }
 .pm-rate.on { color: var(--accent); border-color: var(--accent); }
 .pm-pop .micro { font-size: 10px; color: var(--text-muted); width: 62px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Il proiettore non deve mai restare nero senza dirlo: blackout o master a
+   zero sono indistinguibili da un output rotto se non li annunci. */
+.black-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 68, 85, 0.14);
+  border-bottom: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 12px;
+  padding: 5px 12px;
+}
+.black-banner strong { letter-spacing: 0.5px; }
