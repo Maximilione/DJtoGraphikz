@@ -5,6 +5,21 @@ const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
 const engine = new Engine(canvas, { remote: true })
 engine.start()
 
+// Tell main we are actually painting, so it can enter fullscreen safely
+{
+  let announced = false
+  const announce = () => {
+    if (announced) return
+    announced = true
+    window.api?.notifyOutputPainted?.()
+  }
+  const started = performance.now()
+  const poll = setInterval(() => {
+    const frames = Number((engine.health().match(/frames=(\d+)/) || [])[1] ?? 0)
+    if (frames > 2 || performance.now() - started > 2000) { clearInterval(poll); announce() }
+  }, 100)
+}
+
 // "No signal" placard: distinguishes a window that is present but idle from a
 // window that never made it onto the projector at all.
 const noSignal = document.getElementById('nosignal')

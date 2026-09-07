@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import { NumberInput } from '../NumberInput/NumberInput'
@@ -53,10 +54,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
   const refreshDevices = async () => {
     try {
-      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      tempStream.getTracks().forEach(t => t.stop())
-      const all = await navigator.mediaDevices.enumerateDevices()
-      const audioInputs = all.filter(d => d.kind === 'audioinput')
+      const audioInputs = await listAudioInputs()
       setDevices(audioInputs)
       if (audioInputs.length > 0 && !selectedDevice) {
         setSelectedDevice(audioInputs[0].deviceId)
