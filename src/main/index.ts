@@ -15,6 +15,49 @@ let controlWindow: BrowserWindow | null = null
 let outputWindow: BrowserWindow | null = null
 let quitting = false
 
+// The display the projector belongs to. Without this the window drifts: macOS
+// resolves simpleFullScreen against the CURRENT screen, so toggling fullscreen
+// eventually lands the output on the laptop and the projector goes black
+// (seen in a session log: display 2 → 1050px → display 1 fullscreen).
+let outputDisplayId: number | null = null
+
+function targetDisplay() {
+  const all = screen.getAllDisplays()
+  return all.find(d => d.id === outputDisplayId)
+    ?? all.find(d => d.bounds.x !== 0 || d.bounds.y !== 0)
+    ?? screen.getPrimaryDisplay()
+}
+
+/** Fullscreen that always resolves against the projector's own display */
+function setOutputFullscreen(win: BrowserWindow, on: boolean) {
+  const d = targetDisplay()
+  outputDisplayId = d.id
+  if (on) {
+    win.setSimpleFullScreen(false)
+    if (win.isFullScreen()) win.setFullScreen(false)
+    win.setBounds(d.bounds)          // pin to the right screen FIRST
+    win.setSimpleFullScreen(true)
+  } else {
+    win.setSimpleFullScreen(false)
+    if (win.isFullScreen()) win.setFullScreen(false)
+    win.setBounds(d.bounds)          // and stay there when leaving fullscreen
+  }
+  logLine('output', `fullscreen=${on} su display ${d.id} ${JSON.stringify(d.bounds)}`)
+}
+
+/** Put the projector back if it wandered off its display */
+function keepOutputOnItsDisplay() {
+  const win = outputWindow
+  if (!win || win.isDestroyed() || outputDisplayId === null) return
+  const current = screen.getDisplayMatching(win.getBounds()).id
+  if (current === outputDisplayId) return
+  const d = screen.getAllDisplays().find(x => x.id === outputDisplayId)
+  if (!d) return                     // that screen is gone: leave it alone
+  logLine('output', `finestra finita sul display ${current}, riportata su ${d.id}`)
+  const wasFull = win.isSimpleFullScreen() || win.isFullScreen()
+  setOutputFullscreen(win, wasFull)
+}
+
 // Cached for output-window replay: a late-loading or recreated output window
 // gets the latest engine state + overlays instead of defaults.
 let lastEngineState: unknown = null
@@ -102,9 +145,8 @@ function createOutputWindow(): BrowserWindow {
   } else {
     win.once('ready-to-show', () => {
       if (win.isDestroyed()) return
-      win.setBounds(externalDisplay.bounds)
-      win.setSimpleFullScreen(true)
-      logLine('output', `fullscreen su display esterno ${JSON.stringify(externalDisplay.bounds)}`)
+      outputDisplayId = externalDisplay.id
+      setOutputFullscreen(win, true)
     })
   }
 
@@ -188,7 +230,12 @@ app.whenReady().then(async () => {
   logDisplayState('avvio', controlWindow, outputWindow)
   screen.on('display-added', () => logDisplayState('display collegato', controlWindow, outputWindow))
   screen.on('display-removed', () => logDisplayState('display scollegato', controlWindow, outputWindow))
-  screen.on('display-metrics-changed', () => logDisplayState('display cambiato', controlWindow, outputWindow))
+  screen.on('display-metrics-changed', () => {
+    logDisplayState('display cambiato', controlWindow, outputWindow)
+    keepOutputOnItsDisplay()
+  })
+  // periodic guard: nothing else notices when macOS relocates the window
+  setInterval(keepOutputOnItsDisplay, 4000)
 
   setupIpcHandlers(controlWindow, outputWindow)
   setupRemoteServer(controlWindow)
@@ -237,12 +284,7 @@ app.whenReady().then(async () => {
   // unlike the native one, doesn't fight the window state when toggled fast.
   ipcMain.on('output:toggle-fullscreen', () => {
     const win = ensureOutputWindow()
-    if (win.isSimpleFullScreen() || win.isFullScreen()) {
-      win.setSimpleFullScreen(false)
-      if (win.isFullScreen()) win.setFullScreen(false) // legacy native state
-    } else {
-      win.setSimpleFullScreen(true)
-    }
+    setOutputFullscreen(win, !(win.isSimpleFullScreen() || win.isFullScreen()))
   })
 
   // Output window status for the control-window chip (U1.3)
@@ -275,11 +317,8 @@ app.whenReady().then(async () => {
   ipcMain.on('output:move-to-display', (_event, displayId: number) => {
     const display = screen.getAllDisplays().find(d => d.id === displayId)
     if (display) {
-      const win = ensureOutputWindow()
-      win.setSimpleFullScreen(false)
-      if (win.isFullScreen()) win.setFullScreen(false)
-      win.setBounds(display.bounds)
-      win.setSimpleFullScreen(true)
+      outputDisplayId = display.id
+      setOutputFullscreen(ensureOutputWindow(), true)
     }
   })
 })

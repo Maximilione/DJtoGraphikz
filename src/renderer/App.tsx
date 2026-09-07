@@ -635,6 +635,25 @@ export function App() {
         <div className="audio-banner">⚠ Audio perso — riconnessione in corso…</div>
       )}
 
+      {/* The projector must never be black without saying why: a blackout left
+          on (or the master pulled down) looked exactly like a broken output. */}
+      {(blackout || brightness < 0.05) && (
+        <div className="black-banner">
+          <span>
+            ⬛ <strong>PROIETTORE NERO</strong> — {blackout ? 'blackout attivo (tasto B)' : 'master a 0%'}
+          </span>
+          <button
+            className="btn btn-sm"
+            onClick={() => {
+              if (blackout) { setBlackout(false); engine?.setBlackout(false) }
+              if (brightness < 0.05) { setBrightness(1); engine?.setBrightness(1) }
+            }}
+          >
+            Ripristina
+          </button>
+        </div>
+      )}
+
       {/* Main layout — U4.1: in live niente sidebar, solo preview + Look Bank */}
       <div className={`main-area${mode === 'live' ? ' live-layout' : ''}`}>
         {/* Left sidebar */}

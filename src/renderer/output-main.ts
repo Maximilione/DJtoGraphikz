@@ -5,6 +5,11 @@ const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
 const engine = new Engine(canvas, { remote: true })
 engine.start()
 
+// Heartbeat: a black projector must be explainable from the log alone
+setInterval(() => {
+  try { window.api?.logToFile?.('output/health', engine.health()) } catch { /* no api */ }
+}, 5000)
+
 window.api?.onEngineState((state: any) => engine.applyRemoteState(state))
 window.api?.onAudioData((data: any) => engine.setAudioData(data))
 

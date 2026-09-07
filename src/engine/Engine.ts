@@ -1249,6 +1249,7 @@ export class Engine {
 
   /** Apply engine state received over IPC (output window) */
   applyRemoteState(state: EngineState) {
+    this.remoteStateCount++
     if (state.effectParams) this.paramState = state.effectParams
     if (state.customShader) {
       // Recompile only when the source actually changed — the shader now
@@ -1819,7 +1820,29 @@ export class Engine {
     }
   }
 
+  /** One-line health summary: what a black projector needs to explain itself */
+  health(): string {
+    const u = this.masterMaterial?.uniforms
+    return [
+      `frames=${this.frameCounter}`,
+      `canvas=${this.canvas.width}x${this.canvas.height}`,
+      `out=${this.outputWidth}x${this.outputHeight}`,
+      `scale=${this.perfScale.toFixed(2)}`,
+      `effect=${this.currentEffect}${this.usingCustom ? '(custom)' : ''}`,
+      `brightness=${this.brightness.toFixed(2)}`,
+      `blackout=${this.blackout}`,
+      `frozen=${this.frozen}`,
+      `masterBrightness=${u?.uBrightness?.value ?? '?'}`,
+      `lastFrameAgo=${Math.round(performance.now() - this.lastFrameAt)}ms`,
+      `stateReceived=${this.remoteStateCount}`,
+    ].join(' ')
+  }
+
+  private frameCounter = 0
+  private remoteStateCount = 0
+
   private renderFrame() {
+    this.frameCounter++
     this.lastFrameAt = performance.now()
     if (this.remote) this.ensureRemoteSize()
     this.updatePerfScale()

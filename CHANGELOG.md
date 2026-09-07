@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.4-beta] — 2026-09-07
+
+### Fixed
+- **Proiettore che finiva sul portatile** — con qualche entrata/uscita dal fullscreen la finestra di output migrava sullo schermo del computer (macOS risolve il fullscreen sullo schermo corrente) e il secondo schermo restava nero. Ora l'output e' ancorato al suo display: ogni fullscreen lo riporta li', e un controllo periodico lo rimette a posto se il sistema lo sposta
+- **Schermo nero silenzioso** — un blackout dimenticato o il master a zero rendevano il proiettore nero senza spiegazioni. Ora compare un avviso rosso "PROIETTORE NERO" con il motivo e un bottone Ripristina
+
+### Added
+- **Battito del proiettore nel log** — ogni 5 secondi il log di sessione registra frame, dimensioni, effetto, master, blackout e quanti aggiornamenti di stato sono arrivati: un proiettore nero adesso si spiega dal file
+
 ## [0.26.3-beta] — 2026-09-07
 
 ### Fixed
