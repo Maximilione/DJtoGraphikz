@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.3-beta] — 2026-09-07
+
+### Fixed
+Rassegna di tutti i 35 effetti con render reali: quattro erano difettosi.
+- **Matrix** — era rumore statico, non pioggia di codice: la scia era calcolata da un valore identico per tutta la colonna, quindi nessun gradiente verticale. Ora sono colonne che cadono con testa luminosa e scia che sfuma
+- **Lattice (raymarch)** — la camera finiva dentro la struttura e riempiva lo schermo con una faccia gigante. Ora c'è un tunnel scavato lungo il percorso: si vola dentro il reticolo
+- **Lissajous** — puntini sparsi invece della curva: campionava punti troppo distanti fra loro. Ora la curva è continua (distanza dai segmenti)
+- **Fractal** — tinte piatte dentro e fuori: quasi tutti i punti esterni ricevevano lo stesso colore. Ora scala espansa e orbit trap, con struttura interna e filamenti
+
 ## [0.26.2-beta] — 2026-09-07
 
 ### Added

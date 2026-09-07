@@ -36,40 +36,47 @@ void main() {
 
   float iter = 0.0;
   float maxIter = floor(iterations);
-  float escape = 4.0;
+  float escape = 64.0;      // larger bailout = smoother bands
+  bool escaped = false;
+  // orbit traps: they are what gives the interior structure instead of a
+  // flat fill, and the exterior filaments something to catch the light on
+  float trapR = 1e9;
+  float trapX = 1e9;
 
   // Constant loop bound (= param max), dynamic break on the actual count
   for (float i = 0.0; i < 80.0; i++) {
     if (i >= maxIter) break;
-    if (dot(z, z) > escape) break;
+    if (dot(z, z) > escape) { escaped = true; break; }
     // z = z^2 + c
     z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
-    iter = i;
+    trapR = min(trapR, length(z));
+    trapX = min(trapX, abs(z.x));
+    iter = i + 1.0;
   }
 
-  // Smooth iteration count
-  float smoothIter = iter - log2(log2(dot(z, z))) + 4.0;
-  float f = smoothIter / maxIter;
-
-  // Color mapping with palette
-  float phase = f * 4.0 + uTime * 0.5 + uHigh * 2.0;
-  vec3 color = vec3(0.0);
-  color += uColor1 * (sin(phase) * 0.5 + 0.5);
-  color += uColor2 * (sin(phase + 2.094) * 0.5 + 0.5);
-  color += uColor3 * (sin(phase + 4.189) * 0.5 + 0.5);
-  color *= 0.6;
-
-  // Interior glow
-  if (dot(z, z) <= escape) {
-    color = uColor1 * 0.1 * (1.0 + uBeat);
+  vec3 color;
+  if (escaped) {
+    // Smooth iteration count, then expand the low end: most exterior pixels
+    // escape in a handful of steps, so a linear ramp painted them all the
+    // same colour — the old version was a flat wash outside the set.
+    float smoothIter = iter + 1.0 - log2(max(log2(dot(z, z)), 1.0));
+    float f = pow(clamp(smoothIter / maxIter, 0.0, 1.0), 0.35);
+    float phase = f * 9.0 + uTime * 0.35 + uHigh * 1.5;
+    color  = uColor1 * (sin(phase) * 0.5 + 0.5);
+    color += uColor2 * (sin(phase + 2.094) * 0.5 + 0.5);
+    color += uColor3 * (sin(phase + 4.189) * 0.5 + 0.5);
+    color *= 0.45 + 0.55 * f;
+    // filaments picked out by the orbit trap
+    color += uColor3 * exp(-trapX * 14.0) * 0.5;
+  } else {
+    // inside the set: shade by how close the orbit came to the origin
+    float g = exp(-trapR * 2.2);
+    color = mix(uColor3 * 0.06, uColor1 * 0.7, g);
+    color += uColor2 * exp(-trapX * 9.0) * 0.35;
+    color *= 0.6 + uBass * 0.5;
   }
 
-  // Beat pulse brightness
-  color *= 1.0 + uBeat * 0.8;
-
-  // Edge glow
-  float edge = fract(smoothIter * 0.1);
-  color += uColor2 * smoothstep(0.9, 1.0, edge) * 0.5;
+  color *= 1.0 + uBeat * 0.5;
 
   gl_FragColor = vec4(color, 1.0);
 }
