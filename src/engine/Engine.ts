@@ -128,6 +128,7 @@ export interface EngineState {
   customParams?: EffectParam[]
   customImageInputs?: string[]
   customImages?: Record<string, string>
+  keystone?: number[]
   effectParams?: Record<string, Record<string, ParamState>>
   /** Param defs of the ACTIVE effect — read-only, for remote UIs */
   paramDefs?: EffectParam[]
@@ -238,6 +239,9 @@ export class Engine {
   private postMaterials: Map<PostId, THREE.ShaderMaterial> = new Map()
   /** Ordered post-FX chain — order matters as much as which effects are on */
   private postChain: { id: PostId; amount: number }[] = [{ id: 'bloom', amount: 1 }]
+
+  // Projection mapping: 4 corners (TL,TR,BR,BL) in 0..1 output space
+  private keystone: number[] = [0, 0, 1, 0, 1, 1, 0, 1]
 
   // Dynamic resolution: heavy shaders (ISF raymarchers) drop the render-target
   // scale until the frame rate holds, then climb back when there's headroom
@@ -457,6 +461,8 @@ export class Engine {
         uSaturation: { value: this.grade.saturation },
         uVignette: { value: this.grade.vignette },
         uLift: { value: this.grade.lift },
+        uWarpOn: { value: false },
+        uWarpInv: { value: new THREE.Matrix3() },
       }
     })
 
@@ -883,6 +889,50 @@ export class Engine {
     }
   }
 
+  /** Projection mapping — 8 values (TL,TR,BR,BL as x,y in 0..1). */
+  setKeystone(corners: number[]) {
+    if (corners.length !== 8) return
+    this.keystone = corners.map(v => Math.max(-0.5, Math.min(1.5, v)))
+    this.applyKeystone()
+    this.emitState()
+  }
+
+  getKeystone(): number[] { return [...this.keystone] }
+
+  isKeystoneActive(): boolean {
+    const def = [0, 0, 1, 0, 1, 1, 0, 1]
+    return this.keystone.some((v, i) => Math.abs(v - def[i]) > 0.0005)
+  }
+
+  private applyKeystone() {
+    const u = this.masterMaterial.uniforms
+    if (!this.isKeystoneActive()) { u.uWarpOn.value = false; return }
+    // Heckbert: unit square (0,0)(1,0)(1,1)(0,1) → quad TL,TR,BR,BL.
+    // vUv has y=0 at the BOTTOM, so map BL,BR,TR,TL in that order.
+    const [tlx, tly, trx, try_, brx, bry, blx, bly] = this.keystone
+    // corners in uv space (flip y: screen top = uv y 1)
+    const x0 = blx, y0 = 1 - bly   // uv (0,0)
+    const x1 = brx, y1 = 1 - bry   // uv (1,0)
+    const x2 = trx, y2 = 1 - try_  // uv (1,1)
+    const x3 = tlx, y3 = 1 - tly   // uv (0,1)
+    const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2
+    const sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3
+    const den = dx1 * dy2 - dx2 * dy1
+    if (Math.abs(den) < 1e-9) { u.uWarpOn.value = false; return }
+    const g = (sx * dy2 - dx2 * sy) / den
+    const h = (dx1 * sy - sx * dy1) / den
+    const a = x1 - x0 + g * x1
+    const b = x3 - x0 + h * x3
+    const c = x0
+    const d = y1 - y0 + g * y1
+    const e = y3 - y0 + h * y3
+    const f = y0
+    // H maps source uv → warped position; the shader needs the inverse
+    const H = new THREE.Matrix3().set(a, b, c, d, e, f, g, h, 1)
+    u.uWarpInv.value.copy(H).invert()
+    u.uWarpOn.value = true
+  }
+
   private getWhiteTexture(): THREE.DataTexture {
     if (!this.whiteTexture) {
       this.whiteTexture = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
@@ -1120,6 +1170,7 @@ export class Engine {
     if (state.transitionType) this.transitionType = state.transitionType
     if (typeof state.transitionBeatSync === 'boolean') this.transitionBeatSync = state.transitionBeatSync
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
+    if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
       this.cycleIntervalMs = state.cycle.intervalMs
@@ -1174,6 +1225,7 @@ export class Engine {
       if (state.activeEffect) this.setEffect(state.activeEffect)
     }
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
+    if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -1588,6 +1640,7 @@ export class Engine {
       customParams: this.usingCustom ? this.customParamDefs : undefined,
       customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
       customImages: this.usingCustom ? this.customImages : undefined,
+      keystone: this.keystone,
       transitionType: this.transitionType,
       transitionDuration: this.transitionDuration,
       transitionBeatSync: this.transitionBeatSync,
