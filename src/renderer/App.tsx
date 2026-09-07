@@ -12,6 +12,7 @@ import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
+import { DmxPanel } from './components/DmxPanel/DmxPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { HelpMenu } from './components/Help/HelpMenu'
@@ -690,6 +691,7 @@ export function App() {
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
             <MappingPanel engine={engine} />
+            <DmxPanel engine={engine} />
             <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
           </div>
         )}

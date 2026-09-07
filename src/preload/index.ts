@@ -30,6 +30,10 @@ const api = {
   },
   openReleasesPage: () => ipcRenderer.send('update:open'),
 
+  // ArtNet DMX (main wraps the values in ArtDMX packets)
+  sendDmxFrame: (frame: { host: string; universe: number; values: number[] }) =>
+    ipcRenderer.send('dmx:frame', frame),
+
   // Web remote
   getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
   resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),
