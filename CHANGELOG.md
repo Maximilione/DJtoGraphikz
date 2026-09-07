@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.5-beta] — 2026-09-07
+
+### Added
+- **Cartello "in attesa di segnale" sul proiettore** — se la finestra di output e' sullo schermo ma non riceve contenuto (o il rendering si e' fermato), lo scrive sul proiettore invece di restare nera: cosi' si distingue subito una finestra assente da una finestra presente ma senza segnale. Sparisce da sola appena il contenuto arriva
+
 ## [0.26.4-beta] — 2026-09-07
 
 ### Fixed

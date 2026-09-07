@@ -5,12 +5,30 @@ const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
 const engine = new Engine(canvas, { remote: true })
 engine.start()
 
+// "No signal" placard: distinguishes a window that is present but idle from a
+// window that never made it onto the projector at all.
+const noSignal = document.getElementById('nosignal')
+let lastStateAt = 0
+let lastFrames = -1
+setInterval(() => {
+  if (!noSignal) return
+  const h = engine.health()
+  const frames = Number((h.match(/frames=(\d+)/) || [])[1] ?? 0)
+  const stalled = frames === lastFrames
+  lastFrames = frames
+  const noState = lastStateAt === 0 && performance.now() > 8000
+  noSignal.classList.toggle('on', noState || stalled)
+}, 2000)
+
 // Heartbeat: a black projector must be explainable from the log alone
 setInterval(() => {
-  try { window.api?.logToFile?.('output/health', engine.health()) } catch { /* no api */ }
+  try {
+    const placard = noSignal?.classList.contains('on') ? ' NOSIGNAL' : ''
+    window.api?.logToFile?.('output/health', engine.health() + placard)
+  } catch { /* no api */ }
 }, 5000)
 
-window.api?.onEngineState((state: any) => engine.applyRemoteState(state))
+window.api?.onEngineState((state: any) => { lastStateAt = performance.now(); engine.applyRemoteState(state) })
 window.api?.onAudioData((data: any) => engine.setAudioData(data))
 
 window.api?.onOverlayAdd((data: any) => {
