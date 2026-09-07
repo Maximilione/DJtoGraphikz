@@ -40,13 +40,13 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Visual engine
 
-- **33 GLSL effects** in 4 categories (Geometric, Organic, Motion, Digital), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+- **35 GLSL effects** in 5 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
 - **~85 curated parameters** — 2-3 real sliders per effect (segments, density, zoom, twist…), each **mappable to audio** (bass/mid/high/energy/beat, depth ±100%) or to a tempo-synced **LFO** (sine/saw/square, rate 1/4…32 beats).
 - **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
 - **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
 - **Post-FX chain** — 9 reorderable effects with per-effect wet/dry (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + master color grade (exposure/contrast/saturation/lift/vignette), ACES tone mapping, temporal motion blur.
 - **16 palettes** + custom editor, smooth color transitions, timer- or beat-based cycling.
-- **AutoVJ** — 8 genres, ~9 **curated scenes** each (effect + tuned params + audio mappings), no-repeat rotation, switches on the downbeat, adaptive energy.
+- **AutoVJ** — 10 genres, ~14 **curated scenes** each (136 total) (effect + tuned params + audio mappings), no-repeat rotation, switches on the downbeat, adaptive energy.
 
 ### Audio
 
