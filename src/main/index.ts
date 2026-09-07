@@ -9,6 +9,7 @@ import { setupRemoteServer } from './remote-server'
 import { setupOscServer } from './osc-server'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
+import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
 
 let controlWindow: BrowserWindow | null = null
 let outputWindow: BrowserWindow | null = null
@@ -52,6 +53,7 @@ function createControlWindow(): BrowserWindow {
   win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
     if (level >= 2) console.error(`[RENDERER ERROR] ${message} (${sourceId}:${line})`)
   })
+  logWindow(win, 'control')
 
   return win
 }
@@ -85,6 +87,13 @@ function createOutputWindow(): BrowserWindow {
   // Prevent throttling when output window loses focus (critical for dual-window VJ)
   win.webContents.setBackgroundThrottling(false)
 
+  // macOS gives each display its own Space: a projector window that lands on a
+  // Space the monitor isn't showing looks exactly like "second screen black",
+  // while the window still reports itself visible. Pin it everywhere.
+  try {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  } catch { /* not macOS */ }
+
   // If no external display, show as a regular window for dev.
   // Fullscreen waits for ready-to-show: applying simpleFullScreen on a window
   // that isn't laid out yet leaves it OFF-CENTER on macOS (bounds half-applied)
@@ -95,6 +104,7 @@ function createOutputWindow(): BrowserWindow {
       if (win.isDestroyed()) return
       win.setBounds(externalDisplay.bounds)
       win.setSimpleFullScreen(true)
+      logLine('output', `fullscreen su display esterno ${JSON.stringify(externalDisplay.bounds)}`)
     })
   }
 
@@ -109,10 +119,12 @@ function createOutputWindow(): BrowserWindow {
   win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
     if (level >= 2) console.error(`[OUTPUT ERROR] ${message} (${sourceId}:${line})`)
   })
+  logWindow(win, 'output')
 
   // Initial-state handshake: replay cached engine state + overlays so the
   // projector never sits on defaults (output-main.ts subscribes at load)
   win.webContents.on('did-finish-load', () => {
+    logDisplayState('output caricata', controlWindow, win)
     if (lastEngineState) win.webContents.send('engine:state-update', lastEngineState)
     for (const data of overlays.values()) win.webContents.send('overlay:add', data)
   })
@@ -148,6 +160,7 @@ function ensureOutputWindow(): BrowserWindow {
 }
 
 app.whenReady().then(async () => {
+  setupDebugLog()
   // On macOS, request microphone access at OS level before anything else
   if (process.platform === 'darwin') {
     const micStatus = systemPreferences.getMediaAccessStatus('microphone')
@@ -171,6 +184,11 @@ app.whenReady().then(async () => {
 
   controlWindow = createControlWindow()
   outputWindow = createOutputWindow()
+
+  logDisplayState('avvio', controlWindow, outputWindow)
+  screen.on('display-added', () => logDisplayState('display collegato', controlWindow, outputWindow))
+  screen.on('display-removed', () => logDisplayState('display scollegato', controlWindow, outputWindow))
+  screen.on('display-metrics-changed', () => logDisplayState('display cambiato', controlWindow, outputWindow))
 
   setupIpcHandlers(controlWindow, outputWindow)
   setupRemoteServer(controlWindow)

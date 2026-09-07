@@ -1721,6 +1721,7 @@ export class Engine {
   private loop = () => {
     if (this.disposed) return
     if (!this.watchdogId) this.startWatchdog()
+    this.rafDriven = true
     // One bad frame (a broken GIF, a listener throw) must never kill the rAF
     // chain — a frozen projector mid-set is the worst possible failure mode
     try {
@@ -1737,6 +1738,10 @@ export class Engine {
     const last = this.perfLastNow
     this.perfLastNow = nowMs
     if (!last) return
+    // Timer-driven frames (rAF suspended by the OS) are paced by the watchdog,
+    // not by the GPU: measuring them would read as overload and collapse the
+    // projector's resolution for no reason.
+    if (!this.rafDriven) return
     const d = Math.min(nowMs - last, 100)
     // a lone spike is a shader compile or a GC pause, not GPU load — skip it
     // (only one in a row: sustained slowness must still raise the EMA)
@@ -1768,6 +1773,7 @@ export class Engine {
 
   private lastFrameAt = 0
   private watchdogId = 0
+  private rafDriven = true
 
   /**
    * The projector must never stop painting. macOS/Chromium suspends
@@ -1782,9 +1788,10 @@ export class Engine {
     this.watchdogId = window.setInterval(() => {
       if (this.disposed) return
       // rAF healthy → nothing to do (this is just a timestamp compare)
-      if (performance.now() - this.lastFrameAt < 24) return
+      if (performance.now() - this.lastFrameAt < 14) return
+      this.rafDriven = false   // timer frames must not be read as GPU overload
       try { this.renderFrame() } catch (e) { console.error('[Engine] watchdog frame error:', e) }
-    }, 16)
+    }, 8)
   }
 
   /**

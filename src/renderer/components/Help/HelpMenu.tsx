@@ -62,6 +62,15 @@ export function HelpMenu({ onShortcuts, onGuide, onOnboarding, onClose }: HelpMe
         >
           Rifai configurazione
         </button>
+        <button
+          style={itemStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+          onClick={() => { window.api?.openLogFolder?.(); onClose() }}
+          title="Apre la cartella con il log della sessione — allegalo a una segnalazione"
+        >
+          Apri log della sessione
+        </button>
       </div>
     </div>
   )
