@@ -8,10 +8,22 @@ uniform float uContrast;     // 1 = neutral
 uniform float uSaturation;   // 1 = neutral
 uniform float uVignette;     // 0 = off
 uniform float uLift;         // shadow lift, 0 = neutral
+// Keystone / quad-warp (projection mapping): inverse homography screen→source
+uniform bool uWarpOn;
+uniform mat3 uWarpInv;
 varying vec2 vUv;
 
 void main() {
-  vec3 c = texture2D(tDiffuse, vUv).rgb;
+  vec2 uv = vUv;
+  if (uWarpOn) {
+    vec3 h = uWarpInv * vec3(vUv, 1.0);
+    uv = h.xy / h.z;
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
+  vec3 c = texture2D(tDiffuse, uv).rgb;
 
   // Lift (shadows) then contrast around mid grey
   c += uLift * (1.0 - c);
@@ -22,7 +34,7 @@ void main() {
   c = mix(vec3(luma), c, uSaturation);
 
   // Vignette
-  vec2 d = vUv - 0.5;
+  vec2 d = uv - 0.5;
   float vig = 1.0 - dot(d, d) * uVignette * 2.0;
   c *= max(vig, 0.0);
 

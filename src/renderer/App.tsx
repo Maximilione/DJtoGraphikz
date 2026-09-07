@@ -11,6 +11,7 @@ import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
+import { MappingPanel } from './components/MappingPanel/MappingPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { HelpMenu } from './components/Help/HelpMenu'
@@ -688,6 +689,7 @@ export function App() {
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
+            <MappingPanel engine={engine} />
             <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
           </div>
         )}
