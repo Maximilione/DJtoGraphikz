@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.27.0-beta] — 2026-09-07
+
+### Fixed
+- **PROIETTORE NERO — risolto alla radice**: l'app non usa piu' il fullscreen di macOS per la finestra di output. macOS realizza il fullscreen con gli Spaces e su setup multi-monitor la superficie della finestra puo' restare congelata o finire su uno Space non mostrato: il motore continuava a disegnare (i log lo provano, migliaia di frame al secondo) mentre il proiettore restava nero, a volte con un lampo iniziale di immagine. Ora il proiettore e' una finestra senza bordi grande esattamente quanto lo schermo, portata sopra la barra dei menu: stesso risultato visivo, nessuna transizione che possa congelarla. E' il problema noto di Electron [#39572](https://github.com/electron/electron/issues/39572) / [#6036](https://github.com/electron/electron/issues/6036)
+- La proiezione copre l'intero schermo: prima restavano 30px di scrivania in alto (macOS riserva lo spazio della barra dei menu su ogni display)
+- Niente piu' lampo all'avvio: la finestra non viene piu' ri-mostrata ne' ridimensionata dopo il primo frame
+
 ## [0.26.7-beta] — 2026-09-07
 
 ### Fixed

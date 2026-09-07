@@ -29,20 +29,57 @@ function targetDisplay() {
 }
 
 /** Fullscreen that always resolves against the projector's own display */
+/**
+ * Full-screen projection WITHOUT macOS fullscreen.
+ *
+ * Every black-projector report traced back to the fullscreen transition:
+ * simpleFullScreen on a frameless window on a secondary display gives macOS a
+ * window it may put on another Space, resize against the wrong screen, or stop
+ * compositing — while the renderer happily keeps painting (the session logs
+ * show frames advancing the whole time).
+ *
+ * A borderless window sized to the display and raised above the menu bar looks
+ * identical on the projector and has none of that machinery.
+ */
 function setOutputFullscreen(win: BrowserWindow, on: boolean) {
   const d = targetDisplay()
   outputDisplayId = d.id
+  // never leave a stale macOS fullscreen state behind (older versions set it)
+  if (win.isSimpleFullScreen()) win.setSimpleFullScreen(false)
+  if (win.isFullScreen()) win.setFullScreen(false)
+
   if (on) {
-    win.setSimpleFullScreen(false)
-    if (win.isFullScreen()) win.setFullScreen(false)
-    win.setBounds(d.bounds)          // pin to the right screen FIRST
-    win.setSimpleFullScreen(true)
+    win.setAlwaysOnTop(true, 'screen-saver')   // covers menu bar and Dock
+    try { win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }) } catch { /* not macOS */ }
+    if (!win.isVisible()) win.showInactive()   // never re-show: that flashes
+    // A normal-level window cannot sit under the menu bar, so at creation macOS
+    // shrinks it (1080 -> 1050) and the projector keeps a strip of desktop on
+    // top. Once the window is at screen-saver level it can cover the whole
+    // display — but the level change needs a beat to take effect, so assert the
+    // bounds again shortly after. Only when they actually differ: every
+    // setBounds repaints the background black until the renderer presents,
+    // which is the "flash then black" people report.
+    const assertBounds = () => {
+      if (win.isDestroyed()) return
+      const b = win.getBounds()
+      if (b.x !== d.bounds.x || b.y !== d.bounds.y ||
+          b.width !== d.bounds.width || b.height !== d.bounds.height) {
+        win.setBounds(d.bounds)
+      }
+    }
+    assertBounds()
+    setTimeout(assertBounds, 120)
+    setTimeout(() => {
+      assertBounds()
+      logLine('output', `bounds finali ${JSON.stringify(win.getBounds())}`)
+    }, 500)
   } else {
-    win.setSimpleFullScreen(false)
-    if (win.isFullScreen()) win.setFullScreen(false)
-    win.setBounds(d.bounds)          // and stay there when leaving fullscreen
+    win.setAlwaysOnTop(false)
+    const w = Math.round(d.bounds.width * 0.6)
+    const h = Math.round(d.bounds.height * 0.6)
+    win.setBounds({ x: d.bounds.x + 40, y: d.bounds.y + 40, width: w, height: h })
   }
-  logLine('output', `fullscreen=${on} su display ${d.id} ${JSON.stringify(d.bounds)}`)
+  logLine('output', `proiezione=${on} su display ${d.id} ${JSON.stringify(win.getBounds())}`)
 }
 
 /** Put the projector back if it wandered off its display */
@@ -54,8 +91,7 @@ function keepOutputOnItsDisplay() {
   const d = screen.getAllDisplays().find(x => x.id === outputDisplayId)
   if (!d) return                     // that screen is gone: leave it alone
   logLine('output', `finestra finita sul display ${current}, riportata su ${d.id}`)
-  const wasFull = win.isSimpleFullScreen() || win.isFullScreen()
-  setOutputFullscreen(win, wasFull)
+  setOutputFullscreen(win, win.isAlwaysOnTop())
 }
 
 // Cached for output-window replay: a late-loading or recreated output window
@@ -115,11 +151,14 @@ function createOutputWindow(): BrowserWindow {
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
-    // Fullscreen is applied AFTER creation via simpleFullScreen — mixing native
-    // fullscreen (here) with the simple one (toggle) breaks the window on macOS
+    // Borderless window sized to the projector: no macOS fullscreen anywhere in
+    // this app, so there is no transition that can strand or freeze the surface
     frame: false,
     backgroundColor: '#000000',
     paintWhenInitiallyHidden: true,
+    // macOS reserves the menu-bar strip on every display, shrinking the window
+    // to 1050 of 1080 and leaving desktop visible at the top of the projection
+    enableLargerThanScreen: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -138,8 +177,8 @@ function createOutputWindow(): BrowserWindow {
   } catch { /* not macOS */ }
 
   // If no external display, show as a regular window for dev.
-  // Fullscreen waits for ready-to-show: applying simpleFullScreen on a window
-  // that isn't laid out yet leaves it OFF-CENTER on macOS (bounds half-applied)
+  // We still wait for the first painted frame before raising the window, so the
+  // projector never gets presented while it has nothing to show.
   if (!externalDisplay) {
     win.setSize(960, 540)
   } else {
@@ -314,7 +353,7 @@ app.whenReady().then(async () => {
   // unlike the native one, doesn't fight the window state when toggled fast.
   ipcMain.on('output:toggle-fullscreen', () => {
     const win = ensureOutputWindow()
-    setOutputFullscreen(win, !(win.isSimpleFullScreen() || win.isFullScreen()))
+    setOutputFullscreen(win, !win.isAlwaysOnTop())
   })
 
   // Output window status for the control-window chip (U1.3)
@@ -325,7 +364,7 @@ app.whenReady().then(async () => {
     const idx = screen.getAllDisplays().findIndex(x => x.id === d.id)
     return {
       open: true,
-      fullscreen: win.isFullScreen() || win.isSimpleFullScreen(),
+      fullscreen: win.isAlwaysOnTop(),
       display: d.label || `Display ${idx + 1}`,
     }
   })
