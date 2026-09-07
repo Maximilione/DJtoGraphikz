@@ -305,6 +305,9 @@ export class AudioAnalyzer {
 
   getInputGain(): number { return this.inputGain }
 
+  /** genre hint from AutoVJ: centers the tempo search prior */
+  setTempoPrior(bpm: number) { this.tracker.tempoPrior = Math.max(60, Math.min(200, bpm)) }
+
   getAutoBpm(): number { return this.libraryBpm }
   getBpmConfidence(): number { return this.libraryConfidence }
   isStable(): boolean { return this.libraryStable }

@@ -18,7 +18,10 @@ export interface BeatFrame {
 }
 
 const HISTORY = 80              // ~1.3s of flux history for the threshold
-const ENV_SIZE = 512            // ~8.5s onset envelope for tempo autocorrelation
+const GRID_MS = 10              // onset envelope on a FIXED 100Hz grid: frame
+                                // jitter and dynamic-res rate changes stop
+                                // biasing the lag→BPM conversion
+const ENV_SIZE = 1024           // ~10.2s of envelope
 const BPM_MIN = 70
 const BPM_MAX = 190
 
@@ -40,12 +43,19 @@ export class BeatTracker {
   private prevLogSpec: Float32Array = new Float32Array(0)
   private currLogSpec: Float32Array = new Float32Array(0)
 
-  // Onset envelope ring for tempo autocorrelation
+  // Onset envelopes on the 100Hz grid: kick band (tempo anchor) + full band
+  // (voting — covers breakdowns where the kick disappears)
   private env = new Float32Array(ENV_SIZE)
-  private envPos = 0
-  private envFrames = 0
-  private frameDtMs = 16.7             // measured average frame interval
+  private envFull = new Float32Array(ENV_SIZE)
+  private gridPos = 0
+  private gridStartMs = 0
   private acfCountdown = 30
+
+  private lastLowFlux = 0
+  private lastFullFlux = 0
+
+  /** genre hint: Rayleigh prior center for the tempo search (AutoVJ sets it) */
+  tempoPrior = 126
 
   acfBpm = 0
   acfConfidence = 0
@@ -76,8 +86,9 @@ export class BeatTracker {
     this.prevLogSpec = new Float32Array(0)
     this.currLogSpec = new Float32Array(0)
     this.env.fill(0)
-    this.envPos = 0
-    this.envFrames = 0
+    this.envFull.fill(0)
+    this.gridPos = 0
+    this.gridStartMs = 0
     this.acfBpm = 0
     this.acfConfidence = 0
     this.tempoCandidates = []
@@ -142,7 +153,6 @@ export class BeatTracker {
     // --- timing ---
     const dt = this.lastTime ? Math.min(nowMs - this.lastTime, 500) : 16.7
     this.lastTime = nowMs
-    this.frameDtMs = this.frameDtMs * 0.98 + dt * 0.02
 
     // silence: keep the spectra fresh but detect nothing and learn no tempo
     if (!active) {
@@ -151,11 +161,22 @@ export class BeatTracker {
       return { flux, beat: false, beatPhase: this.phase, barPhase: (this.beatIndex + this.phase) / 4, acfBpm: this.acfBpm, acfConfidence: this.acfConfidence }
     }
 
-    // --- onset envelope for tempo ---
-    // tempo from the kick band only — hats at half-period create 3:2 aliases
-    this.env[this.envPos] = lowFlux
-    this.envPos = (this.envPos + 1) % ENV_SIZE
-    this.envFrames++
+    // --- onset envelopes on the fixed grid (timestamp-accurate) ---
+    if (!this.gridStartMs) this.gridStartMs = nowMs
+    const slot = Math.floor((nowMs - this.gridStartMs) / GRID_MS)
+    // sample-and-hold across the slots this frame spans: zeros between frames
+    // would put a comb artifact in the ACF and bias the tempo peak
+    while (this.gridPos < slot) {
+      this.gridPos++
+      const zi = this.gridPos % ENV_SIZE
+      this.env[zi] = this.lastLowFlux
+      this.envFull[zi] = this.lastFullFlux
+    }
+    const gi = this.gridPos % ENV_SIZE
+    this.env[gi] = Math.max(this.env[gi], lowFlux)
+    this.envFull[gi] = Math.max(this.envFull[gi], flux)
+    this.lastLowFlux = lowFlux
+    this.lastFullFlux = flux
     if (--this.acfCountdown <= 0) {
       this.acfCountdown = 30
       this.estimateTempo()
@@ -262,61 +283,76 @@ export class BeatTracker {
     this.beatsSinceRotate = 0
   }
 
-  /** autocorrelation of the onset envelope with harmonic weighting + club prior */
+  /** autocorrelation on the fixed 100Hz grid, kick + full band voting,
+      comb filterbank with a genre-tunable Rayleigh prior */
   private estimateTempo() {
-    const N = Math.min(this.envFrames, ENV_SIZE)
-    if (N < 180) return // need ~3s before guessing
+    const N = Math.min(this.gridPos + 1, ENV_SIZE)
+    if (N < 380) return // ~3.8s before guessing
 
-    // unroll the ring into chronological order
-    const e = new Float32Array(N)
-    for (let i = 0; i < N; i++) e[i] = this.env[(this.envPos - N + i + ENV_SIZE) % ENV_SIZE]
-    // remove mean so silence doesn't correlate
-    let mean = 0
-    for (let i = 0; i < N; i++) mean += e[i]
-    mean /= N
-    let norm = 0
-    for (let i = 0; i < N; i++) { e[i] -= mean; norm += e[i] * e[i] }
-    if (norm < 1e-9) return
+    // unroll both rings chronologically, mean-removed
+    const eK = new Float32Array(N)
+    const eF = new Float32Array(N)
+    for (let i = 0; i < N; i++) {
+      const src = (this.gridPos - N + 1 + i + ENV_SIZE * 4) % ENV_SIZE
+      eK[i] = this.env[src]
+      eF[i] = this.envFull[src]
+    }
+    let mK = 0, mF = 0
+    for (let i = 0; i < N; i++) { mK += eK[i]; mF += eF[i] }
+    mK /= N; mF /= N
+    let nK = 0, nF = 0
+    for (let i = 0; i < N; i++) {
+      eK[i] -= mK; nK += eK[i] * eK[i]
+      eF[i] -= mF; nF += eF[i] * eF[i]
+    }
+    if (nK < 1e-9) return
 
-    const msPerFrame = this.frameDtMs
-    const lagMin = Math.max(2, Math.floor(60000 / BPM_MAX / msPerFrame))
-    const lagMax = Math.min(N - 1, Math.ceil(60000 / BPM_MIN / msPerFrame))
+    const lagMin = Math.max(2, Math.floor(60000 / BPM_MAX / GRID_MS))
+    const lagMax = Math.min(N - 1, Math.ceil(60000 / BPM_MIN / GRID_MS))
     const lagTop = Math.min(N - 1, lagMax * 4 + 1)
-    const acf = new Float32Array(lagTop + 1)
+    const acfK = new Float32Array(lagTop + 1)
+    const acfF = new Float32Array(lagTop + 1)
     for (let lag = lagMin; lag <= lagTop; lag++) {
-      let s = 0
-      for (let i = lag; i < N; i++) s += e[i] * e[i - lag]
-      acf[lag] = s / norm
+      let sK = 0, sF = 0
+      for (let i = lag; i < N; i++) { sK += eK[i] * eK[i - lag]; sF += eF[i] * eF[i - lag] }
+      acfK[lag] = sK / nK
+      acfF[lag] = nF > 1e-9 ? sF / nF : 0
     }
 
-    // comb filterbank over the ACF (BTrack-style): a true tempo scores on all
-    // its harmonics, an alias only on some — with a Rayleigh prior around 126
-    // BPM so octave errors resolve toward the club range
-    const rayleighPeak = 60000 / 126 / msPerFrame // lag of 126 BPM
-    let bestLag = 0, bestScore = 0
-    for (let lag = lagMin; lag <= lagMax; lag++) {
+    const comb = (acf: Float32Array, lag: number) => {
       let score = 0
       for (let k = 1; k <= 4; k++) {
         const kl = k * lag
         if (kl >= N) break
-        // ±1 lag tolerance per harmonic: real music jitters
         const a = Math.max(acfAt(acf, kl - 1, lagTop), acfAt(acf, kl, lagTop), acfAt(acf, kl + 1, lagTop))
         score += a / k
       }
-      const r = lag / (rayleighPeak * rayleighPeak) * Math.exp(-(lag * lag) / (2 * rayleighPeak * rayleighPeak))
-      score *= r * rayleighPeak * 1.65 // normalized so the peak of the prior ≈ 1
+      return score
+    }
+
+    // Rayleigh prior centered on the genre hint (AutoVJ) — octave errors
+    // resolve toward what is actually playing tonight
+    const rp = 60000 / Math.max(this.tempoPrior, 60) / GRID_MS
+    let bestLag = 0, bestScore = 0
+    for (let lag = lagMin; lag <= lagMax; lag++) {
+      let score = comb(acfK, lag) + 0.45 * comb(acfF, lag)
+      const r = lag / (rp * rp) * Math.exp(-(lag * lag) / (2.0 * rp * rp))
+      score *= r * rp * 1.65
       if (score > bestScore) { bestScore = score; bestLag = lag }
     }
     if (!bestLag) return
 
-    // parabolic interpolation around the winning lag → sub-frame BPM precision
+    // parabolic interpolation → sub-slot BPM precision
     let lagF = bestLag
     if (bestLag > lagMin && bestLag < lagMax) {
-      const y0 = acf[bestLag - 1], y1 = acf[bestLag], y2 = acf[bestLag + 1]
+      const y0 = acfK[bestLag - 1], y1 = acfK[bestLag], y2 = acfK[bestLag + 1]
       const denom = y0 - 2 * y1 + y2
-      if (Math.abs(denom) > 1e-9) lagF = bestLag + 0.5 * (y0 - y2) / denom
+      if (Math.abs(denom) > 1e-9) {
+        const off = 0.5 * (y0 - y2) / denom
+        lagF = bestLag + Math.max(-0.6, Math.min(0.6, off))
+      }
     }
-    const bpm = 60000 / (lagF * msPerFrame)
+    const bpm = 60000 / (lagF * GRID_MS)
 
     // median of the recent raw candidates: one bad window can't yank the tempo
     this.tempoCandidates.push(bpm)
@@ -324,7 +360,6 @@ export class BeatTracker {
     if (this.tempoCandidates.length < 3) return
     const sorted = [...this.tempoCandidates].sort((a, b) => a - b)
     const medBpm = sorted[sorted.length >> 1]
-    // agreement among candidates = confidence
     const spread = sorted[sorted.length - 1] - sorted[0]
 
     if (this.acfBpm > 0 && Math.abs(medBpm - this.acfBpm) < 3) {
@@ -335,4 +370,5 @@ export class BeatTracker {
       this.acfConfidence = spread < 2 ? 0.4 : 0.2
     }
   }
+
 }

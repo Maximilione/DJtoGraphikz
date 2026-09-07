@@ -50,7 +50,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Audio
 
-- Beat tracking a spectral flux logaritmico con soglia mediana+MAD, fase agganciata (PLL) e stima BPM propria ad autocorrelazione sulla banda kick; BPM auto (doppio stimatore), tap, manuale, ×½/×2.
+- Beat tracking a spectral flux logaritmico con soglia mediana+MAD, fase agganciata (PLL) e stima BPM propria (griglia timestamp 100Hz, voto kick+spettro pieno, prior dal genere); BPM auto (doppio stimatore), tap, manuale, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery se il device audio cade.
 - Vocabolario esteso per gli shader: hit per banda (kick/synth/hats), clock gated, sub/presence, beat/bar phase.
 
