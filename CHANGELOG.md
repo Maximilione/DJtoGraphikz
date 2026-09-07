@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.1-beta] — 2026-09-07
+
+### Fixed
+- **Secondo schermo nero — causa trovata e risolta**: macOS sospende `requestAnimationFrame` quando considera la finestra del proiettore non visibile (coperta da un'app a schermo intero, occlusa, display in stand-by). Il loop di rendering moriva **dopo il primo frame**, quindi il proiettore restava congelato sul nero iniziale, prima ancora di ricevere lo stato. Ora un watchdog tiene vivo il frame anche quando rAF tace (verificato: prima si fermava al frame 1, ora prosegue)
+- Il letterbox non può più produrre un buffer 0×0 (finestra non ancora impaginata) e la dimensione viene ricontrollata a ogni frame, così il proiettore si riprende da solo se la finestra cambia senza emettere eventi
+- **Errori della finestra output ora visibili nel log** — prima venivano ingoiati in silenzio: è il motivo per cui questo bug è rimasto invisibile così a lungo
+
 ## [0.26.0-beta] — 2026-09-07
 
 ### Changed
