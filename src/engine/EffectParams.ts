@@ -127,6 +127,66 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'zoom', label: 'Zoom', min: 2, max: 12, default: 5 },
     { key: 'wavefreq', label: 'Waves', min: 1, max: 15, default: 5 },
   ],
+  lasers: [
+    { key: 'beams', label: 'Beams', min: 2, max: 12, default: 6 },
+    { key: 'spread', label: 'Spread', min: 0.2, max: 1.5, default: 0.8 },
+    { key: 'sweep', label: 'Sweep', min: 0, max: 2, default: 0.8 },
+  ],
+  strobegrid: [
+    { key: 'cells', label: 'Cells', min: 4, max: 32, default: 12 },
+    { key: 'litratio', label: 'Lit', min: 0.05, max: 0.8, default: 0.3 },
+    { key: 'chaos', label: 'Chaos', min: 0, max: 1, default: 0.5 },
+  ],
+  vortex: [
+    { key: 'arms', label: 'Arms', min: 1, max: 8, default: 3 },
+    { key: 'twist', label: 'Twist', min: 0, max: 3, default: 1.2 },
+    { key: 'pull', label: 'Pull', min: 0, max: 2, default: 0.8 },
+  ],
+  terrain: [
+    { key: 'ridges', label: 'Ridges', min: 4, max: 24, default: 10 },
+    { key: 'horizon', label: 'Horizon', min: 0.25, max: 0.75, default: 0.45 },
+    { key: 'glowamt', label: 'Glow', min: 0, max: 2, default: 1 },
+  ],
+  orbits: [
+    { key: 'bodies', label: 'Bodies', min: 2, max: 16, default: 7 },
+    { key: 'orbitr', label: 'Radius', min: 0.2, max: 1, default: 0.55 },
+    { key: 'trail', label: 'Trail', min: 0, max: 1, default: 0.5 },
+  ],
+  shatter: [
+    { key: 'shards', label: 'Shards', min: 4, max: 30, default: 14 },
+    { key: 'burst', label: 'Burst', min: 0, max: 2, default: 1 },
+    { key: 'edgeglow', label: 'Edges', min: 0, max: 2, default: 0.8 },
+  ],
+  moire: [
+    { key: 'density', label: 'Density', min: 10, max: 120, default: 50 },
+    { key: 'moireoff', label: 'Offset', min: 0.01, max: 0.5, default: 0.12 },
+    { key: 'rotspeed', label: 'Rotation', min: 0, max: 2, default: 0.4 },
+  ],
+  pulsecity: [
+    { key: 'columns', label: 'Towers', min: 6, max: 48, default: 20 },
+    { key: 'gapw', label: 'Gap', min: 0.02, max: 0.5, default: 0.15 },
+    { key: 'punch', label: 'Punch', min: 0, max: 2, default: 1 },
+  ],
+  neonpoly: [
+    { key: 'sides', label: 'Sides', min: 3, max: 9, default: 5 },
+    { key: 'layers', label: 'Layers', min: 1, max: 8, default: 5 },
+    { key: 'thickness', label: 'Width', min: 0.2, max: 3, default: 1 },
+  ],
+  inkflow: [
+    { key: 'inkscale', label: 'Scale', min: 1, max: 6, default: 2.5 },
+    { key: 'flowspd', label: 'Flow', min: 0, max: 2, default: 0.6 },
+    { key: 'inkcontrast', label: 'Contrast', min: 0.5, max: 2.5, default: 1.2 },
+  ],
+  raymarch: [
+    { key: 'repscale', label: 'Density', min: 0.5, max: 4, default: 2 },
+    { key: 'glowk', label: 'Glow', min: 0, max: 2, default: 1 },
+    { key: 'camfov', label: 'FOV', min: 0.6, max: 1.6, default: 1 },
+  ],
+  ripples: [
+    { key: 'spreadv', label: 'Spread', min: 0.5, max: 3, default: 1.5 },
+    { key: 'heightk', label: 'Height', min: 0.2, max: 2.5, default: 1 },
+    { key: 'sheen', label: 'Sheen', min: 0, max: 2, default: 1 },
+  ],
   dna: [
     { key: 'coils', label: 'Coils', min: 3, max: 16, default: 8 },
     { key: 'amp', label: 'Width', min: 0.05, max: 0.3, default: 0.12 },

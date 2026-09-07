@@ -24,6 +24,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'mandala', label: 'Mandala', icon: '❋' },
       { id: 'hexagons', label: 'Hex', icon: '⏣' },
       { id: 'rings', label: 'Rings', icon: '◉' },
+      { id: 'moire', label: 'Moiré', icon: '◎' },
+      { id: 'neonpoly', label: 'Neon', icon: '⬠' },
     ],
   },
   {
@@ -35,6 +37,9 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'metaballs', label: 'Meta', icon: '●' },
       { id: 'fire', label: 'Fire', icon: '△' },
       { id: 'fractal', label: 'Fractal', icon: '✻' },
+      { id: 'inkflow', label: 'Ink', icon: '☰' },
+      { id: 'ripples', label: 'Ripples', icon: '≈' },
+      { id: 'vortex', label: 'Vortex', icon: '❂' },
     ],
   },
   {
@@ -45,6 +50,10 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'waves', label: 'Waves', icon: '〰' },
       { id: 'lissajous', label: 'Lissaj', icon: '∞' },
       { id: 'dna', label: 'DNA', icon: '⧖' },
+      { id: 'orbits', label: 'Orbits', icon: '☉' },
+      { id: 'terrain', label: 'Terrain', icon: '⛰' },
+      { id: 'pulsecity', label: 'City', icon: '▮' },
+      { id: 'shatter', label: 'Shatter', icon: '❖' },
     ],
   },
   {
@@ -53,6 +62,9 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'matrix', label: 'Matrix', icon: '▤' },
       { id: 'grid', label: 'Grid', icon: '⊞' },
       { id: 'glitch', label: 'Glitch', icon: '⚡' },
+      { id: 'lasers', label: 'Lasers', icon: '☄' },
+      { id: 'strobegrid', label: 'Strobe', icon: '▦' },
+      { id: 'raymarch', label: 'Lattice', icon: '⌗' },
     ],
   },
 ]
