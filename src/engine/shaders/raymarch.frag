@@ -44,14 +44,19 @@ float map(vec3 p) {
   // carve a cross so it reads as a lattice, not solid walls
   float cross1 = sdBox(q, vec3(rep, s * 0.42, s * 0.42));
   float cross2 = sdBox(q, vec3(s * 0.42, rep, s * 0.42));
-  return max(box, -min(cross1, cross2));
+  float lattice = max(box, -min(cross1, cross2));
+  // Keep a clear tube along the flight path: without it the camera sits INSIDE
+  // the lattice and the screen fills with one blown-up face.
+  float tube = 1.15 + uBassHit * 0.15;
+  return max(lattice, tube - length(p.xy));
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
 
-  vec3 ro = vec3(0.35 * sin(t * 0.22), 0.3 * cos(t * 0.17), t * (0.9 + uBass * 0.6) + uBassTime * 0.3);
+  // stay near the axis of the carved tube
+  vec3 ro = vec3(0.18 * sin(t * 0.22), 0.15 * cos(t * 0.17), t * (0.9 + uBass * 0.6) + uBassTime * 0.3);
   float fov = camfov * (1.0 - uBassHit * 0.18);
   vec3 rd = normalize(vec3(uv * rot(uBarPhase * TAU * 0.12 + t * 0.05), fov));
 
