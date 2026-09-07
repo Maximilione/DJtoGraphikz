@@ -87,8 +87,8 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
             </summary>
             <div style={{ paddingLeft: '6px', lineHeight: '1.6' }}>
               <div>
-                <span style={{ color: 'var(--accent)' }}>Effetti:</span>{' '}
-                {config.effects.join(', ')}
+                <span style={{ color: 'var(--accent)' }}>Scene:</span>{' '}
+                {config.scenes.map(sc => sc.effect).join(', ')}
               </div>
               <div>
                 <span style={{ color: 'var(--accent)' }}>Cambio:</span>{' '}
