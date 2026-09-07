@@ -30,6 +30,10 @@ const api = {
   },
   openReleasesPage: () => ipcRenderer.send('update:open'),
 
+  // Session log (bug reports without a terminal)
+  getLogPath: (): Promise<string> => ipcRenderer.invoke('log:path'),
+  openLogFolder: () => ipcRenderer.send('log:open'),
+
   // ArtNet DMX (main wraps the values in ArtDMX packets)
   sendDmxFrame: (frame: { host: string; universe: number; values: number[] }) =>
     ipcRenderer.send('dmx:frame', frame),
