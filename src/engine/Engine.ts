@@ -569,12 +569,24 @@ export class Engine {
   private handleResize = () => {
     if (this.remote) {
       // Letterbox: biggest rect with the OUTPUT aspect that fits the window —
-      // a resized/windowed output shows black bars instead of stretching
-      const outAspect = this.outputWidth / this.outputHeight
-      let w = window.innerWidth
-      let h = window.innerHeight
+      // a resized/windowed output shows black bars instead of stretching.
+      // Degenerate sizes MUST NOT reach setSize(): a 0x0 drawing buffer is a
+      // permanently black projector if no further resize event ever fires.
+      const winW = window.innerWidth
+      const winH = window.innerHeight
+      // A rAF retry here is NOT reliable: scheduled from the constructor it
+      // can be dropped before the render loop exists. renderFrame() re-checks
+      // the size every frame instead — see ensureRemoteSize().
+      if (!(winW > 1) || !(winH > 1)) return
+      const outAspect = this.outputWidth > 0 && this.outputHeight > 0
+        ? this.outputWidth / this.outputHeight
+        : winW / winH
+      let w = winW
+      let h = winH
       if (w / h > outAspect) w = Math.round(h * outAspect)
       else h = Math.round(w / outAspect)
+      w = Math.max(2, w || winW)
+      h = Math.max(2, h || winH)
       this.renderer.setSize(w, h)
       this.setRenderSize(this.outputWidth, this.outputHeight)
       return
@@ -1708,6 +1720,7 @@ export class Engine {
 
   private loop = () => {
     if (this.disposed) return
+    if (!this.watchdogId) this.startWatchdog()
     // One bad frame (a broken GIF, a listener throw) must never kill the rAF
     // chain — a frozen projector mid-set is the worst possible failure mode
     try {
@@ -1753,7 +1766,55 @@ export class Engine {
     }
   }
 
+  private lastFrameAt = 0
+  private watchdogId = 0
+
+  /**
+   * The projector must never stop painting. macOS/Chromium suspends
+   * requestAnimationFrame for a window it considers not visible (covered by a
+   * fullscreen app, occluded, display asleep): the rAF chain dies and the
+   * projector stays frozen on whatever it drew last — usually black, because
+   * the freeze happens before the first state arrives over IPC.
+   * A timer keeps the frame going whenever rAF goes quiet.
+   */
+  private startWatchdog() {
+    if (this.watchdogId || !this.remote) return
+    this.watchdogId = window.setInterval(() => {
+      if (this.disposed) return
+      // rAF healthy → nothing to do (this is just a timestamp compare)
+      if (performance.now() - this.lastFrameAt < 24) return
+      try { this.renderFrame() } catch (e) { console.error('[Engine] watchdog frame error:', e) }
+    }, 16)
+  }
+
+  /**
+   * The projector's drawing buffer must match the letterbox even when no
+   * resize event ever fires (window laid out late, macOS fullscreen
+   * transitions on a secondary display). The render loop is the only thing
+   * guaranteed to run, so it owns the last word on sizing.
+   */
+  private ensureRemoteSize() {
+    const winW = window.innerWidth
+    const winH = window.innerHeight
+    if (!(winW > 1) || !(winH > 1)) return
+    const outAspect = this.outputWidth > 0 && this.outputHeight > 0
+      ? this.outputWidth / this.outputHeight
+      : winW / winH
+    let w = winW
+    let h = winH
+    if (w / h > outAspect) w = Math.round(h * outAspect)
+    else h = Math.round(w / outAspect)
+    w = Math.max(2, w)
+    h = Math.max(2, h)
+    if (this.canvas.width !== w || this.canvas.height !== h) {
+      this.renderer.setSize(w, h)
+      this.setRenderSize(this.outputWidth, this.outputHeight)
+    }
+  }
+
   private renderFrame() {
+    this.lastFrameAt = performance.now()
+    if (this.remote) this.ensureRemoteSize()
     this.updatePerfScale()
     const time = this.clock.getElapsedTime()
     // Frame delta from elapsed time — clock.getDelta() is consumed by getElapsedTime()
@@ -2139,6 +2200,7 @@ export class Engine {
     this.disposed = true
     this.audioFrameListeners.clear()
     cancelAnimationFrame(this.animFrameId)
+    if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = 0 }
     window.removeEventListener('resize', this.handleResize)
     this.renderer.dispose()
     this.rtA.dispose()
