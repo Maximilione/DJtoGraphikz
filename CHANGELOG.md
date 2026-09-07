@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.26.6-beta] — 2026-09-07
+
+### Fixed
+- **Proiettore nero quando l'app parte gia' in fullscreen** — il fullscreen veniva applicato prima che la finestra di output avesse disegnato il primo frame: la transizione di macOS coglieva una finestra non ancora attiva e restava nera. Ora si va a schermo intero solo dopo che il proiettore ha davvero disegnato (con timeout di sicurezza)
+- **Microfono chiesto due volte al primo avvio** — l'onboarding e il pannello audio chiedevano l'accesso contemporaneamente per leggere i nomi dei dispositivi. Ora la richiesta e' una sola, condivisa
+
 ## [0.26.5-beta] — 2026-09-07
 
 ### Added
