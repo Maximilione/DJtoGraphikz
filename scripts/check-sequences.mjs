@@ -24,7 +24,7 @@ execFileSync('npx', ['esbuild', join(REPO, 'src/renderer/components/PresetPanel/
   '--bundle', '--format=cjs', '--platform=node', `--outfile=${bundle}`],
   { cwd: REPO, stdio: 'pipe' })
 
-const { migrate, migrateAll, clampHold, nextIndex, prevIndex, moveStep, totalHold } =
+const { migrate, migrateAll, clampHold, nextIndex, prevIndex, moveStep, totalHold, indexAfterRemoval } =
   await import('file://' + bundle)
 
 const look = name => ({ name, effect: 'tunnel', post: [], colors: ['#000', '#111', '#222'] })
@@ -80,6 +80,12 @@ assert.deepEqual(moveStep(steps, 0, 2).map(s => s.name), ['b', 'c', 'a', 'd'])
 assert.deepEqual(moveStep(steps, 3, 0).map(s => s.name), ['d', 'a', 'b', 'c'])
 assert.deepEqual(moveStep(steps, 1, 1).map(s => s.name), ['a', 'b', 'c', 'd'])
 assert.deepEqual(moveStep(steps, -1, 9).map(s => s.name), ['a', 'b', 'c', 'd'], 'indici fuori range non rompono nulla')
+
+// --- deleting a sequence must not make the editor save over another one ---
+assert.equal(indexAfterRemoval(3, 1), 2, 'cancellandone una prima, quella aperta scala di uno')
+assert.equal(indexAfterRemoval(1, 3), 1, 'cancellandone una dopo, l’indice non cambia')
+assert.equal(indexAfterRemoval(2, 2), -1, 'cancellata proprio quella aperta')
+assert.equal(indexAfterRemoval(-1, 0), -1, 'nessuna scaletta aperta')
 
 rmSync(out, { recursive: true, force: true })
 console.log('OK: migrazione, durate per passo e scorrimento della scaletta')

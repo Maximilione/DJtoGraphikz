@@ -94,6 +94,17 @@ export function moveStep(steps: SequenceStep[], from: number, to: number): Seque
   return next
 }
 
+/**
+ * Where the sequence being edited ends up after another one is deleted.
+ * Deleting an entry BEFORE it shifts every later index down by one: keeping the
+ * old index would make the next save overwrite somebody else's sequence.
+ * -1 means "the edited one is the one that just went away".
+ */
+export function indexAfterRemoval(editing: number, removed: number): number {
+  if (editing < 0 || editing === removed) return -1
+  return editing > removed ? editing - 1 : editing
+}
+
 /** Total run time, in seconds for 'timer' or beats for 'beats' */
 export function totalHold(seq: Sequence): number {
   return seq.steps.reduce((n, s) => n + s.hold, 0)
