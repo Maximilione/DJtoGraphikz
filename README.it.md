@@ -43,6 +43,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 - **35 effetti GLSL** in 5 categorie (Geometric, Organic, Motion, Digital, Videogame — le torri della PS2, snowboard alla 1080°), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
 - **~85 parametri curati** — 2-3 slider veri per effetto (segments, density, zoom, twist…), ognuno **mappabile all'audio** (bass/mid/high/energy/beat, depth ±100%) o a un **LFO** tempo-sync (sine/saw/square, rate 1/4…32 battute).
 - **Look Bank** — griglia 4×4 con thumbnail reali: click su slot vuoto salva il look completo, click applica con transizione, hotkey Shift+1-0.
+- **Scalette** — una sequenza di look, ognuno tenuto per il suo tempo: li peschi dal Look Bank o prendi quello che c'è sullo schermo, li riordini trascinando, e a ogni passo dai i suoi secondi o le sue battute e la sua transizione. Le scalette salvate si riaprono nell'editor, girano in loop e si esportano in JSON.
 - **Deck A/B + crossfader** — secondo deck con 5 blend mode (mix, add, screen, multiply, difference); il deck B fa da blind mode.
 - **Post-FX chain** — 9 effetti riordinabili con wet/dry per effetto (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + color grade master (exposure/contrast/saturation/lift/vignette), tone mapping ACES, motion blur temporale.
 - **16 palette** + editor custom, transizioni colore fluide, cycling a timer o a beat.
