@@ -1462,8 +1462,15 @@ export class Engine {
       video.srcObject = stream
     } else {
       // Streamed by main over djg-media:// — reading the file into a Blob meant
-      // a full copy in RAM per window (see src/main/index.ts)
+      // a full copy in RAM per window (see src/main/index.ts).
+      // Reading it also used to REJECT on a missing file, which is what told the
+      // caller to warn the user; a src that streams fails silently instead, so
+      // wait for the metadata and turn an error back into a rejection.
       video.src = `djg-media://f/?p=${encodeURIComponent(source.path)}`
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve()
+        video.onerror = () => reject(new Error(`video illeggibile: ${source.path}`))
+      })
     }
 
     await video.play().catch(err => console.error('[Engine] video play failed:', err))
@@ -1665,6 +1672,11 @@ export class Engine {
       this.emitState()
     } else {
       this.setEffect(preset.effect)
+      // An id this build doesn't have (preset from an older version, effect
+      // since removed) makes setEffect a no-op — but the post chain and the
+      // colours above already changed, and without this nobody hears about it:
+      // the projector would keep the old post FX.
+      if (!EFFECT_SHADERS[preset.effect]) this.emitState()
     }
   }
 

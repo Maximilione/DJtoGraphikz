@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/Engine'
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
 import {
-  migrateAll, migrate, clampHold, nextIndex, prevIndex, moveStep, totalHold,
+  migrateAll, migrate, clampHold, nextIndex, prevIndex, moveStep, totalHold, indexAfterRemoval,
   HOLD_LIMITS, type Sequence, type SequenceStep,
 } from './sequences'
 import { usePanelCollapsed } from '../usePanelCollapsed'
@@ -83,9 +83,15 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   const step: SequenceStep | undefined = playingSeq?.steps[stepIndex]
 
   const advance = useCallback(() => {
+    // The next index is computed here, not inside the state updater: React may
+    // run an updater more than once, and stopping playback from inside one made
+    // the end of a sequence depend on how many times that happened
     setStepIndex(prev => {
       const next = nextIndex(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false)
-      if (next < 0) { setPlaying(false); return prev }   // end of a non-looping run
+      if (next < 0) {
+        queueMicrotask(() => setPlaying(false))   // end of a non-looping run
+        return prev
+      }
       return next
     })
   }, [playingSeq])
@@ -260,7 +266,7 @@ export function PresetPanel({ engine }: PresetPanelProps) {
 
   const deleteSequence = useCallback((i: number) => {
     if (playingSeq === sequences[i]) stopSequence()
-    if (editingIndex === i) setEditingIndex(-1)
+    setEditingIndex(indexAfterRemoval(editingIndex, i))
     persist(sequences.filter((_, j) => j !== i))
   }, [sequences, playingSeq, editingIndex, stopSequence, persist])
 
