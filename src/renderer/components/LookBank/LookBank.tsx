@@ -1,46 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, Preset } from '@engine/Engine'
 import { pushToast } from '../Toasts/Toasts'
-
-interface SavedLook {
-  name: string
-  preset: Preset
-  thumb: string // small JPEG dataURL, '' if capture failed
-}
-
-const STORAGE_KEY = 'djtographikz-looks'
-const SLOTS = 16
-
-function loadLooks(): (SavedLook | null)[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const arr: (SavedLook | null)[] = raw ? JSON.parse(raw) : []
-    return Array.from({ length: SLOTS }, (_, i) => arr[i] ?? null)
-  } catch {
-    return Array(SLOTS).fill(null)
-  }
-}
-
-function persistLooks(looks: (SavedLook | null)[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(looks)) } catch {}
-}
-
-// Grab next rendered frame and downscale to a 160x90 JPEG dataURL
-async function makeThumb(engine: Engine): Promise<string> {
-  try {
-    const blob = await engine.screenshot()
-    if (!blob) return ''
-    const bmp = await createImageBitmap(blob)
-    const canvas = document.createElement('canvas')
-    canvas.width = 160
-    canvas.height = 90
-    canvas.getContext('2d')!.drawImage(bmp, 0, 0, 160, 90)
-    bmp.close()
-    return canvas.toDataURL('image/jpeg', 0.7)
-  } catch {
-    return ''
-  }
-}
+import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
 
 export function LookBank({ engine }: { engine: Engine }) {
   const [collapsed, setCollapsed] = useState(false)

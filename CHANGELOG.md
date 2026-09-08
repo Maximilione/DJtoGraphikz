@@ -2,6 +2,19 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.29.0-beta] — 2026-09-08
+
+### Added
+- **Scalette** — la scheda Playlist diventa un editor vero. Una scaletta e' una sequenza di look, e **ogni passo ha la sua durata**: puoi tenerne uno 16 battute e il successivo 64, cosa che prima era impossibile perche' l'intervallo era uno solo per tutta la lista. Ogni passo ha anche la sua transizione, se vuoi.
+  - **Si riaprono**: fino a ieri una playlist salvata non si poteva piu' toccare — per spostare un passo la si rifaceva da capo. Ora il tasto ✎ la carica nell'editor, e Salva la aggiorna (oppure "Salva come nuova" per tenerne due versioni)
+  - **Si costruiscono da dove vuoi**: dal look sullo schermo (con la sua miniatura), dai look salvati nel Look Bank, o dai preset
+  - Riordino trascinando, duplica passo, anteprima di un passo singolo, durata totale sempre in vista, loop, import/export JSON
+- `yarn check:sequences` — verifica che le playlist salvate con le versioni vecchie continuino a caricarsi, e che l'avanzamento della scaletta sia corretto
+
+### Changed
+- **Look Bank e scalette leggono lo stesso archivio di look**: erano due idee parallele, il Look Bank con nomi e miniature e le playlist con copie dei preset senza ne' l'uno ne' l'altro
+- Le playlist salvate in precedenza si aprono come scalette: ogni passo eredita l'intervallo unico che aveva la lista. Niente da rifare
+
 ## [0.28.0-beta] — 2026-09-08
 
 Passata di ottimizzazione su tutto il codice: niente di visibile cambia, l'app fa
