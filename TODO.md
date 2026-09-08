@@ -7,17 +7,9 @@ I = integrazione.
 
 ## 1. ROTTO O ZAVORRA — prima di aggiungere altro
 
-Quasi tutte sono da una a cinque righe. Toccano il proiettore, cioè la sola
-cosa che il pubblico vede. **C21 va prima di C1+C2**: riattivare la risoluzione
-dinamica senza aver sistemato `uResolution` porterebbe lo zoom sul proiettore.
+C21, C1, C2, C3 e C5 sono **fatti in v0.27.2-beta** (in archivio in fondo).
+Restano queste due.
 
-- [ ] **C21 Cambiare la risoluzione di uscita zooma la preview** — segnalato dall'utente 2026-09-08. `Engine.ts:606-617`: `setRenderSize` mette in `uResolution` la risoluzione **logica** (es. 3840×2160) ma disegna in un buffer capato (`cap = 1920` in preview) e moltiplicato per `perfScale`. Gli shader calcolano `uv = (gl_FragCoord.xy - uResolution*0.5) / uResolution.y` (`tunnel.frag:31`, stesso schema ovunque): con buffer 1920 e `uResolution` 3840 le coordinate arrivano a metà del range e il centro dichiarato cade sul bordo → si vede il **quadrante in basso a sinistra ingrandito 2×**. A 1440p il fattore è 1,33×, a 720p/1080p `scale = 1` e non si nota: per questo è sfuggito.
-  **Non è solo la preview**: `perfScale` entra nello stesso calcolo, quindi appena la risoluzione dinamica riprende a funzionare (C1+C2) **il proiettore si zooma da solo** ogni volta che scala per uno shader pesante. Da fare **prima** di C1+C2.
-  Il commento alla riga 603 dice che `uResolution` tiene la misura logica "so shader scale matches the projector", ma la premessa non regge: gli shader normalizzano già su `uResolution.y`, quindi la scala dei dettagli è identica a qualsiasi dimensione di buffer. Fix: `this.resolution.set(bw, bh)` con le dimensioni vere del buffer. Verificare i post-FX che ragionano in pixel (pixelate, scanline, grain) · **una riga + controllo dei post**
-- [ ] **C1 Watchdog che raddoppia i frame del proiettore** — `Engine.ts:1792`: il timer rende un frame se sono passati ≥14 ms, ma il periodo rAF a 60 Hz è 16,7 ms → scatta **ogni frame**. La finestra output disegna circa il doppio del necessario. Soglia a ~40 ms: interviene solo quando rAF è davvero sospeso, che è il motivo per cui esiste · **una riga**
-- [ ] **C2 Risoluzione dinamica di fatto spenta** — `Engine.ts:1740` aggiorna `perfLastNow` *prima* del `return` su `!rafDriven` (riga 1745): il frame rAF successivo misura ~0,7 ms invece di 16,7 e l'EMA converge verso il nulla, così il ramo `perfEmaMs > 24` non scatta mai. Un raymarch a 15 fps non viene mai scalato. Spostare l'assegnazione dopo il controllo. Va con C1, **dopo C21**, poi `yarn check:output` · **una riga**
-- [ ] **C3 Id effetto sconosciuto = proiettore rosso** — `Engine.ts:628`: `EFFECT_SHADERS[id]` con id ignoto passa `undefined` e three ripiega sul `default_fragment`, che è rosso pieno. Raggiungibile da preset importati (`PresetPanel.tsx:153`), comando remote/OSC (`App.tsx:411`) e restore delle impostazioni dopo la rimozione di un effetto. Una guardia in `setEffect` copre tutti e tre · **una riga**
-- [ ] **C5 `screenshot()` con un solo slot** — `Engine.ts:2196`: `screenshotCb` è una variabile singola, quindi due richieste ravvicinate (salvataggio look + cattura thumbnail) lasciano la prima promise appesa per sempre e il look non viene mai salvato. Lista di callback · **tre righe**
 - [ ] **C4 Snapshot intero su IPC a ogni emit** — `App.tsx:136`: `sendEngineState` parte a ogni `emitState()`, cioè ~60 volte al secondo mentre trascini uno slider, e lo snapshot porta `paramDefs`, `effectParams`, `keystone`, `cycle.palettes` e i `customImages` in base64. Solo la scrittura su localStorage è debounced, l'IPC no. Throttle a 30 Hz con lo schema già usato da `syncAudioToOutput` · **S**
 - [ ] **C6 Video overlay caricato tutto in RAM, due volte** — `Engine.ts:1451` legge l'intero file via IPC in un Blob, e `output-main.ts:61` rifà lo stesso nella finestra output. Una clip da 1 GB fa fuori il renderer a metà set. Serve un protocollo custom in main (`protocol.handle('media', …)`) e `video.src = 'media://…'` · **M**
 
@@ -101,6 +93,14 @@ Integrazione:
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
 ## ARCHIVIO — fatto
+
+### Correzioni v0.27.2-beta (2026-09-08)
+
+- [x] **C21 Cambiare la risoluzione di uscita zooma la preview** — segnalato dall'utente 2026-09-08. `Engine.ts:606-617`: `setRenderSize` mette in `uResolution` la risoluzione **logica** (es. 3840×2160) ma disegna in un buffer capato (`cap = 1920` in preview) e moltiplicato per `perfScale`. Gli shader calcolano `uv = (gl_FragCoord.xy - uResolution*0.5) / uResolution.y` (`tunnel.frag:31`, stesso schema ovunque): con buffer 1920 e `uResolution` 3840 le coordinate arrivano a metà del range e il centro dichiarato cade sul bordo → si vede il **quadrante in basso a sinistra ingrandito 2×**. A 1440p il fattore è 1,33×, a 720p/1080p `scale = 1` e non si nota: per questo è sfuggito.
+- [x] **C1 Watchdog che raddoppia i frame del proiettore** — `Engine.ts:1792`: il timer rende un frame se sono passati ≥14 ms, ma il periodo rAF a 60 Hz è 16,7 ms → scatta **ogni frame**. La finestra output disegna circa il doppio del necessario. Soglia a ~40 ms: interviene solo quando rAF è davvero sospeso, che è il motivo per cui esiste · **una riga**
+- [x] **C2 Risoluzione dinamica di fatto spenta** — `Engine.ts:1740` aggiorna `perfLastNow` *prima* del `return` su `!rafDriven` (riga 1745): il frame rAF successivo misura ~0,7 ms invece di 16,7 e l'EMA converge verso il nulla, così il ramo `perfEmaMs > 24` non scatta mai. Un raymarch a 15 fps non viene mai scalato. Spostare l'assegnazione dopo il controllo. Va con C1, **dopo C21**, poi `yarn check:output` · **una riga**
+- [x] **C3 Id effetto sconosciuto = proiettore rosso** — `Engine.ts:628`: `EFFECT_SHADERS[id]` con id ignoto passa `undefined` e three ripiega sul `default_fragment`, che è rosso pieno. Raggiungibile da preset importati (`PresetPanel.tsx:153`), comando remote/OSC (`App.tsx:411`) e restore delle impostazioni dopo la rimozione di un effetto. Una guardia in `setEffect` copre tutti e tre · **una riga**
+- [x] **C5 `screenshot()` con un solo slot** — `Engine.ts:2196`: `screenshotCb` è una variabile singola, quindi due richieste ravvicinate (salvataggio look + cattura thumbnail) lasciano la prima promise appesa per sempre e il look non viene mai salvato. Lista di callback · **tre righe**
 
 ### Funzioni in app
 
