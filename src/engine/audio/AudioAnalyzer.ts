@@ -4,9 +4,7 @@ import { BeatTracker } from './BeatTracker'
 export interface AudioData {
   sub: number
   bass: number
-  lowMid: number
   mid: number
-  highMid: number
   high: number
   presence: number
   energy: number
@@ -58,7 +56,6 @@ export class AudioAnalyzer {
   private tapTimes: number[] = []
 
   // Beat decay for smooth pulse
-  private beatDecay = 0
 
   // Input gain
   private inputGain = 1.0
@@ -68,7 +65,7 @@ export class AudioAnalyzer {
   private readonly NOISE_GATE = 0.015
 
   private data: AudioData = {
-    sub: 0, bass: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0,
+    sub: 0, bass: 0, mid: 0, high: 0, presence: 0,
     energy: 0, bassHit: 0, midHit: 0, highHit: 0,
     bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
     spectrum: EMPTY_SPECTRUM
@@ -335,9 +332,7 @@ export class AudioAnalyzer {
     // Frequency bands
     this.data.sub = this.bandAvg(20, 60, binHz)
     this.data.bass = this.bandAvg(60, 250, binHz)
-    this.data.lowMid = this.bandAvg(250, 500, binHz)
     this.data.mid = this.bandAvg(500, 2000, binHz)
-    this.data.highMid = this.bandAvg(2000, 4000, binHz)
     this.data.high = this.bandAvg(4000, 8000, binHz)
     this.data.presence = this.bandAvg(8000, 20000, binHz)
 
@@ -361,9 +356,7 @@ export class AudioAnalyzer {
     const norm = (v: number) => gated * Math.min(1, v * gain)
     this.data.sub = norm(this.data.sub)
     this.data.bass = norm(this.data.bass)
-    this.data.lowMid = norm(this.data.lowMid)
     this.data.mid = norm(this.data.mid)
-    this.data.highMid = norm(this.data.highMid)
     this.data.high = norm(this.data.high)
     this.data.presence = norm(this.data.presence)
     this.data.energy = norm(rawEnergy)
@@ -382,8 +375,6 @@ export class AudioAnalyzer {
     const bt = this.tracker.update(this.specBuf, binHz, now, bandFlux, gated === 1)
 
     this.data.beatDetected = bt.beat
-    if (bt.beat) this.beatDecay = 1.0
-    this.beatDecay *= 0.88
     this.data.beatPhase = bt.beatPhase
     this.data.barPhase = bt.barPhase
     this.data.bpm = this.getEffectiveBpm()
@@ -426,7 +417,6 @@ export class AudioAnalyzer {
     }
   }
 
-  getBeatPulse(): number { return this.beatDecay }
   getData(): AudioData { return this.data }
 
   getFrequencyData(): Uint8Array | null {
