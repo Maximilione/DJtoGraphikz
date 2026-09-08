@@ -1461,9 +1461,9 @@ export class Engine {
       })
       video.srcObject = stream
     } else {
-      const bytes: ArrayBuffer = await window.api.readFile(source.path)
-      const blob = new Blob([bytes])
-      video.src = URL.createObjectURL(blob)
+      // Streamed by main over djg-media:// — reading the file into a Blob meant
+      // a full copy in RAM per window (see src/main/index.ts)
+      video.src = `djg-media://f/?p=${encodeURIComponent(source.path)}`
     }
 
     await video.play().catch(err => console.error('[Engine] video play failed:', err))
