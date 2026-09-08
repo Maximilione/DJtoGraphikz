@@ -76,6 +76,16 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
   },
 ]
 
+function sameIds(a: Set<PostId>, b: PostId[]): boolean {
+  return a.size === b.length && b.every(id => a.has(id))
+}
+
+function sameChain(a: { id: PostId; amount: number }[], b: { id: PostId; amount: number }[]): boolean {
+  return a.length === b.length && a.every((p, i) => p.id === b[i].id && p.amount === b[i].amount)
+}
+
+const EFFECT_COUNT = EFFECT_CATEGORIES.reduce((n, c) => n + c.effects.length, 0)
+
 const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; icon: string; desc: string }[] }[] = [
   {
     name: 'Glow & Colore',
@@ -185,8 +195,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
     setCycleBeats(engine.getCycleBeatsPerSwitch())
     return engine.onState(state => {
       setActiveEffect(state.activeEffect)
-      setActivePosts(new Set(state.activePost))
-      setPostChain(engine.getPostChain())
+      // new Set / getPostChain() return fresh identities every time, so setting
+      // them unconditionally re-rendered this whole panel — 35 effect buttons
+      // with their thumbnails — on every emitted state
+      setActivePosts(prev => sameIds(prev, state.activePost) ? prev : new Set(state.activePost))
+      const chain = engine.getPostChain()
+      setPostChain(prev => sameChain(prev, chain) ? prev : chain)
       if (state.grade) setGradeState(state.grade)
       syncColors(state.colors)
       if (state.transitionType) setTransitionType(state.transitionType)
@@ -400,7 +414,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       {/* Section tabs — always visible */}
       <div className="tab-bar">
         {[
-          { id: 'fx' as Section, label: 'Effetti', count: 21 },
+          { id: 'fx' as Section, label: 'Effetti', count: EFFECT_COUNT },
           { id: 'post' as Section, label: `Post FX`, count: activePosts.size },
           { id: 'color' as Section, label: 'Colori', count: null },
         ].map(tab => (

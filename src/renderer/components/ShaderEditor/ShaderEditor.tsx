@@ -289,7 +289,6 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
     const ok = engine.setCustomShader(code)
     if (ok) {
       setLastApplied(code)
-      engine.sendCustomShaderToOutput(code)
     } else {
       setError(engine.getLastShaderError() || 'Compilazione shader fallita — dettagli in console')
     }
@@ -304,7 +303,6 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       const ok = engine.setCustomShader(code)
       if (ok) {
         setLastApplied(code)
-        engine.sendCustomShaderToOutput(code)
       } else {
         setError(engine.getLastShaderError() || 'Errore di compilazione')
       }
@@ -338,7 +336,6 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       if (ok) {
         setCode(res.fragment)
         setLastApplied(res.fragment)
-        engine.sendCustomShaderToOutput(res.fragment)
       } else {
         setError(`ISF: ${engine.getLastShaderError() || 'compilazione fallita'}`)
       }

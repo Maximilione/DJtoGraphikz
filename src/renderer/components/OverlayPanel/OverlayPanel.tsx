@@ -61,8 +61,15 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     const assets = await window.api?.importAssets()
     if (!assets || assets.length === 0) return
     for (const asset of assets) {
-      await engine.addOverlay(asset.name, asset.data)
-      await window.api?.librarySave(asset.name, asset.data).catch(() => {})
+      // a corrupt image rejects; without this the failure is a silent
+      // unhandled rejection and the user sees nothing happen
+      try {
+        await engine.addOverlay(asset.name, asset.data)
+        await window.api?.librarySave(asset.name, asset.data).catch(() => {})
+      } catch (err) {
+        console.error('[Overlay] import immagine fallito:', err)
+        pushToast(`Non riesco a caricare ${asset.name}`)
+      }
     }
     refresh()
     loadLibrary()
@@ -73,8 +80,14 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     const files = await window.api?.pickVideos()
     if (!files || files.length === 0) return
     for (const f of files) {
-      await engine.addVideoOverlay(f.name, { kind: 'video', path: f.path })
-      await window.api?.librarySaveCopy(f.name, f.path).catch(() => {})
+      // rejects if the file moved or the drive was unplugged since the pick
+      try {
+        await engine.addVideoOverlay(f.name, { kind: 'video', path: f.path })
+        await window.api?.librarySaveCopy(f.name, f.path).catch(() => {})
+      } catch (err) {
+        console.error('[Overlay] import video fallito:', err)
+        pushToast(`Non riesco a caricare ${f.name}`)
+      }
     }
     refresh()
     loadLibrary()

@@ -50,6 +50,11 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   const [confidence, setConfidence] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animFrameRef = useRef<number>(0)
+  // The rAF chain keeps running with the closure it started with, so comparing
+  // against the state variables here would compare against the values captured
+  // on the first render forever. Refs are what the loop can actually see.
+  const shownBpmRef = useRef(128)
+  const shownConfRef = useRef(0)
   const beatFlashRef = useRef(0)
 
   const refreshDevices = async () => {
@@ -200,7 +205,9 @@ export function AudioPanel({ engine }: AudioPanelProps) {
     const ctx = canvasRef.current.getContext('2d')!
     const w = canvasRef.current.width
     const h = canvasRef.current.height
-    const data = engine.audioAnalyzer.getFrequencyData()
+    // getFrequencyData() re-reads the analyser into the same buffer that
+    // update() already filled this frame — read the frame we have instead
+    const data = engine.audioAnalyzer.getData().spectrum
 
     ctx.fillStyle = '#0a0a0a'
     ctx.fillRect(0, 0, w, h)
@@ -231,8 +238,14 @@ export function AudioPanel({ engine }: AudioPanelProps) {
       // Update display BPM (throttle to avoid 60fps React re-renders)
       const roundedBpm = Math.round(audioData.bpm)
       const conf = engine.audioAnalyzer.getBpmConfidence()
-      if (roundedBpm !== displayBpm) setDisplayBpm(roundedBpm)
-      if (Math.abs(conf - confidence) > 0.05) setConfidence(conf)
+      if (roundedBpm !== shownBpmRef.current) {
+        shownBpmRef.current = roundedBpm
+        setDisplayBpm(roundedBpm)
+      }
+      if (Math.abs(conf - shownConfRef.current) > 0.05) {
+        shownConfRef.current = conf
+        setConfidence(conf)
+      }
 
       ctx.fillStyle = '#00ff88'
       ctx.font = '10px monospace'
