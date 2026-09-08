@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.28.0-beta",
+  "version": "0.29.0-beta",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "package:linux": "electron-builder --linux",
     "check:output": "python3 scripts/check-output.py",
     "check:beat": "node scripts/check-beat.mjs",
+    "check:sequences": "node scripts/check-sequences.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
     "shader:preview": "python3 scripts/shader-preview.py"
   },
