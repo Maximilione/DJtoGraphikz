@@ -109,6 +109,87 @@ Intreccio consigliato con la UX: U1 (piccolo, subito) → **D1-D3 fondamenta** �
 
 Ordine consigliato: U1 intero → U2.1+U2.2 → U3.2 → U2.3 → resto. U1+U2 ≈ 2 giorni.
 
+## ROADMAP 2026-09-08 — nuove funzionalità
+
+Analisi condotta confrontando l'app con Resolume / VDMX / Synesthesia e con il
+lavoro reale di chi suona. Nessuna voce qui richiede addon nativi.
+
+### Serata — servono mentre si suona, al buio, sotto pressione
+
+- [ ] **S1 FX momentanei (tieni premuto)** — tieni il tasto: l'effetto è attivo; molli: torna com'era. Vale per post-FX, look e note MIDI (note-on/note-off) e per il tap sul telefono. Risolve il classico "ho acceso lo strobe e me lo sono dimenticato". Serve distinguere keydown/keyup, il wet è già animabile · **S**
+- [ ] **S2 Beat-roll (stutter a tempo)** — tenendo un tasto l'immagine viene ripetuta ogni 1/4, 1/8, 1/16 di battuta usando la fase del PLL già disponibile: l'equivalente visivo del loop roll del DJ. Un solo buffer in più oltre al freeze esistente · **S/M**
+- [ ] **S3 Macro "Intensità"** — un fader unico (tastiera + MIDI + telefono) che alza insieme densità, velocità, reattività della scena e il wet della catena post, con un peso per parametro. Sotto pressione un comando batte cinque slider · **M**
+- [ ] **S4 Struttura del pezzo: breakdown / build / drop** — tre indicatori lenti sopra il BeatTracker (sparizione del kick, salita di energia senza cassa, rientro del kick). L'AutoVJ smette di cambiare a caso nel build e piazza il cambio scena **sul drop**, che oggi è l'unico momento che sbaglia · **M/L**
+- [ ] **S5 Idle sicuro sul silenzio** — se l'audio manca per N secondi, dissolvenza su un look calmo o sul logo invece di lasciare un fermo immagine o un pattern impazzito; rientra da solo. Noise gate e recovery esistono già, manca la politica · **S**
+
+### Preparazione — per arrivare pronti alla serata
+
+- [ ] **P1 Prova a secco con un file audio** — trascini un mp3/wav (o la registrazione di un tuo set) e l'app lo analizza al posto del line-in, con play/scrub. Sblocca "Test con musica vera" (Ordine di lavoro n.1): tutto il lavoro su beat e BPM oggi è verificabile solo in serata · **S/M**
+- [ ] **P2 Profili locale** — display di output, risoluzione, i 4 angoli del mapping, device audio, gain, ArtNet e master salvati come "posto". La seconda serata nello stesso locale torna a un click · **S/M**
+- [ ] **P3 Soundcheck a un tasto** — lista verde/rossa in 15 secondi: livello in ingresso, finestra output presente e che sta davvero disegnando (la logica di `yarn check:output` esiste già, va portata in-app), fps alla risoluzione scelta, pacchetto ArtNet, URL del telefono, spazio disco · **S/M**
+- [ ] **P4 Scene AutoVJ mie** — "aggiungi alle scene AutoVJ" dal look corrente, con genere ed energia: entra nella rotazione insieme alle 136 di fabbrica, con toggle "solo le mie / tutte" · **M**
+- [ ] **P5 Scaletta della serata** — momenti ordinati (Apertura / Salita / Peak / Chiusura), ognuno con la sua pagina di Look Bank, genere e intensità. Supera il limite dei 16 slot senza una seconda interfaccia · **M**
+
+### Qualità visiva
+
+- [ ] **Q1 Camera master** — zoom, rotazione, pan, tiling a specchio e push-in sul kick applicati nel master shader **prima** del sampling: agisce su tutti e 35 gli effetti e sui ~3.700 ISF insieme. Nessun'altra modifica ha questa leva sulla varietà · **S/M**
+- [ ] **Q2 Palette da un'immagine** — trascini flyer o logo del locale, k-means su una miniatura estrae 5 colori ordinati e li salva come palette · **S**
+- [ ] **Q3 Maschere fra i deck** — oltre ai 5 blend attuali: split con bordo morbido, radiale, luma-key, e maschera guidata dall'audio. Il crossfader diventa la posizione del bordo, non solo la quantità · **M**
+- [ ] **Q4 Loop video come sorgente di deck** — una playlist di clip al posto di un effetto, con velocità agganciata al BPM e cambio sul giro di battuta. *Limite onesto: Chromium legge mp4/webm ma non HAP né ProRes (i formati dei pack VJ commerciali), servirebbe conversione a monte* · **M/L**
+
+### Integrazione
+
+- [ ] **I1 MIDI Clock in ingresso** — BPM **esatto** e fase della battuta dal mixer/CDJ/Traktor invece che stimati dall'aria. È il grosso del valore di Ableton Link (parcheggiato perché richiede addon nativo) su un canale già aperto dalla v0.11. Nota tecnica: il clock è un messaggio da 1 byte e oggi viene scartato in `midi.ts` dal controllo `data.length < 2` · **S**
+- [ ] **I2 Uscita per OBS / secondo PC** — la stessa pagina di output esposta su una route del server già in piedi, da aprire come Browser Source in OBS anche da un altro computer in rete: è il caso d'uso per cui si voleva NDI, senza SDK. *Limite: è un secondo render, costa GPU; per la sola cattura locale la window-capture di OBS resta gratis* · **M**
+- [ ] **I3 Pro DJ Link / StagelinQ** — titolo del brano e BPM autorevole direttamente dai lettori Pioneer/Denon (protocolli UDP con implementazioni JS pure). Da tenere opzionale e disattivabile: è reverse engineering e richiede il cavo verso lo switch del booth · **L**
+- [ ] **I4 Reel automatico** — buffer circolare degli ultimi 30 secondi: un tasto (o il rilevamento drop di S4) salva una clip 9:16 già pronta da postare · **M**
+
+### Ordine consigliato
+
+1. **I1 MIDI Clock** — mezza giornata per avere il tempo esatto invece che stimato: risolve alla radice il problema più difficile dell'app
+2. **Q1 Camera master** — un solo shader toccato moltiplica la varietà di tutta la libreria
+3. **P1 Prova a secco** — rende testabile in cinque minuti tutto il lavoro audio senza aspettare una serata
+4. **S1 FX momentanei** — il gesto che distingue un VJ da chi accende interruttori; costa un keyup
+5. **S3 Macro Intensità** — governare l'energia della sala con un comando solo
+6. **P2 Profili locale** — la seconda serata nello stesso posto passa da venti minuti a un click
+
+## CODICE — miglioramenti (audit 2026-09-08)
+
+Lettura integrale di Engine, main, remote-server e pannelli. Ogni voce ha file:riga
+verificata. Ordine per valore/costo.
+
+### Da fare per primi
+
+- [ ] **C1 Watchdog che raddoppia i frame del proiettore** — `Engine.ts:1792`: il timer rende un frame se sono passati ≥14 ms, ma il periodo rAF a 60 Hz è 16,7 ms → scatta **ogni frame**. La finestra output disegna circa il doppio del necessario. Soglia a ~40 ms: interviene solo quando rAF è davvero sospeso, che è il motivo per cui esiste · **una riga**
+- [ ] **C2 Risoluzione dinamica di fatto spenta** — `Engine.ts:1740` aggiorna `perfLastNow` *prima* del `return` su `!rafDriven` (riga 1745): il frame rAF successivo misura ~0,7 ms invece di 16,7 e l'EMA converge verso il nulla, così il ramo `perfEmaMs > 24` non scatta mai. Un raymarch a 15 fps non viene mai scalato. Spostare l'assegnazione dopo il controllo. Va con C1, poi `yarn check:output` · **una riga**
+- [ ] **C3 Id effetto sconosciuto = proiettore rosso** — `Engine.ts:628`: `EFFECT_SHADERS[id]` con id ignoto passa `undefined` e three ripiega sul `default_fragment`, che è rosso pieno. Raggiungibile da preset importati (`PresetPanel.tsx:153`), comando remote/OSC (`App.tsx:411`) e restore delle impostazioni dopo la rimozione di un effetto. Una guardia in `setEffect` copre tutti e tre · **una riga**
+- [ ] **C4 Snapshot intero su IPC a ogni emit** — `App.tsx:136`: `sendEngineState` parte a ogni `emitState()`, cioè ~60 volte al secondo mentre trascini uno slider, e lo snapshot porta `paramDefs`, `effectParams`, `keystone`, `cycle.palettes` e i `customImages` in base64. Solo la scrittura su localStorage è debounced, l'IPC no. Throttle a 30 Hz con lo schema già usato da `syncAudioToOutput` · **S**
+- [ ] **C5 `screenshot()` con un solo slot** — `Engine.ts:2196`: `screenshotCb` è una variabile singola, quindi due richieste ravvicinate (salvataggio look + cattura thumbnail) lasciano la prima promise appesa per sempre e il look non viene mai salvato. Lista di callback · **tre righe**
+
+### Perdite di risorse e robustezza
+
+- [ ] **C6 Video overlay caricato tutto in RAM, due volte** — `Engine.ts:1451` legge l'intero file via IPC in un Blob, e `output-main.ts:61` rifà lo stesso nella finestra output. Una clip da 1 GB fa fuori il renderer a metà set. Serve un protocollo custom in main (`protocol.handle('media', …)`) e `video.src = 'media://…'` · **M**
+- [ ] **C7 `dispose()` incompleto** — `Engine.ts:2229`: restano fuori le due `PlaneGeometry`, il materiale passthrough iniziale di `postQuad`, `whiteTexture`, le `customTextures` e lo svuotamento di `stateListeners`. Ogni ricreazione dell'Engine perde VRAM · **S**
+- [ ] **C8 Import media senza try/catch** — `OverlayPanel.tsx:59`: `addOverlay`/`addVideoOverlay` rigettano su file corrotto o disco staccato → unhandled rejection e nessun messaggio. `addFromLibrary` (riga 100) e `importIsfFiles` il try/catch ce l'hanno già · **S**
+- [ ] **C9 `localStorage.setItem` scoperto sui preset** — `PresetPanel.tsx:19,30`: unici punti del progetto senza try/catch (App, LookBank, DmxPanel e midi.ts ce l'hanno). Superata la quota l'utente vede il preset in lista e non lo ritrova al riavvio · **S**
+- [ ] **C10 LFO fuori fase fra preview e proiettore** — `beatClock` ed `effectTime` sono accumulatori locali di ogni finestra e non stanno in `stateSnapshot()`: dopo qualche minuto le due finestre mostrano fasi diverse degli stessi parametri modulati. È lo stato duplicato che diverge, quello che il progetto vuole evitare. Metterlo nel payload audio già inviato a 30 Hz · **S**
+
+### Costo per frame e traffico
+
+- [ ] **C11 Allocazioni nel render loop** — `Engine.ts:1937` chiama `getParamDefs()` a ogni frame (due array con spread) e `effParamValue` (riga 1129) alloca un `Record` `audio` nuovo per ogni parametro mappato: ~500 oggetti/s di pressione GC gratuita. Memoizzare i def per effetto, `switch` al posto della mappa · **S**
+- [ ] **C12 Re-render totale del pannello effetti** — `EffectPanel.tsx:186`: il listener ricostruisce `new Set(...)` e `getPostChain()` (identità sempre nuove) e ridisegna 832 righe con 35 bottoni e thumbnail. Un cambio scena AutoVJ emette ~10 stati nello stesso frame → 10 render completi. Un `applyScene` in Engine con un solo `emitState()` finale · **S/M**
+- [ ] **C13 IPC overlay non throttlato** — `OverlayPanel.tsx:187`: ogni `input` di slider manda subito `sendOverlayUpdate` (60 msg/s), mentre gli stessi slider dal telefono sono throttlati a 90 ms in `remote-server.ts:531`. Allineare le due superfici · **S**
+- [ ] **C14 `/state` serve lo snapshot integrale** — `remote-server.ts:121`: ogni telefono accoppiato scarica tutto ogni 1,5 s, `customImages` in base64 compresi, fino a 4 sessioni. Filtrare i campi che il remote non usa quando si popola la cache · **S**
+- [ ] **C15 Doppio invio dello shader custom** — `ShaderEditor.tsx:289,304,337`: `setCustomShader` fa già `emitState()` e lo snapshot contiene `customShader`; `sendCustomShaderToOutput` ricostruisce e rispedisce lo stesso stato. Tre chiamate da cancellare, più la funzione · **S**
+- [ ] **C16 Spettro: closure stale e doppia lettura** — `AudioPanel.tsx:198`: `drawSpectrum` si ri-schedula da sé con la closure del primo render, quindi `displayBpm` e `confidence` restano congelati e le guardie non servono a niente; e rilegge `getByteFrequencyData` sullo stesso buffer già letto da `update()` nello stesso frame · **S**
+
+### Pulizia
+
+- [ ] **C17 Codice morto** — verificato a grep (una sola occorrenza = solo la definizione): `Engine.addEffect`/`removeEffect`, `getActiveEffect`, `isTransitioning`, `getPostAmount`, `getCustomImageInputs`/`getCustomImages`; `AudioAnalyzer.getBeatPulse` col suo `beatDecay` aggiornato **ogni frame**, `data.spectrum`, `EMPTY_SPECTRUM`, e `data.lowMid`/`highMid` — due `bandAvg()` calcolate per frame senza un solo lettore. ~40 righe e due scansioni di banda per frame · **S**
+- [ ] **C18 Contatore effetti sbagliato** — `EffectPanel.tsx:403`: il badge dice `count: 21`, gli effetti sono 35. Derivarlo da `EFFECT_CATEGORIES` · **una riga**
+- [ ] **C19 Catena no-op a 30 Hz nel DMX** — `DmxPanel.tsx:60`: costruisce tre terne, ne scarta due e applica una `map` identità sulla terza, per usare solo il colore 1 · **una riga**
+- [ ] **C20 Spiccioli** — `BeatTracker.ts:190` chiama `median()` due volte per frame, e `median` fa `[...a].sort()` → 3 array da 80 e 2 sort a ogni frame; `App.tsx:86` legge il mode da localStorage senza validarlo contro `['simple','pro','live']` e la scrittura alla riga 330 è l'unica del file senza try/catch; `Engine.ts:596` non ha la guardia `> 1` sulle dimensioni che invece il ramo remote ha (riga 580) · **S**
+
 ## ORDINE DI LAVORO — lista unica riconciliata (storico + studio 2026-08-06)
 
 Ogni voce: [origine] · effort. Riclassificati rispetto al vecchio TODO: LFO e Text overlay
@@ -145,8 +226,8 @@ Rilettura del parcheggio: due voci NON richiedono native addon, e manca l'auto-u
 ## PARCHEGGIO — native addon veri, restano parcheggiati
 
 - [ ] **Syphon/Spout output** — condivisione texture GPU (native addon macOS/Win)
-- [ ] **NDI output** — video via rete (SDK nativo)
-- [ ] **Ableton Link** — sync BPM via rete (native addon)
+- [ ] **NDI output** — video via rete (SDK nativo). Vedi **I2 uscita OBS**: copre lo stesso uso senza SDK
+- [ ] **Ableton Link** — sync BPM via rete (native addon). Vedi **I1 MIDI Clock**: stessa resa su un canale già aperto
 - [ ] **3D geometry scenes** — mesh audio-reattive
 - [ ] **Plugin architecture** — sistema plugin terze parti
 - [ ] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
