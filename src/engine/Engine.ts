@@ -190,15 +190,6 @@ export interface Preset {
   customParams?: EffectParam[]
 }
 
-export interface Playlist {
-  name: string
-  presets: Preset[]
-  loop: boolean
-  autoAdvance: boolean
-  advanceMode: 'timer' | 'beats'
-  advanceInterval: number   // seconds for timer, beats for beat mode
-}
-
 const EFFECT_SHADERS: Record<EffectId, string> = {
   tunnel: tunnelFrag,
   kaleidoscope: kaleidoscopeFrag,
@@ -1616,7 +1607,7 @@ export class Engine {
     }, 33)
   }
 
-  // ---- Preset & Playlist API ----
+  // ---- Preset API ----
 
   createPreset(name: string): Preset {
     const amounts: Partial<Record<PostId, number>> = {}

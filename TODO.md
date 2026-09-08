@@ -11,7 +11,7 @@ Tutte e sette le voci sono fatte: C21, C1, C2, C3, C5 in v0.27.2-beta,
 C4 e C6 in v0.27.3-beta. In archivio in fondo. Quello che resta aperto
 non rompe niente: aggiunge.
 
-## 2. FUNZIONALITÀ — le sette che valgono di più
+## 2. FUNZIONALITÀ — le cinque che valgono di più
 
 Nessuna richiede addon nativi. Ordine per rapporto valore/costo, non per gruppo.
 
@@ -20,7 +20,6 @@ Nessuna richiede addon nativi. Ordine per rapporto valore/costo, non per gruppo.
 - [ ] **P1 Prova a secco con un file audio** — trascini un mp3/wav (o la registrazione di un tuo set) e l'app lo analizza al posto del line-in, con play/scrub. Sblocca "Test con musica vera" (Ordine di lavoro n.1): tutto il lavoro su beat e BPM oggi è verificabile solo in serata · **S/M**
 - [ ] **S1 FX momentanei (tieni premuto)** — tieni il tasto: l'effetto è attivo; molli: torna com'era. Vale per post-FX, look e note MIDI (note-on/note-off) e per il tap sul telefono. Risolve il classico "ho acceso lo strobe e me lo sono dimenticato". Serve distinguere keydown/keyup, il wet è già animabile · **S**
 - [ ] **S3 Macro "Intensità"** — un fader unico (tastiera + MIDI + telefono) che alza insieme densità, velocità, reattività della scena e il wet della catena post, con un peso per parametro. Sotto pressione un comando batte cinque slider · **M**
-- [ ] **P6 Editor di playlist vero** — chiesto 2026-09-08. Oggi il costruttore di playlist funziona una volta sola: `savePlaylist` (`PresetPanel.tsx:187`) aggiunge sempre in coda, quindi una playlist salvata **non si riapre e non si modifica** — per spostare un passo la si rifà da capo. Serve: caricare una playlist esistente nell'editor, salvarla sopra o come copia, riordinare trascinando invece che con ↑↓, e le thumbnail dei preset come già fa il Look Bank.
   Il pezzo che cambia davvero l'uso in serata e' la **durata per passo**: oggi `advanceInterval` sta sulla playlist (`Engine.ts:193`), uno solo per tutti, quindi non puoi dire "questo per 16 battute, il prossimo per 64". Spostarlo sul singolo passo, con la durata della playlist come valore di partenza, e per passo anche il tipo di transizione (i tipi esistono gia').
   Sovrapposizione con **P5 scaletta**: P5 e' la stessa idea un piano sopra (momenti della serata, ognuno con una pagina di Look Bank). P6 e' il pezzo piccolo e concreto, e va fatto prima: se le playlist diventano modificabili con durate per passo, P5 potrebbe non servire piu' · **S/M**
 - [ ] **P2 Profili locale** — display di output, risoluzione, i 4 angoli del mapping, device audio, gain, ArtNet e master salvati come "posto". La seconda serata nello stesso locale torna a un click · **S/M**
@@ -44,7 +43,6 @@ Preparazione — per arrivare pronti alla serata:
 
 - [ ] **P3 Soundcheck a un tasto** — lista verde/rossa in 15 secondi: livello in ingresso, finestra output presente e che sta davvero disegnando (la logica di `yarn check:output` esiste già, va portata in-app), fps alla risoluzione scelta, pacchetto ArtNet, URL del telefono, spazio disco · **S/M**
 - [ ] **P4 Scene AutoVJ mie** — "aggiungi alle scene AutoVJ" dal look corrente, con genere ed energia: entra nella rotazione insieme alle 136 di fabbrica, con toggle "solo le mie / tutte" · **M**
-- [ ] **P5 Scaletta della serata** *(da rivedere dopo P6: se le playlist diventano modificabili con durata per passo, questa potrebbe non servire)* — momenti ordinati (Apertura / Salita / Peak / Chiusura), ognuno con la sua pagina di Look Bank, genere e intensità. Supera il limite dei 16 slot senza una seconda interfaccia · **M**
 
 Qualità visiva:
 
@@ -72,6 +70,17 @@ Integrazione:
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
 ## ARCHIVIO — fatto
+
+### Scalette v0.29.0-beta (2026-09-08)
+
+- [x] **P6 Editor di playlist vero** — chiesto 2026-09-08. Oggi il costruttore di playlist funziona una volta sola: `savePlaylist` (`PresetPanel.tsx:187`) aggiunge sempre in coda, quindi una playlist salvata **non si riapre e non si modifica** — per spostare un passo la si rifà da capo. Serve: caricare una playlist esistente nell'editor, salvarla sopra o come copia, riordinare trascinando invece che con ↑↓, e le thumbnail dei preset come già fa il Look Bank.
+- [x] **P5 Scaletta della serata** *(da rivedere dopo P6: se le playlist diventano modificabili con durata per passo, questa potrebbe non servire)* — momenti ordinati (Apertura / Salita / Peak / Chiusura), ognuno con la sua pagina di Look Bank, genere e intensità. Supera il limite dei 16 slot senza una seconda interfaccia · **M**
+
+P5 e P6 sono state fatte insieme, come una cosa sola: le playlist sono
+diventate scalette con durata e transizione per passo, riapribili nell'editor.
+La "scaletta della serata" di P5 e' una scaletta lunga — non serviva un secondo
+livello. Il Look Bank e le scalette ora leggono lo stesso archivio di look
+(`src/renderer/looks.ts`), invece di tenere due copie parallele.
 
 ### Ottimizzazioni v0.28.0-beta (2026-09-08)
 
