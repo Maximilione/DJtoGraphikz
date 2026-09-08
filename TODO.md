@@ -5,13 +5,12 @@ qualcosa che già esiste, poi quello che aggiunge valore, in fondo l'archivio.
 Le sigle: C = codice, S = serata, P = preparazione, Q = qualità visiva,
 I = integrazione.
 
-## 1. ROTTO O ZAVORRA — prima di aggiungere altro
+## 1. ROTTO O ZAVORRA — vuota
 
-C21, C1, C2, C3 e C5 sono **fatti in v0.27.2-beta** (in archivio in fondo).
-Restano queste due.
+Tutte e sette le voci sono fatte: C21, C1, C2, C3, C5 in v0.27.2-beta,
+C4 e C6 in v0.27.3-beta. In archivio in fondo. Quello che resta aperto
+non rompe niente: aggiunge.
 
-- [ ] **C4 Snapshot intero su IPC a ogni emit** — `App.tsx:136`: `sendEngineState` parte a ogni `emitState()`, cioè ~60 volte al secondo mentre trascini uno slider, e lo snapshot porta `paramDefs`, `effectParams`, `keystone`, `cycle.palettes` e i `customImages` in base64. Solo la scrittura su localStorage è debounced, l'IPC no. Throttle a 30 Hz con lo schema già usato da `syncAudioToOutput` · **S**
-- [ ] **C6 Video overlay caricato tutto in RAM, due volte** — `Engine.ts:1451` legge l'intero file via IPC in un Blob, e `output-main.ts:61` rifà lo stesso nella finestra output. Una clip da 1 GB fa fuori il renderer a metà set. Serve un protocollo custom in main (`protocol.handle('media', …)`) e `video.src = 'media://…'` · **M**
 
 Dopo C1+C2, `yarn check:output`: cambiano il ritmo dei frame sulla finestra output.
 
@@ -93,6 +92,11 @@ Integrazione:
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
 ## ARCHIVIO — fatto
+
+### Correzioni v0.27.3-beta (2026-09-08)
+
+- [x] **C4 Snapshot intero su IPC a ogni emit** — `App.tsx:136`: `sendEngineState` parte a ogni `emitState()`, cioè ~60 volte al secondo mentre trascini uno slider, e lo snapshot porta `paramDefs`, `effectParams`, `keystone`, `cycle.palettes` e i `customImages` in base64. Solo la scrittura su localStorage è debounced, l'IPC no. Throttle a 30 Hz con lo schema già usato da `syncAudioToOutput` · **S**
+- [x] **C6 Video overlay caricato tutto in RAM, due volte** — `Engine.ts:1451` legge l'intero file via IPC in un Blob, e `output-main.ts:61` rifà lo stesso nella finestra output. Una clip da 1 GB fa fuori il renderer a metà set. Serve un protocollo custom in main (`protocol.handle('media', …)`) e `video.src = 'media://…'` · **M**
 
 ### Correzioni v0.27.2-beta (2026-09-08)
 
