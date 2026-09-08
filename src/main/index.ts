@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, screen, session, systemPreferences } from 'electron'
+import { app, BrowserWindow, ipcMain, net, protocol, screen, session, systemPreferences } from 'electron'
 
 // Menu/dock/notifications name (the bold macOS menu-bar name in dev still reads
 // "Electron" from the dev binary's Info.plist — the packaged app shows this)
 app.setName('DJtoGraphikz')
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { setupIpcHandlers } from './ipc-handlers'
 import { setupRemoteServer } from './remote-server'
 import { setupOscServer } from './osc-server'
@@ -251,8 +252,29 @@ function ensureOutputWindow(): BrowserWindow {
   return outputWindow
 }
 
+/**
+ * Video overlays stream from disk instead of being read into a Blob. Both
+ * windows create their own <video> from the same path, so reading the file
+ * meant two full copies in RAM — a 1GB clip took the renderer down mid-set.
+ * Must be declared before the app is ready.
+ * ponytail: no narrower guard than the video extension — the renderer can
+ * already read any path through `asset:read-file`, so this adds no reach.
+ */
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'djg-media',
+  privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
+}])
+
+const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v)$/i
+
 app.whenReady().then(async () => {
   setupDebugLog()
+
+  protocol.handle('djg-media', req => {
+    const path = new URL(req.url).searchParams.get('p')
+    if (!path || !VIDEO_EXT.test(path)) return new Response('', { status: 400 })
+    return net.fetch(pathToFileURL(path).toString())
+  })
 
   // Self-test hook (DJG_SELFTEST=<file>): grabs what the projector is actually
   // painting and quits. Used by scripts/check-output.py as a release gate —

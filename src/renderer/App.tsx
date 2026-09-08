@@ -133,8 +133,30 @@ export function App() {
     // Persistence debounced: a synchronous localStorage write per emitted state
     // (~16/s while dragging a remote slider) blocks the render thread
     let persistTimer = 0
+    // The snapshot carries paramDefs, every effect's params, the keystone and
+    // any ISF image inputs as base64. Dragging a slider emits one per frame, so
+    // sending each one structured-clones megabytes at 60Hz to main and on to
+    // the output window. 30Hz, same rate as the audio push: leading edge so a
+    // look change lands at once, trailing flush so the last value is never lost.
+    // ponytail: images ride along on every send — split them out only if a set
+    // with many ISF image inputs still shows a hitch.
+    let ipcTimer = 0
+    let lastSent = 0
+    let pending: unknown = null
+    const sendState = () => {
+      ipcTimer = 0
+      lastSent = performance.now()
+      try { window.api?.sendEngineState(pending) } catch (_) {}
+    }
     eng.onStateChange = (state) => {
-      try { window.api?.sendEngineState(state) } catch (_) {}
+      pending = state
+      const wait = 33 - (performance.now() - lastSent)
+      if (wait <= 0) {
+        if (ipcTimer) clearTimeout(ipcTimer)
+        sendState()
+      } else if (!ipcTimer) {
+        ipcTimer = window.setTimeout(sendState, wait)
+      }
       clearTimeout(persistTimer)
       persistTimer = window.setTimeout(() => {
         // blackout/frozen excluded on restore
@@ -180,6 +202,8 @@ export function App() {
 
     setEngine(eng)
     return () => {
+      clearTimeout(ipcTimer)
+      clearTimeout(persistTimer)
       unsubscribe()
       vj.onSceneChange = null
       vj.onPostChange = null
