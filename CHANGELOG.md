@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.27.3-beta] — 2026-09-08
+
+### Changed
+- **I video overlay scorrono da disco invece di essere caricati in memoria**: ogni finestra costruisce il proprio elemento video dallo stesso file, e prima ognuna ne leggeva l'intero contenuto in RAM — due copie complete, con una clip da 1 GB il renderer moriva a meta' set. Ora il processo principale espone il file su un protocollo interno (`djg-media://`) e il video viene letto man mano che serve. Accetta solo percorsi con estensione video
+- **Lo stato non viene piu' spedito alle altre finestre a ogni fotogramma**: trascinando uno slider l'app inviava lo snapshot completo (parametri di tutti gli effetti, mapping, angoli del mapping, immagini degli ISF in base64) 60 volte al secondo al processo principale e da li' alla finestra di uscita e al telefono. Ora al massimo 30 volte al secondo, con invio immediato al primo cambio e invio finale garantito: stessa reattivita', meta' traffico e nessun picco durante i trascinamenti
+
 ## [0.27.2-beta] — 2026-09-08
 
 ### Fixed
