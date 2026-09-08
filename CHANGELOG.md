@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.27.2-beta] — 2026-09-08
+
+### Fixed
+- **La preview zoomava cambiando la risoluzione di uscita** (segnalato dall'utente): scegliendo 1440p o 4K il pannello mostrava il quadrante in basso a sinistra ingrandito. `uResolution` riportava la risoluzione scelta mentre il buffer della preview e' limitato a 1080p, e tutti gli effetti calcolano le coordinate come `(gl_FragCoord.xy - uResolution*0.5) / uResolution.y`: con il centro dichiarato fuori dal buffer si vedeva un angolo. Ora `uResolution` riporta la dimensione reale del buffer; l'inquadratura resta identica perche' gli effetti normalizzano gia' su `uResolution.y`. **Lo stesso calcolo usa la scala della risoluzione dinamica: senza questa correzione il proiettore si sarebbe zoomato da solo sugli shader pesanti**
+- **Il proiettore disegnava il doppio dei frame necessari**: il watchdog che tiene viva la finestra output quando il sistema sospende `requestAnimationFrame` scattava a 14 ms, sotto il periodo di un frame a 60 Hz (16,7 ms), quindi interveniva fra un frame e l'altro invece che solo in emergenza. Soglia portata a 40 ms, sopra anche il periodo di un proiettore 4K a 30 Hz
+- **La risoluzione dinamica non interveniva mai**: i frame del watchdog spostavano il riferimento temporale usato per misurare il carico, quindi il frame successivo risultava sempre velocissimo e la media non superava mai la soglia. Uno shader pesante restava a frame rate basso invece di scalare i buffer
+- **Schermo rosso con un effetto sconosciuto**: un id non valido (preset importato, comando dal telefono o da OSC, impostazioni salvate prima della rimozione di un effetto) arrivava a three.js come shader vuoto e faceva ripiegare sul suo materiale di default, che e' rosso pieno. Ora l'id viene validato e in ultima istanza si ripiega su un effetto vero
+- **Salvataggio di un look che non si completava**: due richieste di cattura ravvicinate (salvare un look mentre l'app genera una miniatura) lasciavano la prima appesa per sempre
+
 ## [0.27.1-beta] — 2026-09-08
 
 ### Added
