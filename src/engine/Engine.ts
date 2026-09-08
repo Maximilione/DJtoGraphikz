@@ -600,13 +600,19 @@ export class Engine {
   }
 
   /**
-   * Set the output resolution. `uResolution` always reports this value so shader
-   * scale matches the projector; the buffers themselves are capped in preview.
+   * Set the output resolution. The buffers are capped in preview and scaled by
+   * perfScale, so `uResolution` must report the size actually being drawn into:
+   * effects read `(gl_FragCoord.xy - uResolution * 0.5) / uResolution.y`, and a
+   * uResolution larger than the buffer puts the centre off-screen and shows a
+   * zoomed corner. Feature scale is unaffected — every effect normalises by
+   * uResolution.y, so the framing is identical at any buffer size.
+   * ponytail: pixelate and film grain now follow the buffer (grain becomes
+   * genuinely per-pixel, blocks track render scale). If the block size must
+   * stay locked to the projector, give those two a logical-resolution uniform.
    */
   setRenderSize(w: number, h: number) {
     this.outputWidth = w
     this.outputHeight = h
-    this.resolution.set(w, h)
 
     // Preview renders at most 1080p worth of pixels — same look, less GPU.
     // perfScale kicks in when the GPU can't hold the frame rate.
@@ -614,6 +620,7 @@ export class Engine {
     const scale = Math.min(1, cap / w) * this.perfScale
     const bw = Math.max(2, Math.round(w * scale))
     const bh = Math.max(2, Math.round(h * scale))
+    this.resolution.set(bw, bh)
 
     for (const rt of [this.rtA, this.rtB, this.rtPrev, this.rtTransition, this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2]) {
       // Resizing an RT discards its contents — the freeze frame must survive
@@ -626,6 +633,10 @@ export class Engine {
   }
 
   private createEffectMaterial(id: EffectId): THREE.ShaderMaterial {
+    // An unknown id passes `undefined` as fragmentShader and three keeps its
+    // default_fragment — a full red screen on the projector. Imported presets,
+    // remote/OSC commands and restored settings can all carry a stale id.
+    if (!EFFECT_SHADERS[id]) id = 'tunnel'
     // Curated per-effect uniforms start at their defaults; the render loop
     // drives the ACTIVE effect's ones from param state every frame
     const paramUniforms: Record<string, THREE.IUniform> = {}
@@ -770,6 +781,7 @@ export class Engine {
   // ---- Public API ----
 
   setEffect(id: EffectId) {
+    if (!EFFECT_SHADERS[id]) return   // stale id from a preset/remote/settings
     if (this.usingCustom) {
       // leave custom-shader mode: rebuild the stock material even for the same id
       this.usingCustom = false
@@ -1139,6 +1151,7 @@ export class Engine {
   // ---- Deck B / crossfader ----
 
   setDeckBEffect(id: EffectId) {
+    if (!EFFECT_SHADERS[id]) return   // stale id from a preset/remote/settings
     this.deckBEffect = id
     this.deckBMaterial?.dispose()
     this.deckBMaterial = this.createEffectMaterial(id)
@@ -1736,13 +1749,16 @@ export class Engine {
 
   private updatePerfScale() {
     const nowMs = performance.now()
+    // Timer-driven frames (rAF suspended by the OS) are paced by the watchdog,
+    // not by the GPU: measuring them would read as overload and collapse the
+    // projector's resolution for no reason. They must not move perfLastNow
+    // either — the next rAF frame would then measure the gap to the timer frame
+    // (sub-millisecond) instead of the real frame time, dragging the EMA to
+    // zero and disabling dynamic resolution entirely.
+    if (!this.rafDriven) return
     const last = this.perfLastNow
     this.perfLastNow = nowMs
     if (!last) return
-    // Timer-driven frames (rAF suspended by the OS) are paced by the watchdog,
-    // not by the GPU: measuring them would read as overload and collapse the
-    // projector's resolution for no reason.
-    if (!this.rafDriven) return
     const d = Math.min(nowMs - last, 100)
     // a lone spike is a shader compile or a GC pause, not GPU load — skip it
     // (only one in a row: sustained slowness must still raise the EMA)
@@ -1788,8 +1804,11 @@ export class Engine {
     if (this.watchdogId || !this.remote) return
     this.watchdogId = window.setInterval(() => {
       if (this.disposed) return
-      // rAF healthy → nothing to do (this is just a timestamp compare)
-      if (performance.now() - this.lastFrameAt < 14) return
+      // rAF healthy → nothing to do (this is just a timestamp compare).
+      // The threshold must clear a whole rAF period or the timer fires between
+      // every pair of rAF frames and the projector draws twice the frames it
+      // needs: 16.7ms at 60Hz, 33.3ms on a 4K projector running at 30Hz.
+      if (performance.now() - this.lastFrameAt < 40) return
       this.rafDriven = false   // timer frames must not be read as GPU overload
       try { this.renderFrame() } catch (e) { console.error('[Engine] watchdog frame error:', e) }
     }, 8)
@@ -2185,19 +2204,21 @@ export class Engine {
     this.renderPass(this.masterMaterial, null)
     this.renderer.setRenderTarget(null)
 
-    // Screenshot must read the buffer in the same task as the render
-    if (this.screenshotCb) {
-      const cb = this.screenshotCb
-      this.screenshotCb = null
-      this.canvas.toBlob(b => cb(b), 'image/png')
+    // Screenshot must read the buffer in the same task as the render.
+    // A list, not a slot: saving a look and capturing an effect thumbnail can
+    // both be pending, and with one slot the first promise never resolves.
+    if (this.screenshotCbs.length) {
+      const cbs = this.screenshotCbs
+      this.screenshotCbs = []
+      this.canvas.toBlob(b => { for (const cb of cbs) cb(b) }, 'image/png')
     }
   }
 
-  private screenshotCb: ((blob: Blob | null) => void) | null = null
+  private screenshotCbs: ((blob: Blob | null) => void)[] = []
 
   /** Capture the next rendered frame as a PNG blob */
   screenshot(): Promise<Blob | null> {
-    return new Promise(resolve => { this.screenshotCb = resolve })
+    return new Promise(resolve => { this.screenshotCbs.push(resolve) })
   }
 
   /** Throttled audio push to the output window (~30Hz, plus every beat) */
