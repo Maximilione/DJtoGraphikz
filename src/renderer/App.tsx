@@ -83,7 +83,11 @@ export function App() {
   const [frozen, setFrozen] = useState(false)
 
   // UI mode + onboarding
-  const [mode, setMode] = useState<UIMode>(() => (localStorage.getItem(MODE_KEY) as UIMode) || 'simple')
+  const [mode, setMode] = useState<UIMode>(() => {
+    // a stale or hand-edited value used to go straight into the layout
+    const saved = localStorage.getItem(MODE_KEY)
+    return saved === 'pro' || saved === 'live' || saved === 'simple' ? saved : 'simple'
+  })
   const [showRemote, setShowRemote] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDED_KEY))
 
@@ -175,13 +179,17 @@ export function App() {
     // Wire AutoVJ → engine
     const vj = vjRef.current
     vj.onSceneChange = (scene) => {
-      eng.setEffect(scene.effect)
-      // tuned params + audio mappings make the scene, not just the effect
-      for (const [key, sp] of Object.entries(scene.params ?? {})) {
-        if (typeof sp.value === 'number') eng.setParamValue(key, sp.value)
-        if (sp.source) eng.setParamMapping(key, sp.source, sp.depth ?? 0.5, sp.lfoRate)
-        else eng.setParamMapping(key, 'none', 0.5)
-      }
+      // one state change for the whole scene: effect + a setter per param used
+      // to emit ~10 snapshots in the same frame, each one re-rendering panels
+      eng.batch(() => {
+        eng.setEffect(scene.effect)
+        // tuned params + audio mappings make the scene, not just the effect
+        for (const [key, sp] of Object.entries(scene.params ?? {})) {
+          if (typeof sp.value === 'number') eng.setParamValue(key, sp.value)
+          if (sp.source) eng.setParamMapping(key, sp.source, sp.depth ?? 0.5, sp.lfoRate)
+          else eng.setParamMapping(key, 'none', 0.5)
+        }
+      })
       setVjStatus(prev => ({ current: scene.effect, count: prev.count + 1 }))
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
@@ -351,7 +359,7 @@ export function App() {
 
   const changeMode = useCallback((m: UIMode) => {
     setMode(m)
-    localStorage.setItem(MODE_KEY, m)
+    try { localStorage.setItem(MODE_KEY, m) } catch (_) {}
   }, [])
 
   const finishOnboarding = useCallback(async (result: OnboardingResult | null) => {

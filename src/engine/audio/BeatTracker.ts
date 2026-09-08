@@ -29,15 +29,21 @@ function acfAt(acf: Float32Array, i: number, max: number): number {
   return i >= 0 && i <= max ? acf[i] : 0
 }
 
-/** median of a small array (copies + sorts — fine at 60Hz sizes) */
-function median(a: number[]): number {
-  const s = [...a].sort((x, y) => x - y)
-  const m = s.length >> 1
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+/**
+ * Median of a small array, into a caller-owned scratch buffer. Called twice per
+ * frame: allocating a copy each time (plus the map() feeding the second call)
+ * meant three arrays and two sorts every frame, forever.
+ */
+function medianInto(scratch: Float32Array, n: number): number {
+  const s = scratch.subarray(0, n)
+  s.sort()
+  const m = n >> 1
+  return n % 2 ? s[m] : (s[m - 1] + s[m]) / 2
 }
 
 export class BeatTracker {
   private fluxHistory: number[] = []
+  private medianScratch = new Float32Array(HISTORY)
   private f1 = 0                       // flux one frame ago (peak-picking)
   private f2 = 0                       // flux two frames ago
   private prevLogSpec: Float32Array = new Float32Array(0)
@@ -187,8 +193,11 @@ export class BeatTracker {
     if (this.fluxHistory.length > HISTORY) this.fluxHistory.shift()
     let beat = false
     if (this.fluxHistory.length >= 16) {
-      const med = median(this.fluxHistory)
-      const mad = median(this.fluxHistory.map(v => Math.abs(v - med)))
+      const n = this.fluxHistory.length
+      for (let i = 0; i < n; i++) this.medianScratch[i] = this.fluxHistory[i]
+      const med = medianInto(this.medianScratch, n)
+      for (let i = 0; i < n; i++) this.medianScratch[i] = Math.abs(this.fluxHistory[i] - med)
+      const mad = medianInto(this.medianScratch, n)
       const threshold = med + (mad * 1.4826) * (1.5 * this.sensitivity)
 
       // peak picking one frame late: f1 must be a local max above threshold

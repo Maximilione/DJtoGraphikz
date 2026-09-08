@@ -172,7 +172,18 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
 
   // Engine state already flows through the main process for the output
   // window — cache the latest snapshot for the remote's polling
-  ipcMain.on('engine:state-update', (_e, state) => { lastEngineState = state })
+  ipcMain.on('engine:state-update', (_e, state) => {
+    // Every paired phone polls /state every 1.5s. The ISF image inputs (base64)
+    // and the keystone are the heaviest part of the snapshot and the phone
+    // renders neither, so they never leave this process.
+    if (state && typeof state === 'object') {
+      const { customImages, customImageInputs, keystone, ...rest } = state as Record<string, unknown>
+      void customImages; void customImageInputs; void keystone
+      lastEngineState = rest
+    } else {
+      lastEngineState = state
+    }
+  })
 
   // Audio flows ~30Hz through main for the output window — cache the live
   // bits so /state stays fresh even when the user isn't touching anything

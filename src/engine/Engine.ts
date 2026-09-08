@@ -303,6 +303,8 @@ export class Engine {
   private customImageInputs: string[] = []
   /** dataURL per image input — rides the snapshot so the output window matches */
   private customImages: Record<string, string> = {}
+  private quadGeometry: THREE.PlaneGeometry
+  private postGeometry: THREE.PlaneGeometry
   private customTextures: Record<string, THREE.Texture> = {}
   private whiteTexture: THREE.DataTexture | null = null
   private usingCustom = false
@@ -429,22 +431,14 @@ export class Engine {
     this.renderer.toneMappingExposure = this.grade.exposure
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-    const geom = new THREE.PlaneGeometry(2, 2)
+    this.quadGeometry = new THREE.PlaneGeometry(2, 2)
+    this.postGeometry = new THREE.PlaneGeometry(2, 2)
 
     // Main scene
     this.scene = new THREE.Scene()
     this.mainMaterial = this.createEffectMaterial('tunnel')
-    this.quad = new THREE.Mesh(geom, this.mainMaterial)
+    this.quad = new THREE.Mesh(this.quadGeometry, this.mainMaterial)
     this.scene.add(this.quad)
-
-    // Post scene
-    this.postScene = new THREE.Scene()
-    this.postQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
-      vertexShader: FULLSCREEN_VERT,
-      fragmentShader: PASSTHROUGH_FRAG,
-      uniforms: { tDiffuse: { value: null } }
-    }))
-    this.postScene.add(this.postQuad)
 
     // Reusable passthrough (never allocate in render loop)
     this.passthroughMaterial = new THREE.ShaderMaterial({
@@ -452,6 +446,13 @@ export class Engine {
       fragmentShader: PASSTHROUGH_FRAG,
       uniforms: { tDiffuse: { value: null } }
     })
+
+    // Post scene. renderPass() swaps postQuad.material on every pass, so it
+    // starts on the shared passthrough: a throwaway material here would be
+    // replaced on the first frame and never be reachable to dispose again.
+    this.postScene = new THREE.Scene()
+    this.postQuad = new THREE.Mesh(this.postGeometry, this.passthroughMaterial)
+    this.postScene.add(this.postQuad)
 
     // Render targets
     const opts: THREE.RenderTargetOptions = {
@@ -593,6 +594,10 @@ export class Engine {
     }
     const parent = this.canvas.parentElement
     if (!parent) return
+    // Same guard as the output branch: a 0-wide container (panel still laid
+    // out, display just woken) would set a 0x0 drawing buffer and the preview
+    // stays black until some later resize event happens to fire
+    if (!(parent.clientWidth > 1) || !(parent.clientHeight > 1)) return
     this.renderer.setSize(parent.clientWidth, parent.clientHeight)
     // Preview keeps the OUTPUT resolution in uResolution, so what you see on the
     // preview is the same framing/scale that goes to the projector.
@@ -935,6 +940,7 @@ export class Engine {
       this.customParamDefs = defs
       this.customImageInputs = imgs
       this.usingCustom = true
+      this.invalidateParamDefs()   // same '__custom__' key, different params
       this.customShaderSource = fragSource
       this.emitState()
       return true
@@ -996,8 +1002,6 @@ export class Engine {
     return this.whiteTexture
   }
 
-  getCustomImageInputs(): string[] { return this.usingCustom ? [...this.customImageInputs] : [] }
-  getCustomImages(): Record<string, string> { return { ...this.customImages } }
 
   /** Assign a picture (dataURL) to an ISF image input of the active custom shader */
   setCustomImage(name: string, dataUrl: string) {
@@ -1015,13 +1019,6 @@ export class Engine {
     this.emitState()
   }
 
-  /** Send custom shader to output window via IPC */
-  sendCustomShaderToOutput(fragSource: string) {
-    try {
-      window.api?.sendEngineState({ ...this.stateSnapshot(), customShader: fragSource, customParams: this.customParamDefs })
-    } catch (_) {}
-  }
-
   setTransitionType(type: TransitionType) { this.transitionType = type; this.emitState() }
   getTransitionType(): TransitionType { return this.transitionType }
 
@@ -1031,11 +1028,6 @@ export class Engine {
   setTransitionBeatSync(enabled: boolean) { this.transitionBeatSync = enabled; this.emitState() }
   isTransitionBeatSync(): boolean { return this.transitionBeatSync }
 
-  isTransitioning(): boolean { return this.transitionProgress >= 0 }
-
-  getActiveEffect(): EffectId {
-    return this.currentEffect
-  }
 
   togglePost(id: PostId) {
     const idx = this.postChain.findIndex(p => p.id === id)
@@ -1064,10 +1056,6 @@ export class Engine {
     this.emitState()
   }
 
-  getPostAmount(id: PostId): number {
-    return this.postChain.find(p => p.id === id)?.amount ?? 1
-  }
-
   /** Move an effect up (-1) or down (+1) in the chain — order changes the look a lot */
   movePost(id: PostId, delta: number) {
     const idx = this.postChain.findIndex(p => p.id === id)
@@ -1084,12 +1072,28 @@ export class Engine {
 
   // ---- Per-effect parameters ----
 
-  /** Params of the ACTIVE effect: common engine params + curated/custom uniforms */
+  /**
+   * Params of the ACTIVE effect: common engine params + curated/custom uniforms.
+   * Cached: the render loop walks this every frame and the two spreads were
+   * allocating a pair of arrays per frame for a list that only changes when the
+   * effect (or the custom shader) does.
+   */
   getParamDefs(): EffectParam[] {
-    return this.usingCustom
-      ? [...COMMON_PARAMS, ...this.customParamDefs]
-      : [...COMMON_PARAMS, ...(EFFECT_PARAMS[this.currentEffect] ?? [])]
+    const key = this.usingCustom ? '__custom__' : this.currentEffect
+    if (this.paramDefsKey !== key) {
+      this.paramDefsKey = key
+      this.paramDefsCache = this.usingCustom
+        ? [...COMMON_PARAMS, ...this.customParamDefs]
+        : [...COMMON_PARAMS, ...(EFFECT_PARAMS[this.currentEffect] ?? [])]
+    }
+    return this.paramDefsCache
   }
+
+  private paramDefsKey = ''
+  private paramDefsCache: EffectParam[] = []
+
+  /** The cached list is keyed by effect id — a new custom shader keeps the key */
+  private invalidateParamDefs() { this.paramDefsKey = '' }
 
   isUsingCustomShader(): boolean { return this.usingCustom }
   getCustomShaderSource(): string { return this.usingCustom ? this.customShaderSource : '' }
@@ -1138,11 +1142,14 @@ export class Engine {
           : st.source === 'lfo-saw' ? phase
           : phase < 0.5 ? 1 : 0 // lfo-square
     } else {
-      const audio: Record<string, number> = {
-        bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh,
-        energy: this.smoothEnergy, beat: this.beatPulse,
-      }
-      mod = audio[st.source] ?? 0
+      // switch, not a lookup object: this runs once per mapped param per frame
+      // and the object literal was allocating ~500 times a second
+      mod = st.source === 'bass' ? this.smoothBass
+          : st.source === 'mid' ? this.smoothMid
+          : st.source === 'high' ? this.smoothHigh
+          : st.source === 'energy' ? this.smoothEnergy
+          : st.source === 'beat' ? this.beatPulse
+          : 0
     }
     const v = base + mod * st.depth * (def.max - def.min)
     return Math.max(def.min, Math.min(def.max, v))
@@ -1243,7 +1250,7 @@ export class Engine {
   // ---- Remote (output window) API ----
 
   /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
-  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number }) {
+  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number }) {
     this.smoothBass = data.bass || 0
     this.smoothMid = data.mid || 0
     this.smoothHigh = data.high || 0
@@ -1257,6 +1264,8 @@ export class Engine {
     this.remoteBpm = data.bpm || 128
     this.beatPhase = data.beatPhase || 0
     this.barPhase = data.barPhase || 0
+    if (typeof data.beatClock === 'number') this.beatClock = data.beatClock
+    if (typeof data.effectTime === 'number') this.effectTime = data.effectTime
     if (data.beatDetected) this.pendingBeat = true
   }
 
@@ -1581,21 +1590,30 @@ export class Engine {
     const overlay = this.overlays.find(o => o.id === id)
     if (overlay) {
       Object.assign(overlay, updates)
-      if (!this.remote) { try { window.api?.sendOverlayUpdate(id, updates) } catch (_) {} }
+      if (!this.remote) this.queueOverlayIpc(id, updates)
     }
   }
 
-  // Legacy API for EffectPanel
-  addEffect(id: string) {
-    if (id in EFFECT_SHADERS) {
-      this.setEffect(id as EffectId)
-    } else if (this.postMaterials.has(id as PostId) && !this.isPostActive(id as PostId)) {
-      this.togglePost(id as PostId)
-    }
-  }
+  private overlayIpcPending = new Map<string, Record<string, unknown>>()
+  private overlayIpcTimer = 0
 
-  removeEffect(id: string) {
-    if (this.isPostActive(id as PostId)) this.togglePost(id as PostId)
+  /**
+   * Dragging an overlay slider fires one input event per frame; sending each
+   * one straight over IPC was 60 messages a second per slider. The same
+   * sliders on the phone were already throttled server-side — this brings the
+   * desktop in line. Merged per overlay, flushed at ~30Hz.
+   */
+  private queueOverlayIpc(id: string, updates: Record<string, unknown>) {
+    const prev = this.overlayIpcPending.get(id)
+    this.overlayIpcPending.set(id, prev ? { ...prev, ...updates } : { ...updates })
+    if (this.overlayIpcTimer) return
+    this.overlayIpcTimer = window.setTimeout(() => {
+      this.overlayIpcTimer = 0
+      for (const [oid, u] of this.overlayIpcPending) {
+        try { window.api?.sendOverlayUpdate(oid, u) } catch (_) {}
+      }
+      this.overlayIpcPending.clear()
+    }, 33)
   }
 
   // ---- Preset & Playlist API ----
@@ -1717,8 +1735,28 @@ export class Engine {
     }
   }
 
+  /**
+   * Run several setters as a single state change. Applying an AutoVJ scene
+   * calls setEffect plus a setter per param, and each one emitted a full
+   * snapshot — every panel listening rebuilt itself ten times in one frame.
+   */
+  batch(fn: () => void) {
+    this.emitDepth++
+    try { fn() } finally {
+      this.emitDepth--
+      if (this.emitDepth === 0 && this.emitPending) {
+        this.emitPending = false
+        this.emitState()
+      }
+    }
+  }
+
+  private emitDepth = 0
+  private emitPending = false
+
   private emitState() {
     if (this.remote) return
+    if (this.emitDepth > 0) { this.emitPending = true; return }
     const snap = this.stateSnapshot()
     this.onStateChange?.(snap)
     for (const fn of this.stateListeners) {
@@ -2241,6 +2279,11 @@ export class Engine {
         beatPulse: this.beatPulse,
         beatPhase: this.beatPhase,
         barPhase: this.barPhase,
+        // Both windows accumulated these on their own, so the LFO phase and the
+        // effect clock drifted apart within minutes — the control window's
+        // value is the authority, local accumulation just fills the gaps
+        beatClock: this.beatClock,
+        effectTime: this.effectTime,
         bpm,
         beatDetected,
       })
@@ -2252,6 +2295,7 @@ export class Engine {
     this.audioFrameListeners.clear()
     cancelAnimationFrame(this.animFrameId)
     if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = 0 }
+    if (this.overlayIpcTimer) { clearTimeout(this.overlayIpcTimer); this.overlayIpcTimer = 0 }
     window.removeEventListener('resize', this.handleResize)
     this.renderer.dispose()
     this.rtA.dispose()
@@ -2273,5 +2317,11 @@ export class Engine {
     this.motionBlurMaterial.dispose()
     this.bloomPrefilterMaterial.dispose()
     this.blurMaterial.dispose()
+    this.quadGeometry.dispose()
+    this.postGeometry.dispose()
+    this.whiteTexture?.dispose()
+    for (const t of Object.values(this.customTextures)) t.dispose()
+    this.customTextures = {}
+    this.stateListeners.clear()
   }
 }

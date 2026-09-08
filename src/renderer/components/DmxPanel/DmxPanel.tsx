@@ -57,10 +57,9 @@ export function DmxPanel({ engine }: DmxPanelProps) {
       if (now - last < 33 && !beat) return
       last = now
 
-      const [r, g, b] = engine.getCurrentColors().map(hex => {
-        const n = parseInt(hex.slice(1), 16)
-        return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-      })[0].map(v => v)
+      // only palette colour 1 drives the fixtures
+      const n = parseInt(engine.getCurrentColors()[0].slice(1), 16)
+      const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
 
       const audio = engine.getAudioLevels()
       const dim = c.dimmerSource === 'full' ? 1

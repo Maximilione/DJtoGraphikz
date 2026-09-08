@@ -27,30 +27,10 @@ Nessuna richiede addon nativi. Ordine per rapporto valore/costo, non per gruppo.
 
 - [ ] **Test con musica vera** — set techno in line-in: beat, BPM ×½/×2, envelope, AutoVJ, grade sul proiettore, FPS in 4K. Tara tutto il lavoro audio mai sentito davvero. In mano all'utente, ma **P1 lo rende ripetibile in cinque minuti** invece che una volta a serata · zero codice, 1 serata
 
-## 3. CODICE — il resto dell'audit
+## 3. CODICE — vuota
 
-Perdite di risorse e robustezza:
-
-- [ ] **C7 `dispose()` incompleto** — `Engine.ts:2229`: restano fuori le due `PlaneGeometry`, il materiale passthrough iniziale di `postQuad`, `whiteTexture`, le `customTextures` e lo svuotamento di `stateListeners`. Ogni ricreazione dell'Engine perde VRAM · **S**
-- [ ] **C8 Import media senza try/catch** — `OverlayPanel.tsx:59`: `addOverlay`/`addVideoOverlay` rigettano su file corrotto o disco staccato → unhandled rejection e nessun messaggio. `addFromLibrary` (riga 100) e `importIsfFiles` il try/catch ce l'hanno già · **S**
-- [ ] **C9 `localStorage.setItem` scoperto sui preset** — `PresetPanel.tsx:19,30`: unici punti del progetto senza try/catch (App, LookBank, DmxPanel e midi.ts ce l'hanno). Superata la quota l'utente vede il preset in lista e non lo ritrova al riavvio · **S**
-- [ ] **C10 LFO fuori fase fra preview e proiettore** — `beatClock` ed `effectTime` sono accumulatori locali di ogni finestra e non stanno in `stateSnapshot()`: dopo qualche minuto le due finestre mostrano fasi diverse degli stessi parametri modulati. È lo stato duplicato che diverge, quello che il progetto vuole evitare. Metterlo nel payload audio già inviato a 30 Hz · **S**
-
-Costo per frame e traffico:
-
-- [ ] **C11 Allocazioni nel render loop** — `Engine.ts:1937` chiama `getParamDefs()` a ogni frame (due array con spread) e `effParamValue` (riga 1129) alloca un `Record` `audio` nuovo per ogni parametro mappato: ~500 oggetti/s di pressione GC gratuita. Memoizzare i def per effetto, `switch` al posto della mappa · **S**
-- [ ] **C12 Re-render totale del pannello effetti** — `EffectPanel.tsx:186`: il listener ricostruisce `new Set(...)` e `getPostChain()` (identità sempre nuove) e ridisegna 832 righe con 35 bottoni e thumbnail. Un cambio scena AutoVJ emette ~10 stati nello stesso frame → 10 render completi. Un `applyScene` in Engine con un solo `emitState()` finale · **S/M**
-- [ ] **C13 IPC overlay non throttlato** — `OverlayPanel.tsx:187`: ogni `input` di slider manda subito `sendOverlayUpdate` (60 msg/s), mentre gli stessi slider dal telefono sono throttlati a 90 ms in `remote-server.ts:531`. Allineare le due superfici · **S**
-- [ ] **C14 `/state` serve lo snapshot integrale** — `remote-server.ts:121`: ogni telefono accoppiato scarica tutto ogni 1,5 s, `customImages` in base64 compresi, fino a 4 sessioni. Filtrare i campi che il remote non usa quando si popola la cache · **S**
-- [ ] **C15 Doppio invio dello shader custom** — `ShaderEditor.tsx:289,304,337`: `setCustomShader` fa già `emitState()` e lo snapshot contiene `customShader`; `sendCustomShaderToOutput` ricostruisce e rispedisce lo stesso stato. Tre chiamate da cancellare, più la funzione · **S**
-- [ ] **C16 Spettro: closure stale e doppia lettura** — `AudioPanel.tsx:198`: `drawSpectrum` si ri-schedula da sé con la closure del primo render, quindi `displayBpm` e `confidence` restano congelati e le guardie non servono a niente; e rilegge `getByteFrequencyData` sullo stesso buffer già letto da `update()` nello stesso frame · **S**
-
-Pulizia:
-
-- [ ] **C17 Codice morto** — verificato a grep (una sola occorrenza = solo la definizione): `Engine.addEffect`/`removeEffect`, `getActiveEffect`, `isTransitioning`, `getPostAmount`, `getCustomImageInputs`/`getCustomImages`; `AudioAnalyzer.getBeatPulse` col suo `beatDecay` aggiornato **ogni frame**, `data.spectrum`, `EMPTY_SPECTRUM`, e `data.lowMid`/`highMid` — due `bandAvg()` calcolate per frame senza un solo lettore. ~40 righe e due scansioni di banda per frame · **S**
-- [ ] **C18 Contatore effetti sbagliato** — `EffectPanel.tsx:403`: il badge dice `count: 21`, gli effetti sono 35. Derivarlo da `EFFECT_CATEGORIES` · **una riga**
-- [ ] **C19 Catena no-op a 30 Hz nel DMX** — `DmxPanel.tsx:60`: costruisce tre terne, ne scarta due e applica una `map` identità sulla terza, per usare solo il colore 1 · **una riga**
-- [ ] **C20 Spiccioli** — `BeatTracker.ts:190` chiama `median()` due volte per frame, e `median` fa `[...a].sort()` → 3 array da 80 e 2 sort a ogni frame; `App.tsx:86` legge il mode da localStorage senza validarlo contro `['simple','pro','live']` e la scrittura alla riga 330 è l'unica del file senza try/catch; `Engine.ts:596` non ha la guardia `> 1` sulle dimensioni che invece il ramo remote ha (riga 580) · **S**
+Tutte le voci dell'audit sono chiuse: C21, C1, C2, C3, C5 in v0.27.2-beta,
+C4 e C6 in v0.27.3-beta, C7..C20 in v0.28.0-beta. In archivio in fondo.
 
 ## 4. FUNZIONALITÀ — il resto della roadmap
 
@@ -92,6 +72,23 @@ Integrazione:
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
 ## ARCHIVIO — fatto
+
+### Ottimizzazioni v0.28.0-beta (2026-09-08)
+
+- [x] **C7 `dispose()` incompleto** — `Engine.ts:2229`: restano fuori le due `PlaneGeometry`, il materiale passthrough iniziale di `postQuad`, `whiteTexture`, le `customTextures` e lo svuotamento di `stateListeners`. Ogni ricreazione dell'Engine perde VRAM · **S**
+- [x] **C8 Import media senza try/catch** — `OverlayPanel.tsx:59`: `addOverlay`/`addVideoOverlay` rigettano su file corrotto o disco staccato → unhandled rejection e nessun messaggio. `addFromLibrary` (riga 100) e `importIsfFiles` il try/catch ce l'hanno già · **S**
+- [x] **C9 `localStorage.setItem` scoperto sui preset** — `PresetPanel.tsx:19,30`: unici punti del progetto senza try/catch (App, LookBank, DmxPanel e midi.ts ce l'hanno). Superata la quota l'utente vede il preset in lista e non lo ritrova al riavvio · **S**
+- [x] **C10 LFO fuori fase fra preview e proiettore** — `beatClock` ed `effectTime` sono accumulatori locali di ogni finestra e non stanno in `stateSnapshot()`: dopo qualche minuto le due finestre mostrano fasi diverse degli stessi parametri modulati. È lo stato duplicato che diverge, quello che il progetto vuole evitare. Metterlo nel payload audio già inviato a 30 Hz · **S**
+- [x] **C11 Allocazioni nel render loop** — `Engine.ts:1937` chiama `getParamDefs()` a ogni frame (due array con spread) e `effParamValue` (riga 1129) alloca un `Record` `audio` nuovo per ogni parametro mappato: ~500 oggetti/s di pressione GC gratuita. Memoizzare i def per effetto, `switch` al posto della mappa · **S**
+- [x] **C12 Re-render totale del pannello effetti** — `EffectPanel.tsx:186`: il listener ricostruisce `new Set(...)` e `getPostChain()` (identità sempre nuove) e ridisegna 832 righe con 35 bottoni e thumbnail. Un cambio scena AutoVJ emette ~10 stati nello stesso frame → 10 render completi. Un `applyScene` in Engine con un solo `emitState()` finale · **S/M**
+- [x] **C13 IPC overlay non throttlato** — `OverlayPanel.tsx:187`: ogni `input` di slider manda subito `sendOverlayUpdate` (60 msg/s), mentre gli stessi slider dal telefono sono throttlati a 90 ms in `remote-server.ts:531`. Allineare le due superfici · **S**
+- [x] **C14 `/state` serve lo snapshot integrale** — `remote-server.ts:121`: ogni telefono accoppiato scarica tutto ogni 1,5 s, `customImages` in base64 compresi, fino a 4 sessioni. Filtrare i campi che il remote non usa quando si popola la cache · **S**
+- [x] **C15 Doppio invio dello shader custom** — `ShaderEditor.tsx:289,304,337`: `setCustomShader` fa già `emitState()` e lo snapshot contiene `customShader`; `sendCustomShaderToOutput` ricostruisce e rispedisce lo stesso stato. Tre chiamate da cancellare, più la funzione · **S**
+- [x] **C16 Spettro: closure stale e doppia lettura** — `AudioPanel.tsx:198`: `drawSpectrum` si ri-schedula da sé con la closure del primo render, quindi `displayBpm` e `confidence` restano congelati e le guardie non servono a niente; e rilegge `getByteFrequencyData` sullo stesso buffer già letto da `update()` nello stesso frame · **S**
+- [x] **C17 Codice morto** — verificato a grep (una sola occorrenza = solo la definizione): `Engine.addEffect`/`removeEffect`, `getActiveEffect`, `isTransitioning`, `getPostAmount`, `getCustomImageInputs`/`getCustomImages`; `AudioAnalyzer.getBeatPulse` col suo `beatDecay` aggiornato **ogni frame**, `data.spectrum`, `EMPTY_SPECTRUM`, e `data.lowMid`/`highMid` — due `bandAvg()` calcolate per frame senza un solo lettore. ~40 righe e due scansioni di banda per frame · **S**
+- [x] **C18 Contatore effetti sbagliato** — `EffectPanel.tsx:403`: il badge dice `count: 21`, gli effetti sono 35. Derivarlo da `EFFECT_CATEGORIES` · **una riga**
+- [x] **C19 Catena no-op a 30 Hz nel DMX** — `DmxPanel.tsx:60`: costruisce tre terne, ne scarta due e applica una `map` identità sulla terza, per usare solo il colore 1 · **una riga**
+- [x] **C20 Spiccioli** — `BeatTracker.ts:190` chiama `median()` due volte per frame, e `median` fa `[...a].sort()` → 3 array da 80 e 2 sort a ogni frame; `App.tsx:86` legge il mode da localStorage senza validarlo contro `['simple','pro','live']` e la scrittura alla riga 330 è l'unica del file senza try/catch; `Engine.ts:596` non ha la guardia `> 1` sulle dimensioni che invece il ramo remote ha (riga 580) · **S**
 
 ### Correzioni v0.27.3-beta (2026-09-08)
 

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, Preset, Playlist, EffectId, PostId } from '@engine/Engine'
 import { usePanelCollapsed } from '../usePanelCollapsed'
+import { pushToast } from '../Toasts/Toasts'
 
 interface PresetPanelProps {
   engine: Engine | null
@@ -17,7 +18,14 @@ function loadPresets(): Preset[] {
 }
 
 function savePresetsToStorage(presets: Preset[]) {
-  localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets))
+  // Presets carry custom shaders and every effect's params: over quota this
+  // throws from inside a click handler, after React already showed the preset
+  // in the list — the user would only find out on the next launch
+  try {
+    localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets))
+  } catch {
+    pushToast('Spazio esaurito: il preset non è stato salvato su disco')
+  }
 }
 
 function loadPlaylists(): Playlist[] {
@@ -28,7 +36,11 @@ function loadPlaylists(): Playlist[] {
 }
 
 function savePlaylistsToStorage(playlists: Playlist[]) {
-  localStorage.setItem(STORAGE_KEY_PLAYLISTS, JSON.stringify(playlists))
+  try {
+    localStorage.setItem(STORAGE_KEY_PLAYLISTS, JSON.stringify(playlists))
+  } catch {
+    pushToast('Spazio esaurito: la playlist non è stata salvata su disco')
+  }
 }
 
 export function PresetPanel({ engine }: PresetPanelProps) {

@@ -2,6 +2,32 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.28.0-beta] — 2026-09-08
+
+Passata di ottimizzazione su tutto il codice: niente di visibile cambia, l'app fa
+meno lavoro per lo stesso risultato e smette di perdere memoria fra una sessione
+e l'altra.
+
+### Added
+- `yarn check:beat` — controllo del rilevamento dei beat su un segnale sintetico a 120/128/140/174 BPM. Serve perche' la soglia adattiva puo' rompersi in silenzio: l'app continua a girare e semplicemente smette di trovare i beat
+
+### Fixed
+- **Gli LFO andavano fuori fase fra preview e proiettore**: il contatore delle battute e l'orologio degli effetti erano accumulati da ogni finestra per conto proprio, quindi dopo qualche minuto i parametri modulati mostravano fasi diverse sui due schermi. Ora viaggiano col resto dei dati audio, 30 volte al secondo
+- **Import di media senza rete di sicurezza**: un'immagine corrotta o un video su un disco scollegato fallivano in silenzio; ora compare un avviso
+- **Preset e playlist non salvati a spazio esaurito**: la scrittura falliva dopo che l'elenco era gia' aggiornato a schermo, e l'utente se ne accorgeva al riavvio successivo
+- **Il contatore degli effetti diceva 21**: sono 35, ora e' derivato dall'elenco vero
+- **La preview poteva restare nera** se il pannello veniva misurato a larghezza zero (schermo appena risvegliato): stessa guardia che la finestra di uscita aveva gia'
+- **Modalita' dell'interfaccia non validata** al caricamento: un valore corrotto entrava direttamente nel layout
+
+### Changed
+- **Memoria rilasciata davvero alla chiusura del motore**: geometrie, texture bianca, texture degli ISF e ascoltatori restavano appesi a ogni ricreazione
+- **Meno lavoro per fotogramma**: l'elenco dei parametri dell'effetto attivo non viene piu' ricostruito ogni volta, la modulazione audio non alloca piu' un oggetto per parametro, la mediana della soglia dei beat lavora su un buffer riusato invece di creare tre array e due ordinamenti a ogni fotogramma, e due bande di frequenza calcolate per nessuno sono state tolte
+- **Un cambio scena dell'AutoVJ e' un solo aggiornamento di stato** invece di una decina nello stesso fotogramma, e il pannello effetti non si ridisegna piu' quando non e' cambiato niente
+- **Gli slider degli overlay non mandano piu' un messaggio per fotogramma** alla finestra di uscita: raggruppati a 30 volte al secondo, come gia' facevano quelli del telefono
+- **Il telefono non scarica piu' le immagini degli ISF** (in base64) e il mapping a ogni interrogazione: non li usa
+- **Lo shader personalizzato non viene piu' inviato due volte** a ogni modifica
+- Tolto codice mai chiamato: API legacy del motore, accessori duplicati, un impulso di beat calcolato a ogni fotogramma senza lettori
+
 ## [0.27.3-beta] — 2026-09-08
 
 ### Changed
