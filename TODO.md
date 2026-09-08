@@ -11,9 +11,6 @@ Tutte e sette le voci sono fatte: C21, C1, C2, C3, C5 in v0.27.2-beta,
 C4 e C6 in v0.27.3-beta. In archivio in fondo. Quello che resta aperto
 non rompe niente: aggiunge.
 
-
-Dopo C1+C2, `yarn check:output`: cambiano il ritmo dei frame sulla finestra output.
-
 ## 2. FUNZIONALITÀ — le sei che valgono di più
 
 Nessuna richiede addon nativi. Ordine per rapporto valore/costo, non per gruppo.
