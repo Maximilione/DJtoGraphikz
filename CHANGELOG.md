@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.29.1-beta] — 2026-09-08
+
+### Fixed
+- **Il controllo di rilascio non ruba piu' il computer**: `yarn check:output` avvia l'app intera, e su macOS questo portava le finestre davanti a tutto e si prendeva la tastiera, piu' volte per ogni release, mentre l'utente stava lavorando. Sotto il controllo l'app non compare nel Dock e le finestre si aprono senza fuoco. La finestra di uscita copre il proiettore come sempre: quello che viene verificato non cambia
+
 ## [0.29.0-beta] — 2026-09-08
 
 ### Added

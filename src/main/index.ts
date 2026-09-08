@@ -100,6 +100,14 @@ function keepOutputOnItsDisplay() {
 let lastEngineState: unknown = null
 const overlays = new Map<string, Record<string, unknown>>()
 
+/**
+ * The release gate (scripts/check-output.py) launches the whole app. On the
+ * machine someone is working on that meant windows jumping in front of them
+ * and stealing the keyboard, several times per release — so under the self-test
+ * every window comes up without focus and the app stays out of the Dock.
+ */
+const SELFTEST = !!process.env.DJG_SELFTEST
+
 function createControlWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -108,6 +116,7 @@ function createControlWindow(): BrowserWindow {
     minHeight: 600,
     title: 'DJtoGraphikz',
     backgroundColor: '#0a0a0a',
+    show: false,          // shown below: focused normally, inactive under test
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -117,6 +126,11 @@ function createControlWindow(): BrowserWindow {
   })
   // Keep audio/rendering alive when control window loses focus
   win.webContents.setBackgroundThrottling(false)
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) return
+    if (SELFTEST) win.showInactive()
+    else win.show()
+  })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -269,6 +283,11 @@ const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v)$/i
 
 app.whenReady().then(async () => {
   setupDebugLog()
+
+  // Under the release gate: no Dock icon, no app switch. Launching normally
+  // makes macOS bring the app to the front and take the keyboard away from
+  // whoever is working on this machine.
+  if (SELFTEST) app.dock?.hide()
 
   protocol.handle('djg-media', req => {
     const path = new URL(req.url).searchParams.get('p')
