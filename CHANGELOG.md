@@ -2,6 +2,17 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.27.1-beta] — 2026-09-08
+
+### Added
+- `yarn check:shaders` — renderizza tutti e 35 gli effetti in headless a due istanti diversi e segnala compile error, immagini bruciate, vuote, piatte o statiche
+- `yarn shader:preview <file.frag>` — anteprima headless di un singolo shader con la pipeline vera dell'app (GLSL ES 3.00, tone mapping ACES, esposizione), errori di compilazione stampati nella pagina invece di una schermata bianca
+
+### Changed
+- Gli strumenti di verifica vivono nel repo sotto `scripts/` invece che in una cartella temporanea: erano gia' stati persi una volta dalla pulizia di `/tmp`
+- TODO riscritto: roadmap funzionalita' 2026-09-08 (18 voci in Serata / Preparazione / Qualita' visiva / Integrazione) e nuova sezione "Codice — miglioramenti" con 20 voci verificate file:riga dall'audit del codice
+- Rimossa la dipendenza `zustand`, mai importata da nessun file
+
 ## [0.27.0-beta] — 2026-09-07
 
 ### Fixed

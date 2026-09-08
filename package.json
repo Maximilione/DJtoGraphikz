@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.27.0-beta",
+  "version": "0.27.1-beta",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
@@ -11,7 +11,9 @@
     "package:mac": "electron-builder --mac",
     "package:win": "electron-builder --win",
     "package:linux": "electron-builder --linux",
-    "check:output": "python3 scripts/check-output.py"
+    "check:output": "python3 scripts/check-output.py",
+    "check:shaders": "python3 scripts/audit-shaders.py",
+    "shader:preview": "python3 scripts/shader-preview.py"
   },
   "build": {
     "appId": "com.djtographikz.app",
@@ -57,8 +59,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "realtime-bpm-analyzer": "^5.0.2",
-    "three": "^0.170.0",
-    "zustand": "^5.0.2"
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",
