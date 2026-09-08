@@ -2,6 +2,17 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.29.2-beta] — 2026-09-08
+
+Passata di caccia ai bug sul codice degli ultimi rilasci. Quattro trovati, tutti
+introdotti oggi.
+
+### Fixed
+- **Cancellare una scaletta poteva farne sovrascrivere un'altra**: se stavi modificando una scaletta e ne cancellavi una che veniva prima nell'elenco, il salvataggio successivo finiva sulla scaletta sbagliata. Perdita di lavoro silenziosa
+- **La fine di una scaletta senza loop dipendeva da quante volte React rieseguiva un aggiornamento**: lo stop era dentro un aggiornamento di stato, dove non deve stare
+- **Un preset con un effetto che non esiste piu' cambiava post-FX e colori senza dirlo a nessuno**: il proiettore restava con quelli vecchi. Effetto collaterale della protezione dallo schermo rosso aggiunta in 0.27.2
+- **Un video mancante o illeggibile non avvisava piu'**: da quando i video scorrono da disco (0.27.3) l'errore era muto, mentre l'avviso era appena stato aggiunto in 0.28.0. Ora un file che non si apre torna a segnalarsi
+
 ## [0.29.1-beta] — 2026-09-08
 
 ### Fixed
