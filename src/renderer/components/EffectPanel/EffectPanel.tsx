@@ -8,6 +8,7 @@ import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
+import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, TRANSITIONS, effectLabel, postLabel } from '../../catalog'
 
@@ -367,25 +368,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 ))}
               </div>
               {/* Duration */}
-              <div className="slider-row">
-                <span className="label">Tempo</span>
-                <input
-                  type="range" min={0} max={3} step={0.1}
-                  value={transitionDuration}
-                  title="Durata della transizione in secondi"
-                  onChange={e => {
-                    const v = parseFloat(e.target.value)
-                    setTransitionDuration(v)
-                    engine?.setTransitionDuration(v)
-                  }}
-                />
-                <NumberInput
-                  value={transitionDuration}
-                  min={0} max={3} step={0.1}
-                  suffix="s"
-                  onChange={v => { setTransitionDuration(v); engine?.setTransitionDuration(v) }}
-                />
-              </div>
+              <SliderRow
+                label="Tempo" suffix="s"
+                value={transitionDuration} min={0} max={3} step={0.1}
+                title="Durata della transizione in secondi"
+                onChange={v => { setTransitionDuration(v); engine?.setTransitionDuration(v) }}
+              />
               {/* Beat sync */}
               <button type="button" aria-pressed={transitionBeatSync}
                 className={`row-item${transitionBeatSync ? ' active' : ''}`}
@@ -572,20 +560,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             </div>
 
             {/* Transition speed */}
-            <div className="slider-row">
-              <span className="label">Trans.</span>
-              <input
-                type="range" min={0} max={1} step={0.05}
-                value={transitionSpeed}
-                title="Velocità della transizione colore"
-                onChange={e => handleTransitionSpeed(parseFloat(e.target.value))}
-              />
-              <NumberInput
-                value={transitionSpeed}
-                min={0} max={1} step={0.05}
-                onChange={handleTransitionSpeed}
-              />
-            </div>
+            <SliderRow
+              label="Trans."
+              value={transitionSpeed} min={0} max={1} step={0.05}
+              title="Velocità della transizione colore"
+              onChange={handleTransitionSpeed}
+            />
 
             {/* Master colour grade — the pass that makes it look graded, not raw */}
             <div>
@@ -597,19 +577,11 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 { key: 'lift' as const, label: 'Neri', min: 0, max: 0.3, step: 0.01 },
                 { key: 'vignette' as const, label: 'Vignetta', min: 0, max: 1.5, step: 0.05 },
               ]).map(g => (
-                <div className="slider-row" key={g.key}>
-                  <span className="label">{g.label}</span>
-                  <input
-                    type="range" min={g.min} max={g.max} step={g.step}
-                    value={grade[g.key]}
-                    onChange={e => updateGrade({ [g.key]: parseFloat(e.target.value) })}
-                  />
-                  <NumberInput
-                    value={grade[g.key]}
-                    min={g.min} max={g.max} step={g.step}
-                    onChange={v => updateGrade({ [g.key]: v })}
-                  />
-                </div>
+                <SliderRow
+                  key={g.key} label={g.label}
+                  value={grade[g.key]} min={g.min} max={g.max} step={g.step}
+                  onChange={v => updateGrade({ [g.key]: v })}
+                />
               ))}
             </div>
 
@@ -633,28 +605,15 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 <button className={`pill${cycleBeatSync ? ' active' : ''}`} title="Cambio palette sincronizzato ai beat" onClick={() => handleCycleBeatSync(true)}>Beat</button>
               </div>
 
-              <div className="slider-row" style={{ marginBottom: '4px' }}>
-                <span className="label">{cycleBeatSync ? 'Beat' : 'Intrvl'}</span>
-                <input
-                  type="range"
-                  min={cycleBeatSync ? 1 : 2}
-                  max={cycleBeatSync ? 64 : 30}
-                  step={1}
-                  value={cycleBeatSync ? cycleBeats : cycleInterval}
-                  onChange={e => cycleBeatSync
-                    ? handleCycleBeats(parseInt(e.target.value))
-                    : handleCycleInterval(parseInt(e.target.value))
-                  }
-                />
-                <NumberInput
-                  value={cycleBeatSync ? cycleBeats : cycleInterval}
-                  min={cycleBeatSync ? 1 : 2}
-                  max={cycleBeatSync ? 64 : 30}
-                  step={1}
-                  suffix={cycleBeatSync ? '' : 's'}
-                  onChange={v => cycleBeatSync ? handleCycleBeats(v) : handleCycleInterval(v)}
-                />
-              </div>
+              <SliderRow
+                label={cycleBeatSync ? 'Beat' : 'Intrvl'}
+                suffix={cycleBeatSync ? '' : 's'}
+                value={cycleBeatSync ? cycleBeats : cycleInterval}
+                min={cycleBeatSync ? 1 : 2}
+                max={cycleBeatSync ? 64 : 30}
+                step={1}
+                onChange={v => cycleBeatSync ? handleCycleBeats(v) : handleCycleInterval(v)}
+              />
 
               <PaletteGrid
                 size="sm"

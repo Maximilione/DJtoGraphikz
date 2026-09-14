@@ -4,7 +4,7 @@ import { pushToast } from '../Toasts/Toasts'
 import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
-import { NumberInput } from '../NumberInput/NumberInput'
+import { SliderRow } from '../SliderRow/SliderRow'
 import { Panel } from '../Panel/Panel'
 
 interface AudioPanelProps {
@@ -304,24 +304,12 @@ export function AudioPanel({ engine }: AudioPanelProps) {
         {/* Input Gain — amplify weak mic signals */}
         {audioActive && (
           <div>
-            <div className="cat-label">Gain ingresso</div>
-            <div className="u-row">
-              <span className="u-hint" style={{ width: '18px' }}>1x</span>
-              <input
-                type="range"
-                min={1} max={10} step={0.5}
-                value={inputGain}
-                title="Amplifica i segnali deboli (es. microfono lontano)"
-                onChange={e => handleInputGain(parseFloat(e.target.value))}
-                style={{ flex: 1 }}
-              />
-              <NumberInput
-                value={inputGain}
-                min={1} max={10} step={0.5}
-                suffix="x"
-                onChange={handleInputGain}
-              />
-            </div>
+            <SliderRow
+              label="Gain ingresso" suffix="x"
+              value={inputGain} min={1} max={10} step={0.5}
+              title="Amplifica i segnali deboli (es. microfono lontano)"
+              onChange={handleInputGain}
+            />
           </div>
         )}
 

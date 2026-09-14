@@ -451,6 +451,13 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 .slider-row input[type="range"] {
   flex: 1;
+  /* A range has an intrinsic min-width of ~129px. Without this it refuses to
+     shrink and pushes the number field out of a 260px sidebar entirely. */
+  min-width: 0;
+}
+.slider-row .u-value {
+  width: 40px;
+  flex-shrink: 0;
 }
 .slider-row .value {
   font-size: var(--fs-xs);
@@ -1175,24 +1182,6 @@ input[type="color"]:focus {
   font-weight: 600;
 }
 
-.media-slider-row {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.media-slider-row > span {
-  width: 52px;
-  flex-shrink: 0;
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.media-slider-row input[type="range"] {
-  flex: 1;
-  height: 14px;
-}
-
 /* Media panel — text overlay input row */
 .media-text-row {
   display: flex;
@@ -1520,6 +1509,16 @@ input[type="color"]:focus {
 .pal-grid-lg .pal-swatches { gap: var(--s1); }
 .pal-grid-lg .pal-sw { width: 14px; height: 14px; border-radius: 3px; }
 
+
+/* NumberInput — flex-shrink: 0 because it lives next to a `flex: 1` range,
+   which squeezed it below its own width and cut "1.00" down to "1." */
+.num-input {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  width: 46px;
+  flex-shrink: 0;
+}
 
 /* NumberInput */
 .num-value {
