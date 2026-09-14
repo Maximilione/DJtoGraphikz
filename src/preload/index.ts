@@ -45,6 +45,9 @@ const api = {
    *  verified on the projector. The content rides the variable itself — the
    *  renderer cannot read files, and IPC raced React mounting. */
   selfTestShader: process.env.DJG_SELFTEST_SHADER || '',
+  /** UI gate: which of the three modes to open in, so scripts/check-ui.py can
+   *  photograph each one. Rides the environment for the same reason. */
+  selfTestMode: process.env.DJG_SELFTEST_MODE || '',
   onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 

@@ -105,6 +105,8 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 yarn            # dipendenze
 yarn dev        # sviluppo (Electron + Vite)
 npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # verifica minima
+yarn check:output   # gate di release: il proiettore mostra davvero un'immagine?
+yarn check:ui       # fotografa la finestra di controllo (check:ui simple 0.34)
 yarn package:mac   # .dmg (anche package:win / package:linux)
 ```
 

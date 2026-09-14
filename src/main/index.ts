@@ -304,6 +304,25 @@ app.whenReady().then(async () => {
         const { writeFileSync } = await import('fs')
         writeFileSync(process.env.DJG_SELFTEST!, Buffer.from(buf))
         console.log('[SelfTest] frame del proiettore salvato:', buf.byteLength, 'byte')
+        // The projector shot says the engine is alive; it says nothing about
+        // the control window, which is where a CSS refactor breaks. capturePage
+        // reads the window's own compositor, so it needs no screen-recording
+        // permission and does not care what is on top of it.
+        if (process.env.DJG_SELFTEST_UI && controlWindow && !controlWindow.isDestroyed()) {
+          // Grow it first: capturePage only sees the viewport, and the sidebars
+          // scroll — a screenful shows a third of the surface under review.
+          const [w, h] = controlWindow.getContentSize()
+          controlWindow.setContentSize(1400, 2000)   // macOS clamps to the screen
+          // …so zoom out too: at 0.5 the viewport holds twice the CSS pixels,
+          // which is what it takes to see a whole sidebar at once.
+          controlWindow.webContents.setZoomFactor(Number(process.env.DJG_SELFTEST_UI_ZOOM) || 0.5)
+          await new Promise(r => setTimeout(r, 500))
+          const shot = await controlWindow.webContents.capturePage()
+          writeFileSync(process.env.DJG_SELFTEST_UI, shot.toPNG())
+          controlWindow.webContents.setZoomFactor(1)
+          controlWindow.setContentSize(w, h)
+          console.log('[SelfTest] finestra di controllo salvata')
+        }
       } catch (err) { console.error('[SelfTest] salvataggio fallito:', err) }
       setTimeout(() => app.quit(), 300)
     })
