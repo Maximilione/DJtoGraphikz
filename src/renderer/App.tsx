@@ -176,6 +176,9 @@ export function App() {
       if (typeof saved.brightness === 'number') setBrightness(saved.brightness)
     }
 
+    // Release gate: pin the effect it asked for (DJG_SELFTEST_EFFECT)
+    if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
+
     // Wire AutoVJ → engine
     const vj = vjRef.current
     vj.onSceneChange = (scene) => {

@@ -6,7 +6,8 @@ really painting and fails if it is black, uniform or frozen. Logs and frame
 counters were not enough: a projector can report healthy numbers and still show
 nothing, so this looks at the pixels.
 
-    python3 scripts/check-output.py      # exit 0 = projector OK
+    python3 scripts/check-output.py              # exit 0 = projector OK
+    python3 scripts/check-output.py reaction     # verify one specific effect
 """
 import os
 import pathlib
@@ -32,6 +33,9 @@ def main() -> int:
     started = time.time() - 1
 
     env = {**os.environ, "DJG_SELFTEST": str(SHOT)}
+    if len(sys.argv) > 1:
+        env["DJG_SELFTEST_EFFECT"] = sys.argv[1]
+        print("effetto richiesto:", sys.argv[1])
     env.pop("ELECTRON_RUN_AS_NODE", None)   # silently kills Electron
     print("avvio app…")
     proc = subprocess.run(["yarn", "dev"], cwd=REPO, env=env,
