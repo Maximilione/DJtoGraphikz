@@ -26,10 +26,31 @@ export function LookBank({ engine }: { engine: Engine }) {
   const saveLook = useCallback(async (i: number) => {
     const preset = engine.createPreset(`Look ${i + 1}`)
     const thumb = await makeThumb(engine)
+    // Write to disk BEFORE putting it on screen. The other order showed the
+    // look in its slot and then lost it silently if the quota was full.
     setLooks(prev => {
+      const previous = prev[i]
       const next = [...prev]
-      next[i] = { name: preset.name, preset, thumb }
-      persistLooks(next)
+      next[i] = { name: previous?.name ?? preset.name, preset, thumb }
+      if (!persistLooks(next)) {
+        pushToast(`Spazio esaurito: il look ${i + 1} non e' stato salvato`, 'look-quota', undefined, 'err')
+        return prev
+      }
+      if (previous) {
+        // Overwriting was the one destructive path with no way back, while
+        // DELETING a look has had undo all along.
+        pushToast(`Look ${i + 1} sovrascritto`, `look-save-${i}`, {
+          label: 'Annulla',
+          fn: () => setLooks(cur => {
+            const back = [...cur]
+            back[i] = previous
+            persistLooks(back)
+            return back
+          }),
+        }, 'ok')
+      } else {
+        pushToast(`Look ${i + 1} salvato`, `look-save-${i}`, undefined, 'ok')
+      }
       return next
     })
   }, [engine])

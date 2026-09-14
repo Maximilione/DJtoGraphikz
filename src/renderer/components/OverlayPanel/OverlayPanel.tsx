@@ -133,11 +133,16 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         })
       } catch { /* unreadable — fall through to delete without undo */ }
     }
+    // The two cases are not the same thing and must not say the same thing:
+    // an image can be put back, a video is gone from disk for good.
+    if (!dataUrl && !window.confirm(
+      `Cancellare "${item.name}" dal disco?\nQuesta non si puo' annullare.`)) return
+
     await window.api?.libraryDelete(item.name).catch(() => {})
     loadLibrary()
     if (dataUrl) {
       const saved = dataUrl
-      pushToast('Rimosso dalla libreria', `lib-del-${item.name}`, {
+      pushToast(`"${item.name}" rimosso dalla libreria`, `lib-del-${item.name}`, {
         label: 'Annulla',
         fn: async () => {
           await window.api?.librarySave(item.name, saved).catch(() => {})
@@ -145,7 +150,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         },
       })
     } else {
-      pushToast('Rimosso dalla libreria')
+      pushToast(`"${item.name}" cancellato dal disco`, `lib-del-${item.name}`, undefined, 'err')
     }
   }, [loadLibrary])
 
@@ -398,7 +403,7 @@ function LibraryRow({ item, onAdd, onDelete }: {
         <span className="media-lib-name">{item.name}</span>
         <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
       </button>
-      <button className="media-remove" onClick={onDelete} title="Rimuovi dalla libreria" aria-label="Rimuovi dalla libreria">✕</button>
+      <button className="media-remove" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
     </div>
   )
 }
