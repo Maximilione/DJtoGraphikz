@@ -2,6 +2,29 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.32.0-beta] — 2026-09-14
+
+Secondo dei tre passi: un effetto non e' piu' obbligato a essere un solo pass.
+
+### Added
+- **Effetti multi-pass con buffer persistenti**. Un effetto puo' dichiarare dei pass di simulazione che girano prima di quello visibile, ognuno con il suo buffer ping-pong: lo shader rilegge quello che ha scritto al frame precedente. E' la cosa che serve a reaction-diffusion, fluidi, automi cellulari e in generale a ogni simulazione, ed e' strutturalmente impossibile con un solo pass fullscreen (il post-FX `feedback` e' globale, non per effetto)
+  - Il pass visibile (`main`) resta un effetto normale: transizioni, deck B e parametri funzionano senza modifiche
+  - Ogni pass riceve `tBuffer<nome>` e `uBuffer<nome>Size` per ogni buffer, piu' `uFrame` (0 al primo frame di quell'istanza, serve per il seed)
+  - Il buffer viene scambiato **subito dopo il pass che lo scrive**: elencare lo stesso pass N volte esegue N iterazioni vere. Gray-Scott a un passo per frame striscia; React ne fa otto
+  - Buffer in **half-float**: una simulazione che si rialimenta attraverso target a 8 bit quantizza un po' a ogni frame e l'errore si accumula finche' il pattern muore
+  - La dimensione si dichiara con `rows` (altezza fissa in texel, larghezza dall'aspect dell'uscita) invece che con una frazione dello schermo: la scala delle forme di una reaction-diffusion la decide la griglia, quindi su un proiettore piu' grande lo stesso effetto non sembrerebbe piu' se stesso
+  - I buffer appartengono al **materiale** dell'effetto, non all'engine: l'effetto uscente continua a simulare durante una transizione e il deck B ha la sua copia
+- **React** (Organici), la prima simulazione: Gray-Scott. Membrane che crescono, si dividono e si riorganizzano; medi e alti spostano il punto feed/kill (corallo → vermi → macchie) e **il kick inietta** reagente in tre punti che cambiano a ogni battuta. Parametri Feed, Kill, Inject. In rotazione nell'AutoVJ di acid-techno, psytrance e ambient
+
+### Changed
+- `scripts/shader-preview.py` riscritto: se esiste `<effetto>.sim.frag` lo tratta come pass di simulazione e lo ping-ponga in un buffer half-float per `t*60` frame prima di disegnare il pass visibile, come fa l'Engine. Senza, un effetto multi-pass si poteva solo guardare dentro l'app
+- `scripts/check-output.py` accetta un effetto: `yarn check:output` oppure `python3 scripts/check-output.py reaction` fissa quell'effetto sul proiettore invece di verificare quello che c'era salvato. L'id arriva al renderer leggendo l'ambiente nel preload — via IPC arrivava prima che React montasse, e non lo riceveva nessuno
+- `scripts/audit-shaders.py` leggeva gli id degli effetti con un'indentazione qualsiasi, e una voce multi-pass gli faceva scambiare per effetti anche le sue chiavi annidate
+- Il battito di salute del proiettore riporta i buffer di simulazione dell'effetto attivo (`sim=A:640x360@f283`). Una simulazione che gira in silenzio sulla griglia sbagliata sembra un altro effetto, e nel log non ci sarebbe stato niente a dirlo
+
+### Fixed
+- **React nasceva da un seme troppo piccolo**: trovato dal gate, non a occhio. La simulazione girava ma partiva da una macchia al centro e ci metteva quasi un minuto a coprire il proiettore. Ora il seme e' sparso su tutto il frame e l'immagine e' piena in un secondo
+
 ## [0.31.0-beta] — 2026-09-14
 
 Primo dei tre passi verso grafiche piu' complesse: gli shader non vedevano

@@ -24,7 +24,8 @@ TIMES = [3.0, 11.0]
 def effect_ids() -> list[str]:
     src = (REPO / "src/engine/Engine.ts").read_text()
     block = src[src.index("const EFFECT_SHADERS"):]
-    return re.findall(r"^\s+([\w-]+):\s", block[:block.index("\n}")], re.M)
+    # exactly two spaces: a multi-pass entry has nested keys one level deeper
+    return re.findall(r"^  ([\w-]+):\s", block[:block.index("\n}")], re.M)
 
 
 def main() -> int:

@@ -155,6 +155,7 @@ All effect shaders receive these uniforms:
 | `uBeatClock` | float | Continuous beat counter — the clock to use for anything tempo-locked |
 | `uBassTime` / `uHighTime` | float | Gated clocks: advance only while that band plays |
 | `uSpectrum` | sampler2D | 512×1 audio texture, see below |
+| `uFrame` | float | Frames since this effect instance started — 0 on the first |
 | `uColor1` | vec3 | Primary palette color |
 | `uColor2` | vec3 | Secondary palette color |
 | `uColor3` | vec3 | Tertiary palette color |
@@ -176,6 +177,39 @@ The raw bins are noisier than they look on a plot: smooth over several taps
 before using them as geometry, or the result buzzes. The texture is packed once
 in the control window and the packed bytes ride the audio IPC message, so the
 projector draws from exactly the same data.
+
+### Multi-pass effects
+
+An effect is normally one fullscreen fragment pass. A multi-pass effect
+(`MultiPassEffect` in `Engine.ts`) adds simulation passes that run first, each
+writing into its own **persistent ping-pong buffer**, so a shader can read what
+it wrote last frame. That is what reaction-diffusion, fluids and any other
+cellular simulation need, and what a single pass structurally cannot do.
+
+```ts
+reaction: {
+  passes: Array.from({ length: 8 }, () => ({ frag: simFrag, buffer: 'A', rows: 360 })),
+  main: reactionFrag,
+}
+```
+
+- `main` is the visible pass and behaves exactly like a single-pass effect —
+  transitions, deck B and params all work unchanged.
+- Every pass, `main` included, gets `tBuffer<name>` (sampler2D) and
+  `uBuffer<name>Size` (vec2) for each buffer, plus `uFrame` (float, 0 on the
+  first frame of that effect instance — use it to seed).
+- A buffer is swapped immediately after the pass that writes it, so listing the
+  same pass N times runs N real iterations. Gray-Scott at one step per frame
+  crawls; the effect above runs eight.
+- Buffers are **half-float**: a simulation feeding itself through 8-bit targets
+  quantises a little every frame and the error compounds until the pattern dies.
+- Size a simulation buffer with `rows` (fixed height in texels, width follows
+  the output aspect), not `scale`: the feature size of a reaction-diffusion
+  pattern is set by the grid, so a fraction of the screen makes the same effect
+  look different on a bigger projector.
+- Each effect *material* owns its buffers (`Engine.chains`), so the outgoing
+  effect keeps simulating through a transition and deck B runs its own copy.
+  Disposal goes through `disposeEffectMaterial()`.
 
 Post-processing shaders receive `tDiffuse` (input texture) plus relevant audio uniforms.
 
