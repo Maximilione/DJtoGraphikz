@@ -37,6 +37,9 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
   const [collapsed, toggleCollapsed] = usePanelCollapsed('media', false, 'right')
   const [overlays, setOverlays] = useState<OverlayItem[]>([])
   // When multiple cameras exist we show an inline picker instead of adding blindly
+  // A big GIF or a long video takes seconds to decode: say so instead of
+  // looking frozen. Same idiom as IsfBrowser — disable and swap the label.
+  const [busy, setBusy] = useState<'img' | 'video' | null>(null)
   const [webcamChoices, setWebcamChoices] = useState<MediaDeviceInfo[] | null>(null)
   const [webcamError, setWebcamError] = useState<string | null>(null)
   const [library, setLibrary] = useState<LibraryItem[]>([])
@@ -60,6 +63,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     if (!engine) return
     const assets = await window.api?.importAssets()
     if (!assets || assets.length === 0) return
+    setBusy('img')
     for (const asset of assets) {
       // a corrupt image rejects; without this the failure is a silent
       // unhandled rejection and the user sees nothing happen
@@ -71,6 +75,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         pushToast(`Non riesco a caricare ${asset.name}`, undefined, undefined, 'err')
       }
     }
+    setBusy(null)
     refresh()
     loadLibrary()
   }, [engine, refresh, loadLibrary])
@@ -79,6 +84,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     if (!engine) return
     const files = await window.api?.pickVideos()
     if (!files || files.length === 0) return
+    setBusy('video')
     for (const f of files) {
       // rejects if the file moved or the drive was unplugged since the pick
       try {
@@ -89,6 +95,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         pushToast(`Non riesco a caricare ${f.name}`, undefined, undefined, 'err')
       }
     }
+    setBusy(null)
     refresh()
     loadLibrary()
   }, [engine, refresh, loadLibrary])
@@ -133,11 +140,16 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         })
       } catch { /* unreadable — fall through to delete without undo */ }
     }
+    // The two cases are not the same thing and must not say the same thing:
+    // an image can be put back, a video is gone from disk for good.
+    if (!dataUrl && !window.confirm(
+      `Cancellare "${item.name}" dal disco?\nQuesta non si puo' annullare.`)) return
+
     await window.api?.libraryDelete(item.name).catch(() => {})
     loadLibrary()
     if (dataUrl) {
       const saved = dataUrl
-      pushToast('Rimosso dalla libreria', `lib-del-${item.name}`, {
+      pushToast(`"${item.name}" rimosso dalla libreria`, `lib-del-${item.name}`, {
         label: 'Annulla',
         fn: async () => {
           await window.api?.librarySave(item.name, saved).catch(() => {})
@@ -145,7 +157,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         },
       })
     } else {
-      pushToast('Rimosso dalla libreria')
+      pushToast(`"${item.name}" cancellato dal disco`, `lib-del-${item.name}`, undefined, 'err')
     }
   }, [loadLibrary])
 
@@ -216,8 +228,12 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
       {!collapsed && (
         <div className="u-col">
           <div className="media-add">
-            <button onClick={importImage} title="Importa un'immagine o una GIF come overlay">🖼 Immagine/GIF</button>
-            <button onClick={importVideo} title="Importa un video come overlay">🎬 Video</button>
+            <button onClick={importImage} disabled={busy !== null} title="Importa un'immagine o una GIF come overlay">
+              {busy === 'img' ? 'Carico…' : '🖼 Immagine/GIF'}
+            </button>
+            <button onClick={importVideo} disabled={busy !== null} title="Importa un video come overlay">
+              {busy === 'video' ? 'Carico…' : '🎬 Video'}
+            </button>
             <button onClick={onWebcamClick} title="Aggiungi la webcam come overlay">📷 Webcam</button>
           </div>
 
@@ -398,7 +414,7 @@ function LibraryRow({ item, onAdd, onDelete }: {
         <span className="media-lib-name">{item.name}</span>
         <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
       </button>
-      <button className="media-remove" onClick={onDelete} title="Rimuovi dalla libreria" aria-label="Rimuovi dalla libreria">✕</button>
+      <button className="media-remove" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
     </div>
   )
 }

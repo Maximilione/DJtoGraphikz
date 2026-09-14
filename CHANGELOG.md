@@ -2,6 +2,28 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.38.0-beta] — 2026-09-14
+
+Fase A3 del redesign: **una lingua sola, e smettere di dichiarare cose
+non vere**.
+
+### Fixed
+- **Il salvataggio diceva di essere riuscito prima di provarci.** `setPresets()` girava **prima** della scrittura su disco, dentro un `try/catch`: a quota esaurita il preset compariva nell'elenco come salvato mentre su disco non arrivava niente, e l'utente lo scopriva al lancio successivo. Il commento nel codice lo diceva gia'. Ora si scrive prima e si mostra dopo — preset, scalette e look
+- **Un look perso restava perso in silenzio.** `persistLooks()` inghiottiva l'eccezione senza toast, senza log, senza niente, mentre i preset almeno avvisavano
+- **"8 look di fabbrica" era una promessa che l'app non poteva mantenere.** `seedFactoryLooks()` aveva un solo chiamante: il pulsante finale INIZIA. Premendo **Salta** il Look Bank restava vuoto per sempre — il wizard non torna piu' — mentre la guida rapida continuava a prometterli. Ora semina ogni uscita dal wizard
+- **Smart map riscriveva i valori, non solo le mappature**: ogni parametro sopra il 65% della corsa veniva tirato al 35%. Ora l'etichetta lo dice, e il pulsante si chiama "Collega all'audio"
+- **`×½` e `×2` facevano uscire da Auto in silenzio**, fermando il rilevamento del BPM per tutto il resto del set
+- **Sovrascrivere un look era l'unico percorso distruttivo senza rete**, mentre *cancellare* un look l'annulla ce l'aveva da sempre. Ora ce l'hanno anche preset, scalette e sovrascrittura
+- **La libreria media diceva "Rimosso dalla libreria" con lo stesso identico testo** per le immagini, che si recuperano, e per i video, che vengono cancellati dal disco: non si poteva sapere quale cancellazione fosse reversibile. Ora i due casi dicono cose diverse e quello irreversibile chiede conferma
+
+### Changed
+- **Tradotte le 91 etichette di parametro.** Sono il vero problema di comprensione: `Falloff`, `Feed`, `Kill`, `Sheen`, `Shell`, `Piste`, `Stutter` non sono indovinabili, e sono i cursori che si toccano di piu'. Qualche scelta: `Gates` → `Porte` (sono le porte dello slalom), `Table` → `Tabellina` (e' la tavola pitagorica del string art), `Feed`/`Kill` → `Nutrimento`/`Consumo`, che si tengono in coppia come nell'originale
+- Tradotte le 16 palette, i termini di correzione colore e le sorgenti audio. **NON tradotti** i 46 nomi di effetto e i 9 post-FX: sono nomi, arrivano con un'icona e una miniatura dal vivo, e tradurre `Matrix` o `PS2` sarebbe peggio
+- **Le cinque transizioni avevano due nomi diversi** nei due pannelli che le mostrano, con `crossfade` lasciato inglese pure nel gruppo italiano. Ora stanno nel catalogo, una volta sola
+- **Le velocita' LFO erano `1/4 1/2 1 2 4 8 16 32` senza che l'unita' fosse scritta da nessuna parte.** Ora l'etichetta dice "Ogni · battute" e ogni pulsante ha il suo tooltip
+- La colonna delle etichette di parametro era larga 56px e tagliava gia' "Turbulence" e "Iterations" prima di qualunque traduzione
+- Stato di caricamento sui due import di media, che sono il percorso lento visibile
+
 ## [0.37.0-beta] — 2026-09-14
 
 Fase A2 del redesign: **l'app si guida da tastiera**. Trenta elementi

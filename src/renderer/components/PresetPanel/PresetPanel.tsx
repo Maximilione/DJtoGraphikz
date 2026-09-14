@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { TRANSITIONS } from '../../catalog'
 import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/Engine'
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
 import {
@@ -22,14 +23,18 @@ function loadPresets(): Preset[] {
   } catch { return [] }
 }
 
-function savePresetsToStorage(presets: Preset[]) {
-  // Presets carry custom shaders and every effect's params: over quota this
-  // throws from inside a click handler, after React already showed the preset
-  // in the list — the user would only find out on the next launch
+/**
+ * Returns false when the write did not happen. Presets carry custom shaders and
+ * every effect's params, so the quota is a real limit — and the caller must not
+ * put the preset on screen until this says yes.
+ */
+function savePresetsToStorage(presets: Preset[]): boolean {
   try {
     localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets))
+    return true
   } catch {
     pushToast('Spazio esaurito: il preset non è stato salvato su disco', undefined, undefined, 'err')
+    return false
   }
 }
 
@@ -41,11 +46,13 @@ function loadSequences(): Sequence[] {
   } catch { return [] }
 }
 
-function saveSequencesToStorage(playlists: Sequence[]) {
+function saveSequencesToStorage(playlists: Sequence[]): boolean {
   try {
     localStorage.setItem(STORAGE_KEY_PLAYLISTS, JSON.stringify(playlists))
+    return true
   } catch {
     pushToast('Spazio esaurito: la scaletta non è stata salvata su disco', undefined, undefined, 'err')
+    return false
   }
 }
 
@@ -130,9 +137,11 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     if (!engine || !presetName.trim()) return
     const preset = engine.createPreset(presetName.trim())
     const next = [...presets, preset]
+    // disk first: the list must not show a preset that never reached storage
+    if (!savePresetsToStorage(next)) return
     setPresets(next)
-    savePresetsToStorage(next)
     setPresetName('')
+    pushToast(`Preset "${preset.name}" salvato`, 'preset-save', undefined, 'ok')
   }, [engine, presetName, presets])
 
   // Apply preset
@@ -143,9 +152,19 @@ export function PresetPanel({ engine }: PresetPanelProps) {
 
   // Delete preset
   const deletePreset = useCallback((index: number) => {
+    const removed = presets[index]
     const next = presets.filter((_, i) => i !== index)
+    if (!savePresetsToStorage(next)) return
     setPresets(next)
-    savePresetsToStorage(next)
+    // A preset carries the whole engine state, custom shader included, and it
+    // used to vanish with no confirmation and no way back.
+    pushToast(`Preset "${removed?.name ?? ''}" eliminato`, `preset-del-${index}`, {
+      label: 'Annulla',
+      fn: () => {
+        const back = [...next.slice(0, index), removed, ...next.slice(index)]
+        if (savePresetsToStorage(back)) setPresets(back)
+      },
+    })
   }, [presets])
 
   // Export all presets as JSON file
@@ -183,9 +202,11 @@ export function PresetPanel({ engine }: PresetPanelProps) {
 
   // ---- Sequence editor ----
 
-  const persist = useCallback((next: Sequence[]) => {
+  /** disk first, then the screen — false means nothing was written */
+  const persist = useCallback((next: Sequence[]): boolean => {
+    if (!saveSequencesToStorage(next)) return false
     setSequences(next)
-    saveSequencesToStorage(next)
+    return true
   }, [])
 
   const addStep = useCallback((name: string, preset: Preset, thumb?: string) => {
@@ -241,10 +262,10 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     if (!name || draft.steps.length === 0) return
     const seq = { ...draft, name }
     if (!asNew && editingIndex >= 0) {
-      persist(sequences.map((s, i) => (i === editingIndex ? seq : s)))
+      if (!persist(sequences.map((s, i) => (i === editingIndex ? seq : s)))) return
       pushToast(`Scaletta "${name}" aggiornata`, undefined, undefined, 'ok')
     } else {
-      persist([...sequences, seq])
+      if (!persist([...sequences, seq])) return
       setEditingIndex(sequences.length)
       pushToast(`Scaletta "${name}" salvata`, undefined, undefined, 'ok')
     }
@@ -265,9 +286,16 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   }, [])
 
   const deleteSequence = useCallback((i: number) => {
+    const removed = sequences[i]
     if (playingSeq === sequences[i]) stopSequence()
     setEditingIndex(indexAfterRemoval(editingIndex, i))
-    persist(sequences.filter((_, j) => j !== i))
+    const next = sequences.filter((_, j) => j !== i)
+    if (!persist(next)) return
+    pushToast(`Scaletta "${removed?.name ?? ''}" eliminata (${removed?.steps.length ?? 0} passi)`,
+      `seq-del-${i}`, {
+        label: 'Annulla',
+        fn: () => persist([...next.slice(0, i), removed, ...next.slice(i)]),
+      })
   }, [sequences, playingSeq, editingIndex, stopSequence, persist])
 
   const seqPrev = useCallback(() => {
@@ -494,11 +522,9 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                           style={{ fontSize: 'var(--fs-xs)', flexShrink: 0 }}
                         >
                           <option value="">transizione: come impostata</option>
-                          <option value="crossfade">crossfade</option>
-                          <option value="wipe-left">wipe orizzontale</option>
-                          <option value="wipe-down">wipe verticale</option>
-                          <option value="radial">radiale</option>
-                          <option value="dissolve">dissolvenza</option>
+                          {TRANSITIONS.map(t => (
+                            <option key={t.id} value={t.id}>{t.label}</option>
+                          ))}
                         </select>
                       </div>
                     </div>

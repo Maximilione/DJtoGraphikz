@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { pushToast } from '../Toasts/Toasts'
 import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
@@ -140,10 +141,14 @@ export function AudioPanel({ engine }: AudioPanelProps) {
     if (!engine) return
     const current = engine.audioAnalyzer.getEffectiveBpm()
     const next = Math.round(Math.max(60, Math.min(300, current * factor)))
+    // This leaves Auto. Neither the label nor the tooltip used to say so, and
+    // the detector then stayed off for the rest of the set.
+    const wasAuto = engine.audioAnalyzer.getBpmMode() === 'auto'
     engine.audioAnalyzer.setBpmMode('manual')
     engine.audioAnalyzer.setManualBpm(next)
     setBpmMode('manual')
     setManualBpm(next)
+    if (wasAuto) pushToast(`BPM ${next} — rilevamento automatico disattivato`, 'bpm-manual')
   }, [engine])
 
   const startAudio = async () => {
@@ -386,15 +391,15 @@ export function AudioPanel({ engine }: AudioPanelProps) {
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => scaleBpm(0.5)}
-                title="Dimezza il BPM (il detector ha agganciato il doppio tempo)"
-               aria-label="Dimezza il BPM (il detector ha agganciato il doppio tempo)">
+                title="Dimezza il BPM e passa a manuale — il rilevamento automatico si ferma"
+               aria-label="Dimezza il BPM e passa a manuale">
                 ×½
               </button>
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => scaleBpm(2)}
-                title="Raddoppia il BPM (il detector ha agganciato il mezzo tempo)"
-               aria-label="Raddoppia il BPM (il detector ha agganciato il mezzo tempo)">
+                title="Raddoppia il BPM e passa a manuale — il rilevamento automatico si ferma"
+               aria-label="Raddoppia il BPM e passa a manuale">
                 ×2
               </button>
             </div>
