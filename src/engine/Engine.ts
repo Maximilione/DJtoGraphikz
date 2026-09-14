@@ -45,6 +45,15 @@ import reactionSimFrag from './shaders/reaction.sim.frag?raw'
 import swarmSimFrag from './shaders/swarm.sim.frag?raw'
 import swarmVert from './shaders/swarm.vert?raw'
 import swarmFrag from './shaders/swarm.frag?raw'
+import spectrumFrag from './shaders/spectrum.frag?raw'
+import truchetFrag from './shaders/truchet.frag?raw'
+import causticsFrag from './shaders/caustics.frag?raw'
+import quasicrystalFrag from './shaders/quasicrystal.frag?raw'
+import gyroidFrag from './shaders/gyroid.frag?raw'
+import stringartFrag from './shaders/stringart.frag?raw'
+import asciiFrag from './shaders/ascii.frag?raw'
+import smokeFrag from './shaders/smoke.frag?raw'
+import smokeSimFrag from './shaders/smoke.sim.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -115,6 +124,8 @@ export type EffectId =
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
   | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm'
+  | 'spectrum' | 'truchet' | 'caustics' | 'quasicrystal' | 'gyroid'
+  | 'stringart' | 'ascii' | 'smoke'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -326,6 +337,19 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
     // output — the same effect would not look like itself on a 4K wall
     passes: Array.from({ length: 8 }, () => ({ frag: reactionSimFrag, buffer: 'A', rows: 360 })),
     main: reactionFrag,
+  },
+  spectrum: spectrumFrag,
+  truchet: truchetFrag,
+  caustics: causticsFrag,
+  quasicrystal: quasicrystalFrag,
+  gyroid: gyroidFrag,
+  stringart: stringartFrag,
+  ascii: asciiFrag,
+  smoke: {
+    // one advection step per frame at a fixed grid: a plume's scale is set by
+    // the grid, exactly like the reaction-diffusion one
+    passes: [{ frag: smokeSimFrag, buffer: 'S', rows: 320 }],
+    main: smokeFrag,
   },
   swarm: {
     // 192x192 texels = 36,864 particles on a fixed grid: the count must not

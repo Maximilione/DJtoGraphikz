@@ -2,6 +2,21 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.35.0-beta] — 2026-09-14
+
+Otto effetti nuovi: 38 → 46.
+
+### Added
+- **Spectrum** (Digitali) — l'analizzatore per quello che e'. Barre logaritmiche da `uSpectrum` con i cappelli di picco, specchiate sulla mediana, e la traccia dell'oscilloscopio sopra. Tutto il resto nell'app reagisce a cinque numeri; questo mostra tutti i 512 bin. A segnale assente le barre restano vive su uno sweep basso: un analizzatore muto e' uno schermo nero onesto e un visual inutile
+- **Smoke** (Organici) — pennacchio ad **advezione semi-lagrangiana**: ogni texel chiede dov'era il suo fumo un passo fa e copia da li'. All'indietro, non in avanti — spingere la densita' in avanti vorrebbe scatter, che un fragment shader non sa fare. Velocita' = galleggiamento + due ottave di curl; tre bocchette sul fondo, ognuna alimentata dalla sua banda di spettro, e il kick le spara
+- **Caustics** (Organici) — il loop classico delle caustiche: un punto viene spostato di continuo dal campo in cui si trova, e si accumula la distanza reciproca alle linee coordinate piegate. La potenza finale e' l'effetto: senza, e' plasma
+- **Gyroid** (Digitali) — la superficie minima `sin(x)cos(y)+sin(y)cos(z)+sin(z)cos(x)` raymarchata e ridotta a parete sottile, con un tunnel scavato lungo il percorso della camera. Senza il tunnel la camera passa la maggior parte del tempo **dentro** la parete e il frame diventa un colore piatto — la stessa trappola gia' vista con Lattice
+- **Truchet** (Geometrici) — piastrelle di Truchet: ogni cella tiene uno di due archi e la scelta si ribalta sul beat. Le curve continue escono da un lancio di moneta per cella; nessuno disegna un percorso, i percorsi emergono
+- **Quasicrystal** (Geometrici) — N onde piane a angoli equispaziati, sommate: da cinque in su il risultato ha simmetria rotazionale e non si ripete mai. Le frange vengono da un seno applicato alla somma, altrimenti le onde coprono due periodi scarsi e resta una macchia
+- **String art** (Geometrici) — tavola pitagorica su un cerchio: il nodo i si unisce al nodo (i·m) mod N. Mentre m deriva le corde spazzano cardioide, nefroide e oltre; la forma e' l'inviluppo, nessuna curva viene mai disegnata
+- **ASCII** (Digitali) — un campo procedurale campionato una volta per cella e stampato con il glifo la cui copertura d'inchiostro corrisponde alla luminosita'. I glifi sono bitmap 5x5 impacchettate in float, quindi sembra un terminale invece del solito mosaico a blocchi
+- Tutti e otto sono in rotazione nell'AutoVJ, distribuiti per genere
+
 ## [0.34.0-beta] — 2026-09-14
 
 Il pezzo che mancava dello sblocco multi-pass: adesso ce l'hanno anche gli

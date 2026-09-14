@@ -40,7 +40,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Visual engine
 
-- **38 GLSL effects** in 5 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+- **46 GLSL effects** in 5 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+  - **Spectrum** — the analyser's own picture: log-spaced bars with peak caps, mirrored, oscilloscope over the top. **Smoke** — a semi-Lagrangian advection plume, three vents each fed by its own band. **Caustics**, **Gyroid** (raymarched minimal surface), **Truchet**, **Quasicrystal**, **String art**, **ASCII** terminal readout.
   - **Pulsar** — the *Unknown Pleasures* ridge plot rendered as a perspective linescape: one continuous terrain sliced front to back with hidden-line removal, sides kept dead flat like the sleeve. The field scrolls toward the camera locked to the beat clock, and every downbeat raises a ridge band that rides in with it.
 - **~85 curated parameters** — 2-3 real sliders per effect (segments, density, zoom, twist…), each **mappable to audio** (bass/mid/high/energy/beat, depth ±100%) or to a tempo-synced **LFO** (sine/saw/square, rate 1/4…32 beats).
 - **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
