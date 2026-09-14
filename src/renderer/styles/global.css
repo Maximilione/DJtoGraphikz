@@ -1,7 +1,7 @@
 /* ============================================================
    DJtoGraphikz — global stylesheet
-   Token-driven dark UI. Identity: near-black #0a0a0e, off-white
-   #e8e8f0, neon iris #00ff88 reserved for live/active states.
+   Token-driven dark UI. Identity: near-black var(--bg0), off-white
+   var(--text-primary), neon iris var(--accent) reserved for live/active states.
    ============================================================ */
 
 :root {
@@ -38,7 +38,18 @@
      l'unica cosa che dice dove sei quando navighi da tastiera. */
   --focus-ring: rgba(0, 255, 136, 0.65);
   --danger: #ff4455;
+  --danger-dim: #e03546;   /* the hover, which was written out by hand */
   --warning: #ffaa00;
+
+  /* -- The audio bands, which are a second colour system: the same six hues
+        name a source on a mapping chip, in the source picker, and nowhere
+        else. They were literals repeated in two selectors each. -- */
+  --band-bass: var(--accent);
+  --band-mid: #ffb020;
+  --band-high: #37c9ff;
+  --band-energy: #f0f0f5;
+  --band-beat: var(--danger);
+  --band-lfo: #b06dff;
 
   /* -- Sliders -- */
   --slider-track: var(--bg3);
@@ -58,11 +69,20 @@
   --s7: 24px;
   --s8: 32px;
 
-  /* -- Type scale (11px floor) -- */
+  /* -- Type scale (11px floor for body copy) --
+     10px exists for one thing only: the mono chips in ParamControls, which are
+     uppercase and tracked. 18 and 24 are the two heading sizes. They were all
+     literals before, which is why the audit counted nine rendered sizes
+     against a scale of four. */
+  --fs-2xs: 10px;
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-md: 13px;
   --fs-lg: 15px;
+  --fs-xl: 18px;
+  /* the +/-, the x, the icon glyph: sized as a mark, not as text */
+  --fs-icon: 14px;
+  --fs-2xl: 24px;
 
   /* -- Radii -- */
   --r-sm: 4px;
@@ -96,22 +116,6 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- Identity texture: faint scanline grain over the app ---- */
-/* ponytail: fixed overlay at ~2.5% — cheapest grain, zero readability cost */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2147483647;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 3px,
-    rgba(232, 232, 240, 0.025) 3px,
-    rgba(232, 232, 240, 0.025) 4px
-  );
-}
 
 .surface-grain {
   background-image: repeating-linear-gradient(
@@ -124,7 +128,7 @@ body::before {
 }
 
 /* ---- Heading hierarchy inside panels ---- */
-h1 { font-size: 18px; font-weight: 700; }
+h1 { font-size: var(--fs-xl); font-weight: 700; }
 h2 { font-size: var(--fs-lg); font-weight: 700; }
 h3 { font-size: var(--fs-md); font-weight: 600; }
 h4 {
@@ -264,7 +268,7 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 .panel-header span:last-child {
-  font-size: 14px;
+  font-size: var(--fs-icon);
   color: var(--text-muted);
   line-height: 1;
   margin-left: var(--s4);
@@ -334,8 +338,8 @@ input[type="range"]:active::-webkit-slider-thumb {
   color: #fff;
 }
 .btn-danger:hover:not(:disabled) {
-  background: #e03546;
-  border-color: #e03546;
+  background: var(--danger-dim);
+  border-color: var(--danger-dim);
 }
 
 .btn-sm {
@@ -447,6 +451,13 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 .slider-row input[type="range"] {
   flex: 1;
+  /* A range has an intrinsic min-width of ~129px. Without this it refuses to
+     shrink and pushes the number field out of a 260px sidebar entirely. */
+  min-width: 0;
+}
+.slider-row .u-value {
+  width: 40px;
+  flex-shrink: 0;
 }
 .slider-row .value {
   font-size: var(--fs-xs);
@@ -673,7 +684,7 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 .onboarding-card h2 {
-  font-size: 18px;
+  font-size: var(--fs-xl);
   color: var(--text-primary);
 }
 
@@ -938,7 +949,7 @@ input[type="color"]:focus {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--fs-icon);
 }
 
 .look-slot img {
@@ -1171,24 +1182,6 @@ input[type="color"]:focus {
   font-weight: 600;
 }
 
-.media-slider-row {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.media-slider-row > span {
-  width: 52px;
-  flex-shrink: 0;
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.media-slider-row input[type="range"] {
-  flex: 1;
-  height: 14px;
-}
-
 /* Media panel — text overlay input row */
 .media-text-row {
   display: flex;
@@ -1297,7 +1290,7 @@ input[type="color"]:focus {
 .media-lib-icon {
   width: 32px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-md);
   flex-shrink: 0;
 }
 
@@ -1430,9 +1423,9 @@ input[type="color"]:focus {
 /* Simple mode: the same grid, roomier rows for a bigger target in the dark */
 .fx-grid-lg { gap: var(--s2); }
 .fx-btn-lg { padding: 10px var(--s4); gap: var(--s3); }
-.fx-btn-lg .fx-ico { font-size: 14px; opacity: 1; }
+.fx-btn-lg .fx-ico { font-size: var(--fs-icon); opacity: 1; }
 .fx-btn { display: flex; align-items: center; gap: 4px; }
-.fx-btn .fx-ico { font-size: 12px; line-height: 1; flex-shrink: 0; opacity: 0.5; }
+.fx-btn .fx-ico { font-size: var(--fs-sm); line-height: 1; flex-shrink: 0; opacity: 0.5; }
 .fx-btn.active .fx-ico { opacity: 1; }
 .fx-btn .fx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -1517,6 +1510,16 @@ input[type="color"]:focus {
 .pal-grid-lg .pal-sw { width: 14px; height: 14px; border-radius: 3px; }
 
 
+/* NumberInput — flex-shrink: 0 because it lives next to a `flex: 1` range,
+   which squeezed it below its own width and cut "1.00" down to "1." */
+.num-input {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  width: 46px;
+  flex-shrink: 0;
+}
+
 /* NumberInput */
 .num-value {
   width: 100%;
@@ -1552,7 +1555,7 @@ input[type="color"]:focus {
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
   background: var(--bg0);
-  color: #c8d0e0;
+  color: var(--text-primary);
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
   line-height: 1.4;

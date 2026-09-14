@@ -2,6 +2,30 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.40.0-beta] — 2026-09-14
+
+Fase V del redesign: **il contro-audit**. Stessa rubrica di
+`DESIGN-IS-2026-09-14/02-scorecard.md`, stesse regole (in dubbio il punteggio
+piu' basso, si giudica l'istanza peggiore). **Da 11/30 a 21/30**, nessun
+principio a 0: il verdetto passa da REDESIGN a REFINE. Il documento sta in
+`DESIGN-IS-2026-09-14/05-controaudit.md`, con le misure prima/dopo e le
+undici affordance ripetute una per una.
+
+### Changed
+- **Un sistema visivo solo.** Zero `font-size` letterali: le tre dimensioni che l'interfaccia rende davvero e che non avevano un nome ora ce l'hanno (`--fs-2xs`, `--fs-xl`, `--fs-2xl`, `--fs-icon`). Due soli colori ad-hoc rimasti (`#000` e `#fff`): tutto il resto e' un token, comprese le sei tinte delle bande audio, che erano un secondo sistema di colore scritto a mano in due selettori ciascuna. Spariti i `var(--bg2, #16161c)` con la scorciatoia gia' scaduta rispetto al token che coprivano
+- **Tre implementazioni della riga "etichetta · cursore · numero" diventano una** (`<SliderRow>`, 11 punti d'uso). Erano tre markup con **due larghezze di etichetta diverse**: lo stesso controllo era 74px di etichetta in un pannello e 52px in un altro, sullo stesso schermo
+- Il confine fra i **quattro modi di dire qualcosa all'utente** e' scritto in `Toasts.tsx`: non sono duplicati, sono quattro lavori diversi, e un evento passato non e' mai un banner
+
+### Removed
+- **La texture a scanline.** Decorazione a `z-index: 2147483647` sopra ogni pixel dell'app, testo compreso. L'audit la citava due volte: come cromo che compete col contenuto e come l'unico marcatore datato in un linguaggio visivo altrimenti senza tempo
+
+### Fixed
+- **I numeri dei parametri erano tagliati**: `1.00` si leggeva `1.`. Il campo numerico stava accanto a un cursore `flex: 1` e veniva compresso sotto la sua stessa larghezza. Sistemato quello, il cursore a sua volta non voleva stringersi — un `input[type=range]` ha una larghezza minima intrinseca di ~129px — e spingeva il numero **fuori** dalla colonna da 260px
+- `check:ui` rimette a posto la modalita' quando ha finito di contare i controlli: contava cliccando, e cliccare una modalita' la salva
+
+### Added
+- `DESIGN-IS-2026-09-14/05-controaudit.md`
+
 ## [0.39.1-beta] — 2026-09-14
 
 ### Added
