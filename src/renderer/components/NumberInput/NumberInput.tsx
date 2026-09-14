@@ -6,9 +6,7 @@ interface NumberInputProps {
   max: number
   step: number
   onChange: (value: number) => void
-  label?: string
   suffix?: string
-  width?: number
 }
 
 /**
@@ -19,7 +17,7 @@ interface NumberInputProps {
  * - Displays formatted value normally
  */
 export function NumberInput({
-  value, min, max, step, onChange, label, suffix = '', width = 42,
+  value, min, max, step, onChange, suffix = '',
 }: NumberInputProps) {
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState('')
@@ -97,7 +95,7 @@ export function NumberInput({
         display: 'inline-flex',
         alignItems: 'center',
         gap: '2px',
-        width: `${width}px`,
+        width: '42px',
         outline: 'none',
       }}
     >

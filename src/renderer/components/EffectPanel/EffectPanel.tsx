@@ -141,9 +141,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const onIsfImported = useCallback((name: string, source: string) => {
     const res = loadISF(source, name)
     if ('error' in res) {
-      pushToast(`"${name}": ${res.error}`, `isf-err-${name}`)
+      pushToast(`"${name}": ${res.error}`, `isf-err-${name}`, undefined, 'err')
     } else {
-      pushToast(`Shader "${name}" importato`, `isf-ok-${name}`)
+      pushToast(`Shader "${name}" importato`, `isf-ok-${name}`, undefined, 'ok')
     }
     refreshIsf()
   }, [refreshIsf])
@@ -154,7 +154,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       if (files.length === 0) return
       for (const f of files) onIsfImported(f.name, f.source)
     } catch (e: any) {
-      pushToast(`Import fallito: ${e?.message || e}`, 'isf-import-err')
+      pushToast(`Import fallito: ${e?.message || e}`, 'isf-import-err', undefined, 'err')
     }
   }, [onIsfImported])
 
@@ -170,7 +170,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       const reader = new FileReader()
       reader.onload = () => {
         engine.setCustomImage(inputName, String(reader.result))
-        pushToast(`Immagine assegnata a "${inputName}"`, `isf-img-${inputName}`)
+        pushToast(`Immagine assegnata a "${inputName}"`, `isf-img-${inputName}`, undefined, 'ok')
       }
       reader.readAsDataURL(file)
     }
