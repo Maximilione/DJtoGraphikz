@@ -2,6 +2,30 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.34.0-beta] — 2026-09-14
+
+Il pezzo che mancava dello sblocco multi-pass: adesso ce l'hanno anche gli
+shader che scrivi tu e quelli che importi.
+
+### Added
+- **Shader custom multi-pass**. I pass si separano **dentro il sorgente**, con righe marcatore, cosi' uno shader custom resta una stringa sola e preset, snapshot IPC verso il proiettore ed editor continuano a funzionare senza toccare niente:
+  ```glsl
+  // quello che sta qui sopra e' condiviso da tutti i pass
+  //!DJG_BUFFER A
+  void main() { /* scrive il buffer A, e con tBufferA rilegge il frame prima */ }
+  //!DJG_MAIN
+  void main() { /* il pass visibile */ }
+  ```
+  Se dichiari solo buffer, viene aggiunto un blit dell'ultimo: qualcosa deve arrivare sullo schermo. **Tutti i pass vengono compilati e validati prima di sostituire quello che c'era**: un buffer rotto non deve lasciare il proiettore a metà
+- **ISF multi-pass**: cade il rifiuto `'ISF multi-pass non supportato'`. Il corpo viene emesso una volta per pass con il suo `PASSINDEX` — e' esattamente cosi' che uno shader ISF distingue i pass — e ogni `TARGET` viene aliasato sull'uniform che l'engine collega davvero. I filtri (`inputImage`) restano rifiutati, con la ragione
+- **Import Shadertoy** (`ShadertoyLoader.ts`, bottone nell'editor). Accetta due cose, perche' due sono tutto quello che esiste: il GLSL con `mainImage` (un pass, quello che ti da' un copia-incolla dal sito) oppure il **JSON dell'API**, che e' l'unico modo di portarsi dietro i **Buffer A-D**. I buffer diventano buffer dell'engine in ordine, `iChannelN` viene collegato a quello che quel pass legge davvero, il codice `common` finisce in tutti i pass, e un canale texture diventa un'immagine che scegli tu. `iResolution` e `iMouse` sono `#define`: GLSL ES vieta di inizializzare un globale da una uniform, e senza mouse la posizione deriva lenta in una Lissajous
+- **`yarn check:loaders`**: 11 controlli sui due importatori e sullo splitter dei pass. Un parser che produce GLSL *quasi* giusto non si vede finche' non e' un proiettore nero dieci minuti dopo
+- `scripts/check-output.py` accetta anche un **file shader**: `python3 scripts/check-output.py scripts/fixtures/trail.multipass.frag` verifica un multi-pass custom sul proiettore vero. La fixture e' una scia che decade, quindi un buffer che in realta' non e' persistente lascia un puntino solo e fa fallire il gate
+
+### Changed
+- `splitCustomPasses()` vive in `src/engine/customPasses.ts`: e' logica pura e va provata senza tirarsi dietro three
+- Un'immagine assegnata a uno shader custom arriva anche ai suoi pass di buffer, non solo a quello visibile
+
 ## [0.33.0-beta] — 2026-09-14
 
 Terzo e ultimo passo: un effetto non e' piu' obbligato a essere un quad.
