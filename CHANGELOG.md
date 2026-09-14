@@ -2,6 +2,27 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.33.0-beta] — 2026-09-14
+
+Terzo e ultimo passo: un effetto non e' piu' obbligato a essere un quad.
+
+### Added
+- **Effetti a geometria**: un effetto puo' dichiarare un `build(uniforms)` che restituisce il materiale con gli uniform dell'effetto (audio, palette, parametri e transizioni continuano a funzionare come sempre) e l'oggetto da disegnare — nuvole di punti, mesh istanziate, modelli caricati
+  - Tutto cio' che disegna un effetto passa ora per `renderEffect()`: pass di simulazione, poi il quad oppure la scena dell'effetto. Il target di un effetto a geometria viene pulito, perche' la geometria lascia buchi dove un quad fullscreen avrebbe riscritto ogni pixel
+- **Swarm** (Movimento), il primo: **36.864 particelle** la cui posizione e velocita' vivono in un buffer di simulazione half-float (lo sblocco precedente) e vengono lette dal **vertex shader**, indicizzate con `gl_VertexID`. La CPU non tocca un vertice e il numero di particelle non costa niente per frame
+  - Il campo e' curl + gradiente di rumore: il curl fa girare, il gradiente fa ammassare. Solo curl e' a divergenza nulla e 36k particelle diventano polvere uniforme; la struttura — vortici e filamenti — viene dalla parte di gradiente
+  - Vite finite e sfalsate: le particelle rinascono su un disco il cui raggio segue la banda di spettro assegnata a ciascuna. Senza, lo sciame diffonde finche' copre il frame in modo uniforme e smette di sembrare uno sciame
+  - Il kick le spara in fuori, i medi decidono quanto il campo ammassa, l'energia quanto e' veloce. Parametri Turbulence, Drag, Burst, Dots
+  - In rotazione nell'AutoVJ di drum-n-bass, psytrance e minimal-hypnotic
+- I buffer di simulazione possono essere **point-sampled** (`nearest`). Obbligatorio quando i texel sono dati e non un'immagine: con il filtro lineare un campione al centro di un texel puo' comunque mescolare il vicino, e un valore sbagliato si propaga a tutta la griglia un frame alla volta
+
+### Changed
+- `scripts/shader-preview.py` disegna anche gli effetti a geometria: se esiste `<effetto>.vert` costruisce la nuvola di punti, la compone in additivo dentro un buffer float e fa **un solo passaggio di tone mapping alla fine**, come lo stadio master dell'app (tonemappare ogni sprite slava tutto lo sciame). `DJG_W`/`DJG_H` scelgono la risoluzione: la densita' di un sistema particellare e' il suo aspetto, e a 960x540 si giudica male quello che esce a 1080p
+
+### Fixed
+- **Swarm era invisibile a sala muta** e lo ha detto solo il proiettore: l'ampiezza del campo e la dimensione degli sprite erano quasi tutte moltiplicate per l'energia audio, quindi senza musica lo sciame stava fermo e minuscolo. Ora l'audio si somma a un pavimento invece di esserne l'unico termine
+- La dimensione degli sprite scala con la **radice** della risoluzione, non con la risoluzione: la luminosita' di uno sprite va con l'area, e a risoluzione dimezzata lo sciame diventava quattro volte piu' scuro
+
 ## [0.32.0-beta] — 2026-09-14
 
 Secondo dei tre passi: un effetto non e' piu' obbligato a essere un solo pass.
