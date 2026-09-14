@@ -141,7 +141,12 @@ Le fasi A2–A4 appoggiano su questa. Farla per prima.
 - Pulsante solo icona: `App.tsx:588-590`.
 
 ### Lista di verifica
-- [ ] `grep -rn "onClick" src/renderer --include=*.tsx | grep -c "div\|span"` → solo i fondali dei modali, con il motivo scritto accanto.
+- [x] Cliccabili non-`<button>`: **da 30 a 11** (v0.37.0-beta). Gli undici che
+      restano sono legittimi e vanno lasciati: dieci sono i fondali dei cinque
+      modali con i loro contenitori `stopPropagation` — cliccare fuori e' una
+      comodita' del mouse, non l'unica uscita, perche' ora **tutti e cinque
+      rispondono a `Escape`** — e l'undicesimo e' il doppio-click di
+      `NumberInput`, che ha il suo gemello da tastiera (`Invio`).
 - [ ] Percorso a tastiera provato a mano, **senza toccare il mouse**: avviare l'audio → scegliere un effetto → regolare un parametro → salvare un look → richiamarlo → accendere e spegnere l'AutoVJ → blackout → uscire dall'editor GLSL.
 - [ ] Tabulare fino a BLACK/FREEZE/PANIC e premere `Space` **preme il pulsante**, non batte il tempo.
 - [ ] Con un `NumberInput` a fuoco, premere `1` non cambia l'effetto.

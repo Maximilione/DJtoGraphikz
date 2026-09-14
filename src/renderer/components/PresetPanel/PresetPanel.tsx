@@ -319,14 +319,14 @@ export function PresetPanel({ engine }: PresetPanelProps) {
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={toggleCollapsed}
         title={collapsed ? 'Espandi Preset & Scalette' : 'Comprimi Preset & Scalette'}
       >
         <span>Preset & Scalette</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="u-col" style={{ gap: '10px' }}>
           {/* Tab switcher */}
@@ -373,16 +373,16 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                       {p.name}
                     </span>
                     <span className="row-sub">{p.effect}</span>
-                    <button className="btn btn-secondary btn-sm" onClick={() => applyPreset(p)} title="Applica preset">
+                    <button className="btn btn-secondary btn-sm" onClick={() => applyPreset(p)} title="Applica preset" aria-label="Applica preset">
                       ▶
                     </button>
                     <button className="btn btn-secondary btn-sm" onClick={() => {
                       addStep(p.name, p)
                       setTab('playlist')
-                    }} title="Aggiungi alla scaletta aperta nell'editor">
+                    }} title="Aggiungi alla scaletta aperta nell'editor" aria-label="Aggiungi alla scaletta aperta nell'editor">
                       +
                     </button>
-                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deletePreset(i)} title="Elimina preset">
+                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deletePreset(i)} title="Elimina preset" aria-label="Elimina preset">
                       ×
                     </button>
                   </div>
@@ -467,9 +467,9 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                           title="Nome del passo"
                           style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
                         />
-                        <button className="tiny-btn" title="Applica ora questo passo" onClick={() => engine?.applyPreset(st.preset)}>▶</button>
-                        <button className="tiny-btn" title="Duplica il passo" onClick={() => duplicateStep(i)}>⧉</button>
-                        <button className="tiny-btn danger" title="Togli il passo" onClick={() => removeStep(i)}>×</button>
+                        <button className="tiny-btn" title="Applica ora questo passo" onClick={() => engine?.applyPreset(st.preset)} aria-label="Applica ora questo passo">▶</button>
+                        <button className="tiny-btn" title="Duplica il passo" onClick={() => duplicateStep(i)} aria-label="Duplica il passo">⧉</button>
+                        <button className="tiny-btn danger" title="Togli il passo" onClick={() => removeStep(i)} aria-label="Togli il passo">×</button>
                       </div>
                       <div className="u-row" style={{ gap: '5px' }}>
                         <span className="u-hint" style={{ width: '14px', flexShrink: 0 }} />
@@ -620,9 +620,9 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                     <span className="row-sub">
                       {seq.steps.length} passi · {totalHold(seq)}{HOLD_LIMITS[seq.mode].unit}
                     </span>
-                    <button className="btn btn-secondary btn-sm" onClick={() => startSequence(seq)} title="Avvia la scaletta">▶</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => editSequence(i)} title="Apri nell'editor">✎</button>
-                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteSequence(i)} title="Elimina la scaletta">×</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => startSequence(seq)} title="Avvia la scaletta" aria-label="Avvia la scaletta">▶</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => editSequence(i)} title="Apri nell'editor" aria-label="Apri nell'editor">✎</button>
+                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteSequence(i)} title="Elimina la scaletta" aria-label="Elimina la scaletta">×</button>
                   </div>
                 ))}
                 {sequences.length === 0 && (

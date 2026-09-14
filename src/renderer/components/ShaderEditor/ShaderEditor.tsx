@@ -371,6 +371,10 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
 
   // Handle tab key in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Escape, and Shift+Tab, are the way OUT. Tab used to be swallowed without
+    // checking shiftKey and there was no escape hatch: once the focus landed in
+    // here it could not leave by keyboard at all — a mouse was the only way out.
+    if (e.key === 'Escape' || (e.key === 'Tab' && e.shiftKey)) return
     if (e.key === 'Tab') {
       e.preventDefault()
       const ta = e.currentTarget
@@ -394,14 +398,14 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={toggleCollapsed}
         title={collapsed ? 'Espandi Shader Editor' : 'Comprimi Shader Editor'}
       >
         <span>Shader Editor</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {/* Templates */}
@@ -436,7 +440,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
               onChange={e => setCode(e.target.value)}
               onKeyDown={handleKeyDown}
               spellCheck={false}
-              title="Fragment shader GLSL — Tab indenta"
+              title="Fragment shader GLSL — Tab indenta, Shift+Tab esce dal campo"
             />
             <div className="u-hint" style={{ marginTop: '2px' }}>
               {code.split('\n').length} righe

@@ -260,14 +260,14 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={() => setCollapsed(!collapsed)}
         title={collapsed ? 'Espandi Ingresso audio' : 'Comprimi Ingresso audio'}
       >
         <span>Ingresso audio</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="u-col">
           {error && <div className="u-error">{error}</div>}
@@ -387,14 +387,14 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                 className="btn btn-secondary btn-sm"
                 onClick={() => scaleBpm(0.5)}
                 title="Dimezza il BPM (il detector ha agganciato il doppio tempo)"
-              >
+               aria-label="Dimezza il BPM (il detector ha agganciato il doppio tempo)">
                 ×½
               </button>
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => scaleBpm(2)}
                 title="Raddoppia il BPM (il detector ha agganciato il mezzo tempo)"
-              >
+               aria-label="Raddoppia il BPM (il detector ha agganciato il mezzo tempo)">
                 ×2
               </button>
             </div>
@@ -439,7 +439,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                   onClick={() => handleManualBpm(manualBpm - 1)}
                   title="Diminuisci il BPM di 1"
                   style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
-                >
+                 aria-label="Diminuisci il BPM di 1">
                   -
                 </button>
                 <input
@@ -462,7 +462,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
                   onClick={() => handleManualBpm(manualBpm + 1)}
                   title="Aumenta il BPM di 1"
                   style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
-                >
+                 aria-label="Aumenta il BPM di 1">
                   +
                 </button>
               </div>

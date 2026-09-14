@@ -205,14 +205,14 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={toggleCollapsed}
         title={collapsed ? 'Espandi pannello Media' : 'Comprimi pannello Media'}
       >
         <span>Media</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="u-col">
           <div className="media-add">
@@ -281,7 +281,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
           {overlays.map(overlay => (
             <div key={overlay.id} className="media-card">
               <div className="media-card-header">
-                <div
+                <button type="button" aria-pressed={overlay.visible}
                   className={`media-toggle${overlay.visible ? ' on' : ''}`}
                   onClick={() => updateOverlay(overlay.id, { visible: !overlay.visible })}
                   title={overlay.visible ? 'Nascondi' : 'Mostra'}
@@ -292,7 +292,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                   className="media-remove"
                   onClick={() => removeOverlay(overlay.id)}
                   title="Rimuovi media"
-                >
+                 aria-label="Rimuovi media">
                   x
                 </button>
               </div>
@@ -391,14 +391,14 @@ function LibraryRow({ item, onAdd, onDelete }: {
 
   return (
     <div className="media-lib-row">
-      <div className="media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
+      <button type="button" className="media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
         {isImage
           ? (thumb ? <img className="media-lib-thumb" src={thumb} /> : <span className="media-lib-icon">🖼</span>)
           : <span className="media-lib-icon">🎬</span>}
         <span className="media-lib-name">{item.name}</span>
         <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
-      </div>
-      <button className="media-remove" onClick={onDelete} title="Rimuovi dalla libreria">✕</button>
+      </button>
+      <button className="media-remove" onClick={onDelete} title="Rimuovi dalla libreria" aria-label="Rimuovi dalla libreria">✕</button>
     </div>
   )
 }

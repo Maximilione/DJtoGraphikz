@@ -18,7 +18,7 @@ const KEYBOARD: [string, string][] = [
 
 const MOUSE: [string, string][] = [
   ['Shift+click slot', 'sovrascrivi look'],
-  ['Doppio click nome', 'rinomina'],
+  ['✎ sullo slot', 'rinomina il look'],
   ['Rotella su un valore', 'regola (dopo click)'],
 ]
 
@@ -59,7 +59,7 @@ export function CheatSheet({ onClose }: CheatSheetProps) {
 
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
-      <div className="onboarding-card" style={{ maxWidth: 640 }}>
+      <div className="onboarding-card" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
         <h2>Scorciatoie</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 16 }}>
           <Section title="Tastiera" rows={KEYBOARD} />

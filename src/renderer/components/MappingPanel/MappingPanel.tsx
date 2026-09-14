@@ -68,14 +68,14 @@ export function MappingPanel({ engine }: MappingPanelProps) {
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={toggleCollapsed}
         title={collapsed ? 'Espandi Mapping' : 'Comprimi Mapping'}
       >
         <span>Mapping{active ? ' ●' : ''}</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="u-col" style={{ gap: 8 }}>
           <div className="u-hint">
