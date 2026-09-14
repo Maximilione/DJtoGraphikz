@@ -384,24 +384,24 @@ export function App() {
     }
   }, [engine, changeVJGenre, toggleVJ])
 
-  // FPS counter
+  // FPS counter. It used to run a second requestAnimationFrame chain of its
+  // own, next to the engine's — which measured the renderer's frame rate, not
+  // the one the label claims. The engine already calls its frame listeners
+  // once per rendered frame, so it counts those instead: one chain, and the
+  // number now means what it says.
   useEffect(() => {
+    if (!engine) return
     let frames = 0
     let lastTime = performance.now()
-    let rafId = 0
-    const tick = () => {
+    return engine.onAudioFrame(() => {
       frames++
       const now = performance.now()
-      if (now - lastTime >= 1000) {
-        setFps(frames)
-        frames = 0
-        lastTime = now
-      }
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
-  }, [])
+      if (now - lastTime < 1000) return
+      setFps(frames)
+      frames = 0
+      lastTime = now
+    })
+  }, [engine])
 
   // Live performance hotkeys:
   // B blackout · F freeze · [ ] master · 1-0 effects · QWER post toggles · Space tap BPM
