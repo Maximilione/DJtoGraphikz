@@ -44,7 +44,7 @@ export function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: Effec
                     className={`fx-btn${size === 'lg' ? ' fx-btn-lg' : ''}${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
                     title={`Effetto ${fx.label}`}
                     style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
-                  >
+                   >
                     <span className="fx-ico">{fx.icon}</span>
                     <span className="fx-name">{fx.label}</span>
                   </button>

@@ -366,7 +366,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       setTransitionType(t.id)
                       engine?.setTransitionType(t.id)
                     }}
-                  >
+                   >
                     {t.label}
                   </button>
                 ))}
@@ -392,7 +392,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 />
               </div>
               {/* Beat sync */}
-              <div
+              <button type="button" aria-pressed={transitionBeatSync}
                 className="u-row"
                 onClick={() => {
                   const v = !transitionBeatSync
@@ -406,7 +406,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 <span className="u-hint" style={transitionBeatSync ? { color: 'var(--text-primary)' } : undefined}>
                   Attendi il beat
                 </span>
-              </div>
+              </button>
             </div>
 
             {/* Categories — the one shared grid */}
@@ -433,7 +433,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                             onClick={() => selectIsf(fx)}
                             title={`Shader ISF: ${fx.name}`}
                             className={`fx-btn fx-btn-isf${isActive ? ' active' : ''}`}
-                          >
+                           >
                             <span className="fx-ico">ƒ</span>
                             <span className="fx-name">
                               {fx.name.replace(/\.(fs|frag|glsl)$/i, '')}
@@ -497,9 +497,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       style={{ flex: 1 }}
                       title="Wet / dry"
                     />
-                    <button className="tiny-btn" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0}>↑</button>
-                    <button className="tiny-btn" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1}>↓</button>
-                    <button className="tiny-btn danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)}>×</button>
+                    <button className="tiny-btn" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0} aria-label="Sposta su nella catena">↑</button>
+                    <button className="tiny-btn" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} aria-label="Sposta giù nella catena">↓</button>
+                    <button className="tiny-btn danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)} aria-label="Disattiva effetto">×</button>
                   </div>
                 ))}
               </div>
@@ -512,12 +512,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                   {cat.effects.map(fx => {
                     const isActive = activePosts.has(fx.id)
                     return (
-                      <div
+                      <button type="button" aria-pressed={isActive}
                         key={fx.id}
                         className={`row-item${isActive ? ' active' : ''}`}
                         onClick={() => togglePost(fx.id)}
                         title={`${isActive ? 'Disattiva' : 'Attiva'} ${fx.label}`}
-                      >
+                       >
                         <span style={{ fontSize: '13px', lineHeight: 1, flexShrink: 0, opacity: isActive ? 1 : 0.4 }}>
                           {fx.icon}
                         </span>
@@ -526,7 +526,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                           <div className="row-title">{fx.label}</div>
                           <div className="row-sub">{fx.desc}</div>
                         </div>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -643,7 +643,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {/* Palette Cycling */}
             <div>
               <div className="cat-label">Ciclo palette</div>
-              <div
+              <button type="button" aria-pressed={cycleEnabled}
                 className="u-row"
                 onClick={toggleCycle}
                 title="Cambia palette automaticamente a tempo o a beat"
@@ -657,7 +657,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 <span className="u-hint" style={cycleEnabled ? { color: 'var(--text-primary)' } : undefined}>
                   {cycleEnabled ? 'Attivo' : 'Attiva'}
                 </span>
-              </div>
+              </button>
 
               <div style={{ display: 'flex', gap: '3px', marginBottom: '4px' }}>
                 <button className={`pill${!cycleBeatSync ? ' active' : ''}`} title="Cambio palette a intervalli di tempo" onClick={() => handleCycleBeatSync(false)}>Timer</button>

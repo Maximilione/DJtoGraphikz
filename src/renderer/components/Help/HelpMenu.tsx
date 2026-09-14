@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 
 interface HelpMenuProps {
   onShortcuts: () => void
@@ -22,6 +22,13 @@ const itemStyle: React.CSSProperties = {
 
 /** Small help dropdown anchored top-right, below the top bar. Click-outside closes. */
 export function HelpMenu({ onShortcuts, onGuide, onOnboarding, onClose }: HelpMenuProps) {
+  // Escape closes: without it a modal could only be dismissed with the mouse.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 900 }} onClick={onClose}>
       <div

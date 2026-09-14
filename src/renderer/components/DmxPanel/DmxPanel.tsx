@@ -101,10 +101,10 @@ export function DmxPanel({ engine }: DmxPanelProps) {
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Espandi Luci DMX' : 'Comprimi Luci DMX'}>
+      <button type="button" aria-expanded={!collapsed} className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Espandi Luci DMX' : 'Comprimi Luci DMX'}>
         <span>Luci DMX{cfg.enabled ? ' ●' : ''}</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="u-col" style={{ gap: 8 }}>
           <div className="u-hint">

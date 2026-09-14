@@ -59,6 +59,9 @@ export function NumberInput({
       return
     }
 
+    // Enter is the keyboard twin of the double-click: same action, other device
+    if (e.key === 'Enter') { e.preventDefault(); startEdit(); return }
+
     const mult = e.shiftKey ? 10 : 1
     if (e.key === 'ArrowUp') {
       e.preventDefault()
@@ -67,7 +70,7 @@ export function NumberInput({
       e.preventDefault()
       onChange(clamp(value - step * mult))
     }
-  }, [editing, value, step, onChange, clamp, commitEdit])
+  }, [editing, value, step, onChange, clamp, commitEdit, startEdit])
 
   // Mouse wheel — only when focused (click first), otherwise the sidebar
   // couldn't scroll past any of these values
@@ -96,7 +99,6 @@ export function NumberInput({
         alignItems: 'center',
         gap: '2px',
         width: '42px',
-        outline: 'none',
       }}
     >
       {editing ? (
@@ -113,7 +115,7 @@ export function NumberInput({
         <span
           className="num-value"
           onDoubleClick={startEdit}
-          title="Doppio-click per scrivere; click poi rotella/frecce per regolare"
+          title="Invio o doppio-click per scrivere · frecce o rotella per regolare"
         >
           {formatValue(value, step)}{suffix}
         </span>
