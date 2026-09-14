@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { TRANSITIONS } from '../../catalog'
 import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/Engine'
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
 import {
@@ -494,11 +495,9 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                           style={{ fontSize: 'var(--fs-xs)', flexShrink: 0 }}
                         >
                           <option value="">transizione: come impostata</option>
-                          <option value="crossfade">crossfade</option>
-                          <option value="wipe-left">wipe orizzontale</option>
-                          <option value="wipe-down">wipe verticale</option>
-                          <option value="radial">radiale</option>
-                          <option value="dissolve">dissolvenza</option>
+                          {TRANSITIONS.map(t => (
+                            <option key={t.id} value={t.id}>{t.label}</option>
+                          ))}
                         </select>
                       </div>
                     </div>
