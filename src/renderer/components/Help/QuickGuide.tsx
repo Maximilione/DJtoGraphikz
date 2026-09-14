@@ -51,7 +51,7 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
         <h3 style={h3Style}>Look Bank</h3>
         <p style={pStyle}>
           Griglia 4×4: click su uno slot vuoto salva lo stato corrente (effetto, post, colori, parametri).
-          Click su uno slot pieno lo applica; Shift+click lo sovrascrive; doppio click sul nome lo rinomina.
+          Click su uno slot pieno lo applica; Shift+click lo sovrascrive; il pulsante ✎ lo rinomina.
           I primi 10 slot si richiamano con Shift+1-0. Alla prima apertura trovi 8 look di fabbrica.
         </p>
 

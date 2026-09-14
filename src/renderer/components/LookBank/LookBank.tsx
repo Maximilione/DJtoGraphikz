@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { shouldIgnoreHotkey } from '../../hotkeys'
 import type { Engine, Preset } from '@engine/Engine'
 import { pushToast } from '../Toasts/Toasts'
 import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
@@ -89,8 +90,7 @@ export function LookBank({ engine }: { engine: Engine }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.shiftKey) return
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
+      if (shouldIgnoreHotkey(e)) return
       const m = /^Digit(\d)$/.exec(e.code)
       if (!m) return
       const i = m[1] === '0' ? 9 : parseInt(m[1]) - 1
@@ -122,26 +122,33 @@ export function LookBank({ engine }: { engine: Engine }) {
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={() => setCollapsed(!collapsed)}
         title={collapsed ? 'Espandi Look Bank' : 'Comprimi Look Bank'}
       >
         <span>Look Bank</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="look-bank-grid">
           {looks.map((look, i) => look ? (
             <div
               key={i}
               className={`look-slot${active === i ? ' active' : ''}${dragOver === i ? ' drag-over' : ''}`}
-              title={`${look.name} — click: applica · Shift+click: sovrascrivi · doppio-click sul nome: rinomina · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10}` : ''}`}
-              onClick={e => e.shiftKey ? saveLook(i) : trigger(i)}
               draggable={renaming !== i}
               onDragStart={() => { dragFrom.current = i }}
               {...dropHandlers(i)}
             >
+              {/* The slot is a drag target and a stacking context, so it cannot
+                  itself be the button — it holds one. This covers the whole
+                  tile; the thumbnail, number and name let clicks through. */}
+              <button
+                type="button"
+                className="look-hit"
+                title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10}` : ''}`}
+                onClick={e => e.shiftKey ? saveLook(i) : trigger(i)}
+              />
               {look.thumb && <img src={look.thumb} alt="" />}
               <span className="look-num">{i + 1}</span>
               {renaming === i ? (
@@ -160,29 +167,29 @@ export function LookBank({ engine }: { engine: Engine }) {
                   }}
                 />
               ) : (
-                <span
-                  className="look-name"
-                  title="Doppio-click per rinominare"
-                  onDoubleClick={e => {
-                    e.stopPropagation()
-                    setRenameText(look.name)
-                    setRenaming(i)
-                  }}
-                >
-                  {look.name}
-                </span>
+                <span className="look-name">{look.name}</span>
+              )}
+              {renaming !== i && (
+                <button
+                  className="look-edit"
+                  title="Rinomina look"
+                  onClick={() => { setRenameText(look.name); setRenaming(i) }}
+                 aria-label="Rinomina look">
+                  ✎
+                </button>
               )}
               <button
                 className="look-del"
                 title="Elimina look"
-                onClick={e => { e.stopPropagation(); deleteLook(i) }}
-              >
+                onClick={() => deleteLook(i)}
+               aria-label="Elimina look">
                 ✕
               </button>
             </div>
           ) : (
-            <div
+            <button
               key={i}
+              type="button"
               className={`look-slot empty${dragOver === i ? ' drag-over' : ''}`}
               title="Salva il look corrente"
               onClick={() => saveLook(i)}

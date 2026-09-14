@@ -29,18 +29,18 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
 
   return (
     <div className="panel">
-      <div
-        className="panel-header"
+      <button type="button"
+        aria-expanded={!collapsed} className="panel-header"
         onClick={() => setCollapsed(!collapsed)}
         title={collapsed ? 'Espandi Auto VJ' : 'Comprimi Auto VJ'}
       >
         <span>Auto VJ</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="u-col">
           {/* Enable toggle */}
-          <div
+          <button type="button" aria-pressed={vjEnabled}
             className={`row-item${vjEnabled ? ' active' : ''}`}
             onClick={() => onToggle(!vjEnabled)}
             title="Cambia effetti, post-FX e colori da solo, a tempo di musica"
@@ -56,7 +56,7 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
                 </div>
               )}
             </div>
-          </div>
+          </button>
 
           {/* Genre selector */}
           <div>
@@ -65,18 +65,18 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
               {GENRES.map(g => {
                 const isActive = vjGenre === g.id
                 return (
-                  <div
+                  <button type="button" aria-pressed={isActive}
                     key={g.id}
                     className={`row-item${isActive ? ' active' : ''}`}
                     onClick={() => onGenre(g.id)}
                     title={`Stile ${g.label}: ${g.desc.toLowerCase()}`}
-                  >
+                   >
                     <div className={`status-dot ${isActive ? 'on' : 'off'}`} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="row-title">{g.label}</div>
                       <div className="row-sub">{g.desc}</div>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
