@@ -61,7 +61,7 @@
 .toast {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--text-secondary);
   color: var(--text-primary);
   padding: var(--s3) var(--s5);
   border-radius: 4px;
@@ -69,6 +69,11 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   animation: toast-in 0.15s ease-out;
 }
+/* Severity: the left edge is the whole signal, so it must not be green for
+   something that failed. Neutral is the default — most toasts are just news. */
+.toast-ok { border-left-color: var(--accent); }
+.toast-err { border-left-color: var(--danger); }
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(12px); }
   to { opacity: 1; transform: none; }
