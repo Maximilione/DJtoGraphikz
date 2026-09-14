@@ -27,14 +27,19 @@
   /* -- Text -- */
   --text-primary: #e8e8f0;
   --text-secondary: #9494ac;
-  --text-muted: #5e5e78;
+  /* 4.5:1 su tutte e quattro le superfici — verificato da scripts/check-contrast.mjs.
+     Era #5e5e78, che si fermava a 2.63:1 su --bg3: illeggibile nella stanza
+     in cui questa app viene usata, e lo ereditano 32 classi. */
+  --text-muted: #8686a2;
 
   /* -- Accent (live/active only; --accent-dim is the hover tint) -- */
   --accent: #00ff88;
   --accent-dim: #00cc6a;
   --accent-glow: rgba(0, 255, 136, 0.12);
   --accent-bg: rgba(0, 255, 136, 0.06);
-  --focus-ring: rgba(0, 255, 136, 0.35);
+  /* 3:1 come bordo di componente (WCAG 1.4.11). A 0.35 stava a 2.62:1: e'
+     l'unica cosa che dice dove sei quando navighi da tastiera. */
+  --focus-ring: rgba(0, 255, 136, 0.65);
   --danger: #ff4455;
   --warning: #ffaa00;
 
