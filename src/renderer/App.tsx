@@ -176,8 +176,10 @@ export function App() {
       if (typeof saved.brightness === 'number') setBrightness(saved.brightness)
     }
 
-    // Release gate: pin the effect it asked for (DJG_SELFTEST_EFFECT)
-    if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
+    // Release gate: pin the effect it asked for (DJG_SELFTEST_EFFECT), or the
+    // custom shader source it handed over (DJG_SELFTEST_SHADER)
+    if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
+    else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
 
     // Wire AutoVJ → engine
     const vj = vjRef.current

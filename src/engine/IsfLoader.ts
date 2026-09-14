@@ -9,8 +9,10 @@ export interface IsfResult {
   imageInputs: string[]
 }
 
-// ponytail: generator-only ISF support (float/bool inputs). Filters, audio
-// inputs, multi-pass, imported textures → clear error, add if ever needed.
+// ponytail: generator-only ISF support (float/bool inputs). Filters and audio
+// inputs → clear error, add if ever needed. Multi-pass IS supported: each ISF
+// PASS becomes an engine buffer pass and the body is emitted once per pass with
+// its own PASSINDEX, which is how ISF itself distinguishes them.
 
 const UNSUPPORTED_TYPES = new Set(['audio', 'audioFFT'])
 
@@ -107,9 +109,14 @@ export function loadISF(source: string, fileName = 'ISF'): IsfResult | { error: 
   if (/\binputImage\b/.test(body)) {
     return { error: 'Questo ISF è un filtro (usa inputImage) — supportiamo solo i generator' }
   }
-  if (Array.isArray(meta.PASSES) && meta.PASSES.length > 1) {
-    return { error: 'ISF multi-pass non supportato' }
-  }
+
+  // Multi-pass: every PASS with a TARGET becomes a persistent engine buffer.
+  // The body reads a target by its own name, so alias it onto the uniform the
+  // engine actually binds.
+  const passes: any[] = Array.isArray(meta.PASSES) ? meta.PASSES : []
+  const targets: string[] = passes
+    .map((p: any, i: number) => String(p?.TARGET || `djgPass${i}`).replace(/\W/g, '_'))
+  const multiPass = passes.length > 1
 
   const warnings: string[] = []
   const params: EffectParam[] = []
@@ -200,13 +207,32 @@ uniform vec3 uColor3;
 #define IMG_THIS_NORM_PIXEL(i) texture2D(i,vUv)
 #define IMG_THIS_PIXEL(i) texture2D(i,vUv)
 #define IMG_SIZE(i) uResolution
+${multiPass ? targets.map(t => `uniform sampler2D tBuffer${t};\n#define ${t} tBuffer${t}`).join('\n') : ''}
 ${uniformDecls.join('\n')}
 `
 
   const hoisted = hoistGlobalInits(body)
+  const transpiled = injectMain(hoisted.body, [...mainInits, ...hoisted.inits])
+
+  if (multiPass) {
+    // One section per PASS, separated by the engine's marker. PASSINDEX is a
+    // #define, so the same body compiles to a different pass each time — that
+    // is exactly how an ISF multi-pass shader is meant to branch.
+    const sections = targets.map((t, i) =>
+      `//!DJG_BUFFER ${t}\n${prelude.replace('#define PASSINDEX 0', `#define PASSINDEX ${i}`)}${transpiled}`)
+    warnings.push(`${targets.length} pass`)
+    return {
+      fragment: sections.join('\n'),
+      params,
+      name: meta.DESCRIPTION || fileName,
+      warnings,
+      imageInputs,
+    }
+  }
+
   return {
     // input drifts first: hoisted globals may reference them
-    fragment: prelude + injectMain(hoisted.body, [...mainInits, ...hoisted.inits]),
+    fragment: prelude + transpiled,
     params,
     name: meta.DESCRIPTION || fileName,
     warnings,
