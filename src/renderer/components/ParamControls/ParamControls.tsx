@@ -12,14 +12,14 @@ interface ParamControlsProps {
 // Short labels + a color class per source: the chip reads at a glance
 const SOURCE_META: Record<AudioSource, { label: string; cls: string }> = {
   'none': { label: '—', cls: 'none' },
-  'bass': { label: 'BASS', cls: 'bass' },
-  'mid': { label: 'MID', cls: 'mid' },
-  'high': { label: 'HIGH', cls: 'high' },
-  'energy': { label: 'ENERGY', cls: 'energy' },
-  'beat': { label: 'BEAT', cls: 'beat' },
-  'lfo-sine': { label: '∿ SINE', cls: 'lfo' },
-  'lfo-saw': { label: '⋀ SAW', cls: 'lfo' },
-  'lfo-square': { label: '⊓ SQR', cls: 'lfo' },
+  'bass': { label: 'BASSI', cls: 'bass' },
+  'mid': { label: 'MEDI', cls: 'mid' },
+  'high': { label: 'ALTI', cls: 'high' },
+  'energy': { label: 'VOLUME', cls: 'energy' },
+  'beat': { label: 'BATTITO', cls: 'beat' },
+  'lfo-sine': { label: '∿ MORBIDA', cls: 'lfo' },
+  'lfo-saw': { label: '⋀ RAMPA', cls: 'lfo' },
+  'lfo-square': { label: '⊓ SCATTO', cls: 'lfo' },
 }
 
 const LFO_RATES = [0.25, 0.5, 1, 2, 4, 8, 16, 32]
@@ -57,14 +57,14 @@ export function ParamControls({ engine }: ParamControlsProps) {
         <button
           className="btn"
           style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
-          title="Mappa automaticamente i parametri all'audio in base a nome e uso nello shader — Annulla dal toast"
+          title="Collega i parametri all'audio, e abbassa quelli gia' al massimo per lasciare spazio al movimento — Annulla dal toast"
           onClick={() => {
             const r = smartMap(engine)
             force()
-            pushToast(`Smart map: ${r.count} parametri mappati`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
+            pushToast(`Collegati ${r.count} parametri all'audio`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
           }}
         >
-          ⚡ Smart map
+          ⚡ Collega all'audio
         </button>
       </div>
       {defs.map(def => {
@@ -76,7 +76,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
         return (
           <div key={def.key} className="pm-row">
             <div className="slider-row">
-              <span className="label" title={def.key}>{def.label}</span>
+              <span className="label" title={`${def.label} · ${def.key}`}>{def.label}</span>
               <input
                 type="range" min={def.min} max={def.max} step={step}
                 value={st.value}
@@ -127,12 +127,15 @@ export function ParamControls({ engine }: ParamControlsProps) {
                     </div>
                     {st.source.startsWith('lfo-') && (
                       <div className="pm-depth">
-                        <span className="micro">Velocità</span>
+                        <span className="micro" title="Quante battute dura un giro completo">
+                          Ogni · battute
+                        </span>
                         <div className="pm-rates">
                           {LFO_RATES.map(r => (
                             <button
                               key={r}
                               className={`pm-rate${(st.lfoRate || 4) === r ? ' on' : ''}`}
+                              title={r < 1 ? `Un giro ogni ${1 / r}° di battuta` : `Un giro ogni ${r} battute`}
                               onClick={() => { engine.setParamMapping(def.key, st.source, st.depth, r); force() }}
                             >
                               {r < 1 ? `1/${1 / r}` : r}
