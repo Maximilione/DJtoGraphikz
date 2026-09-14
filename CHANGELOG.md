@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.39.1-beta] — 2026-09-14
+
+### Added
+- **`yarn check:ui` — una fotografia della finestra di controllo.** Il gate di release guarda il proiettore: dimostra che il motore e' vivo e non dice niente dell'interfaccia, che e' la meta' che un refactor di CSS rompe in silenzio, nell'unica finestra che nessuno fotografa. Riusa lo stesso avvio del gate, quindi costa un avvio solo. `check:ui simple 0.34` apre in una modalita' e rimpicciolisce quanto serve per far stare un'intera colonna nell'inquadratura
+
+### Fixed
+- **Le righe di elenco leggevano dal centro.** Il testo di un pulsante il browser lo centra, e `.row-item` non ha mai detto il contrario: ogni riga con interruttore aveva il titolo in mezzo e l'interruttore isolato a sinistra. Trovato fotografando, non leggendo
+
 ## [0.39.0-beta] — 2026-09-14
 
 Fase A4 del redesign: **una superficie sola**. Non tre alberi di
