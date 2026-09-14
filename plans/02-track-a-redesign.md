@@ -45,8 +45,11 @@ Le fasi A2–A4 appoggiano su questa. Farla per prima.
      riuscito e uno fallito hanno lo stesso bordo verde (`features.css:64`).
    - `IconPanic` (`Icons.tsx:69`) è esportata e non usata. O la si usa sul
      pulsante PANIC, o via.
-7. **Tetto ai trattamenti di pulsante.** Oggi ne esistono ~30. Decidere il
-   numero, scriverlo in un commento sopra il blocco `:root`, e rientrarci.
+7. ~~**Tetto ai trattamenti di pulsante.**~~ **RIMANDATO ad A2** (deciso il
+   2026-09-14, v0.36.0-beta). Ne esistono ~30, ma A2 riscrive proprio come si
+   dichiara un'affordance — i 30 `div onClick` diventano pulsanti — quindi
+   fissare il tetto adesso vorrebbe dire rifarlo subito dopo. Va fatto **alla
+   fine di A2**, quando l'insieme dei pulsanti e' quello definitivo.
 
 ### Riferimenti da copiare
 - Riga di slider canonica: `EffectPanel.tsx:776-786` (blocco Grade).
@@ -60,7 +63,7 @@ Le fasi A2–A4 appoggiano su questa. Farla per prima.
 - [ ] `grep -rn -- "--s4\|--s6\|--bg-secondary\|--bg-tertiary\|--border-light\|--slider-fill" src/renderer` → solo le dichiarazioni, oppure zero.
 - [ ] Aritmetica del contrasto allegata al commit: ogni coppia testo/fondo ≥ 4,5:1, anello di focus ≥ 3:1.
 - [ ] `grep -rn "label\|width" src/renderer/components/NumberInput/` → le prop morte non ci sono più.
-- [ ] Conteggio delle classi di pulsante ≤ al tetto dichiarato.
+- [x] ~~Conteggio delle classi di pulsante~~ → rimandato ad A2, vedi sopra.
 - [ ] `tsc` web + node, `yarn build`, `yarn check:output` verde.
 
 ### ⛔ Guardie
@@ -80,6 +83,10 @@ Le fasi A2–A4 appoggiano su questa. Farla per prima.
 
 ### Cosa implementare
 
+0. **Tetto ai trattamenti di pulsante** (ereditato da A1). Una volta che i 30
+   `div` sono diventati pulsanti, l'insieme e' definitivo: decidere il numero
+   massimo di classi di pulsante, scriverlo in un commento sopra `:root`, e
+   rientrarci. Oggi ~30.
 1. **I 30 `div` cliccabili diventano `<button>`.** Elenco completo in
    `00-allowed-apis.md` e `DESIGN-IS-2026-09-14/01-evidence.md §E3`. In ordine
    di gravità:
