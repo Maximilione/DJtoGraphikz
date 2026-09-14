@@ -1,4 +1,4 @@
-import type { EffectId, PostId } from '@engine/Engine'
+import type { EffectId, PostId, TransitionType } from '@engine/Engine'
 
 /**
  * The single catalog of everything the user picks by name: effects, post-FX,
@@ -86,7 +86,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
 
 export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; icon: string; desc: string }[] }[] = [
   {
-    name: 'Glow & Colore',
+    name: 'Luce & Colore',
     effects: [
       { id: 'bloom', label: 'Bloom', icon: '✦', desc: 'Diffusione del glow' },
       { id: 'chromatic', label: 'Chromatic', icon: '◐', desc: 'Aberrazione prismatica' },
@@ -103,7 +103,7 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
     ],
   },
   {
-    name: 'Pellicola & Texture',
+    name: 'Pellicola & Grana',
     effects: [
       { id: 'filmgrain', label: 'Film Grain', icon: '⁘', desc: 'Grana analogica' },
       { id: 'scanlines', label: 'Scanlines', icon: '≡', desc: 'Righe CRT' },
@@ -112,20 +112,20 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
 ]
 
 export const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
-  { label: 'Acid', colors: ['#00ff88', '#ff00ff', '#4444ff'] },
-  { label: 'Fire', colors: ['#ff4400', '#ffaa00', '#ff0066'] },
-  { label: 'Ice', colors: ['#00ccff', '#0044ff', '#88ffff'] },
-  { label: 'Toxic', colors: ['#00ff00', '#aaff00', '#00ff88'] },
+  { label: 'Acido', colors: ['#00ff88', '#ff00ff', '#4444ff'] },
+  { label: 'Fuoco', colors: ['#ff4400', '#ffaa00', '#ff0066'] },
+  { label: 'Ghiaccio', colors: ['#00ccff', '#0044ff', '#88ffff'] },
+  { label: 'Tossico', colors: ['#00ff00', '#aaff00', '#00ff88'] },
   { label: 'Neon', colors: ['#ff00ff', '#00ffff', '#ffff00'] },
-  { label: 'Blood', colors: ['#ff0000', '#880000', '#ff4444'] },
-  { label: 'Vapor', colors: ['#ff71ce', '#01cdfe', '#b967ff'] },
+  { label: 'Sangue', colors: ['#ff0000', '#880000', '#ff4444'] },
+  { label: 'Vapore', colors: ['#ff71ce', '#01cdfe', '#b967ff'] },
   { label: 'Mono', colors: ['#ffffff', '#888888', '#ffffff'] },
-  { label: 'Sunset', colors: ['#ff6b35', '#f7c59f', '#1a535c'] },
-  { label: 'Ocean', colors: ['#0077b6', '#00b4d8', '#90e0ef'] },
-  { label: 'Forest', colors: ['#2d6a4f', '#52b788', '#95d5b2'] },
+  { label: 'Tramonto', colors: ['#ff6b35', '#f7c59f', '#1a535c'] },
+  { label: 'Oceano', colors: ['#0077b6', '#00b4d8', '#90e0ef'] },
+  { label: 'Foresta', colors: ['#2d6a4f', '#52b788', '#95d5b2'] },
   { label: 'Cyber', colors: ['#f72585', '#7209b7', '#3a0ca3'] },
-  { label: 'Gold', colors: ['#ffd700', '#daa520', '#b8860b'] },
-  { label: 'Pastel', colors: ['#ffc8dd', '#bde0fe', '#a2d2ff'] },
+  { label: 'Oro', colors: ['#ffd700', '#daa520', '#b8860b'] },
+  { label: 'Pastello', colors: ['#ffc8dd', '#bde0fe', '#a2d2ff'] },
   { label: 'Lava', colors: ['#ff4500', '#ff6347', '#2b0000'] },
   { label: 'Aurora', colors: ['#00ff87', '#60efff', '#ff00e5'] },
 ]
@@ -152,3 +152,17 @@ export function effectLabel(id: EffectId): string {
 export function postLabel(id: PostId): string {
   return POST_LABELS[id] ?? id
 }
+
+/**
+ * The five transitions, named once. The effects panel called them
+ * Fade / Wipe← / Wipe↓ / Radial / Noise while the sequence editor called the
+ * same five crossfade / wipe orizzontale / wipe verticale / radiale /
+ * dissolvenza — two names for one thing, in one app.
+ */
+export const TRANSITIONS: { id: TransitionType; label: string; short: string }[] = [
+  { id: 'crossfade', label: 'Dissolvenza', short: 'Diss.' },
+  { id: 'wipe-left', label: 'Tendina ←', short: 'Tend.←' },
+  { id: 'wipe-down', label: 'Tendina ↓', short: 'Tend.↓' },
+  { id: 'radial', label: 'A cerchio', short: 'Cerchio' },
+  { id: 'dissolve', label: 'A grana', short: 'Grana' },
+]

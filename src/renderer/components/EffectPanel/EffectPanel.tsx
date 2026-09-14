@@ -8,7 +8,7 @@ import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { pushToast } from '../Toasts/Toasts'
-import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, effectLabel, postLabel } from '../../catalog'
+import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, TRANSITIONS, effectLabel, postLabel } from '../../catalog'
 
 interface EffectPanelProps {
   engine: Engine | null
@@ -351,13 +351,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               <div className="cat-label">Transizione</div>
               {/* Type selector */}
               <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
-                {([
-                  { id: 'crossfade' as TransitionType, label: 'Fade' },
-                  { id: 'wipe-left' as TransitionType, label: 'Wipe←' },
-                  { id: 'wipe-down' as TransitionType, label: 'Wipe↓' },
-                  { id: 'radial' as TransitionType, label: 'Radial' },
-                  { id: 'dissolve' as TransitionType, label: 'Noise' },
-                ] as const).map(t => (
+                {TRANSITIONS.map(t => (
                   <button
                     key={t.id}
                     className={`pill${transitionType === t.id ? ' active' : ''}`}
@@ -366,8 +360,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       setTransitionType(t.id)
                       engine?.setTransitionType(t.id)
                     }}
-                   >
-                    {t.label}
+                  >
+                    {t.short}
                   </button>
                 ))}
               </div>
@@ -480,7 +474,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {/* Active chain — order and wet/dry both change the look a lot */}
             {postChain.length > 0 && (
               <div className="active-banner" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '3px' }}>
-                <div className="active-banner-label">Catena (alto → basso)</div>
+                <div className="active-banner-label">Ordine dei filtri (dall'alto in basso)</div>
                 {postChain.map((entry, i) => (
                   <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <span className="u-hint" style={{ width: '12px' }}>{i + 1}</span>
@@ -495,7 +489,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       value={entry.amount}
                       onChange={e => setPostAmount(entry.id, parseFloat(e.target.value))}
                       style={{ flex: 1 }}
-                      title="Wet / dry"
+                      title="Quanto si sente il filtro"
                     />
                     <button className="tiny-btn" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0} aria-label="Sposta su nella catena">↑</button>
                     <button className="tiny-btn" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} aria-label="Sposta giù nella catena">↓</button>
@@ -616,13 +610,13 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
             {/* Master colour grade — the pass that makes it look graded, not raw */}
             <div>
-              <div className="cat-label">Grade</div>
+              <div className="cat-label">Colore</div>
               {([
-                { key: 'exposure' as const, label: 'Expos', min: 0.2, max: 2, step: 0.05 },
-                { key: 'contrast' as const, label: 'Contr', min: 0.5, max: 2, step: 0.05 },
-                { key: 'saturation' as const, label: 'Satur', min: 0, max: 2, step: 0.05 },
-                { key: 'lift' as const, label: 'Lift', min: 0, max: 0.3, step: 0.01 },
-                { key: 'vignette' as const, label: 'Vign', min: 0, max: 1.5, step: 0.05 },
+                { key: 'exposure' as const, label: 'Esposiz.', min: 0.2, max: 2, step: 0.05 },
+                { key: 'contrast' as const, label: 'Contrasto', min: 0.5, max: 2, step: 0.05 },
+                { key: 'saturation' as const, label: 'Saturaz.', min: 0, max: 2, step: 0.05 },
+                { key: 'lift' as const, label: 'Neri', min: 0, max: 0.3, step: 0.01 },
+                { key: 'vignette' as const, label: 'Vignetta', min: 0, max: 1.5, step: 0.05 },
               ]).map(g => (
                 <div className="slider-row" key={g.key}>
                   <span className="label">{g.label}</span>

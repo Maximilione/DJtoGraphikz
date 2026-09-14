@@ -413,7 +413,8 @@ input[type="range"]:active::-webkit-slider-thumb {
 .slider-row .label {
   font-size: var(--fs-xs);
   color: var(--text-muted);
-  width: 56px;
+  /* 56px already clipped "Turbulence" and "Iterations" before any translation */
+  width: 74px;
   flex-shrink: 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
