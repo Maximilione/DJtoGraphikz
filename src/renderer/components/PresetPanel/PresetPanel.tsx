@@ -9,6 +9,7 @@ import {
 } from './sequences'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
+import { SliderRow } from '../SliderRow/SliderRow'
 
 interface PresetPanelProps {
   engine: Engine | null
@@ -559,22 +560,15 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                 Loop
               </button>
             </div>
-            <div className="u-row">
-              <span className="u-hint" style={{ width: '74px', flexShrink: 0 }}>Durata nuovi</span>
-              <input
-                type="range"
-                min={HOLD_LIMITS[draft.mode].min}
-                max={HOLD_LIMITS[draft.mode].max}
-                step={1}
-                value={draft.defaultHold}
-                title="Durata data ai passi aggiunti da qui in avanti"
-                onChange={e => setDraft(d => ({ ...d, defaultHold: clampHold(parseInt(e.target.value), d.mode) }))}
-                style={{ flex: 1 }}
-              />
-              <span className="u-value" style={{ width: '32px', flexShrink: 0 }}>
-                {draft.defaultHold}{HOLD_LIMITS[draft.mode].unit}
-              </span>
-            </div>
+            <SliderRow
+              label="Durata nuovi" suffix={HOLD_LIMITS[draft.mode].unit}
+              value={draft.defaultHold}
+              min={HOLD_LIMITS[draft.mode].min}
+              max={HOLD_LIMITS[draft.mode].max}
+              step={1}
+              title="Durata data ai passi aggiunti da qui in avanti"
+              onChange={v => setDraft(d => ({ ...d, defaultHold: clampHold(v, d.mode) }))}
+            />
 
             {draft.steps.length > 0 && (
               <div className="u-hint" style={{ textAlign: 'right' }}>

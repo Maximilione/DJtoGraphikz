@@ -30,7 +30,8 @@ PROJ = SHOT_DIR / "djg-selftest.png"
 
 def main() -> int:
     UI.unlink(missing_ok=True)
-    env = {**os.environ, "DJG_SELFTEST": str(PROJ), "DJG_SELFTEST_UI": str(UI)}
+    env = {**os.environ, "DJG_SELFTEST": str(PROJ), "DJG_SELFTEST_UI": str(UI),
+           "DJG_SELFTEST_COUNT": "1"}
     if len(sys.argv) > 1:
         env["DJG_SELFTEST_MODE"] = sys.argv[1]
         print("modalita' richiesta:", sys.argv[1])
@@ -52,6 +53,9 @@ def main() -> int:
 
     img = np.asarray(Image.open(UI).convert("RGB"), dtype=np.float32) / 255.0
     lum = img @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    for line in proc.stdout.splitlines():
+        if "controlli per modalita" in line:
+            print(line.split("] ", 1)[-1])
     print(f"finestra di controllo: {img.shape[1]}x{img.shape[0]} "
           f"media={lum.mean():.3f} std={lum.std():.3f} "
           f"({time.time() - t0:.0f}s)")

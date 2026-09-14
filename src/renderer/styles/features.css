@@ -29,14 +29,14 @@
   background: rgba(255, 170, 0, 0.12);
   border-bottom: 1px solid var(--warning);
   color: var(--warning);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   padding: var(--s2) var(--s5);
 }
 
 /* U1.3 — chip stato output */
 .output-chip {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 .output-reopen {
@@ -65,7 +65,7 @@
   color: var(--text-primary);
   padding: var(--s3) var(--s5);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   animation: toast-in 0.15s ease-out;
 }
@@ -158,37 +158,37 @@
   align-items: stretch;
   gap: var(--s2);
   padding: var(--s3);
-  background: var(--bg2, #16161c);
-  border: 1px solid var(--border, #2a2a33);
+  background: var(--bg2);
+  border: 1px solid var(--border);
   border-radius: var(--r-md, 6px);
   cursor: pointer;
   text-align: left;
-  transition: border-color var(--t-fast, 140ms);
+  transition: border-color var(--t-fast);
 }
-.isfb-card:hover:not(:disabled) { border-color: var(--accent, #00ff88); }
+.isfb-card:hover:not(:disabled) { border-color: var(--accent); }
 .isfb-card:disabled { opacity: 0.6; cursor: wait; }
 .isfb-card img, .isfb-noimg {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
   border-radius: var(--r-sm, 4px);
-  background: var(--bg0, #0a0a0e);
+  background: var(--bg0);
 }
 .isfb-noimg {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted, #666);
-  font-size: 24px;
+  color: var(--text-muted);
+  font-size: var(--fs-2xl);
 }
 .isfb-title {
   font-size: var(--fs-xs, 11px);
-  color: var(--text-primary, #eee);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.isfb-user { font-size: 10px; color: var(--text-muted, #888); }
+.isfb-user { font-size: var(--fs-2xs); color: var(--text-muted); }
 .isfb-more { width: 100%; margin-top: var(--s4, 8px); padding: 8px; }
 
 /* ISF buttons: full name on up to 2 lines instead of ellipsis */
@@ -226,7 +226,7 @@
   flex-shrink: 0;
   min-width: 52px;
   padding: var(--s1) var(--s3);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -238,12 +238,12 @@
   transition: border-color var(--t-fast), color var(--t-fast);
 }
 .pm-chip.open { border-color: var(--accent); }
-.pm-chip.bass, .pm-src.bass.on { color: #00ff88; border-color: rgba(0, 255, 136, 0.5); }
-.pm-chip.mid, .pm-src.mid.on { color: #ffb020; border-color: rgba(255, 176, 32, 0.5); }
-.pm-chip.high, .pm-src.high.on { color: #37c9ff; border-color: rgba(55, 201, 255, 0.5); }
-.pm-chip.energy, .pm-src.energy.on { color: #f0f0f5; border-color: rgba(240, 240, 245, 0.5); }
-.pm-chip.beat, .pm-src.beat.on { color: #ff4455; border-color: rgba(255, 68, 85, 0.5); }
-.pm-chip.lfo, .pm-src.lfo.on { color: #b06dff; border-color: rgba(176, 109, 255, 0.5); }
+.pm-chip.bass, .pm-src.bass.on { color: var(--accent); border-color: rgba(0, 255, 136, 0.5); }
+.pm-chip.mid, .pm-src.mid.on { color: var(--band-mid); border-color: rgba(255, 176, 32, 0.5); }
+.pm-chip.high, .pm-src.high.on { color: var(--band-high); border-color: rgba(55, 201, 255, 0.5); }
+.pm-chip.energy, .pm-src.energy.on { color: var(--band-energy); border-color: rgba(240, 240, 245, 0.5); }
+.pm-chip.beat, .pm-src.beat.on { color: var(--danger); border-color: rgba(255, 68, 85, 0.5); }
+.pm-chip.lfo, .pm-src.lfo.on { color: var(--band-lfo); border-color: rgba(176, 109, 255, 0.5); }
 .pm-chip.none { opacity: 0.6; }
 
 .pm-pop {
@@ -259,7 +259,7 @@
 .pm-srcgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .pm-src {
   padding: var(--s3) var(--s1);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   font-weight: 700;
   background: var(--bg1);
@@ -275,7 +275,7 @@
 .pm-rate {
   flex: 1;
   padding: var(--s2) 0;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   background: var(--bg1);
   border: 1px solid var(--border);
@@ -284,7 +284,7 @@
   cursor: pointer;
 }
 .pm-rate.on { color: var(--accent); border-color: var(--accent); }
-.pm-pop .micro { font-size: 10px; color: var(--text-muted); width: 62px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.pm-pop .micro { font-size: var(--fs-2xs); color: var(--text-muted); width: 62px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* Il proiettore non deve mai restare nero senza dirlo: blackout o master a
    zero sono indistinguibili da un output rotto se non li annunci. */
@@ -296,7 +296,7 @@
   background: rgba(255, 68, 85, 0.14);
   border-bottom: 1px solid var(--danger);
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   padding: 5px var(--s5);
 }
 .black-banner strong { letter-spacing: 0.5px; }

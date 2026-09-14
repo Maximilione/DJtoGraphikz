@@ -1,7 +1,7 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react'
 import type { Engine } from '@engine/Engine'
 import { AUDIO_SOURCES, type AudioSource } from '@engine/EffectParams'
-import { NumberInput } from '../NumberInput/NumberInput'
+import { SliderRow } from '../SliderRow/SliderRow'
 import { smartMap } from '../../smartMap'
 import { pushToast } from '../Toasts/Toasts'
 
@@ -75,18 +75,11 @@ export function ParamControls({ engine }: ParamControlsProps) {
         const mapped = st.source !== 'none'
         return (
           <div key={def.key} className="pm-row">
-            <div className="slider-row">
-              <span className="label" title={`${def.label} · ${def.key}`}>{def.label}</span>
-              <input
-                type="range" min={def.min} max={def.max} step={step}
-                value={st.value}
-                onChange={e => { engine.setParamValue(def.key, parseFloat(e.target.value)); force() }}
-              />
-              <NumberInput
-                value={st.value}
-                min={def.min} max={def.max} step={step}
-                onChange={v => { engine.setParamValue(def.key, v); force() }}
-              />
+            <SliderRow
+              label={def.label} labelTitle={`${def.label} · ${def.key}`}
+              value={st.value} min={def.min} max={def.max} step={step}
+              onChange={v => { engine.setParamValue(def.key, v); force() }}
+            >
               <button
                 className={`btn pm-chip ${meta.cls}${open ? ' open' : ''}`}
                 onClick={() => setOpenKey(open ? null : def.key)}
@@ -94,7 +87,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
               >
                 {meta.label}{mapped ? ` ${st.depth > 0 ? '+' : ''}${Math.round(st.depth * 100)}` : ''}
               </button>
-            </div>
+            </SliderRow>
             {open && (
               <div className="pm-pop">
                 <div className="pm-srcgrid">
