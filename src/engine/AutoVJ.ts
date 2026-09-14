@@ -51,6 +51,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'acid-techno': {
     label: 'Acid Techno',
     scenes: [
+      { effect: 'reaction', params: { feed: v(0.0545), kill: a(0.062, 'lfo-sine', 0.15, 32), inject: v(1.4) } },
       { effect: 'tunnel', params: { speed: v(1.2), twist: a(0.5, 'lfo-sine', 0.5, 8), ringdensity: a(8, 'bass', 0.35) } },
       { effect: 'vortex', params: { arms: v(3), twist: a(1.2, 'lfo-sine', 0.4, 16), pull: a(0.8, 'bass', 0.5) } },
       { effect: 'kaleidoscope', params: { segments: v(8), zoom: a(1.2, 'bass', 0.4), detail: a(2, 'mid', 0.3) } },
@@ -229,6 +230,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'ambient': {
     label: 'Ambient',
     scenes: [
+      { effect: 'reaction', params: { feed: v(0.038), kill: v(0.059), inject: v(0.5) } },
       { effect: 'pulsar', params: { lines: v(64), peaks: a(0.7, 'lfo-sine', 0.3, 32), flow: v(0.15) } },
       { effect: 'inkflow', params: { speed: v(0.6), inkscale: v(2), flowspd: v(0.4), inkcontrast: a(1.1, 'bass', 0.3) } },
       { effect: 'ripples', params: { spreadv: v(1), heightk: a(0.8, 'bass', 0.4), sheen: v(1.3) } },
@@ -316,6 +318,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'psytrance': {
     label: 'Psytrance',
     scenes: [
+      { effect: 'reaction', params: { feed: a(0.052, 'lfo-sine', 0.2, 64), kill: v(0.061), inject: v(1.2) } },
       { effect: 'fractal', params: { iterations: v(36), zoom: a(1.3, 'bass', 0.5), morph: a(0.25, 'lfo-sine', 0.5, 8) } },
       { effect: 'kaleidoscope', params: { segments: v(16), zoom: a(1.3, 'bass', 0.45), detail: v(2.8) } },
       { effect: 'sacred', params: { zoom: a(1.2, 'lfo-sine', 0.4, 16), radius: v(0.32), ringfreq: v(8) } },

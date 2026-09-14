@@ -40,7 +40,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Visual engine
 
-- **36 GLSL effects** in 5 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+- **37 GLSL effects** in 5 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
   - **Pulsar** — the *Unknown Pleasures* ridge plot rendered as a perspective linescape: one continuous terrain sliced front to back with hidden-line removal, sides kept dead flat like the sleeve. The field scrolls toward the camera locked to the beat clock, and every downbeat raises a ridge band that rides in with it.
 - **~85 curated parameters** — 2-3 real sliders per effect (segments, density, zoom, twist…), each **mappable to audio** (bass/mid/high/energy/beat, depth ±100%) or to a tempo-synced **LFO** (sine/saw/square, rate 1/4…32 beats).
 - **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
@@ -70,6 +70,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Shaders and ISF
 
+- **Multi-pass effects with persistent buffers** — an effect can run simulation passes that read what they wrote last frame, which is what reaction-diffusion, fluids and any cellular simulation need and what a single fullscreen pass cannot do. First one shipped: **React**, a Gray-Scott reaction-diffusion the kick injects into. See `docs/ARCHITECTURE.md`.
 - Live GLSL editor with validation (broken shaders are rejected with the exact error).
 - **Online ISF library** — browse ~3,700 generators from [editor.isf.video](https://editor.isf.video) with thumbnails and search, one-click import; "Import file…" also accepts the `.zip` downloaded from the site.
 - Shaders in `~/.djtographikz/isf` show up as a category in the Effects panel, with automatic audio-mappable sliders.

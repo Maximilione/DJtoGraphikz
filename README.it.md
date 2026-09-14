@@ -40,7 +40,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Motore visivo
 
-- **36 effetti GLSL** in 5 categorie (Geometric, Organic, Motion, Digital, Videogame — le torri della PS2, snowboard alla 1080°), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
+- **37 effetti GLSL** in 5 categorie (Geometric, Organic, Motion, Digital, Videogame — le torri della PS2, snowboard alla 1080°), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
   - **Pulsar** — le creste di *Unknown Pleasures* disegnate come linescape in prospettiva: un unico terreno tagliato in fette dal vicino al lontano con rimozione delle linee nascoste, e i lati piatti come sulla copertina. Il campo scorre verso la camera agganciato al beat clock, e ogni battuta forte alza una cresta che arriva insieme al terreno.
 - **~85 parametri curati** — 2-3 slider veri per effetto (segments, density, zoom, twist…), ognuno **mappabile all'audio** (bass/mid/high/energy/beat, depth ±100%) o a un **LFO** tempo-sync (sine/saw/square, rate 1/4…32 battute).
 - **Look Bank** — griglia 4×4 con thumbnail reali: click su slot vuoto salva il look completo, click applica con transizione, hotkey Shift+1-0.
@@ -70,6 +70,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Shader e ISF
 
+- **Effetti multi-pass con buffer persistenti** — un effetto puo' avere pass di simulazione che rileggono quello che hanno scritto al frame prima: e' quello che serve a reaction-diffusion, fluidi e a qualsiasi simulazione cellulare, e che un singolo pass fullscreen non puo' fare. Il primo: **React**, una reaction-diffusion di Gray-Scott in cui il kick inietta. Vedi `docs/ARCHITECTURE.md`.
 - Editor GLSL live con validazione (gli shader rotti vengono respinti con l'errore esatto).
 - **Libreria ISF online** — sfoglia ~3.700 generator di [editor.isf.video](https://editor.isf.video) con thumbnail e ricerca, import con un click; "Importa file…" accetta anche gli `.zip` scaricati dal sito.
 - Gli shader in `~/.djtographikz/isf` compaiono come categoria nel pannello Effects, con slider automatici audio-mappabili.
