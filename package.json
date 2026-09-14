@@ -15,6 +15,7 @@
     "check:beat": "node scripts/check-beat.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
     "check:loaders": "node scripts/check-loaders.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
     "shader:preview": "python3 scripts/shader-preview.py"
   },
