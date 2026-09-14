@@ -38,6 +38,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'fire', label: 'Fire', icon: '△' },
       { id: 'fractal', label: 'Fractal', icon: '✻' },
       { id: 'inkflow', label: 'Ink', icon: '☰' },
+      { id: 'reaction', label: 'React', icon: '❋' },
       { id: 'ripples', label: 'Ripples', icon: '≈' },
       { id: 'vortex', label: 'Vortex', icon: '❂' },
     ],

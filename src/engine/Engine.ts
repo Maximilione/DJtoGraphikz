@@ -39,6 +39,8 @@ import ripplesFrag from './shaders/ripples.frag?raw'
 import ps2towersFrag from './shaders/ps2towers.frag?raw'
 import snowrideFrag from './shaders/snowride.frag?raw'
 import pulsarFrag from './shaders/pulsar.frag?raw'
+import reactionFrag from './shaders/reaction.frag?raw'
+import reactionSimFrag from './shaders/reaction.sim.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -108,7 +110,7 @@ export type EffectId =
   | 'hexagons' | 'dna'
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
-  | 'ps2towers' | 'snowride' | 'pulsar'
+  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -191,7 +193,35 @@ export interface Preset {
   customParams?: EffectParam[]
 }
 
-const EFFECT_SHADERS: Record<EffectId, string> = {
+/**
+ * An effect is normally one fullscreen fragment pass. A multi-pass effect adds
+ * simulation passes that run first, each writing into its own persistent
+ * ping-pong buffer, so a shader can read what it wrote last frame — which is
+ * what reaction-diffusion, fluids and any other cellular simulation need and
+ * what a single pass structurally cannot do. `main` is the visible pass and
+ * behaves exactly like a single-pass effect (transitions, deck B, params).
+ */
+export interface MultiPassEffect {
+  /**
+   * `rows` fixes the buffer height in texels (width follows the output
+   * aspect), `scale` makes it a fraction of the render size. Prefer `rows`
+   * for a simulation: its feature size is set by the grid, so a fraction of
+   * the screen means the pattern gets finer on a bigger projector.
+   */
+  passes: { frag: string; buffer: string; scale?: number; rows?: number }[]
+  main: string
+}
+
+/** Simulation buffers of one effect instance, ping-ponged once per frame */
+interface PassChain {
+  defs: MultiPassEffect['passes']
+  materials: THREE.ShaderMaterial[]
+  sizes: THREE.Vector2[]
+  buffers: Map<string, { read: THREE.WebGLRenderTarget; write: THREE.WebGLRenderTarget; scale: number; rows: number }>
+  frames: number
+}
+
+const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect> = {
   tunnel: tunnelFrag,
   kaleidoscope: kaleidoscopeFrag,
   warp: warpFrag,
@@ -228,6 +258,15 @@ const EFFECT_SHADERS: Record<EffectId, string> = {
   ps2towers: ps2towersFrag,
   snowride: snowrideFrag,
   pulsar: pulsarFrag,
+  // The simulation pass is listed 8 times: Gray-Scott at one step per frame
+  // crawls. ITERS in reaction.sim.frag must match this count.
+  reaction: {
+    // 360 rows regardless of the projector: the pattern's feature size is set
+    // by the grid, so a fraction of the screen would make it finer on a bigger
+    // output — the same effect would not look like itself on a 4K wall
+    passes: Array.from({ length: 8 }, () => ({ frag: reactionSimFrag, buffer: 'A', rows: 360 })),
+    main: reactionFrag,
+  },
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']
@@ -300,6 +339,8 @@ export class Engine {
   private postGeometry: THREE.PlaneGeometry
   private customTextures: Record<string, THREE.Texture> = {}
   private whiteTexture: THREE.DataTexture | null = null
+  /** Simulation buffers, keyed by the effect material that owns them */
+  private chains = new Map<THREE.ShaderMaterial, PassChain>()
 
   // Audio spectrum as a texture: the scalars (uBass/uMid/uHigh) are five
   // numbers, this is the whole picture. 512 log-spaced bins in .r and the
@@ -636,21 +677,39 @@ export class Engine {
     this.rtBloomA.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
     this.rtBloomB.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
     this.bloomResolution.set(bw >> 1, bh >> 1)
+
+    // Simulation buffers follow the render size. Resizing discards them, so a
+    // running simulation restarts — better than sampling a stale aspect ratio,
+    // and a resize only happens on an output/display change.
+    for (const chain of this.chains.values()) {
+      for (const buf of chain.buffers.values()) {
+        const [sw, sh] = this.simSize(buf.scale, buf.rows)
+        buf.read.setSize(sw, sh)
+        buf.write.setSize(sw, sh)
+      }
+      for (let i = 0; i < chain.defs.length; i++) {
+        const b = chain.buffers.get(chain.defs[i].buffer)!
+        chain.sizes[i].set(b.read.width, b.read.height)
+      }
+      chain.frames = 0
+    }
   }
 
-  private createEffectMaterial(id: EffectId): THREE.ShaderMaterial {
-    // An unknown id passes `undefined` as fragmentShader and three keeps its
-    // default_fragment — a full red screen on the projector. Imported presets,
-    // remote/OSC commands and restored settings can all carry a stale id.
-    if (!EFFECT_SHADERS[id]) id = 'tunnel'
+  /** Common uniform block of an effect pass — audio, palette, size, params */
+  private effectUniforms(id: EffectId, buffers: string[], size: THREE.Vector2): Record<string, THREE.IUniform> {
     // Curated per-effect uniforms start at their defaults; the render loop
     // drives the ACTIVE effect's ones from param state every frame
     const paramUniforms: Record<string, THREE.IUniform> = {}
     for (const d of EFFECT_PARAMS[id] ?? []) paramUniforms[d.key] = { value: d.default }
-    return new THREE.ShaderMaterial({
-      vertexShader: FULLSCREEN_VERT,
-      fragmentShader: EFFECT_SHADERS[id],
-      uniforms: {
+    // Simulation buffers: every pass of the effect can read every buffer, and
+    // always sees last frame's contents (the write target is a different one)
+    for (const name of buffers) {
+      paramUniforms[`tBuffer${name}`] = { value: null }
+      // a buffer is usually smaller than the screen; its texel size is what a
+      // laplacian or a gradient needs, not uResolution
+      paramUniforms[`uBuffer${name}Size`] = { value: new THREE.Vector2(1, 1) }
+    }
+    return {
         uTime: { value: 0 },
         uBass: { value: 0 },
         uMid: { value: 0 },
@@ -671,10 +730,132 @@ export class Engine {
         uColor1: { value: this.colors[0] },
         uColor2: { value: this.colors[1] },
         uColor3: { value: this.colors[2] },
-        uResolution: { value: this.resolution },
-        ...paramUniforms,
-      }
+      uResolution: { value: size },
+      uFrame: { value: 0 },
+      ...paramUniforms,
+    }
+  }
+
+  private createEffectMaterial(id: EffectId): THREE.ShaderMaterial {
+    // An unknown id passes `undefined` as fragmentShader and three keeps its
+    // default_fragment — a full red screen on the projector. Imported presets,
+    // remote/OSC commands and restored settings can all carry a stale id.
+    if (!EFFECT_SHADERS[id]) id = 'tunnel'
+    const def = EFFECT_SHADERS[id]
+    const multi = typeof def === 'string' ? null : def
+    const bufNames = multi ? multi.passes.map(p => p.buffer) : []
+
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: multi ? multi.main : (def as string),
+      uniforms: this.effectUniforms(id, bufNames, this.resolution),
     })
+    if (multi) this.chains.set(mat, this.createPassChain(id, multi))
+    return mat
+  }
+
+  /** Allocate the simulation buffers and pass materials of a multi-pass effect */
+  private createPassChain(id: EffectId, def: MultiPassEffect): PassChain {
+    const bufNames = def.passes.map(p => p.buffer)
+    const chain: PassChain = { defs: def.passes, materials: [], sizes: [], buffers: new Map(), frames: 0 }
+
+    for (const pass of def.passes) {
+      if (chain.buffers.has(pass.buffer)) continue
+      const scale = pass.scale ?? 1
+      const rows = pass.rows ?? 0
+      chain.buffers.set(pass.buffer, {
+        read: this.createSimTarget(scale, rows), write: this.createSimTarget(scale, rows), scale, rows,
+      })
+    }
+    for (const pass of def.passes) {
+      const buf = chain.buffers.get(pass.buffer)!
+      const size = new THREE.Vector2(buf.read.width, buf.read.height)
+      chain.sizes.push(size)
+      chain.materials.push(new THREE.ShaderMaterial({
+        vertexShader: FULLSCREEN_VERT,
+        fragmentShader: pass.frag,
+        uniforms: this.effectUniforms(id, bufNames, size),
+      }))
+    }
+    return chain
+  }
+
+  /**
+   * Simulation buffers are half-float: a cellular simulation feeding itself
+   * through 8-bit targets quantises a little every frame, and the error
+   * compounds until the pattern dies or explodes.
+   */
+  private createSimTarget(scale: number, rows: number): THREE.WebGLRenderTarget {
+    const [w, h] = this.simSize(scale, rows)
+    return new THREE.WebGLRenderTarget(w, h, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.HalfFloatType,
+      wrapS: THREE.RepeatWrapping,
+      wrapT: THREE.RepeatWrapping,
+      depthBuffer: false,
+    })
+  }
+
+  /**
+   * Run the simulation passes of `mat`'s effect (if any) and bind the buffers
+   * onto it, so the visible pass reads what the simulation just wrote. Called
+   * for every effect material before it is drawn — main deck, deck B, and the
+   * outgoing effect during a transition.
+   */
+  private simSize(scale: number, rows: number): [number, number] {
+    if (rows > 0) {
+      const aspect = this.resolution.x / Math.max(1, this.resolution.y)
+      return [Math.max(2, Math.round(rows * aspect)), Math.max(2, Math.round(rows))]
+    }
+    return [Math.max(2, Math.round(this.resolution.x * scale)),
+            Math.max(2, Math.round(this.resolution.y * scale))]
+  }
+
+  private runChain(mat: THREE.ShaderMaterial) {
+    const chain = this.chains.get(mat)
+    if (!chain) return
+
+    for (let i = 0; i < chain.defs.length; i++) {
+      const pm = chain.materials[i]
+      this.applyEffectUniforms(pm, 0)
+      this.applyParams(pm)
+      pm.uniforms.uResolution.value = chain.sizes[i]   // the buffer's size, not the screen's
+      pm.uniforms.uFrame.value = chain.frames
+      for (const [name, buf] of chain.buffers) {
+        const u = pm.uniforms[`tBuffer${name}`]
+        if (u) u.value = buf.read.texture
+        const us = pm.uniforms[`uBuffer${name}Size`]
+        if (us) us.value.set(buf.read.width, buf.read.height)
+      }
+      const b = chain.buffers.get(chain.defs[i].buffer)!
+      this.renderPass(pm, b.write)
+      // Swap straight after the pass that wrote it: a pass never reads the
+      // target it is writing (undefined behaviour), and listing the same pass
+      // twice then runs two real iterations instead of recomputing the first.
+      const t = b.read; b.read = b.write; b.write = t
+    }
+    chain.frames++
+
+    for (const [name, buf] of chain.buffers) {
+      const u = mat.uniforms[`tBuffer${name}`]
+      if (u) u.value = buf.read.texture
+      const us = mat.uniforms[`uBuffer${name}Size`]
+      if (us) us.value.set(buf.read.width, buf.read.height)
+    }
+  }
+
+  /** Dispose an effect material together with the simulation buffers it owns */
+  private disposeEffectMaterial(mat: THREE.ShaderMaterial | null) {
+    if (!mat) return
+    const chain = this.chains.get(mat)
+    if (chain) {
+      for (const m of chain.materials) m.dispose()
+      for (const b of chain.buffers.values()) { b.read.dispose(); b.write.dispose() }
+      this.chains.delete(mat)
+    }
+    mat.dispose()
   }
 
   private initPostMaterials() {
@@ -811,7 +992,7 @@ export class Engine {
   private cancelCurrentTransition() {
     // Clean up any in-progress transition before starting a new one
     if (this.transitionOldMaterial) {
-      this.transitionOldMaterial.dispose()
+      this.disposeEffectMaterial(this.transitionOldMaterial)
       this.transitionOldMaterial = null
     }
     this.transitionProgress = -1
@@ -827,7 +1008,7 @@ export class Engine {
     if (this.transitionDuration <= 0 || id === this.currentEffect) {
       // Instant switch
       this.currentEffect = id
-      this.mainMaterial.dispose()
+      this.disposeEffectMaterial(this.mainMaterial)
       this.mainMaterial = this.createEffectMaterial(id)
       this.quad.material = this.mainMaterial
       this.emitState()
@@ -939,7 +1120,7 @@ export class Engine {
 
       // Cancel any in-progress transition
       this.cancelCurrentTransition()
-      this.mainMaterial.dispose()
+      this.disposeEffectMaterial(this.mainMaterial)
       this.mainMaterial = mat
       this.quad.material = this.mainMaterial
       this.customParamDefs = defs
@@ -1204,7 +1385,7 @@ export class Engine {
   setDeckBEffect(id: EffectId) {
     if (!EFFECT_SHADERS[id]) return   // stale id from a preset/remote/settings
     this.deckBEffect = id
-    this.deckBMaterial?.dispose()
+    this.disposeEffectMaterial(this.deckBMaterial)
     this.deckBMaterial = this.createEffectMaterial(id)
     this.emitState()
   }
@@ -1952,6 +2133,13 @@ export class Engine {
       `masterBrightness=${u?.uBrightness?.value ?? '?'}`,
       `lastFrameAgo=${Math.round(performance.now() - this.lastFrameAt)}ms`,
       `stateReceived=${this.remoteStateCount}`,
+      // a simulation that silently runs at the wrong grid size looks like a
+      // different effect, and nothing else in the log would say so
+      ...(() => {
+        const c = this.chains.get(this.mainMaterial)
+        if (!c) return []
+        return [`sim=${[...c.buffers].map(([n, b]) => `${n}:${b.read.width}x${b.read.height}`).join(',')}@f${c.frames}`]
+      })(),
     ].join(' ')
   }
 
@@ -2053,14 +2241,10 @@ export class Engine {
     let speed = 1
     this.audioScale = 1
     for (const def of this.getParamDefs()) {
-      const v = this.effParamValue(def)
-      if (def.key === 'speed') speed = v
-      else if (def.key === 'reactivity') this.audioScale = v
-      else {
-        const u = this.mainMaterial.uniforms[def.key]
-        if (u) u.value = v
-      }
+      if (def.key === 'speed') speed = this.effParamValue(def)
+      else if (def.key === 'reactivity') this.audioScale = this.effParamValue(def)
     }
+    this.applyParams(this.mainMaterial)
     this.effectTime += dt * speed
 
     // Update main effect uniforms
@@ -2081,6 +2265,9 @@ export class Engine {
       return
     }
 
+    // Simulation passes of the active effect, if it has any
+    this.runChain(this.mainMaterial)
+
     // Render deck A → rtA (no clear: opaque fullscreen quad)
     this.renderer.setRenderTarget(this.rtA)
     this.renderer.render(this.scene, this.camera)
@@ -2091,13 +2278,14 @@ export class Engine {
 
       if (this.transitionProgress >= 1) {
         // Transition complete
-        this.transitionOldMaterial.dispose()
+        this.disposeEffectMaterial(this.transitionOldMaterial)
         this.transitionOldMaterial = null
         this.transitionProgress = -1
       } else {
         // Render old effect → rtTransition
         this.quad.material = this.transitionOldMaterial
         this.applyEffectUniforms(this.transitionOldMaterial, time)
+        this.runChain(this.transitionOldMaterial)
         this.renderer.setRenderTarget(this.rtTransition)
         this.renderer.render(this.scene, this.camera)
 
@@ -2119,6 +2307,7 @@ export class Engine {
     if (this.crossfade > 0.001 && this.deckBMaterial) {
       this.quad.material = this.deckBMaterial
       this.applyEffectUniforms(this.deckBMaterial, time)
+      this.runChain(this.deckBMaterial)
       this.renderer.setRenderTarget(this.rtDeckB)
       this.renderer.render(this.scene, this.camera)
       this.quad.material = this.mainMaterial
@@ -2240,6 +2429,15 @@ export class Engine {
   }
 
   /** Feed the shared per-frame uniforms into an effect material */
+  /** Push the active effect's param values onto one of its pass materials */
+  private applyParams(mat: THREE.ShaderMaterial) {
+    for (const def of this.getParamDefs()) {
+      if (def.key === 'speed' || def.key === 'reactivity') continue
+      const u = mat.uniforms[def.key]
+      if (u) u.value = this.effParamValue(def)
+    }
+  }
+
   private applyEffectUniforms(mat: THREE.ShaderMaterial, _time: number) {
     const u = mat.uniforms
     const k = this.audioScale
@@ -2261,6 +2459,7 @@ export class Engine {
     if (u.uBassTime) u.uBassTime.value = this.bassTime
     if (u.uHighTime) u.uHighTime.value = this.highTime
     if (u.uResolution) u.uResolution.value = this.resolution
+    if (u.uFrame) u.uFrame.value = this.frameCounter
   }
 
   /** Render a fullscreen material into a target (null = screen) */
@@ -2368,16 +2567,16 @@ export class Engine {
     this.rtB.dispose()
     this.rtPrev.dispose()
     this.rtTransition.dispose()
-    this.mainMaterial.dispose()
+    this.disposeEffectMaterial(this.mainMaterial)
     this.passthroughMaterial.dispose()
     this.transitionMaterial.dispose()
-    this.transitionOldMaterial?.dispose()
+    this.disposeEffectMaterial(this.transitionOldMaterial)
     this.overlayMaterial.dispose()
     this.overlays.forEach(o => this.teardownOverlay(o))
     this.overlays = []
     this.postMaterials.forEach(m => m.dispose())
     for (const rt of [this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2, this.rtBloomA, this.rtBloomB]) rt.dispose()
-    this.deckBMaterial?.dispose()
+    this.disposeEffectMaterial(this.deckBMaterial)
     this.deckMixMaterial.dispose()
     this.masterMaterial.dispose()
     this.motionBlurMaterial.dispose()
