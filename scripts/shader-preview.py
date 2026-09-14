@@ -81,6 +81,7 @@ u1('uEnergy', {energy}); u1('uBeat', {beat}); u1('uBassHit', {bass_hit});
 u1('uMidHit', 0.3); u1('uHighHit', 0.4);
 u1('uBeatPhase', T % 1.0); u1('uBarPhase', (T / 4.0) % 1.0);
 u1('uBassTime', T * 0.6); u1('uHighTime', T * 0.4);
+u1('uBeatClock', T * 128.0 / 60.0); u1('uSub', 0.5); u1('uPresence', 0.4);
 u3('uColor1', 0.0, 1.0, 0.53); u3('uColor2', 1.0, 0.0, 1.0); u3('uColor3', 0.27, 0.27, 1.0);
 {params}
 gl.viewport(0, 0, 960, 540);

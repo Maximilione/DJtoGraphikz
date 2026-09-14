@@ -38,6 +38,7 @@ import raymarchFrag from './shaders/raymarch.frag?raw'
 import ripplesFrag from './shaders/ripples.frag?raw'
 import ps2towersFrag from './shaders/ps2towers.frag?raw'
 import snowrideFrag from './shaders/snowride.frag?raw'
+import pulsarFrag from './shaders/pulsar.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -107,7 +108,7 @@ export type EffectId =
   | 'hexagons' | 'dna'
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
-  | 'ps2towers' | 'snowride'
+  | 'ps2towers' | 'snowride' | 'pulsar'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -226,6 +227,7 @@ const EFFECT_SHADERS: Record<EffectId, string> = {
   ripples: ripplesFrag,
   ps2towers: ps2towersFrag,
   snowride: snowrideFrag,
+  pulsar: pulsarFrag,
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']
@@ -649,6 +651,7 @@ export class Engine {
         uBeat: { value: 0 },
         uBeatPhase: { value: 0 },
         uBarPhase: { value: 0 },
+        uBeatClock: { value: 0 },
         uSub: { value: 0 },
         uPresence: { value: 0 },
         uBassHit: { value: 0 },
@@ -894,6 +897,7 @@ export class Engine {
         uBeat: { value: 0 },
         uBeatPhase: { value: 0 },
         uBarPhase: { value: 0 },
+        uBeatClock: { value: 0 },
         uSub: { value: 0 },
         uPresence: { value: 0 },
         uBassHit: { value: 0 },
@@ -2193,6 +2197,7 @@ export class Engine {
     if (u.uBeat) u.uBeat.value = this.beatPulse * k
     if (u.uBeatPhase) u.uBeatPhase.value = this.beatPhase
     if (u.uBarPhase) u.uBarPhase.value = this.barPhase
+    if (u.uBeatClock) u.uBeatClock.value = this.beatClock
     if (u.uSub) u.uSub.value = this.smoothSub * k
     if (u.uPresence) u.uPresence.value = this.smoothPresence * k
     if (u.uBassHit) u.uBassHit.value = this.bassHit * k

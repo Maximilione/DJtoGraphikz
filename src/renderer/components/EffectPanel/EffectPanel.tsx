@@ -48,6 +48,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'particles', label: 'Particle', icon: '⁂' },
       { id: 'starfield', label: 'Stars', icon: '✧' },
       { id: 'waves', label: 'Waves', icon: '〰' },
+      { id: 'pulsar', label: 'Pulsar', icon: '⩘' },
       { id: 'lissajous', label: 'Lissaj', icon: '∞' },
       { id: 'dna', label: 'DNA', icon: '⧖' },
       { id: 'orbits', label: 'Orbits', icon: '☉' },
