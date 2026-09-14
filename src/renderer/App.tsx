@@ -21,7 +21,7 @@ import { QuickGuide } from './components/Help/QuickGuide'
 import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
-import { EFFECT_CATEGORIES, COLOR_PRESETS } from './components/EffectPanel/EffectPanel'
+import { ALL_EFFECTS, COLOR_PRESETS, POST_CATEGORIES } from './catalog'
 
 type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
@@ -30,15 +30,13 @@ const SETTINGS_KEY = 'djtographikz-settings'
 const BEATFLASH_KEY = 'djtographikz-beatflash'
 
 // Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
-const HOTKEY_EFFECTS: EffectId[] = EFFECT_CATEGORIES.flatMap(c => c.effects.map(e => e.id)).slice(0, 10)
+const HOTKEY_EFFECTS: EffectId[] = ALL_EFFECTS.slice(0, 10).map(fx => fx.id)
 const HOTKEY_POSTS: Record<string, PostId> = { q: 'bloom', w: 'feedback', e: 'chromatic', r: 'rgb-split' }
 
-// Catalogs for the phone remote. Keyed on the engine union types so tsc fails
-// right here whenever a PostId / TransitionType is added or removed.
-const POST_LABELS: Record<PostId, string> = {
-  bloom: 'Bloom', feedback: 'Feedback', chromatic: 'Chromatic', 'rgb-split': 'RGB Split',
-  pixelate: 'Pixelate', mirror: 'Mirror', invert: 'Invert', filmgrain: 'Film Grain', scanlines: 'Scanlines',
-}
+// Catalog for the phone remote: derived from the one catalog, never re-typed.
+// The Record type still makes tsc fail here if a PostId is added or removed.
+const REMOTE_POSTS: { id: PostId; label: string }[] =
+  POST_CATEGORIES.flatMap(c => c.effects.map(fx => ({ id: fx.id, label: fx.label })))
 const TRANSITION_TYPES: Record<TransitionType, true> = {
   crossfade: true, 'wipe-left': true, 'wipe-down': true, radial: true, dissolve: true,
 }
@@ -204,8 +202,8 @@ export function App() {
     // Push catalogs to the phone remote (served at GET /defs, version added server-side)
     try {
       window.api?.sendRemoteDefs({
-        effects: EFFECT_CATEGORIES.flatMap(c => c.effects.map(fx => ({ id: fx.id, label: fx.label, category: c.name }))),
-        posts: (Object.keys(POST_LABELS) as PostId[]).map(id => ({ id, label: POST_LABELS[id] })),
+        effects: ALL_EFFECTS.map(fx => ({ id: fx.id, label: fx.label, category: fx.category })),
+        posts: REMOTE_POSTS,
         palettes: COLOR_PRESETS,
         genres: (Object.keys(GENRE_CONFIGS) as Genre[]).map(id => ({ id, label: GENRE_CONFIGS[id].label })),
         blendModes: BLEND_MODES,
