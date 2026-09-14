@@ -2,6 +2,30 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.39.0-beta] — 2026-09-14
+
+Fase A4 del redesign: **una superficie sola**. Non tre alberi di
+componenti, non cinque modi di piegare un pannello, non venticinque modi
+di disegnare un pulsante, non tredici porte sul salvataggio.
+
+### Changed
+- **Venticinque trattamenti di pulsante diventano quattro.** `.btn` esisteva come sistema e quasi nessuno lo usava: ogni pulsante si portava la sua classe, quasi tutte a ridichiarare le stesse quattro righe che `.btn` e la regola base `button` gia' dicevano. Ora sono `.btn` piu' una variante. Sei regole per un pulsante senza superficie (`.tiny-btn`, `.media-remove`, `.media-device-cancel`, `.look-del`, `.look-edit`, `.toast-undo`) diventano `.btn-ghost`. I quattro che restano sono il vocabolario: `.panel-header`, `.pill`, `.tab`, `.row-item`
+- **Tre modi di piegare un pannello diventano uno.** Sei pannelli usavano `usePanelCollapsed`, tre un `useState` locale con un'intestazione identica ma senza persistenza, e due avevano un `<details>` dentro. I tre locali dimenticavano tutto a ogni riavvio e non partecipavano alla fisarmonica: la stessa intestazione, cliccata in due punti, faceva due cose diverse. Ora tutti montano `<Panel>`, e **Ingresso audio, Look Bank e Auto VJ ricordano** se erano aperti
+- **Tre griglie di palette diventano una.** Le stesse sedici in tre markup — col nome sotto, piccole e sbiadite nel ciclo, grandi in modalita' Semplice
+- **Due Auto VJ diventano uno.** Semplice aveva un pulsante grande e un `<select>` di soli nomi; il pannello aveva un toggle e **dieci** pulsanti di genere con le descrizioni che il select non aveva. Ora e' un controllo solo, e le descrizioni stanno nel select: Pro spende **un** controllo dove ne spendeva dieci
+- **Il contatore FPS misurava la finestra sbagliata.** Girava su una seconda catena rAF tutta sua, accanto a quella del motore, quindi contava i frame del renderer e non quelli del motore — che e' esattamente la differenza che conta quando il motore arranca. Ora conta i frame del motore, e la catena e' una sola
+- `GENRES` entra nel catalogo accanto a `EFFECT_CATEGORIES`, `COLOR_PRESETS` e `TRANSITIONS`
+
+### Fixed
+- **I parametri dello shader personalizzato comparivano due volte.** In Pro i due pannelli sono a schermo insieme e montavano entrambi `ParamControls`, che legge la stessa lista: due cursori per ogni parametro, in due pannelli, sullo stesso valore
+- **Un byte sbagliato nel salvataggio cancellava i look per sempre.** L'errore di parsing tornava la lista vuota e il salvataggio successivo **sovrascriveva** il valore corrotto, senza toast e senza log. Ora un valore illeggibile viene spostato in `<chiave>.rotto` prima di rispondere, e resta li' da recuperare
+- **`loadLooks()` troncava a 16 slot a ogni lettura**: un banco cresciuto perdeva gli slot in piu' alla prima lettura+salvataggio. Ora riempie, non taglia
+- **La quota esaurita era muta.** Tredici chiavi con tredici `catch {}`: chi scriveva non sapeva se aveva scritto. Ora la scrittura risponde, e il primo fallimento lo dice
+
+### Added
+- `src/renderer/storage.ts` — una porta sola su `localStorage`, con **una versione di schema**: prima nessuna chiave ne aveva una
+- `yarn check:storage` — 10 controlli che fanno girare il modulo vero su un `localStorage` finto caricato con un dump di 0.35: giro completo, quarantena, cache buttata, scritture fallite, slot riempiti, versione
+
 ## [0.38.0-beta] — 2026-09-14
 
 Fase A3 del redesign: **una lingua sola, e smettere di dichiarare cose
