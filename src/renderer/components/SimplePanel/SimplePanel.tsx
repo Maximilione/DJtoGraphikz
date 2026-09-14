@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId } from '@engine/Engine'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
-import { EFFECT_CATEGORIES, COLOR_PRESETS } from '../EffectPanel/EffectPanel'
+import { EFFECT_CATEGORIES, COLOR_PRESETS } from '../../catalog'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 
 interface SimplePanelProps {
