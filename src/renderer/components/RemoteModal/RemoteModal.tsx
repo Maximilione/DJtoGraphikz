@@ -21,6 +21,14 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
 
   useEffect(() => { load().catch(console.error) }, [])
 
+  // Escape closes: without it a modal could only be dismissed with the mouse.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
       <div className="onboarding-card" style={{ width: '340px', alignItems: 'center', textAlign: 'center' }} onClick={e => e.stopPropagation()}>

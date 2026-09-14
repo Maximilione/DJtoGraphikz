@@ -2,6 +2,32 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.37.0-beta] — 2026-09-14
+
+Fase A2 del redesign: **l'app si guida da tastiera**. Trenta elementi
+cliccabili erano `<div onClick>` — niente ruolo, niente stato premuto,
+niente attivazione da tastiera — e da quella singola scelta strutturale
+discendevano tre voti bassi dell'audit insieme.
+
+### Fixed
+- **Salvare un look e accendere l'AutoVJ non avevano NESSUNA strada da tastiera.** Erano le due azioni che l'audit ha trovato irraggiungibili sia da hotkey sia da tab. Ora sono pulsanti
+- **Un pannello chiuso era chiuso per sempre.** Le 9 intestazioni erano `div`, e un pannello chiuso **smonta i figli**: l'intestazione che lo riaprirebbe non era raggiungibile. Ora sono pulsanti con `aria-expanded`
+- **`Space` con un pulsante a fuoco batteva il BPM invece di premerlo.** La guardia sulle hotkey non escludeva `<button>`, e il tap chiama `preventDefault()`. Al buio, tabulare fino a PANIC e premere Spazio non faceva panic. Stesso buco sul `div tabIndex` di `NumberInput`, dove — usandolo nel modo documentato — una cifra cambiava l'effetto in diretta e `B` faceva il blackout. La guardia era scritta due volte con gli stessi tre buchi: ora sta in `src/renderer/hotkeys.ts`
+- **L'editor GLSL era una trappola.** Intercettava `Tab` senza controllare `shiftKey`, quindi `Tab` e `Shift+Tab` inserivano entrambi spazi, e non c'era `Escape`: entrato il focus, si usciva solo col mouse. Ora `Shift+Tab` esce
+- **Cinque post-FX su nove** non si potevano accendere da tastiera: la riga della lista era un `div`
+- **Le azioni sullo slot del Look Bank erano `display: none` fino a `:hover`**, quindi fuori dall'ordine di tabulazione: senza mouse non esistevano. Ora sono nascoste con `opacity` e si rivelano anche su `:focus-within`
+- **`RemoteModal`, `HelpMenu` e `Onboarding` non avevano nessun gestore di `Escape`**; la cheat sheet si chiudeva cliccandoci **dentro**, per uno `stopPropagation` mancante
+- `textarea` mancava dalla lista del `:focus-visible`; tre `outline: none` non avevano sostituto, fra cui quello inline di `NumberInput` che vinceva sulla regola globale perche' quella non e' `!important`
+- **I toast non erano annunciati** (`role="status"`, `aria-live`), pur essendo l'unico riscontro dei comandi che arrivano da telefono, OSC e MIDI
+
+### Changed
+- Cliccabili non-`<button>`: **da 30 a 11**. Gli undici che restano sono legittimi: dieci fondali di modale — cliccare fuori e' una comodita' del mouse, non l'unica uscita, ora che tutti e cinque rispondono a `Escape` — e il doppio-click di `NumberInput`, che ha il suo gemello in `Invio`
+- **Rinominare un look passa da doppio-click a un pulsante ✎.** Il doppio-click non ha un equivalente da tastiera, e tenerlo *in piu'* sarebbe stata la duplicazione che l'audit penalizza. Guida rapida e scorciatoie aggiornate
+- 14 pulsanti di sola icona o solo glifo hanno un nome accessibile: avevano solo `title`, che e' la fonte piu' debole e inesistente al tocco, mentre ogni SVG e' `aria-hidden`. Etichettati **soltanto** quelli senza testo visibile: un `aria-label` diverso dal nome visibile viola WCAG 2.5.3
+
+### Added
+- **`yarn check:buttons`**: conta i trattamenti di pulsante distinti. Il numero vero e' **25 autonomi contro 2 costruiti su `.btn`** — il sistema esiste e non lo usa quasi nessuno. Unirli e' una decisione di superficie e passa alla fase A4; intanto il controllo e' una cricca, il numero puo' solo scendere
+
 ## [0.36.0-beta] — 2026-09-14
 
 Prima fase del redesign dell'interfaccia (fase A1 di `plans/`), nata

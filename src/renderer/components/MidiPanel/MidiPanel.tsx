@@ -37,10 +37,10 @@ export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
 
   return (
     <div className="panel">
-      <div className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Espandi pannello MIDI' : 'Comprimi pannello MIDI'}>
+      <button type="button" aria-expanded={!collapsed} className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Espandi pannello MIDI' : 'Comprimi pannello MIDI'}>
         <span>MIDI</span>
         <span>{collapsed ? '+' : '-'}</span>
-      </div>
+      </button>
       {!collapsed && (
         <div className="midi-panel">
           <div className="midi-status">
@@ -73,7 +73,7 @@ export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
                     </button>
                     {b && (
                       <button className="btn btn-secondary btn-sm" title="Rimuovi binding"
-                        onClick={() => clearWithUndo(t.id, t.label)}>✕</button>
+                        onClick={() => clearWithUndo(t.id, t.label)} aria-label="Rimuovi binding">✕</button>
                     )}
                   </div>
                 )

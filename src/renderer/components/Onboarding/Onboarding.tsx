@@ -22,6 +22,13 @@ export function Onboarding({ onDone }: OnboardingProps) {
   const [autoVJ, setAutoVJ] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Escape closes: without it a modal could only be dismissed with the mouse.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDone(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onDone])
+
   useEffect(() => {
     (async () => {
       try {

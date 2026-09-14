@@ -22,6 +22,7 @@ import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, 
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { ALL_EFFECTS, COLOR_PRESETS, POST_CATEGORIES } from './catalog'
+import { shouldIgnoreHotkey } from './hotkeys'
 
 type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
@@ -402,8 +403,7 @@ export function App() {
   useEffect(() => {
     if (!engine) return
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
+      if (shouldIgnoreHotkey(e)) return
 
       const k = e.key.toLowerCase()
 
@@ -583,17 +583,17 @@ export function App() {
         <div className="spacer" />
 
         <div className="tb-group">
-          <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG">
+          <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
             <IconCamera />
           </button>
           <button
             className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary'}`}
             onClick={toggleRecording}
             title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
-          >
+           aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
             {recording ? <IconStop /> : <IconRecord />}
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)">
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
             <IconPhone />
           </button>
           {outputInfo && (outputInfo.open ? (
@@ -649,7 +649,7 @@ export function App() {
               setTimeout(refreshOutputInfo, 400)
             }}
             title="Fullscreen della finestra di output"
-          >
+           aria-label="Fullscreen della finestra di output">
             <IconFullscreen />
           </button>
         </div>
@@ -659,7 +659,7 @@ export function App() {
             className="btn btn-secondary btn-sm"
             onClick={() => setShowHelpMenu(v => !v)}
             title="Aiuto — scorciatoie, guida, configurazione (?)"
-          >
+           aria-label="Aiuto — scorciatoie, guida, configurazione (?)">
             <IconHelp />
           </button>
         </div>
