@@ -87,7 +87,7 @@ export function App() {
   // UI mode + onboarding
   const [mode, setMode] = useState<UIMode>(() => {
     // a stale or hand-edited value used to go straight into the layout
-    const saved = readString(MODE_KEY)
+    const saved = window.api?.selfTestMode || readString(MODE_KEY)
     return saved === 'pro' || saved === 'live' || saved === 'simple' ? saved : 'simple'
   })
   const [showRemote, setShowRemote] = useState(false)
