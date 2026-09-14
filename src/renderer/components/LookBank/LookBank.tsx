@@ -157,7 +157,7 @@ export function LookBank({ engine }: { engine: Engine }) {
                 tile; the thumbnail, number and name let clicks through. */}
             <button
               type="button"
-              className="look-hit"
+              className="btn look-hit"
               title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10}` : ''}`}
               onClick={e => e.shiftKey ? saveLook(i) : trigger(i)}
             />
@@ -183,7 +183,7 @@ export function LookBank({ engine }: { engine: Engine }) {
             )}
             {renaming !== i && (
               <button
-                className="look-edit"
+                className="btn btn-ghost btn-sm look-edit"
                 title="Rinomina look"
                 onClick={() => { setRenameText(look.name); setRenaming(i) }}
                aria-label="Rinomina look">
@@ -191,7 +191,7 @@ export function LookBank({ engine }: { engine: Engine }) {
               </button>
             )}
             <button
-              className="look-del"
+              className="btn btn-ghost btn-sm danger look-del"
               title="Elimina look"
               onClick={() => deleteLook(i)}
              aria-label="Elimina look">
@@ -202,7 +202,7 @@ export function LookBank({ engine }: { engine: Engine }) {
           <button
             key={i}
             type="button"
-            className={`look-slot empty${dragOver === i ? ' drag-over' : ''}`}
+            className={`btn look-slot empty${dragOver === i ? ' drag-over' : ''}`}
             title="Salva il look corrente"
             onClick={() => saveLook(i)}
             {...dropHandlers(i)}

@@ -732,7 +732,7 @@ export function App() {
             <canvas ref={canvasRef} className="preview-canvas" />
             {mode !== 'live' && (
               <button
-                className="preview-toggle"
+                className="btn preview-toggle"
                 onClick={togglePreviewCompact}
                 title={previewCompact ? 'Espandi la preview' : 'Riduci la preview (i pannelli prendono lo spazio)'}
               >

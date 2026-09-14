@@ -468,9 +468,9 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                         title="Nome del passo"
                         style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
                       />
-                      <button className="tiny-btn" title="Applica ora questo passo" onClick={() => engine?.applyPreset(st.preset)} aria-label="Applica ora questo passo">▶</button>
-                      <button className="tiny-btn" title="Duplica il passo" onClick={() => duplicateStep(i)} aria-label="Duplica il passo">⧉</button>
-                      <button className="tiny-btn danger" title="Togli il passo" onClick={() => removeStep(i)} aria-label="Togli il passo">×</button>
+                      <button className="btn btn-ghost btn-sm" title="Applica ora questo passo" onClick={() => engine?.applyPreset(st.preset)} aria-label="Applica ora questo passo">▶</button>
+                      <button className="btn btn-ghost btn-sm" title="Duplica il passo" onClick={() => duplicateStep(i)} aria-label="Duplica il passo">⧉</button>
+                      <button className="btn btn-ghost btn-sm danger" title="Togli il passo" onClick={() => removeStep(i)} aria-label="Togli il passo">×</button>
                     </div>
                     <div className="u-row" style={{ gap: '5px' }}>
                       <span className="u-hint" style={{ width: '14px', flexShrink: 0 }} />

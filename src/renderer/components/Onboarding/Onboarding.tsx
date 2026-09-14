@@ -101,7 +101,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
               {(Object.entries(GENRE_CONFIGS) as [Genre, typeof GENRE_CONFIGS[Genre]][]).map(([id, cfg]) => (
                 <button
                   key={id}
-                  className={`onboarding-genre${genre === id ? ' active' : ''}`}
+                  className={`btn onboarding-genre${genre === id ? ' active' : ''}`}
                   onClick={() => setGenre(id)}
                 >
                   <div className="genre-label">{cfg.label}</div>
