@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { listAudioInputs } from '../../audioDevices'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { seedFactoryLooks } from '../../factoryLooks'
@@ -22,12 +22,24 @@ export function Onboarding({ onDone }: OnboardingProps) {
   const [autoVJ, setAutoVJ] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  /**
+   * Every way out of the wizard seeds the factory looks. Only the final
+   * "INIZIA" used to, so pressing "Salta" left the Look Bank empty forever
+   * while the quick guide kept promising "8 look di fabbrica" — the wizard
+   * never comes back, so the promise could never be kept.
+   * seedFactoryLooks() is a no-op when the bank already holds anything.
+   */
+  const finish = useCallback((result: OnboardingResult | null) => {
+    seedFactoryLooks()
+    onDone(result)
+  }, [onDone])
+
   // Escape closes: without it a modal could only be dismissed with the mouse.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDone(null) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') finish(null) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onDone])
+  }, [finish])
 
   useEffect(() => {
     (async () => {
@@ -138,7 +150,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
 
         {/* Footer buttons */}
         <div className="onboarding-footer">
-          <button className="btn btn-secondary btn-sm" onClick={() => onDone(null)}>
+          <button className="btn btn-secondary btn-sm" onClick={() => finish(null)}>
             Salta
           </button>
           <div style={{ flex: 1 }} />
@@ -154,7 +166,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
           ) : (
             <button
               className="btn btn-primary onboarding-start"
-              onClick={() => { seedFactoryLooks(); onDone({ deviceId, genre, autoVJ }) }}
+              onClick={() => finish({ deviceId, genre, autoVJ })}
             >
               ▶ INIZIA
             </button>

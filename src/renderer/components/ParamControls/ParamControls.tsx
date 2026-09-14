@@ -57,14 +57,14 @@ export function ParamControls({ engine }: ParamControlsProps) {
         <button
           className="btn"
           style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
-          title="Mappa automaticamente i parametri all'audio in base a nome e uso nello shader — Annulla dal toast"
+          title="Collega i parametri all'audio, e abbassa quelli gia' al massimo per lasciare spazio al movimento — Annulla dal toast"
           onClick={() => {
             const r = smartMap(engine)
             force()
-            pushToast(`Smart map: ${r.count} parametri mappati`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
+            pushToast(`Collegati ${r.count} parametri all'audio`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
           }}
         >
-          ⚡ Smart map
+          ⚡ Collega all'audio
         </button>
       </div>
       {defs.map(def => {
