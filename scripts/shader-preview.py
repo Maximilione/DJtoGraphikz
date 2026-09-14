@@ -82,6 +82,34 @@ u1('uMidHit', 0.3); u1('uHighHit', 0.4);
 u1('uBeatPhase', T % 1.0); u1('uBarPhase', (T / 4.0) % 1.0);
 u1('uBassTime', T * 0.6); u1('uHighTime', T * 0.4);
 u1('uBeatClock', T * 128.0 / 60.0); u1('uSub', 0.5); u1('uPresence', 0.4);
+// uSpectrum: synthetic 512-bin spectrum + waveform, same layout as the app
+// (r = log-spaced magnitude, g = oscilloscope trace centred on 128)
+{{
+  const N = 512, px = new Uint8Array(N * 4);
+  for (let i = 0; i < N; i++) {{
+    const u = i / N;
+    // realistic-ish: pink tilt, a few partials, a little noise. A pure
+    // high-frequency sine here is a pathological test signal — it makes any
+    // shader that reads the spectrum look like it is buzzing.
+    let v = (0.30 + 0.70 * Math.pow(1.0 - u, 1.2)) * 0.55;
+    const parts = [[0.07, 0.95, 0.020], [0.21, 0.70, 0.028], [0.37, 0.50, 0.035],
+                   [0.55, 0.34, 0.045], [0.73, 0.22, 0.055]];
+    for (const pt of parts) v += pt[1] * Math.exp(-Math.pow((u - pt[0]) / pt[2], 2.0));
+    v *= 0.85 + 0.15 * Math.sin(u * 130.0 + T * 3.0);
+    px[i * 4] = Math.max(0, Math.min(255, 255 * v * (0.35 + {energy})));
+    px[i * 4 + 1] = 128 + 100 * Math.sin(u * 60.0 + T * 6.0) * {energy};
+    px[i * 4 + 3] = 255;
+  }}
+  const tex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, N, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const sl = gl.getUniformLocation(prog, 'uSpectrum');
+  if (sl) gl.uniform1i(sl, 0);
+}}
 u3('uColor1', 0.0, 1.0, 0.53); u3('uColor2', 1.0, 0.0, 1.0); u3('uColor3', 0.27, 0.27, 1.0);
 {params}
 gl.viewport(0, 0, 960, 540);
