@@ -1,4 +1,5 @@
 import type { Engine, PostId } from '@engine/Engine'
+import { readJson, writeJson } from './storage'
 
 // Web MIDI learn — bindings route through the same dispatchCmd used by the
 // phone remote and OSC, so MIDI can drive everything those can.
@@ -61,7 +62,7 @@ class MidiEngine {
   supported = typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator
 
   constructor() {
-    try { this.bindings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { this.bindings = {} }
+    this.bindings = readJson<Record<string, MidiBinding>>(STORAGE_KEY, {})
     this.rebuildReverse()
   }
 
@@ -168,7 +169,7 @@ class MidiEngine {
   }
 
   private persist() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.bindings)) } catch { /* full disk */ }
+    writeJson(STORAGE_KEY, this.bindings)
   }
 
   private notify() { for (const fn of this.listeners) fn() }

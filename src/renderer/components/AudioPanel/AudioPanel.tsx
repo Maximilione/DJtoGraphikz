@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { readJson, writeJson } from '../../storage'
 import { pushToast } from '../Toasts/Toasts'
 import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
@@ -27,11 +28,8 @@ interface SavedAudioSettings {
 }
 
 function loadAudioSettings(): SavedAudioSettings {
-  try {
-    return JSON.parse(localStorage.getItem(AUDIO_STORE_KEY) || 'null') || {}
-  } catch {
-    return {}
-  }
+  // `?? {}` and not a `{}` fallback: older builds could store a literal `null`.
+  return readJson<SavedAudioSettings | null>(AUDIO_STORE_KEY, null) ?? {}
 }
 
 export function AudioPanel({ engine }: AudioPanelProps) {
@@ -105,7 +103,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   // Persist settings — writes are rare (user tweaks), no debounce needed
   useEffect(() => {
     try {
-      localStorage.setItem(AUDIO_STORE_KEY, JSON.stringify({
+      writeJson(AUDIO_STORE_KEY, ({
         deviceId: selectedDevice,
         bpmMode,
         manualBpm,

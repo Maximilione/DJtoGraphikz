@@ -5,6 +5,7 @@
  * copies of presets with neither.
  */
 import type { Engine, Preset } from '@engine/Engine'
+import { readJson, writeJson } from './storage'
 
 export interface SavedLook {
   name: string
@@ -16,27 +17,16 @@ const STORAGE_KEY = 'djtographikz-looks'
 export const SLOTS = 16
 
 export function loadLooks(): (SavedLook | null)[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const arr: (SavedLook | null)[] = raw ? JSON.parse(raw) : []
-    return Array.from({ length: SLOTS }, (_, i) => arr[i] ?? null)
-  } catch {
-    return Array(SLOTS).fill(null)
-  }
+  const arr = readJson<(SavedLook | null)[]>(STORAGE_KEY, [])
+  // Pad to SLOTS, never truncate: reading with a smaller SLOTS and saving used
+  // to erase every slot beyond it, permanently.
+  const n = Math.max(SLOTS, arr.length)
+  return Array.from({ length: n }, (_, i) => arr[i] ?? null)
 }
 
-/**
- * Returns false when the write did not happen. It used to swallow the failure
- * entirely: over quota a saved look vanished with no toast, no log and no sign
- * at all — the user found out on the next launch.
- */
+/** Returns false when the write did not happen — see storage.ts. */
 export function persistLooks(looks: (SavedLook | null)[]): boolean {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(looks))
-    return true
-  } catch {
-    return false
-  }
+  return writeJson(STORAGE_KEY, looks)
 }
 
 /** Grab the next rendered frame and downscale it to a 160x90 JPEG dataURL */
