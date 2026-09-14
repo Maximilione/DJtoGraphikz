@@ -38,6 +38,12 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ## Funzioni
 
+### Interfaccia
+
+- Tre modalita' — **Semplice**, **Pro**, **Live** — che sono tre viste della stessa app: la stessa griglia di effetti, le stesse palette, lo stesso Auto VJ, con piu' o meno pannelli intorno.
+- Ogni pannello ricorda se era aperto o chiuso, e i pannelli della colonna di destra si comportano come una fisarmonica: aprirne uno chiude gli altri.
+- Tutta l'app si guida da tastiera, con il focus sempre visibile.
+
 ### Motore visivo
 
 - **46 effetti GLSL** in 5 categorie (Geometric, Organic, Motion, Digital, Videogame — le torri della PS2, snowboard alla 1080°), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
