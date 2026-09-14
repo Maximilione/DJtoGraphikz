@@ -80,7 +80,7 @@ export function IsfBrowser({ onClose, onImported }: IsfBrowserProps) {
               {matches.slice(0, shown).map(s => (
                 <button
                   key={s.id}
-                  className="isfb-card"
+                  className="btn isfb-card"
                   disabled={busy !== null}
                   onClick={() => doImport(s)}
                   title={`${s.title} — ${s.user} (★${s.stars})`}
@@ -94,7 +94,7 @@ export function IsfBrowser({ onClose, onImported }: IsfBrowserProps) {
               ))}
             </div>
             {matches.length > shown && (
-              <button className="isfb-more" onClick={() => setShown(n => n + PAGE)}>
+              <button className="btn btn-secondary btn-sm isfb-more" onClick={() => setShown(n => n + PAGE)}>
                 Mostra altri ({matches.length - shown})
               </button>
             )}

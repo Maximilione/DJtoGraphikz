@@ -1,3 +1,4 @@
+import { readJson, writeJson } from '../storage'
 import { useCallback, useEffect, useState } from 'react'
 
 // U3.2 — accordion sidebar: per-panel collapsed state, persisted in one
@@ -8,15 +9,13 @@ import { useCallback, useEffect, useState } from 'react'
 const STORAGE_KEY = 'djtographikz-panels'
 
 function readAll(): Record<string, boolean> {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
+  return readJson<Record<string, boolean>>(STORAGE_KEY, {})
 }
 
 function persist(id: string, collapsed: boolean) {
-  try {
-    const all = readAll()
-    all[id] = collapsed
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
-  } catch { /* private mode / quota — non-fatal */ }
+  const all = readAll()
+  all[id] = collapsed
+  writeJson(STORAGE_KEY, all)
 }
 
 export function usePanelCollapsed(

@@ -305,12 +305,21 @@ Prima di toccare qualunque forma: **fare un backup in una chiave affiancata**,
 scrivere la migrazione con versione, e provarla su un dump reale di localStorage
 preso da una macchina con dei look dentro.
 
-### Lista di verifica
-- [ ] Un solo componente griglia, un solo meccanismo di collapse, un solo `ParamControls` a schermo.
-- [ ] Partendo da un dump di localStorage della versione 0.35, **tutti** i look, i preset e le scalette sopravvivono all'aggiornamento. Provato, non dedotto.
-- [ ] `grep -rn "djtographikz-looks" src/renderer` → una sola definizione, nessuna chiave scritta a mano.
-- [ ] In modalità `live` l'anteprima non rende a 58 fps a vuoto (verificare con il battito di salute).
-- [ ] `tsc` ×2, `yarn build`, `yarn check:output` verde.
+### Lista di verifica — fatto in v0.39.0-beta
+- [x] Un solo componente griglia (`EffectGrid`, A1), un solo `PaletteGrid`, un solo meccanismo di collapse (`Panel`), un solo `ParamControls` a schermo.
+- [x] Partendo da un dump di localStorage della versione 0.35, look, preset e scalette sopravvivono: `yarn check:storage` fa girare il modulo vero su un `localStorage` finto caricato con quel dump. Le forme salvate sono identiche a 0.35, quindi non c'è niente da migrare — `stampSchemaVersion()` scrive la versione 1 perché il **prossimo** cambio di forma abbia da dove partire.
+- [x] `grep -rn "djtographikz-looks" src/renderer` → una sola definizione (`looks.ts`), nessuna chiave scritta a mano.
+- [x] Una sola catena rAF: il contatore FPS conta i frame del motore invece di aprirne una seconda.
+- [ ] **Rimandato, fuori fase:** il controllo "dirty" dentro `Engine.renderFrame()`. È lavoro sul motore, e `src/engine` non si tocca durante il redesign. Va fatto insieme al resto del motore, non qui.
+- [x] `tsc` ×2, `yarn build`, `yarn check:output` verde.
+
+### Cosa è rimasto standalone, e perché
+`yarn check:buttons` scende da 25 a 4. I quattro sono il vocabolario, non
+residui: `.panel-header` (la barra di piega, che ora vive solo dentro
+`Panel.tsx`), `.pill`, `.tab`, `.row-item`. La regola scritta in `Panel.tsx`
+perché non ricresca un terzo modo: un **pannello** si piega con `<Panel>`, un
+suggerimento dentro un pannello si piega con un `<details>` nativo, nient'altro
+si piega.
 
 ### ⛔ Guardie
 - **Non portare la vecchia struttura sotto uno stile nuovo.** Se alla fine

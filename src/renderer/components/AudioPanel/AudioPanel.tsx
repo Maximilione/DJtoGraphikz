@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { readJson, writeJson } from '../../storage'
 import { pushToast } from '../Toasts/Toasts'
 import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { Panel } from '../Panel/Panel'
 
 interface AudioPanelProps {
   engine: Engine | null
@@ -27,18 +29,14 @@ interface SavedAudioSettings {
 }
 
 function loadAudioSettings(): SavedAudioSettings {
-  try {
-    return JSON.parse(localStorage.getItem(AUDIO_STORE_KEY) || 'null') || {}
-  } catch {
-    return {}
-  }
+  // `?? {}` and not a `{}` fallback: older builds could store a literal `null`.
+  return readJson<SavedAudioSettings | null>(AUDIO_STORE_KEY, null) ?? {}
 }
 
 export function AudioPanel({ engine }: AudioPanelProps) {
   // Persisted settings from the previous session — read once per mount
   const savedRef = useRef<SavedAudioSettings>(loadAudioSettings())
   const saved = savedRef.current
-  const [collapsed, setCollapsed] = useState(false)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>(saved.deviceId ?? '')
   const [audioActive, setAudioActive] = useState(false)
@@ -105,7 +103,7 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   // Persist settings — writes are rare (user tweaks), no debounce needed
   useEffect(() => {
     try {
-      localStorage.setItem(AUDIO_STORE_KEY, JSON.stringify({
+      writeJson(AUDIO_STORE_KEY, ({
         deviceId: selectedDevice,
         bpmMode,
         manualBpm,
@@ -264,239 +262,229 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   }
 
   return (
-    <div className="panel">
-      <button type="button"
-        aria-expanded={!collapsed} className="panel-header"
-        onClick={() => setCollapsed(!collapsed)}
-        title={collapsed ? 'Espandi Ingresso audio' : 'Comprimi Ingresso audio'}
-      >
-        <span>Ingresso audio</span>
-        <span>{collapsed ? '+' : '-'}</span>
-      </button>
-      {!collapsed && (
-        <div className="u-col">
-          {error && <div className="u-error">{error}</div>}
+    <Panel id="audio" title="Ingresso audio">
+      <div className="u-col">
+        {error && <div className="u-error">{error}</div>}
+        <div>
+          <div className="label">Dispositivo ({devices.length} trovati)</div>
+          <select
+            value={selectedDevice}
+            onChange={e => setSelectedDevice(e.target.value)}
+            title="Sorgente audio da analizzare"
+            style={{ width: '100%' }}
+          >
+            {devices.length === 0 && (
+              <option value="">Nessun dispositivo audio</option>
+            )}
+            {devices.map(d => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || `Ingresso audio ${d.deviceId.slice(0, 8)}`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className={`btn ${audioActive ? 'btn-danger' : 'btn-primary'}`}
+            onClick={audioActive ? stopAudio : startAudio}
+            title={audioActive ? 'Ferma l\'analisi audio' : 'Avvia l\'analisi audio'}
+            style={{ flex: 1 }}
+          >
+            {audioActive ? 'Ferma audio' : 'Avvia audio'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={refreshDevices}
+            title="Aggiorna la lista dei dispositivi"
+          >
+            Aggiorna
+          </button>
+        </div>
+
+        {/* Input Gain — amplify weak mic signals */}
+        {audioActive && (
           <div>
-            <div className="label">Dispositivo ({devices.length} trovati)</div>
-            <select
-              value={selectedDevice}
-              onChange={e => setSelectedDevice(e.target.value)}
-              title="Sorgente audio da analizzare"
-              style={{ width: '100%' }}
-            >
-              {devices.length === 0 && (
-                <option value="">Nessun dispositivo audio</option>
-              )}
-              {devices.map(d => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Ingresso audio ${d.deviceId.slice(0, 8)}`}
-                </option>
-              ))}
-            </select>
+            <div className="cat-label">Gain ingresso</div>
+            <div className="u-row">
+              <span className="u-hint" style={{ width: '18px' }}>1x</span>
+              <input
+                type="range"
+                min={1} max={10} step={0.5}
+                value={inputGain}
+                title="Amplifica i segnali deboli (es. microfono lontano)"
+                onChange={e => handleInputGain(parseFloat(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <NumberInput
+                value={inputGain}
+                min={1} max={10} step={0.5}
+                suffix="x"
+                onChange={handleInputGain}
+              />
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              className={`btn ${audioActive ? 'btn-danger' : 'btn-primary'}`}
-              onClick={audioActive ? stopAudio : startAudio}
-              title={audioActive ? 'Ferma l\'analisi audio' : 'Avvia l\'analisi audio'}
+        )}
+
+        {/* Spectrum visualizer */}
+        <canvas
+          ref={canvasRef}
+          width={296}
+          height={60}
+          style={{
+            width: '100%',
+            height: '60px',
+            borderRadius: '4px',
+            background: 'var(--bg-primary)'
+          }}
+        />
+
+        {/* Beat Sensitivity */}
+        <div>
+          <div className="cat-label">Sensibilità beat</div>
+          <div className="u-row">
+            <span className="u-hint" style={{ width: '28px' }}>Min</span>
+            <input
+              type="range"
+              min={0} max={1} step={0.05}
+              value={sensitivity}
+              title="Quanto facilmente scatta il rilevamento del beat"
+              onChange={e => handleSensitivity(parseFloat(e.target.value))}
               style={{ flex: 1 }}
-            >
-              {audioActive ? 'Ferma audio' : 'Avvia audio'}
+            />
+            <span className="u-hint" style={{ width: '28px', textAlign: 'right' }}>Max</span>
+          </div>
+        </div>
+
+        {/* BPM Section */}
+        <div>
+          <div className="cat-label" style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+            BPM
+            <span style={{
+              marginLeft: '8px',
+              fontSize: '14px',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              {displayBpm}
+            </span>
+            {bpmMode === 'auto' && confidence > 0 && (
+              <span className="u-hint" style={{
+                marginLeft: '6px',
+                color: confidence > 0.5 ? 'var(--accent)' : 'var(--text-muted)',
+              }}>
+                {confidence > 0.5 ? 'agganciato' : 'rilevo…'}
+              </span>
+            )}
+            <span style={{ flex: 1 }} />
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => scaleBpm(0.5)}
+              title="Dimezza il BPM e passa a manuale — il rilevamento automatico si ferma"
+             aria-label="Dimezza il BPM e passa a manuale">
+              ×½
             </button>
             <button
-              className="btn btn-secondary"
-              onClick={refreshDevices}
-              title="Aggiorna la lista dei dispositivi"
-            >
-              Aggiorna
+              className="btn btn-secondary btn-sm"
+              onClick={() => scaleBpm(2)}
+              title="Raddoppia il BPM e passa a manuale — il rilevamento automatico si ferma"
+             aria-label="Raddoppia il BPM e passa a manuale">
+              ×2
             </button>
           </div>
 
-          {/* Input Gain — amplify weak mic signals */}
-          {audioActive && (
-            <div>
-              <div className="cat-label">Gain ingresso</div>
-              <div className="u-row">
-                <span className="u-hint" style={{ width: '18px' }}>1x</span>
-                <input
-                  type="range"
-                  min={1} max={10} step={0.5}
-                  value={inputGain}
-                  title="Amplifica i segnali deboli (es. microfono lontano)"
-                  onChange={e => handleInputGain(parseFloat(e.target.value))}
-                  style={{ flex: 1 }}
-                />
-                <NumberInput
-                  value={inputGain}
-                  min={1} max={10} step={0.5}
-                  suffix="x"
-                  onChange={handleInputGain}
-                />
-              </div>
+          {/* Mode selector */}
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+            {BPM_MODES.map(mode => (
+              <button
+                key={mode.id}
+                className={`pill${bpmMode === mode.id ? ' active' : ''}`}
+                title={mode.hint}
+                onClick={() => handleBpmMode(mode.id)}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tap button */}
+          {bpmMode === 'tap' && (
+            <button
+              className="btn btn-primary"
+              onClick={handleTap}
+              title="Batti il tempo: un click per ogni beat"
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '14px',
+                fontWeight: 700,
+                marginBottom: '4px',
+              }}
+            >
+              TAP ({manualBpm} BPM)
+            </button>
+          )}
+
+          {/* Manual BPM input */}
+          {bpmMode === 'manual' && (
+            <div className="u-row">
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleManualBpm(manualBpm - 1)}
+                title="Diminuisci il BPM di 1"
+                style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
+               aria-label="Diminuisci il BPM di 1">
+                -
+              </button>
+              <input
+                type="number"
+                min={60} max={300}
+                value={manualBpm}
+                title="BPM manuale (60-300)"
+                onChange={e => handleManualBpm(parseInt(e.target.value) || 128)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              />
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleManualBpm(manualBpm + 1)}
+                title="Aumenta il BPM di 1"
+                style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
+               aria-label="Aumenta il BPM di 1">
+                +
+              </button>
             </div>
           )}
 
-          {/* Spectrum visualizer */}
-          <canvas
-            ref={canvasRef}
-            width={296}
-            height={60}
-            style={{
-              width: '100%',
-              height: '60px',
-              borderRadius: '4px',
-              background: 'var(--bg-primary)'
-            }}
-          />
-
-          {/* Beat Sensitivity */}
-          <div>
-            <div className="cat-label">Sensibilità beat</div>
+          {/* Auto mode info + reset */}
+          {bpmMode === 'auto' && (
             <div className="u-row">
-              <span className="u-hint" style={{ width: '28px' }}>Min</span>
-              <input
-                type="range"
-                min={0} max={1} step={0.05}
-                value={sensitivity}
-                title="Quanto facilmente scatta il rilevamento del beat"
-                onChange={e => handleSensitivity(parseFloat(e.target.value))}
-                style={{ flex: 1 }}
-              />
-              <span className="u-hint" style={{ width: '28px', textAlign: 'right' }}>Max</span>
-            </div>
-          </div>
-
-          {/* BPM Section */}
-          <div>
-            <div className="cat-label" style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-              BPM
-              <span style={{
-                marginLeft: '8px',
-                fontSize: '14px',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                fontFamily: 'var(--font-mono)',
-              }}>
-                {displayBpm}
-              </span>
-              {bpmMode === 'auto' && confidence > 0 && (
-                <span className="u-hint" style={{
-                  marginLeft: '6px',
-                  color: confidence > 0.5 ? 'var(--accent)' : 'var(--text-muted)',
-                }}>
-                  {confidence > 0.5 ? 'agganciato' : 'rilevo…'}
-                </span>
-              )}
-              <span style={{ flex: 1 }} />
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => scaleBpm(0.5)}
-                title="Dimezza il BPM e passa a manuale — il rilevamento automatico si ferma"
-               aria-label="Dimezza il BPM e passa a manuale">
-                ×½
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => scaleBpm(2)}
-                title="Raddoppia il BPM e passa a manuale — il rilevamento automatico si ferma"
-               aria-label="Raddoppia il BPM e passa a manuale">
-                ×2
-              </button>
-            </div>
-
-            {/* Mode selector */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
-              {BPM_MODES.map(mode => (
+              <div className="u-hint" style={{ flex: 1 }}>
+                {audioActive
+                  ? (confidence > 0.5
+                    ? `Rilevato: ${displayBpm} BPM`
+                    : 'In ascolto…')
+                  : 'Avvia l\'audio per rilevare il BPM'}
+              </div>
+              {audioActive && (
                 <button
-                  key={mode.id}
-                  className={`pill${bpmMode === mode.id ? ' active' : ''}`}
-                  title={mode.hint}
-                  onClick={() => handleBpmMode(mode.id)}
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => engine?.audioAnalyzer.resetBpm()}
+                  title="Rileva di nuovo il BPM (usa al cambio traccia)"
                 >
-                  {mode.label}
+                  Reset
                 </button>
-              ))}
+              )}
             </div>
-
-            {/* Tap button */}
-            {bpmMode === 'tap' && (
-              <button
-                className="btn btn-primary"
-                onClick={handleTap}
-                title="Batti il tempo: un click per ogni beat"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginBottom: '4px',
-                }}
-              >
-                TAP ({manualBpm} BPM)
-              </button>
-            )}
-
-            {/* Manual BPM input */}
-            {bpmMode === 'manual' && (
-              <div className="u-row">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleManualBpm(manualBpm - 1)}
-                  title="Diminuisci il BPM di 1"
-                  style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
-                 aria-label="Diminuisci il BPM di 1">
-                  -
-                </button>
-                <input
-                  type="number"
-                  min={60} max={300}
-                  value={manualBpm}
-                  title="BPM manuale (60-300)"
-                  onChange={e => handleManualBpm(parseInt(e.target.value) || 128)}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    textAlign: 'center',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                />
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleManualBpm(manualBpm + 1)}
-                  title="Aumenta il BPM di 1"
-                  style={{ padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}
-                 aria-label="Aumenta il BPM di 1">
-                  +
-                </button>
-              </div>
-            )}
-
-            {/* Auto mode info + reset */}
-            {bpmMode === 'auto' && (
-              <div className="u-row">
-                <div className="u-hint" style={{ flex: 1 }}>
-                  {audioActive
-                    ? (confidence > 0.5
-                      ? `Rilevato: ${displayBpm} BPM`
-                      : 'In ascolto…')
-                    : 'Avvia l\'audio per rilevare il BPM'}
-                </div>
-                {audioActive && (
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => engine?.audioAnalyzer.resetBpm()}
-                    title="Rileva di nuovo il BPM (usa al cambio traccia)"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </Panel>
   )
 }

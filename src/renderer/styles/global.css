@@ -160,9 +160,7 @@ input, select {
 
 /* ---- Micro-motion (D7): one shared 140ms transition ---- */
 button, select, input, a,
-.toggle, .media-toggle, .panel-header,
-.look-slot, .media-lib-item, .simple-autovj, .simple-palette,
-.onboarding-genre, .status-dot {
+.toggle, .panel-header, .status-dot {
   transition:
     background-color var(--t-fast),
     border-color var(--t-fast),
@@ -345,6 +343,30 @@ input[type="range"]:active::-webkit-slider-thumb {
   font-size: var(--fs-xs);
   border-radius: var(--r-sm);
 }
+
+/* No surface: a button that is only its label. Was .tiny-btn, .media-remove,
+   .media-device-cancel, .look-del, .look-edit and .toast-undo, which were six
+   rules for the same idea. */
+.btn-ghost {
+  padding: 0 3px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.4;
+}
+.btn-ghost:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--text-primary); }
+.btn-ghost:disabled { opacity: 0.35; cursor: default; }
+.btn-ghost.danger { color: var(--danger); }
+.btn-ghost.danger:hover:not(:disabled) { color: var(--danger); }
+.btn-ghost.toast-action {
+  margin-left: var(--s4);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: underline;
+}
+.btn-ghost.toast-action:hover { color: var(--accent-dim); }
 
 /* ---- Effect grid button ---- */
 .fx-btn {
@@ -599,43 +621,18 @@ input[type="range"]:active::-webkit-slider-thumb {
   gap: var(--s4);
 }
 
-.simple-autovj {
-  display: flex;
-  align-items: center;
+/* Simple mode is the same row as everywhere else, with more air. */
+.row-item.lg {
   gap: 10px;
   padding: var(--s5);
   border-radius: var(--r-md);
-  cursor: pointer;
-  background: var(--bg2);
-  border: 1px solid var(--line);
 }
-.simple-autovj:hover:not(.active) {
-  background: var(--bg3);
-  border-color: var(--line-strong);
-}
-.simple-autovj.active {
-  background: var(--accent-glow);
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
-}
-.simple-autovj-title {
-  font-size: var(--fs-md);
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: var(--text-secondary);
-}
-.simple-autovj.active .simple-autovj-title { color: var(--accent); }
-.simple-autovj-sub {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  margin-top: var(--s1);
-}
+.row-item.lg.active { box-shadow: 0 0 12px rgba(0, 255, 136, 0.15); }
+.row-item.lg .row-title { font-size: var(--fs-md); font-weight: 700; letter-spacing: 1.2px; }
+.row-item.lg .row-sub { margin-top: var(--s1); }
 
-.simple-genre {
-  width: 100%;
-  padding: var(--s4);
-  font-size: var(--fs-sm);
-}
+.vj-genre { width: 100%; }
+.vj-genre.lg { padding: var(--s4); font-size: var(--fs-sm); }
 
 .simple-section {
   font-size: var(--fs-xs);
@@ -649,26 +646,6 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 
-.simple-palettes {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--s2);
-}
-.simple-palette {
-  display: flex;
-  gap: var(--s1);
-  justify-content: center;
-  padding: 7px var(--s2);
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--bg2);
-  cursor: pointer;
-}
-.simple-palette:hover:not(.active) { border-color: var(--line-strong); background: var(--bg3); }
-.simple-palette span {
-  width: 14px; height: 14px; border-radius: 3px; display: block;
-}
-.simple-palette.active { border-color: var(--accent); background: var(--accent-glow); }
 
 /* ---- Onboarding ---- */
 .onboarding-backdrop {
@@ -753,6 +730,10 @@ input[type="range"]:active::-webkit-slider-thumb {
   gap: var(--s3);
 }
 .onboarding-genre {
+  /* .btn centres its content in a row; these cards stack and read left. */
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
   padding: 10px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
@@ -1075,10 +1056,6 @@ input[type="color"]:focus {
 
 .media-device-pick button:hover { border-color: var(--line-strong); background: var(--bg3); }
 
-.media-device-pick .media-device-cancel {
-  color: var(--text-muted);
-  text-align: center;
-}
 
 .media-error {
   padding: var(--s3) var(--s4);
@@ -1112,6 +1089,7 @@ input[type="color"]:focus {
 }
 
 .media-toggle {
+  padding: 0;
   width: 28px;
   height: 14px;
   border-radius: 7px;
@@ -1156,17 +1134,6 @@ input[type="color"]:focus {
   font-size: var(--fs-xs);
   letter-spacing: 1px;
 }
-
-.media-remove {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 var(--s2);
-}
-
-.media-remove:hover { color: var(--danger); }
 
 .media-thumb {
   width: 100%;
@@ -1513,13 +1480,12 @@ input[type="color"]:focus {
 .row-item .row-sub { font-size: var(--fs-xs); color: var(--text-muted); }
 
 /* palette swatch button */
+.pal-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.pal-grid-sm { gap: var(--s1); }
+.pal-grid-md { gap: 3px; }
+.pal-grid-lg { gap: var(--s2); }
+
 .pal-btn {
-  padding: var(--s2) var(--s1) 3px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--bg2);
-  cursor: pointer;
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--s1);
@@ -1529,20 +1495,22 @@ input[type="color"]:focus {
 .pal-btn .pal-name { font-size: var(--fs-xs); color: var(--text-muted); }
 .pal-btn.active .pal-name { color: var(--accent); font-weight: 600; }
 
-/* borderless micro button (chain reorder, playlist builder) */
-.tiny-btn {
-  padding: 0 3px;
-  border: none;
-  border-radius: 2px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  line-height: 1.4;
-}
-.tiny-btn:hover:not(:disabled) { color: var(--text-primary); }
-.tiny-btn:disabled { opacity: 0.35; cursor: default; }
-.tiny-btn.danger { color: var(--danger); }
+.pal-swatches { display: flex; gap: 1px; }
+.pal-sw { display: block; border-radius: 2px; }
+
+/* The three sizes this app actually uses: the cycle chooser, the Effetti
+   panel, and Simple mode's big targets. */
+.pal-grid-sm .pal-btn { padding: var(--s1); }
+.pal-grid-sm .pal-btn:not(.active) { opacity: 0.4; }
+.pal-grid-sm .pal-sw { width: 8px; height: 8px; border-radius: 1px; }
+
+.pal-grid-md .pal-btn { padding: var(--s2) var(--s1) 3px; }
+.pal-grid-md .pal-sw { width: 12px; height: 12px; }
+
+.pal-grid-lg .pal-btn { padding: 7px var(--s2); }
+.pal-grid-lg .pal-swatches { gap: var(--s1); }
+.pal-grid-lg .pal-sw { width: 14px; height: 14px; border-radius: 3px; }
+
 
 /* NumberInput */
 .num-value {
@@ -1615,15 +1583,3 @@ input[type="color"]:focus {
 
 /* U3.4 — toast with undo action */
 .toast.toast-action { pointer-events: auto; }
-.toast-undo {
-  margin-left: var(--s4);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.toast-undo:hover { color: var(--accent-dim); }

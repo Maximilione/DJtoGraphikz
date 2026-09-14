@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { readJson, writeJson } from '../../storage'
 import type { Engine } from '@engine/Engine'
-import { usePanelCollapsed } from '../usePanelCollapsed'
+import { Panel } from '../Panel/Panel'
 
 interface DmxPanelProps {
   engine: Engine | null
@@ -28,12 +29,11 @@ const DEFAULTS: DmxConfig = {
 }
 
 function load(): DmxConfig {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } } catch { return { ...DEFAULTS } }
+  return { ...DEFAULTS, ...readJson<Partial<DmxConfig>>(STORAGE_KEY, {}) }
 }
 
 /** Audio-reactive ArtNet DMX: palette color on RGB PARs, energy on the dimmer. */
 export function DmxPanel({ engine }: DmxPanelProps) {
-  const [collapsed, toggleCollapsed] = usePanelCollapsed('dmx', true, 'right')
   const [cfg, setCfg] = useState<DmxConfig>(load)
   const cfgRef = useRef(cfg)
   cfgRef.current = cfg
@@ -41,7 +41,7 @@ export function DmxPanel({ engine }: DmxPanelProps) {
   const set = (patch: Partial<DmxConfig>) => {
     setCfg(prev => {
       const next = { ...prev, ...patch }
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch { /* quota */ }
+      writeJson(STORAGE_KEY, next)
       return next
     })
   }
@@ -100,58 +100,52 @@ export function DmxPanel({ engine }: DmxPanelProps) {
   if (!engine) return null
 
   return (
-    <div className="panel">
-      <button type="button" aria-expanded={!collapsed} className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Espandi Luci DMX' : 'Comprimi Luci DMX'}>
-        <span>Luci DMX{cfg.enabled ? ' ●' : ''}</span>
-        <span>{collapsed ? '+' : '-'}</span>
-      </button>
-      {!collapsed && (
-        <div className="u-col" style={{ gap: 8 }}>
-          <div className="u-hint">
-            ArtNet via rete (UDP :6454): PAR RGB che seguono palette ed energia. Nodo/interfaccia ArtNet richiesta.
-          </div>
-          <label className="slider-row" style={{ cursor: 'pointer' }}>
-            <span className="label">Attivo</span>
-            <input type="checkbox" checked={cfg.enabled} onChange={e => set({ enabled: e.target.checked })} />
-          </label>
-          <div className="slider-row">
-            <span className="label">Nodo IP</span>
-            <input type="text" placeholder="broadcast" value={cfg.host}
-              onChange={e => set({ host: e.target.value })}
-              style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
-          </div>
-          <div className="slider-row">
-            <span className="label">Universo</span>
-            <input type="number" min={0} max={32767} value={cfg.universe}
-              onChange={e => set({ universe: Math.max(0, +e.target.value | 0) })} style={{ width: 64 }} />
-            <span className="label" style={{ marginLeft: 8 }}>Canale</span>
-            <input type="number" min={1} max={509} value={cfg.baseChannel}
-              onChange={e => set({ baseChannel: Math.max(1, Math.min(509, +e.target.value | 0)) })} style={{ width: 64 }} />
-          </div>
-          <div className="slider-row">
-            <span className="label">Fixture</span>
-            <input type="number" min={1} max={128} value={cfg.fixtures}
-              onChange={e => set({ fixtures: Math.max(1, Math.min(128, +e.target.value | 0)) })} style={{ width: 64 }} />
-            <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={cfg.hasDimmer} onChange={e => set({ hasDimmer: e.target.checked })} />
-              <span className="label">Dimmer+RGB</span>
-            </label>
-          </div>
-          <div className="slider-row">
-            <span className="label">Dimmer da</span>
-            <select value={cfg.dimmerSource} onChange={e => set({ dimmerSource: e.target.value as DmxConfig['dimmerSource'] })}>
-              <option value="energy">Energia</option>
-              <option value="bass">Bass</option>
-              <option value="beat">Beat</option>
-              <option value="full">Fisso al massimo</option>
-            </select>
-            <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={cfg.strobeOnBeat} onChange={e => set({ strobeOnBeat: e.target.checked })} />
-              <span className="label">Flash sul beat</span>
-            </label>
-          </div>
+    <Panel id="dmx" title="Luci DMX" defaultCollapsed group="right" active={cfg.enabled}>
+      <div className="u-col" style={{ gap: 8 }}>
+        <div className="u-hint">
+          ArtNet via rete (UDP :6454): PAR RGB che seguono palette ed energia. Nodo/interfaccia ArtNet richiesta.
         </div>
-      )}
-    </div>
+        <label className="slider-row" style={{ cursor: 'pointer' }}>
+          <span className="label">Attivo</span>
+          <input type="checkbox" checked={cfg.enabled} onChange={e => set({ enabled: e.target.checked })} />
+        </label>
+        <div className="slider-row">
+          <span className="label">Nodo IP</span>
+          <input type="text" placeholder="broadcast" value={cfg.host}
+            onChange={e => set({ host: e.target.value })}
+            style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
+        </div>
+        <div className="slider-row">
+          <span className="label">Universo</span>
+          <input type="number" min={0} max={32767} value={cfg.universe}
+            onChange={e => set({ universe: Math.max(0, +e.target.value | 0) })} style={{ width: 64 }} />
+          <span className="label" style={{ marginLeft: 8 }}>Canale</span>
+          <input type="number" min={1} max={509} value={cfg.baseChannel}
+            onChange={e => set({ baseChannel: Math.max(1, Math.min(509, +e.target.value | 0)) })} style={{ width: 64 }} />
+        </div>
+        <div className="slider-row">
+          <span className="label">Fixture</span>
+          <input type="number" min={1} max={128} value={cfg.fixtures}
+            onChange={e => set({ fixtures: Math.max(1, Math.min(128, +e.target.value | 0)) })} style={{ width: 64 }} />
+          <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={cfg.hasDimmer} onChange={e => set({ hasDimmer: e.target.checked })} />
+            <span className="label">Dimmer+RGB</span>
+          </label>
+        </div>
+        <div className="slider-row">
+          <span className="label">Dimmer da</span>
+          <select value={cfg.dimmerSource} onChange={e => set({ dimmerSource: e.target.value as DmxConfig['dimmerSource'] })}>
+            <option value="energy">Energia</option>
+            <option value="bass">Bass</option>
+            <option value="beat">Beat</option>
+            <option value="full">Fisso al massimo</option>
+          </select>
+          <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={cfg.strobeOnBeat} onChange={e => set({ strobeOnBeat: e.target.checked })} />
+            <span className="label">Flash sul beat</span>
+          </label>
+        </div>
+      </div>
+    </Panel>
   )
 }

@@ -1,4 +1,5 @@
 import type { EffectId, PostId, TransitionType } from '@engine/Engine'
+import type { Genre } from '@engine/AutoVJ'
 
 /**
  * The single catalog of everything the user picks by name: effects, post-FX,
@@ -165,4 +166,22 @@ export const TRANSITIONS: { id: TransitionType; label: string; short: string }[]
   { id: 'wipe-down', label: 'Tendina ↓', short: 'Tend.↓' },
   { id: 'radial', label: 'A cerchio', short: 'Cerchio' },
   { id: 'dissolve', label: 'A grana', short: 'Grana' },
+]
+
+/**
+ * The ten genres, named once. Simple mode listed them from `GENRE_CONFIGS`
+ * with bare labels while the Auto VJ panel kept its own array with one-line
+ * descriptions — the same ten, described in one place and not the other.
+ */
+export const GENRES: { id: Genre; label: string; desc: string }[] = [
+  { id: 'acid-techno', label: 'Acid Techno', desc: 'Veloce, psichedelico, neon' },
+  { id: 'hard-tekno', label: 'Hard Tekno', desc: 'Aggressivo, intenso, cambi rapidi' },
+  { id: 'dark-industrial', label: 'Dark Industrial', desc: 'Glitch, monocromo, digitale' },
+  { id: 'minimal-hypnotic', label: 'Minimal', desc: 'Lento, fluido, ipnotico' },
+  { id: 'trance', label: 'Trance', desc: 'Colorato, morbido, sognante' },
+  { id: 'drum-n-bass', label: 'Drum & Bass', desc: 'Rapido, energico, particelle' },
+  { id: 'ambient', label: 'Ambient', desc: 'Calmo, fluido, colori tenui' },
+  { id: 'gabber', label: 'Gabber', desc: 'Caos totale, glitch, velocissimo' },
+  { id: 'tech-house', label: 'Tech House', desc: 'Groove caldo, geometrie morbide' },
+  { id: 'psytrance', label: 'Psytrance', desc: 'Frattali, caleidoscopi, acidissimo' },
 ]

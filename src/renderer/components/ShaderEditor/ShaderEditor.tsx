@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
-import { ParamControls } from '../ParamControls/ParamControls'
 import { loadISF } from '@engine/IsfLoader'
 import { loadShadertoy } from '@engine/ShadertoyLoader'
-import { usePanelCollapsed } from '../usePanelCollapsed'
+import { Panel } from '../Panel/Panel'
 
 interface ShaderEditorProps {
   engine: Engine | null
@@ -275,7 +274,6 @@ void main() {
 ]
 
 export function ShaderEditor({ engine }: ShaderEditorProps) {
-  const [collapsed, toggleCollapsed] = usePanelCollapsed('shader', true, 'right')
   const [code, setCode] = useState(TEMPLATES[TEMPLATES.length - 1].code)
   const [error, setError] = useState<string | null>(null)
   const [liveMode, setLiveMode] = useState(false)
@@ -397,154 +395,148 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
   }, {} as Record<string, (typeof TEMPLATES[0] & { index: number })[]>)
 
   return (
-    <div className="panel">
-      <button type="button"
-        aria-expanded={!collapsed} className="panel-header"
-        onClick={toggleCollapsed}
-        title={collapsed ? 'Espandi Shader Editor' : 'Comprimi Shader Editor'}
-      >
-        <span>Shader Editor</span>
-        <span>{collapsed ? '+' : '-'}</span>
-      </button>
-      {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {/* Templates */}
-          <div>
-            <div className="cat-label">Template</div>
-            {Object.entries(categories).map(([cat, items]) => (
-              <div key={cat} style={{ marginBottom: '4px' }}>
-                <div className="cat-label" style={{ marginBottom: '2px' }}>{cat}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
-                  {items.map(t => (
-                    <button
-                      key={t.index}
-                      className="btn btn-secondary btn-sm"
-                      title={`Carica il template ${t.name} nell'editor`}
-                      onClick={() => loadTemplate(t.index)}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
+    <Panel id="shader" title="Shader Editor" defaultCollapsed group="right">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {/* Templates */}
+        <div>
+          <div className="cat-label">Template</div>
+          {Object.entries(categories).map(([cat, items]) => (
+            <div key={cat} style={{ marginBottom: '4px' }}>
+              <div className="cat-label" style={{ marginBottom: '2px' }}>{cat}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
+                {items.map(t => (
+                  <button
+                    key={t.index}
+                    className="btn btn-secondary btn-sm"
+                    title={`Carica il template ${t.name} nell'editor`}
+                    onClick={() => loadTemplate(t.index)}
+                  >
+                    {t.name}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-
-          {/* Code editor */}
-          <div>
-            <div className="cat-label">Codice GLSL</div>
-            <textarea
-              ref={textareaRef}
-              className={`code-edit${error ? ' error' : ''}`}
-              value={code}
-              onChange={e => setCode(e.target.value)}
-              onKeyDown={handleKeyDown}
-              spellCheck={false}
-              title="Fragment shader GLSL — Tab indenta, Shift+Tab esce dal campo"
-            />
-            <div className="u-hint" style={{ marginTop: '2px' }}>
-              {code.split('\n').length} righe
             </div>
-          </div>
-
-          {/* Error display */}
-          {error && <div className="u-error">{error}</div>}
-
-          {/* Controls */}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={applyShader}
-              title="Compila e applica lo shader"
-              style={{ flex: 1 }}
-            >
-              Applica shader
-            </button>
-            <button
-              className={`btn btn-sm ${liveMode ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setLiveMode(!liveMode)}
-              title="Applica automaticamente mentre scrivi (debounce 500ms)"
-            >
-              {liveMode ? 'Live ON' : 'Live'}
-            </button>
-          </div>
-
-          {/* Params of the active custom shader (ISF sliders end up here) */}
-          {engine?.isUsingCustomShader() && <ParamControls engine={engine} key={lastApplied} />}
-
-          {/* Save/Load */}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              title="Salva lo shader corrente come file .frag"
-              onClick={() => {
-                const blob = new Blob([code], { type: 'text/plain' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'custom-shader.frag'
-                a.click()
-                URL.revokeObjectURL(url)
-              }}
-            >
-              Esporta .frag
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              title="Carica un file .frag/.glsl nell'editor"
-              onClick={() => {
-                const input = document.createElement('input')
-                input.type = 'file'
-                input.accept = '.frag,.glsl,.txt'
-                input.onchange = async () => {
-                  const file = input.files?.[0]
-                  if (!file) return
-                  const text = await file.text()
-                  setCode(text)
-                  setError(null)
-                }
-                input.click()
-              }}
-            >
-              Importa .frag
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              onClick={importISF}
-              title="Importa un generator ISF: gli INPUTS diventano slider automatici"
-            >
-              Importa ISF
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              onClick={importShadertoy}
-              title="Importa uno Shadertoy: incolla il GLSL in un file, oppure il JSON dell'API per avere anche i Buffer A-D"
-            >
-              Importa Shadertoy
-            </button>
-          </div>
-
-          {/* Uniforms reference */}
-          <details className="u-hint">
-            <summary style={{ cursor: 'pointer', marginBottom: '3px' }} title="Uniform disponibili nello shader">Uniform disponibili</summary>
-            <div style={{ fontFamily: 'var(--font-mono)', lineHeight: '1.6', paddingLeft: '8px' }}>
-              <div><span style={{ color: 'var(--accent)' }}>uTime</span> — float, secondi trascorsi</div>
-              <div><span style={{ color: 'var(--accent)' }}>uBass</span> — float, energia bassi 0-1</div>
-              <div><span style={{ color: 'var(--accent)' }}>uMid</span> — float, energia medi 0-1</div>
-              <div><span style={{ color: 'var(--accent)' }}>uHigh</span> — float, energia alti 0-1</div>
-              <div><span style={{ color: 'var(--accent)' }}>uEnergy</span> — float, energia totale 0-1</div>
-              <div><span style={{ color: 'var(--accent)' }}>uBeat</span> — float, 1.0 sul beat, decade</div>
-              <div><span style={{ color: 'var(--accent)' }}>uColor1..3</span> — vec3, colori palette</div>
-              <div><span style={{ color: 'var(--accent)' }}>uResolution</span> — vec2, dimensioni viewport</div>
-              <div><span style={{ color: 'var(--accent)' }}>vUv</span> — vec2, coordinate UV 0..1</div>
-            </div>
-          </details>
+          ))}
         </div>
-      )}
-    </div>
+
+        {/* Code editor */}
+        <div>
+          <div className="cat-label">Codice GLSL</div>
+          <textarea
+            ref={textareaRef}
+            className={`code-edit${error ? ' error' : ''}`}
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            onKeyDown={handleKeyDown}
+            spellCheck={false}
+            title="Fragment shader GLSL — Tab indenta, Shift+Tab esce dal campo"
+          />
+          <div className="u-hint" style={{ marginTop: '2px' }}>
+            {code.split('\n').length} righe
+          </div>
+        </div>
+
+        {/* Error display */}
+        {error && <div className="u-error">{error}</div>}
+
+        {/* Controls */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={applyShader}
+            title="Compila e applica lo shader"
+            style={{ flex: 1 }}
+          >
+            Applica shader
+          </button>
+          <button
+            className={`btn btn-sm ${liveMode ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setLiveMode(!liveMode)}
+            title="Applica automaticamente mentre scrivi (debounce 500ms)"
+          >
+            {liveMode ? 'Live ON' : 'Live'}
+          </button>
+        </div>
+
+        {/* The sliders for these params are in the Effetti panel, on the left,
+            where every other effect's params already are. Showing a second
+            copy of the same controls here meant two sliders for one value. */}
+        {engine?.isUsingCustomShader() && (
+          <div className="u-hint">I parametri dello shader sono nel pannello Effetti, a sinistra.</div>
+        )}
+
+        {/* Save/Load */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ flex: 1 }}
+            title="Salva lo shader corrente come file .frag"
+            onClick={() => {
+              const blob = new Blob([code], { type: 'text/plain' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = 'custom-shader.frag'
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+          >
+            Esporta .frag
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ flex: 1 }}
+            title="Carica un file .frag/.glsl nell'editor"
+            onClick={() => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = '.frag,.glsl,.txt'
+              input.onchange = async () => {
+                const file = input.files?.[0]
+                if (!file) return
+                const text = await file.text()
+                setCode(text)
+                setError(null)
+              }
+              input.click()
+            }}
+          >
+            Importa .frag
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ flex: 1 }}
+            onClick={importISF}
+            title="Importa un generator ISF: gli INPUTS diventano slider automatici"
+          >
+            Importa ISF
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ flex: 1 }}
+            onClick={importShadertoy}
+            title="Importa uno Shadertoy: incolla il GLSL in un file, oppure il JSON dell'API per avere anche i Buffer A-D"
+          >
+            Importa Shadertoy
+          </button>
+        </div>
+
+        {/* Uniforms reference */}
+        <details className="u-hint">
+          <summary style={{ cursor: 'pointer', marginBottom: '3px' }} title="Uniform disponibili nello shader">Uniform disponibili</summary>
+          <div style={{ fontFamily: 'var(--font-mono)', lineHeight: '1.6', paddingLeft: '8px' }}>
+            <div><span style={{ color: 'var(--accent)' }}>uTime</span> — float, secondi trascorsi</div>
+            <div><span style={{ color: 'var(--accent)' }}>uBass</span> — float, energia bassi 0-1</div>
+            <div><span style={{ color: 'var(--accent)' }}>uMid</span> — float, energia medi 0-1</div>
+            <div><span style={{ color: 'var(--accent)' }}>uHigh</span> — float, energia alti 0-1</div>
+            <div><span style={{ color: 'var(--accent)' }}>uEnergy</span> — float, energia totale 0-1</div>
+            <div><span style={{ color: 'var(--accent)' }}>uBeat</span> — float, 1.0 sul beat, decade</div>
+            <div><span style={{ color: 'var(--accent)' }}>uColor1..3</span> — vec3, colori palette</div>
+            <div><span style={{ color: 'var(--accent)' }}>uResolution</span> — vec2, dimensioni viewport</div>
+            <div><span style={{ color: 'var(--accent)' }}>vUv</span> — vec2, coordinate UV 0..1</div>
+          </div>
+        </details>
+      </div>
+    </Panel>
   )
 }

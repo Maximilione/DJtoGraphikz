@@ -1,5 +1,6 @@
 import React from 'react'
 import type { Engine } from '@engine/Engine'
+import { readJson, writeString } from './storage'
 
 /**
  * Effect thumbnails, captured lazily from the LIVE engine — no offline render
@@ -11,12 +12,10 @@ const KEY = 'djtographikz-fx-thumbs'
 const W = 128
 const H = 72
 
-let thumbs: Record<string, string> = {}
-try {
-  thumbs = JSON.parse(localStorage.getItem(KEY) || '{}')
-} catch {
-  thumbs = {} // corrupt store → start over
-}
+// A cache, so it writes with the quiet writer: a thumbnail that does not fit
+// is not worth a toast about work not being saved, and these are the fattest
+// values in the store.
+let thumbs: Record<string, string> = readJson<Record<string, string>>(KEY, {}, false)
 
 const listeners = new Set<() => void>()
 // once per effect per session — the STORED thumb still gets replaced (latest look wins)
@@ -57,7 +56,7 @@ export async function captureThumb(engine: Engine): Promise<void> {
     bmp.close()
     thumbs[id] = canvas.toDataURL('image/jpeg', 0.6)
     capturedThisSession.add(id)
-    try { localStorage.setItem(KEY, JSON.stringify(thumbs)) } catch { /* quota — keep in-memory copy */ }
+    writeString(KEY, JSON.stringify(thumbs)) // false = quota; the in-memory copy still works
     listeners.forEach(fn => fn())
   } catch { /* decode failed — skip, next effect change retries */ }
 }

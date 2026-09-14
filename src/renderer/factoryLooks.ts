@@ -1,14 +1,6 @@
 import type { Preset } from '@engine/Engine'
+import { loadLooks, persistLooks } from './looks'
 
-// Shape must match LookBank's SavedLook (not exported there — kept in sync by hand).
-interface SavedLook {
-  name: string
-  preset: Preset
-  thumb: string
-}
-
-const STORAGE_KEY = 'djtographikz-looks'
-const SLOTS = 16
 
 const GRADE = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
 
@@ -94,19 +86,12 @@ const FACTORY: Preset[] = [
  * No-op if the bank already holds anything. Returns true if seeded.
  */
 export function seedFactoryLooks(): boolean {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const arr: unknown[] = JSON.parse(raw)
-      if (Array.isArray(arr) && arr.some(Boolean)) return false
-    }
-    const looks: (SavedLook | null)[] = Array(SLOTS).fill(null)
-    FACTORY.forEach((preset, i) => {
-      looks[i] = { name: preset.name, preset, thumb: '' }
-    })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(looks))
-    return true
-  } catch {
-    return false
-  }
+  // No-op if the bank already holds anything. Reads and writes through the
+  // shared module: this file used to re-declare both the key and the shape.
+  const looks = loadLooks()
+  if (looks.some(Boolean)) return false
+  FACTORY.forEach((preset, i) => {
+    looks[i] = { name: preset.name, preset, thumb: '' }
+  })
+  return persistLooks(looks)
 }

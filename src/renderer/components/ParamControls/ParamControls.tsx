@@ -88,7 +88,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
                 onChange={v => { engine.setParamValue(def.key, v); force() }}
               />
               <button
-                className={`pm-chip ${meta.cls}${open ? ' open' : ''}`}
+                className={`btn pm-chip ${meta.cls}${open ? ' open' : ''}`}
                 onClick={() => setOpenKey(open ? null : def.key)}
                 title={mapped ? `Modulato da ${st.source} (${Math.round(st.depth * 100)}%) — tocca per modificare` : 'Non mappato — tocca per mappare all\'audio'}
               >
@@ -103,7 +103,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
                     return (
                       <button
                         key={src}
-                        className={`pm-src ${m.cls}${st.source === src ? ' on' : ''}`}
+                        className={`btn pm-src ${m.cls}${st.source === src ? ' on' : ''}`}
                         onClick={() => { engine.setParamMapping(def.key, src, st.depth || 0.5, st.lfoRate); force() }}
                       >
                         {m.label}
@@ -134,7 +134,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
                           {LFO_RATES.map(r => (
                             <button
                               key={r}
-                              className={`pm-rate${(st.lfoRate || 4) === r ? ' on' : ''}`}
+                              className={`btn pm-rate${(st.lfoRate || 4) === r ? ' on' : ''}`}
                               title={r < 1 ? `Un giro ogni ${1 / r}° di battuta` : `Un giro ogni ${r} battute`}
                               onClick={() => { engine.setParamMapping(def.key, st.source, st.depth, r); force() }}
                             >
