@@ -2,6 +2,22 @@ import React, { useEffect, useState } from 'react'
 
 // Tiny module-level toast bus: pushToast() works from anywhere (no context,
 // no store) and the single <Toasts /> instance subscribes.
+//
+// The audit counted four ways of telling the user something and called them a
+// repeated pattern. They are four different jobs, and the boundary is written
+// here so a fifth does not grow:
+//
+//   toast       something just happened, it is over, and it may be undoable
+//   page banner a condition that is true right now and blocks the show —
+//               audio lost, projector black (`App.tsx`, `.audio-banner`,
+//               `.black-banner`); it stays until the condition ends
+//   inline `.u-error`  a condition attached to one panel's own input: the
+//               audio device was refused, the shader will not compile
+//   status pill live state, not a message — it never announces, it just reads
+//
+// A transient event is never a banner, and a standing condition is never a
+// toast: a toast that has already faded cannot tell you why the projector is
+// black.
 export type ToastAction = { label: string; fn: () => void }
 /**
  * Every toast used to look identical — the same green left border whether a
