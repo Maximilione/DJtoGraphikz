@@ -9,6 +9,7 @@ uniform float uBeat;
 uniform float uBeatClock;
 uniform float uBassHit;
 uniform float uHighHit;
+uniform sampler2D uSpectrum;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
@@ -68,8 +69,20 @@ void main() {
 
   // the field runs toward the camera: one `flow` world unit per beat
   float off = uBeatClock * flow + uTime * 0.02;
-  // one band per bar: the field travels `flow` per beat, so a bar is 4x that
-  float bandLen = max(0.12, flow * 4.0);
+  // one band per beat: the field travels exactly `flow` in that time. Per bar
+  // was too sparse — most of the near field fell between bands and went flat.
+  float bandLen = max(0.06, flow);
+
+  // The live spectrum, sampled once per pixel: its column depends only on
+  // screen x, which the slice loop never changes. Three taps because the raw
+  // 512 bins are noisier than the sleeve's pen.
+  float su = clamp(p.x / (aspect * 1.15) + 0.5, 0.0, 1.0);
+  float spec = texture2D(uSpectrum, vec2(su - 0.024, 0.5)).r * 0.12
+             + texture2D(uSpectrum, vec2(su - 0.011, 0.5)).r * 0.23
+             + texture2D(uSpectrum, vec2(su, 0.5)).r * 0.30
+             + texture2D(uSpectrum, vec2(su + 0.011, 0.5)).r * 0.23
+             + texture2D(uSpectrum, vec2(su + 0.024, 0.5)).r * 0.12;
+  float specRidge = spec * 1.15;
 
   float eye = EYE_Y + 0.05 * uBeat + 0.04 * sin(uTime * 0.23);
   // step in 1/z, not z: a flat plane then projects to evenly spaced screen
@@ -97,7 +110,11 @@ void main() {
     float band = flow < 0.02 ? 0.0 : exp(-pow(min(ph, 1.0 - ph) / 0.20, 2.0));
 
     vec2 tr = terrain(vec2(xw * 2.6, zw * 1.5));
-    float h = (tr.x * 1.15 + tr.y * 0.42) * win
+    // the front slices are "now": the live spectrum rides on them and melts
+    // into the procedural landscape further back. Centred a few slices in,
+    // because slice 0 projects to the very bottom edge of the frame.
+    float now = exp(-pow((fi - 7.0) / 6.5, 2.0)) * smoothstep(0.02, 0.22, uEnergy);
+    float h = (tr.x * 1.15 + tr.y * 0.42 + specRidge * now) * win
       * amp * (0.70 + band * (0.30 + 1.10 * uBass + 0.70 * uBassHit));
 
     float py = (h - eye) * FOCAL * q + HORIZON;

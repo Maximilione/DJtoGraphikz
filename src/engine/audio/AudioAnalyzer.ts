@@ -19,9 +19,14 @@ export interface AudioData {
   /** 0..1 position inside the current 4-beat bar */
   barPhase: number
   spectrum: Uint8Array
+  /** Time-domain samples, 0..255 centred on 128 — the oscilloscope trace */
+  waveform: Uint8Array
+  /** Hz per spectrum bin, so consumers can map bins to frequencies */
+  binHz: number
 }
 
 const EMPTY_SPECTRUM = new Uint8Array(128)
+const EMPTY_WAVEFORM = new Uint8Array(128).fill(128)
 
 export type BpmMode = 'auto' | 'manual' | 'tap'
 
@@ -32,6 +37,7 @@ export class AudioAnalyzer {
   private gainNode: GainNode | null = null
   private stream: MediaStream | null = null
   private freqData: Uint8Array<ArrayBuffer> = new Uint8Array(0)
+  private waveData: Uint8Array<ArrayBuffer> = new Uint8Array(0)
   private running = false
 
   // realtime-bpm-analyzer
@@ -68,7 +74,7 @@ export class AudioAnalyzer {
     sub: 0, bass: 0, mid: 0, high: 0, presence: 0,
     energy: 0, bassHit: 0, midHit: 0, highHit: 0,
     bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
-    spectrum: EMPTY_SPECTRUM
+    spectrum: EMPTY_SPECTRUM, waveform: EMPTY_WAVEFORM, binHz: 21.5
   }
 
   // Per-band onset detection — same spectral-flux idea as the beat detector,
@@ -204,6 +210,7 @@ export class AudioAnalyzer {
     }
 
     this.freqData = new Uint8Array(this.analyser.frequencyBinCount)
+    this.waveData = new Uint8Array(this.analyser.fftSize)
     this.specBuf = new Float32Array(this.analyser.frequencyBinCount)
     this.running = true
 
@@ -324,6 +331,7 @@ export class AudioAnalyzer {
     if (!this.analyser || !this.running) return this.data
 
     this.analyser.getByteFrequencyData(this.freqData)
+    this.analyser.getByteTimeDomainData(this.waveData)
 
     const sr = this.context!.sampleRate
     const binCount = this.freqData.length
@@ -399,6 +407,8 @@ export class AudioAnalyzer {
     this.data.highHit = gated * this.bandPulse[2]
 
     this.data.spectrum = this.freqData
+    this.data.waveform = this.waveData
+    this.data.binHz = binHz
 
     return this.data
   }

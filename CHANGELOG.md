@@ -2,6 +2,24 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.31.0-beta] — 2026-09-14
+
+Primo dei tre passi verso grafiche piu' complesse: gli shader non vedevano
+l'audio, ne vedevano cinque numeri. Ora vedono lo spettro.
+
+### Added
+- **`uSpectrum`**: lo spettro audio come texture disponibile a ogni shader (inclusi quelli scritti nell'editor e gli ISF importati). Una riga, 512 texel, filtrata lineare — `texture2D(uSpectrum, vec2(u, 0.5))`
+  - `.r` = magnitudine, con **u logaritmico**: `u=0` e' 20Hz, `u=1` e' 20kHz. I bin lineari sprecherebbero nove decimi della larghezza su frequenze che nessun pezzo usa e schiaccerebbero tutto il basso nei primi texel; il pack mappa per ottave e prende il **massimo** di ogni intervallo, cosi' un picco stretto sopravvive invece di essere mediato via
+  - `.g` = campione nel tempo, centrato su 0.5: la traccia dell'oscilloscopio
+  - La texture viene impacchettata una volta sola nella finestra di controllo e **i byte gia' impacchettati viaggiano nel messaggio audio IPC**: il proiettore disegna esattamente dagli stessi dati, senza un secondo pack che potrebbe divergere
+- `AudioAnalyzer` espone anche la forma d'onda (`getByteTimeDomainData`) e l'ampiezza in Hz di un bin — prima l'FFT c'era ma non usciva dall'analizzatore
+
+### Changed
+- **Pulsar** usa lo spettro vero: le creste in primo piano prendono la forma dello spettro live e si sciolgono nel terreno procedurale qualche fetta piu' indietro. Lo spettro si campiona **una volta per pixel** (la colonna dipende solo dalla x sullo schermo, che il loop delle fette non cambia), quindi cinque fetch invece di cinque per fetta
+- **Pulsar**: le fasce del kick tornano una per battuta invece che una per battuta forte — a una per battuta forte quasi tutto il primo piano cadeva fra due fasce e restava piatto
+- `docs/ARCHITECTURE.md`: la tabella degli uniform era ferma a sei voci, ora e' completa (hit per banda, fasi, `uBeatClock`, clock gated, `uSpectrum`)
+- `scripts/shader-preview.py` costruisce una texture spettro sintetica (tilt rosa, qualche parziale, un po' di rumore) cosi' l'anteprima headless non mente sugli effetti che la leggono
+
 ## [0.30.0-beta] — 2026-09-14
 
 ### Added

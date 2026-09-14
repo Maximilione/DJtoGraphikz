@@ -54,7 +54,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 - Log-scale spectral-flux beat tracking with median+MAD threshold, phase-locked loop and its own BPM estimator (100Hz timestamp grid, kick+full-band voting, genre-aware prior); auto BPM (dual estimator), tap, manual, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery if the audio device drops.
-- Extended vocabulary for shaders: per-band hits (kick/synth/hats), gated clocks, sub/presence, beat/bar phase.
+- Extended vocabulary for shaders: per-band hits (kick/synth/hats), gated clocks, sub/presence, beat/bar phase, a continuous beat clock.
+- **`uSpectrum`** — the whole spectrum as a texture, not five numbers: 512 log-spaced bins (20Hz–20kHz) plus the oscilloscope trace, same data on the projector. See `docs/ARCHITECTURE.md`.
 
 ### Media
 
