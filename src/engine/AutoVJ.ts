@@ -80,6 +80,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'dark-industrial': {
     label: 'Dark Industrial',
     scenes: [
+      { effect: 'pulsar', params: { lines: v(40), peaks: a(1.3, 'bass', 0.5), flow: v(0.5) } },
       { effect: 'glitch', params: { blocks: v(14), intensity: a(0.4, 'high', 0.6), fps: v(12) } },
       { effect: 'matrix', params: { cols: v(48), fallspeed: a(1, 'bass', 0.4), trailfade: v(0.85) } },
       { effect: 'grid', params: { density: v(1.6), fogamt: a(0.25, 'energy', 0.3), wavefreq: a(2, 'bass', 0.35) } },
@@ -109,6 +110,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'minimal-hypnotic': {
     label: 'Minimal Hypnotic',
     scenes: [
+      { effect: 'pulsar', params: { lines: v(58), peaks: a(0.9, 'energy', 0.35), flow: v(0.25) } },
       { effect: 'moire', params: { speed: v(0.7), density: v(42), moireoff: a(0.1, 'lfo-sine', 0.4, 32), rotspeed: v(0.25) } },
       { effect: 'vortex', params: { speed: v(0.7), arms: v(2), twist: v(1.6), pull: a(0.5, 'lfo-sine', 0.3, 16) } },
       { effect: 'mandala', params: { symmetry: v(8), ringfreq: a(5, 'lfo-sine', 0.3, 32) } },
@@ -227,6 +229,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'ambient': {
     label: 'Ambient',
     scenes: [
+      { effect: 'pulsar', params: { lines: v(64), peaks: a(0.7, 'lfo-sine', 0.3, 32), flow: v(0.15) } },
       { effect: 'inkflow', params: { speed: v(0.6), inkscale: v(2), flowspd: v(0.4), inkcontrast: a(1.1, 'bass', 0.3) } },
       { effect: 'ripples', params: { spreadv: v(1), heightk: a(0.8, 'bass', 0.4), sheen: v(1.3) } },
       { effect: 'fluid', params: { speed: v(0.7), zoom: v(1.1), swirl: a(1.2, 'lfo-sine', 0.3, 32) } },
