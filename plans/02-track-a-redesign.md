@@ -83,10 +83,13 @@ Le fasi A2–A4 appoggiano su questa. Farla per prima.
 
 ### Cosa implementare
 
-0. **Tetto ai trattamenti di pulsante** (ereditato da A1). Una volta che i 30
-   `div` sono diventati pulsanti, l'insieme e' definitivo: decidere il numero
-   massimo di classi di pulsante, scriverlo in un commento sopra `:root`, e
-   rientrarci. Oggi ~30.
+0. ~~**Tetto ai trattamenti di pulsante**~~ **FATTO A META', il resto passa ad
+   A4** (v0.37.0-beta). Il conteggio vero: **25 trattamenti autonomi** e solo
+   **2** costruiti su `.btn` — cioe' il sistema esiste e non lo usa quasi
+   nessuno. Il tetto e' ora un controllo eseguibile, `yarn check:buttons`, che
+   fallisce se il numero cresce. **Unirli davvero e' una decisione di
+   superficie e appartiene ad A4**: quali sono i tipi di pulsante di questa
+   app si decide insieme a quante superfici esistono, non prima.
 1. **I 30 `div` cliccabili diventano `<button>`.** Elenco completo in
    `00-allowed-apis.md` e `DESIGN-IS-2026-09-14/01-evidence.md §E3`. In ordine
    di gravità:
@@ -258,11 +261,15 @@ Le ~50 voci di gergo con la proposta di sostituzione stanno in
 3. **`ParamControls` una volta sola.** Oggi è montato due volte sulla stessa
    schermata (`EffectPanel.tsx:465`, `ShaderEditor.tsx:469`), con il pulsante
    Smart map duplicato.
-4. **Un archivio, non cinque.** 13 chiavi di localStorage, e `App.tsx:470`
+4. **Unire i trattamenti di pulsante.** Sono 25 autonomi contro 2 costruiti su
+   `.btn` (`yarn check:buttons`). Decidere i tipi di pulsante che questa app ha
+   davvero, costruirli come varianti di uno solo, e abbassare il tetto nel
+   controllo a ogni fusione.
+5. **Un archivio, non cinque.** 13 chiavi di localStorage, e `App.tsx:470`
    rilegge `'djtographikz-looks'` **con la chiave scritta a mano**, scavalcando
    `loadLooks()`. Un solo modulo di persistenza, con **una versione di schema**:
    oggi nessuna chiave ne ha una.
-5. **Anteprima che non gira a vuoto.** La finestra di controllo esegue un Engine
+6. **Anteprima che non gira a vuoto.** La finestra di controllo esegue un Engine
    WebGL completo a 58 fps con `backgroundThrottling` disattivato
    (`main/index.ts:124`, `:128`) e nessun controllo "dirty"
    (`Engine.ts:2172-2184`), anche in modalità `live` dove la barra laterale
