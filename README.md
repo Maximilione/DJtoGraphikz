@@ -38,6 +38,12 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ## Features
 
+### Interface
+
+- Three modes — **Simple**, **Pro**, **Live** — that are three views of one app: the same effect grid, the same palettes, the same Auto VJ, with more or fewer panels around them.
+- Every panel remembers whether it was open, and the right-hand column behaves as an accordion: opening one closes the others.
+- The whole app is keyboard-driven, with focus always visible.
+
 ### Visual engine
 
 - **46 GLSL effects** in 5 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.

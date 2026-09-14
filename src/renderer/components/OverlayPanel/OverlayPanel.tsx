@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
-import { usePanelCollapsed } from '../usePanelCollapsed'
 import { pushToast } from '../Toasts/Toasts'
+import { Panel } from '../Panel/Panel'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -34,7 +34,6 @@ function mimeFor(name: string): string {
 interface LibraryItem { name: string; path: string }
 
 export function OverlayPanel({ engine }: OverlayPanelProps) {
-  const [collapsed, toggleCollapsed] = usePanelCollapsed('media', false, 'right')
   const [overlays, setOverlays] = useState<OverlayItem[]>([])
   // When multiple cameras exist we show an inline picker instead of adding blindly
   // A big GIF or a long video takes seconds to decode: say so instead of
@@ -216,168 +215,158 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
   }, [engine, refresh])
 
   return (
-    <div className="panel">
-      <button type="button"
-        aria-expanded={!collapsed} className="panel-header"
-        onClick={toggleCollapsed}
-        title={collapsed ? 'Espandi pannello Media' : 'Comprimi pannello Media'}
-      >
-        <span>Media</span>
-        <span>{collapsed ? '+' : '-'}</span>
-      </button>
-      {!collapsed && (
-        <div className="u-col">
-          <div className="media-add">
-            <button onClick={importImage} disabled={busy !== null} title="Importa un'immagine o una GIF come overlay">
-              {busy === 'img' ? 'Carico…' : '🖼 Immagine/GIF'}
-            </button>
-            <button onClick={importVideo} disabled={busy !== null} title="Importa un video come overlay">
-              {busy === 'video' ? 'Carico…' : '🎬 Video'}
-            </button>
-            <button onClick={onWebcamClick} title="Aggiungi la webcam come overlay">📷 Webcam</button>
-          </div>
+    <Panel id="media" title="Media" group="right">
+      <div className="u-col">
+        <div className="media-add">
+          <button onClick={importImage} disabled={busy !== null} title="Importa un'immagine o una GIF come overlay">
+            {busy === 'img' ? 'Carico…' : '🖼 Immagine/GIF'}
+          </button>
+          <button onClick={importVideo} disabled={busy !== null} title="Importa un video come overlay">
+            {busy === 'video' ? 'Carico…' : '🎬 Video'}
+          </button>
+          <button onClick={onWebcamClick} title="Aggiungi la webcam come overlay">📷 Webcam</button>
+        </div>
 
-          {webcamChoices && (
-            <div className="media-device-pick">
-              <div className="label">Scegli la webcam</div>
-              {webcamChoices.map((cam, i) => (
-                <button
-                  key={cam.deviceId || i}
-                  onClick={() => addWebcamDevice(cam.deviceId || undefined, cam.label || undefined)}
-                >
-                  {cam.label || `Camera ${i + 1}`}
-                </button>
-              ))}
-              <button className="media-device-cancel" onClick={() => setWebcamChoices(null)}>
-                Annulla
+        {webcamChoices && (
+          <div className="media-device-pick">
+            <div className="label">Scegli la webcam</div>
+            {webcamChoices.map((cam, i) => (
+              <button
+                key={cam.deviceId || i}
+                onClick={() => addWebcamDevice(cam.deviceId || undefined, cam.label || undefined)}
+              >
+                {cam.label || `Camera ${i + 1}`}
+              </button>
+            ))}
+            <button className="btn btn-ghost btn-sm" onClick={() => setWebcamChoices(null)}>
+              Annulla
+            </button>
+          </div>
+        )}
+
+        {webcamError && <div className="media-error">{webcamError}</div>}
+
+        <div className="media-text-row">
+          <input
+            type="text"
+            placeholder="Testo overlay…"
+            title="Testo da mostrare sopra i visual (Invio per aggiungere)"
+            value={textValue}
+            onChange={e => setTextValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addText() }}
+          />
+          <input
+            type="color"
+            value={textColor}
+            onChange={e => setTextColor(e.target.value)}
+            title="Colore testo"
+          />
+          <button onClick={addText} disabled={!textValue.trim()} title="Aggiungi il testo come overlay">Aggiungi</button>
+        </div>
+
+        {library.length > 0 && (
+          <div className="media-library">
+            <div className="label">Libreria</div>
+            {library.map(item => (
+              <LibraryRow
+                key={item.path}
+                item={item}
+                onAdd={() => addFromLibrary(item)}
+                onDelete={() => deleteFromLibrary(item)}
+              />
+            ))}
+          </div>
+        )}
+
+        {overlays.length === 0 && (
+          <div className="media-empty">
+            Nessun media. Aggiungi un'immagine, un video o la webcam.
+          </div>
+        )}
+
+        {overlays.map(overlay => (
+          <div key={overlay.id} className="media-card">
+            <div className="media-card-header">
+              <button type="button" aria-pressed={overlay.visible}
+                className={`btn media-toggle${overlay.visible ? ' on' : ''}`}
+                onClick={() => updateOverlay(overlay.id, { visible: !overlay.visible })}
+                title={overlay.visible ? 'Nascondi' : 'Mostra'}
+              />
+              <span className="media-name">{overlay.name}</span>
+              <span className="media-badge">{mediaBadge(overlay)}</span>
+              <button
+                className="btn btn-ghost btn-sm danger"
+                onClick={() => removeOverlay(overlay.id)}
+                title="Rimuovi media"
+               aria-label="Rimuovi media">
+                x
               </button>
             </div>
-          )}
 
-          {webcamError && <div className="media-error">{webcamError}</div>}
+            {overlay.dataUrl ? (
+              <img className="media-thumb" src={overlay.dataUrl} />
+            ) : overlay._video ? (
+              <VideoThumb video={overlay._video} />
+            ) : null}
 
-          <div className="media-text-row">
-            <input
-              type="text"
-              placeholder="Testo overlay…"
-              title="Testo da mostrare sopra i visual (Invio per aggiungere)"
-              value={textValue}
-              onChange={e => setTextValue(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addText() }}
-            />
-            <input
-              type="color"
-              value={textColor}
-              onChange={e => setTextColor(e.target.value)}
-              title="Colore testo"
-            />
-            <button onClick={addText} disabled={!textValue.trim()} title="Aggiungi il testo come overlay">Aggiungi</button>
-          </div>
-
-          {library.length > 0 && (
-            <div className="media-library">
-              <div className="label">Libreria</div>
-              {library.map(item => (
-                <LibraryRow
-                  key={item.path}
-                  item={item}
-                  onAdd={() => addFromLibrary(item)}
-                  onDelete={() => deleteFromLibrary(item)}
-                />
-              ))}
-            </div>
-          )}
-
-          {overlays.length === 0 && (
-            <div className="media-empty">
-              Nessun media. Aggiungi un'immagine, un video o la webcam.
-            </div>
-          )}
-
-          {overlays.map(overlay => (
-            <div key={overlay.id} className="media-card">
-              <div className="media-card-header">
-                <button type="button" aria-pressed={overlay.visible}
-                  className={`media-toggle${overlay.visible ? ' on' : ''}`}
-                  onClick={() => updateOverlay(overlay.id, { visible: !overlay.visible })}
-                  title={overlay.visible ? 'Nascondi' : 'Mostra'}
-                />
-                <span className="media-name">{overlay.name}</span>
-                <span className="media-badge">{mediaBadge(overlay)}</span>
-                <button
-                  className="media-remove"
-                  onClick={() => removeOverlay(overlay.id)}
-                  title="Rimuovi media"
-                 aria-label="Rimuovi media">
-                  x
-                </button>
-              </div>
-
-              {overlay.dataUrl ? (
-                <img className="media-thumb" src={overlay.dataUrl} />
-              ) : overlay._video ? (
-                <VideoThumb video={overlay._video} />
-              ) : null}
-
-              {/* GIF Sync Mode — only for GIFs */}
-              {overlay._isGif && (
-                <div>
-                  <div className="label">GIF Sync</div>
-                  <div className="media-seg">
-                    {SYNC_MODES.map(mode => (
-                      <button
-                        key={mode.id}
-                        className={overlay.gifSync === mode.id ? 'active' : ''}
-                        title={mode.id === 'beat' ? 'GIF avanza sul beat' : mode.id === 'bpm' ? 'GIF sincronizzata al BPM' : 'GIF a velocità propria'}
-                        onClick={() => updateOverlay(overlay.id, { gifSync: mode.id })}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
+            {/* GIF Sync Mode — only for GIFs */}
+            {overlay._isGif && (
+              <div>
+                <div className="label">GIF Sync</div>
+                <div className="media-seg">
+                  {SYNC_MODES.map(mode => (
+                    <button
+                      key={mode.id}
+                      className={overlay.gifSync === mode.id ? 'active' : ''}
+                      title={mode.id === 'beat' ? 'GIF avanza sul beat' : mode.id === 'bpm' ? 'GIF sincronizzata al BPM' : 'GIF a velocità propria'}
+                      onClick={() => updateOverlay(overlay.id, { gifSync: mode.id })}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              <SliderRow
-                label="Opacità"
-                value={overlay.opacity}
-                min={0} max={1} step={0.05}
-                onChange={v => updateOverlay(overlay.id, { opacity: v })}
-              />
+            <SliderRow
+              label="Opacità"
+              value={overlay.opacity}
+              min={0} max={1} step={0.05}
+              onChange={v => updateOverlay(overlay.id, { opacity: v })}
+            />
 
-              <SliderRow
-                label="Scala"
-                value={overlay.scale}
-                min={0.05} max={2} step={0.05}
-                onChange={v => updateOverlay(overlay.id, { scale: v })}
-              />
+            <SliderRow
+              label="Scala"
+              value={overlay.scale}
+              min={0.05} max={2} step={0.05}
+              onChange={v => updateOverlay(overlay.id, { scale: v })}
+            />
 
-              <SliderRow
-                label="Offset X"
-                value={overlay.offsetX}
-                min={-0.5} max={0.5} step={0.01}
-                onChange={v => updateOverlay(overlay.id, { offsetX: v })}
-              />
+            <SliderRow
+              label="Offset X"
+              value={overlay.offsetX}
+              min={-0.5} max={0.5} step={0.01}
+              onChange={v => updateOverlay(overlay.id, { offsetX: v })}
+            />
 
-              <SliderRow
-                label="Offset Y"
-                value={overlay.offsetY}
-                min={-0.5} max={0.5} step={0.01}
-                onChange={v => updateOverlay(overlay.id, { offsetY: v })}
-              />
+            <SliderRow
+              label="Offset Y"
+              value={overlay.offsetY}
+              min={-0.5} max={0.5} step={0.01}
+              onChange={v => updateOverlay(overlay.id, { offsetY: v })}
+            />
 
-              {/* Displacement: the overlay warps the visuals instead of covering them */}
-              <SliderRow
-                label="Displace"
-                value={overlay.displace}
-                min={0} max={0.5} step={0.01}
-                onChange={v => updateOverlay(overlay.id, { displace: v })}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            {/* Displacement: the overlay warps the visuals instead of covering them */}
+            <SliderRow
+              label="Displace"
+              value={overlay.displace}
+              min={0} max={0.5} step={0.01}
+              onChange={v => updateOverlay(overlay.id, { displace: v })}
+            />
+          </div>
+        ))}
+      </div>
+    </Panel>
   )
 }
 
@@ -407,14 +396,14 @@ function LibraryRow({ item, onAdd, onDelete }: {
 
   return (
     <div className="media-lib-row">
-      <button type="button" className="media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
+      <button type="button" className="btn media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
         {isImage
           ? (thumb ? <img className="media-lib-thumb" src={thumb} /> : <span className="media-lib-icon">🖼</span>)
           : <span className="media-lib-icon">🎬</span>}
         <span className="media-lib-name">{item.name}</span>
         <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
       </button>
-      <button className="media-remove" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
+      <button className="btn btn-ghost btn-sm danger" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
     </div>
   )
 }
