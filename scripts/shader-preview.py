@@ -31,6 +31,14 @@ TONE = ("\nvec4 djgTone(vec3 c, float a) {\n"
         "}\n")
 
 
+def to_es300_vert(src: str) -> str:
+    """three.js rewrites attribute/varying for WebGL2; the preview must match."""
+    src = (src.replace("attribute", "in").replace("varying", "out")
+              .replace("texture2D(", "texture("))
+    src = re.sub(r"^\s*precision[^;]*;\s*$", "", src, count=1, flags=re.M)
+    return "#version 300 es\nprecision highp float;\n" + src
+
+
 def to_es300(frag: str, tone: bool) -> str:
     """three.js compiles our shaders as GLSL ES 3.00 on WebGL2 — do the same or
     the preview silently lies (fwidth() used to come back white)."""
@@ -56,7 +64,13 @@ def effect_params(effect: str) -> str:
 
 
 def build_page(effect: str, t: float, audio: list[float]) -> pathlib.Path:
-    main = to_es300((REPO / f"src/engine/shaders/{effect}.frag").read_text(), tone=True)
+    vert_path = REPO / f"src/engine/shaders/{effect}.vert"
+    points = vert_path.exists()
+    # a point cloud is blended additively into a float buffer and tone mapped
+    # once at the end, the way the app's master stage does it — tone mapping
+    # each sprite instead would wash the whole swarm out
+    main = to_es300((REPO / f"src/engine/shaders/{effect}.frag").read_text(), tone=not points)
+    vert = to_es300_vert(vert_path.read_text()) if points else None
     sim_path = REPO / f"src/engine/shaders/{effect}.sim.frag"
     sim = to_es300(sim_path.read_text(), tone=False) if sim_path.exists() else None
 
@@ -67,14 +81,21 @@ def build_page(effect: str, t: float, audio: list[float]) -> pathlib.Path:
         "beat": beat, "bassHit": bass_hit,
         "iters": int(os.environ.get("DJG_ITERS", 8)),
         "scale": float(os.environ.get("DJG_SCALE", 0.35)),
+        "vert": vert,
+        "side": int(os.environ.get("DJG_SIDE", 256)),
+        "w": int(os.environ.get("DJG_W", 960)), "h": int(os.environ.get("DJG_H", 540)),
+        # the sim's buffer letter, so the preview binds the same uniform names
+        "buf": (re.search(r"uniform sampler2D tBuffer(\w+)", sim).group(1) if sim else "A"),
     }
 
     html = """<!DOCTYPE html><html><body style="margin:0">
-<canvas id="c" width="960" height="540"></canvas>
+<canvas id="c"></canvas>
 <script>
 const CFG = __CFG__;
-const W = 960, H = 540;
-const gl = document.getElementById('c').getContext('webgl2');
+const W = CFG.w, H = CFG.h;
+const canvas = document.getElementById('c');
+canvas.width = W; canvas.height = H;
+const gl = canvas.getContext('webgl2');
 gl.getExtension('EXT_color_buffer_float');
 const vs = `#version 300 es
 in vec2 p; out vec2 vUv;
@@ -89,9 +110,15 @@ function sh(type, src) {
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) fail('COMPILE ERROR\\n' + gl.getShaderInfoLog(s));
   return s;
 }
-function program(fsSrc) {
+const TONE_GLSL = `vec4 djgTone(vec3 c, float a) {
+  c *= 1.1;
+  c = (c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14);
+  return vec4(clamp(c, 0.0, 1.0), a);
+}`;
+let SIMTEX = null, SIMW = 0, SIMH = 0;
+function program(fsSrc, vsSrc) {
   const p = gl.createProgram();
-  gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vsSrc || vs));
   gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc));
   gl.linkProgram(p);
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) fail('LINK ERROR\\n' + gl.getProgramInfoLog(p));
@@ -153,18 +180,25 @@ function attrib(p) {
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 }
 
-const mainProg = program(CFG.main);
+// in points mode the visible fragment shader belongs to the point program:
+// linking it against the fullscreen vertex shader is a varying mismatch
+const mainProg = CFG.vert ? null : program(CFG.main);
 
 // ---- simulation passes, ping-ponged into half-float buffers ----
 if (CFG.sim) {
-  const SW = Math.max(2, Math.round(W * CFG.scale)), SH = Math.max(2, Math.round(H * CFG.scale));
+  const SW = CFG.vert ? CFG.side : Math.max(2, Math.round(W * CFG.scale));
+  const SH = CFG.vert ? CFG.side : Math.max(2, Math.round(H * CFG.scale));
   const simProg = program(CFG.sim);
   const make = () => {
     const tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE3);   // scratch unit: unit 0 holds the spectrum
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, SW, SH, 0, gl.RGBA, gl.HALF_FLOAT, null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // a point cloud's buffer holds one particle per texel: interpolating it
+    // blends two particles together, and spreads any bad value to its neighbours
+    const f = CFG.vert ? gl.NEAREST : gl.LINEAR;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     const fb = gl.createFramebuffer();
@@ -180,30 +214,81 @@ if (CFG.sim) {
     for (let i = 0; i < CFG.iters; i++) {
       setCommon(simProg, f / 60.0);
       u2(simProg, 'uResolution', SW, SH);
-      u2(simProg, 'uBufferASize', SW, SH);
+      u2(simProg, 'uBuffer' + CFG.buf + 'Size', SW, SH);
       u1(simProg, 'uFrame', f);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, read.tex);
-      ui(simProg, 'tBufferA', 1);
+      ui(simProg, 'tBuffer' + CFG.buf, 1);
       gl.bindFramebuffer(gl.FRAMEBUFFER, write.fb);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       const t = read; read = write; write = t;
     }
   }
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  SIMTEX = read.tex; SIMW = SW; SIMH = SH;
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, read.tex);
-  setCommon(mainProg, T);
-  ui(mainProg, 'tBufferA', 1);
-  u2(mainProg, 'uBufferASize', SW, SH);
+  if (mainProg) {
+    setCommon(mainProg, T);
+    ui(mainProg, 'tBuffer' + CFG.buf, 1);
+    u2(mainProg, 'uBuffer' + CFG.buf + 'Size', SW, SH);
+  }
 }
 
-setCommon(mainProg, T);
-if (CFG.sim) { ui(mainProg, 'tBufferA', 1); }
-u2(mainProg, 'uResolution', W, H);
-attrib(mainProg);
-gl.viewport(0, 0, W, H);
-gl.drawArrays(gl.TRIANGLES, 0, 3);
+if (CFG.vert) {
+  // point cloud: additive into a float buffer, then one tone-map pass out
+  const pointsProg = program(CFG.main, CFG.vert);
+  const N = CFG.side * CFG.side;   // indexed by gl_VertexID, no attribute
+  const acc = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, acc);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, W, H, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  const accFb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, accFb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, acc, 0);
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(pointsProg);
+  setCommon(pointsProg, T);
+  u2(pointsProg, 'uResolution', W, H);
+  u2(pointsProg, 'uBuffer' + CFG.buf + 'Size', SIMW, SIMH);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, SIMTEX);
+  ui(pointsProg, 'tBuffer' + CFG.buf, 1);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.disable(gl.DEPTH_TEST);
+  gl.drawArrays(gl.POINTS, 0, N);
+  gl.disable(gl.BLEND);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const toneProg = program(`#version 300 es
+precision highp float;
+out vec4 djgFragColor;
+in vec2 vUv;
+uniform sampler2D tSrc;
+` + TONE_GLSL + `
+void main(){ djgFragColor = djgTone(texture(tSrc, vUv).rgb, 1.0); }`);
+  gl.useProgram(toneProg);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, acc);
+  ui(toneProg, 'tSrc', 2);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  attrib(toneProg);
+  gl.viewport(0, 0, W, H);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+} else {
+  setCommon(mainProg, T);
+  if (CFG.sim) { ui(mainProg, 'tBuffer' + CFG.buf, 1); }
+  u2(mainProg, 'uResolution', W, H);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  attrib(mainProg);
+  gl.viewport(0, 0, W, H);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
 gl.finish();
 </script></body></html>"""
     html = html.replace("__CFG__", json.dumps(cfg)).replace("__PARAMS__", effect_params(effect))
@@ -220,10 +305,12 @@ def main() -> int:
     audio = [float(x) for x in sys.argv[4:10]] or [0.6, 0.4, 0.35, 0.55, 0.4, 0.5]
     if len(audio) < 6:
         audio = [0.6, 0.4, 0.35, 0.55, 0.4, 0.5]
+    cfg_w = int(os.environ.get("DJG_W", 960))
+    cfg_h = int(os.environ.get("DJG_H", 540))
     page = build_page(effect, t, audio)
     subprocess.run([CHROME, "--headless=new", "--disable-gpu-sandbox", "--no-sandbox",
                     "--use-angle=metal", f"--screenshot={out}",
-                    "--window-size=960,540", "--hide-scrollbars", f"file://{page}"],
+                    f"--window-size={cfg_w},{cfg_h}", "--hide-scrollbars", f"file://{page}"],
                    capture_output=True, timeout=120)
     print("shot:", out)
     return 0

@@ -41,6 +41,9 @@ import snowrideFrag from './shaders/snowride.frag?raw'
 import pulsarFrag from './shaders/pulsar.frag?raw'
 import reactionFrag from './shaders/reaction.frag?raw'
 import reactionSimFrag from './shaders/reaction.sim.frag?raw'
+import swarmSimFrag from './shaders/swarm.sim.frag?raw'
+import swarmVert from './shaders/swarm.vert?raw'
+import swarmFrag from './shaders/swarm.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -110,7 +113,7 @@ export type EffectId =
   | 'hexagons' | 'dna'
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
-  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction'
+  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -208,20 +211,76 @@ export interface MultiPassEffect {
    * for a simulation: its feature size is set by the grid, so a fraction of
    * the screen means the pattern gets finer on a bigger projector.
    */
-  passes: { frag: string; buffer: string; scale?: number; rows?: number }[]
+  passes: EffectPass[]
   main: string
+}
+
+export interface EffectPass {
+  frag: string
+  buffer: string
+  scale?: number
+  rows?: number
+  /** with `rows`, pins the buffer to an exact grid — a particle buffer must
+   *  keep its texel count, not follow the projector's aspect */
+  cols?: number
+  /**
+   * Point-sample the buffer. Mandatory when its texels are DATA (one particle
+   * per texel) rather than an image: with linear filtering a sample at a texel
+   * centre can still blend in a neighbour, and one bad value then spreads
+   * across the whole grid a frame at a time.
+   */
+  nearest?: boolean
+}
+
+/**
+ * An effect that draws real geometry instead of a fullscreen quad: point
+ * clouds, instanced meshes, loaded models. `build` returns the material that
+ * carries the effect uniforms (so params, audio and transitions work as
+ * usual) and the object to draw.
+ */
+export interface GeometryEffect {
+  passes?: EffectPass[]
+  build(uniforms: Record<string, THREE.IUniform>): {
+    material: THREE.ShaderMaterial
+    object: THREE.Object3D
+  }
 }
 
 /** Simulation buffers of one effect instance, ping-ponged once per frame */
 interface PassChain {
-  defs: MultiPassEffect['passes']
+  defs: EffectPass[]
   materials: THREE.ShaderMaterial[]
   sizes: THREE.Vector2[]
-  buffers: Map<string, { read: THREE.WebGLRenderTarget; write: THREE.WebGLRenderTarget; scale: number; rows: number }>
+  buffers: Map<string, { read: THREE.WebGLRenderTarget; write: THREE.WebGLRenderTarget; scale: number; rows: number; cols: number }>
   frames: number
 }
 
-const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect> = {
+/**
+ * A grid of points whose positions live in a simulation buffer. The vertex
+ * shader fetches each particle's position from the texture, so the CPU never
+ * touches a vertex and the count costs nothing per frame.
+ */
+function buildPointCloud(uniforms: Record<string, THREE.IUniform>, side: number,
+                         vert: string, frag: string) {
+  const geometry = new THREE.BufferGeometry()
+  // three counts the vertices of a Points from `position`, and draws nothing at
+  // all without it. The coordinates come from the simulation buffer in the
+  // vertex shader, indexed by gl_VertexID, so this attribute carries no data —
+  // it only says how many particles there are.
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(side * side * 3), 3))
+  // every particle is placed by the vertex shader, so the bounding sphere three
+  // would compute from aIndex is meaningless — frustum culling must be off
+  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6)
+  const material = new THREE.ShaderMaterial({
+    vertexShader: vert, fragmentShader: frag, uniforms,
+    blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true,
+  })
+  const object = new THREE.Points(geometry, material)
+  object.frustumCulled = false
+  return { material, object }
+}
+
+const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect> = {
   tunnel: tunnelFrag,
   kaleidoscope: kaleidoscopeFrag,
   warp: warpFrag,
@@ -266,6 +325,13 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect> = {
     // output — the same effect would not look like itself on a 4K wall
     passes: Array.from({ length: 8 }, () => ({ frag: reactionSimFrag, buffer: 'A', rows: 360 })),
     main: reactionFrag,
+  },
+  swarm: {
+    // 192x192 texels = 36,864 particles on a fixed grid: the count must not
+    // change with the projector's aspect ratio. 65k turned the frame into even
+    // dust at 1080p — the density is the look, not the number.
+    passes: [{ frag: swarmSimFrag, buffer: 'P', rows: 192, cols: 192, nearest: true }],
+    build: (u) => buildPointCloud(u, 192, swarmVert, swarmFrag),
   },
 }
 
@@ -341,6 +407,8 @@ export class Engine {
   private whiteTexture: THREE.DataTexture | null = null
   /** Simulation buffers, keyed by the effect material that owns them */
   private chains = new Map<THREE.ShaderMaterial, PassChain>()
+  /** Scene of an effect that draws geometry instead of a fullscreen quad */
+  private geometries = new Map<THREE.ShaderMaterial, { scene: THREE.Scene; object: THREE.Object3D }>()
 
   // Audio spectrum as a texture: the scalars (uBass/uMid/uHigh) are five
   // numbers, this is the whole picture. 512 log-spaced bins in .r and the
@@ -682,11 +750,15 @@ export class Engine {
     // running simulation restarts — better than sampling a stale aspect ratio,
     // and a resize only happens on an output/display change.
     for (const chain of this.chains.values()) {
+      let changed = false
       for (const buf of chain.buffers.values()) {
-        const [sw, sh] = this.simSize(buf.scale, buf.rows)
+        const [sw, sh] = this.simSize(buf.scale, buf.rows, buf.cols)
+        if (sw === buf.read.width && sh === buf.read.height) continue
         buf.read.setSize(sw, sh)
         buf.write.setSize(sw, sh)
+        changed = true
       }
+      if (!changed) continue    // a fixed grid survives an output change intact
       for (let i = 0; i < chain.defs.length; i++) {
         const b = chain.buffers.get(chain.defs[i].buffer)!
         chain.sizes[i].set(b.read.width, b.read.height)
@@ -742,32 +814,47 @@ export class Engine {
     // remote/OSC commands and restored settings can all carry a stale id.
     if (!EFFECT_SHADERS[id]) id = 'tunnel'
     const def = EFFECT_SHADERS[id]
-    const multi = typeof def === 'string' ? null : def
-    const bufNames = multi ? multi.passes.map(p => p.buffer) : []
+    const geometry = typeof def === 'object' && 'build' in def ? def : null
+    const multi = typeof def === 'object' && 'main' in def ? def : null
+    const passes = geometry?.passes ?? multi?.passes ?? []
+    const uniforms = this.effectUniforms(id, passes.map(p => p.buffer), this.resolution)
 
-    const mat = new THREE.ShaderMaterial({
-      vertexShader: FULLSCREEN_VERT,
-      fragmentShader: multi ? multi.main : (def as string),
-      uniforms: this.effectUniforms(id, bufNames, this.resolution),
-    })
-    if (multi) this.chains.set(mat, this.createPassChain(id, multi))
+    let mat: THREE.ShaderMaterial
+    if (geometry) {
+      const built = geometry.build(uniforms)
+      mat = built.material
+      const scene = new THREE.Scene()
+      scene.add(built.object)
+      this.geometries.set(mat, { scene, object: built.object })
+    } else {
+      mat = new THREE.ShaderMaterial({
+        vertexShader: FULLSCREEN_VERT,
+        fragmentShader: multi ? multi.main : (def as string),
+        uniforms,
+      })
+    }
+    if (passes.length) this.chains.set(mat, this.createPassChain(id, passes))
     return mat
   }
 
   /** Allocate the simulation buffers and pass materials of a multi-pass effect */
-  private createPassChain(id: EffectId, def: MultiPassEffect): PassChain {
-    const bufNames = def.passes.map(p => p.buffer)
-    const chain: PassChain = { defs: def.passes, materials: [], sizes: [], buffers: new Map(), frames: 0 }
+  private createPassChain(id: EffectId, defs: EffectPass[]): PassChain {
+    const bufNames = defs.map(p => p.buffer)
+    const chain: PassChain = { defs, materials: [], sizes: [], buffers: new Map(), frames: 0 }
 
-    for (const pass of def.passes) {
+    for (const pass of defs) {
       if (chain.buffers.has(pass.buffer)) continue
       const scale = pass.scale ?? 1
       const rows = pass.rows ?? 0
+      const cols = pass.cols ?? 0
+      const near = pass.nearest ?? false
       chain.buffers.set(pass.buffer, {
-        read: this.createSimTarget(scale, rows), write: this.createSimTarget(scale, rows), scale, rows,
+        read: this.createSimTarget(scale, rows, cols, near),
+        write: this.createSimTarget(scale, rows, cols, near),
+        scale, rows, cols,
       })
     }
-    for (const pass of def.passes) {
+    for (const pass of defs) {
       const buf = chain.buffers.get(pass.buffer)!
       const size = new THREE.Vector2(buf.read.width, buf.read.height)
       chain.sizes.push(size)
@@ -785,11 +872,12 @@ export class Engine {
    * through 8-bit targets quantises a little every frame, and the error
    * compounds until the pattern dies or explodes.
    */
-  private createSimTarget(scale: number, rows: number): THREE.WebGLRenderTarget {
-    const [w, h] = this.simSize(scale, rows)
+  private createSimTarget(scale: number, rows: number, cols: number, nearest: boolean): THREE.WebGLRenderTarget {
+    const [w, h] = this.simSize(scale, rows, cols)
+    const filter = nearest ? THREE.NearestFilter : THREE.LinearFilter
     return new THREE.WebGLRenderTarget(w, h, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
+      minFilter: filter,
+      magFilter: filter,
       format: THREE.RGBAFormat,
       type: THREE.HalfFloatType,
       wrapS: THREE.RepeatWrapping,
@@ -804,7 +892,8 @@ export class Engine {
    * for every effect material before it is drawn — main deck, deck B, and the
    * outgoing effect during a transition.
    */
-  private simSize(scale: number, rows: number): [number, number] {
+  private simSize(scale: number, rows: number, cols: number): [number, number] {
+    if (rows > 0 && cols > 0) return [Math.max(2, cols), Math.max(2, rows)]
     if (rows > 0) {
       const aspect = this.resolution.x / Math.max(1, this.resolution.y)
       return [Math.max(2, Math.round(rows * aspect)), Math.max(2, Math.round(rows))]
@@ -854,6 +943,12 @@ export class Engine {
       for (const m of chain.materials) m.dispose()
       for (const b of chain.buffers.values()) { b.read.dispose(); b.write.dispose() }
       this.chains.delete(mat)
+    }
+    const geo = this.geometries.get(mat)
+    if (geo) {
+      geo.scene.remove(geo.object)
+      geo.object.traverse(o => (o as THREE.Mesh).geometry?.dispose())
+      this.geometries.delete(mat)
     }
     mat.dispose()
   }
@@ -2265,12 +2360,8 @@ export class Engine {
       return
     }
 
-    // Simulation passes of the active effect, if it has any
-    this.runChain(this.mainMaterial)
-
-    // Render deck A → rtA (no clear: opaque fullscreen quad)
-    this.renderer.setRenderTarget(this.rtA)
-    this.renderer.render(this.scene, this.camera)
+    // Deck A → rtA (simulation passes first, then the quad or the geometry)
+    this.renderEffect(this.mainMaterial, this.rtA)
 
     // Effect transition blending
     if (this.transitionProgress >= 0 && this.transitionOldMaterial) {
@@ -2283,14 +2374,8 @@ export class Engine {
         this.transitionProgress = -1
       } else {
         // Render old effect → rtTransition
-        this.quad.material = this.transitionOldMaterial
         this.applyEffectUniforms(this.transitionOldMaterial, time)
-        this.runChain(this.transitionOldMaterial)
-        this.renderer.setRenderTarget(this.rtTransition)
-        this.renderer.render(this.scene, this.camera)
-
-        // Restore new material
-        this.quad.material = this.mainMaterial
+        this.renderEffect(this.transitionOldMaterial, this.rtTransition)
 
         // Blend old + new → rtB, then copy back to rtA
         const tu = this.transitionMaterial.uniforms
@@ -2305,12 +2390,8 @@ export class Engine {
 
     // Deck B + crossfader
     if (this.crossfade > 0.001 && this.deckBMaterial) {
-      this.quad.material = this.deckBMaterial
       this.applyEffectUniforms(this.deckBMaterial, time)
-      this.runChain(this.deckBMaterial)
-      this.renderer.setRenderTarget(this.rtDeckB)
-      this.renderer.render(this.scene, this.camera)
-      this.quad.material = this.mainMaterial
+      this.renderEffect(this.deckBMaterial, this.rtDeckB)
 
       const du = this.deckMixMaterial.uniforms
       du.tDeckA.value = this.rtA.texture
@@ -2460,6 +2541,29 @@ export class Engine {
     if (u.uHighTime) u.uHighTime.value = this.highTime
     if (u.uResolution) u.uResolution.value = this.resolution
     if (u.uFrame) u.uFrame.value = this.frameCounter
+  }
+
+  /**
+   * Draw one effect into a target: its simulation passes first, then either the
+   * fullscreen quad or, for a geometry effect, its own scene. Every place that
+   * renders an effect goes through here — main deck, deck B, and the outgoing
+   * effect during a transition.
+   */
+  private renderEffect(mat: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget) {
+    this.runChain(mat)
+    const geo = this.geometries.get(mat)
+    this.renderer.setRenderTarget(target)
+    if (geo) {
+      // geometry leaves gaps where a fullscreen quad would have overwritten
+      // every pixel, so this one does need a clear
+      this.renderer.setClearColor(0x000000, 1)
+      this.renderer.clear(true, false, false)
+      this.renderer.render(geo.scene, this.camera)
+    } else {
+      this.quad.material = mat
+      this.renderer.render(this.scene, this.camera)
+      this.quad.material = this.mainMaterial
+    }
   }
 
   /** Render a fullscreen material into a target (null = screen) */

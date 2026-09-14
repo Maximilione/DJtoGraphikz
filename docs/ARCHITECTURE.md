@@ -211,6 +211,39 @@ reaction: {
   effect keeps simulating through a transition and deck B runs its own copy.
   Disposal goes through `disposeEffectMaterial()`.
 
+### Geometry effects
+
+An effect can draw real geometry instead of a fullscreen quad: point clouds,
+instanced meshes, loaded models. It declares a `build(uniforms)` that returns
+the material carrying the effect uniforms — so audio, palette, params and
+transitions keep working — plus the object to draw.
+
+```ts
+swarm: {
+  passes: [{ frag: swarmSimFrag, buffer: 'P', rows: 128, cols: 128 }],
+  build: (u) => buildPointCloud(u, 128, swarmVert, swarmFrag),
+}
+```
+
+Everything that renders an effect goes through `renderEffect()`: it runs the
+simulation passes, then either draws the quad or the effect's own scene. A
+geometry effect's target is cleared first — geometry leaves gaps where a
+fullscreen quad would have overwritten every pixel.
+
+`buildPointCloud` is the first user: a grid of points whose positions live in a
+simulation buffer, read by the **vertex** shader, so the particle count costs
+nothing on the CPU and nothing per frame beyond one texture fetch per vertex.
+Frustum culling is off and the bounding sphere is huge on purpose — three would
+otherwise cull the whole cloud, because the attribute data says nothing about
+where the vertices actually end up.
+
+Two things learned building it, both visible only on the projector:
+- Advection, not acceleration. A force model with an inward pull and per-frame
+  damping collapses the swarm onto the origin in about a second.
+- Density is the look. 65k sprites at 1080p is even dust; 16k with bigger dots
+  reads as a swarm. `scripts/shader-preview.py` takes `DJG_W`/`DJG_H` so this
+  can be judged at the projector's real resolution instead of guessed.
+
 Post-processing shaders receive `tDiffuse` (input texture) plus relevant audio uniforms.
 
 ## IPC Communication
