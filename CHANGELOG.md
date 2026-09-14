@@ -2,6 +2,21 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.30.0-beta] — 2026-09-14
+
+### Added
+- **Pulsar**, l'effetto delle creste dei Joy Division, fatto come si deve: non uno stack piatto di righe ma un *linescape* in prospettiva. Un unico terreno continuo viene tagliato in fette dal vicino al lontano e disegnato con rimozione delle linee nascoste vera (ogni cresta mangia quelle dietro), con i lati tenuti piatti da una finestra gaussiana — la firma della copertina. Le fette avanzano a passo costante in 1/z, cosi' le righe restano equidistanti sullo schermo e non si impastano in una barra all'orizzonte
+  - **Agganciato al tempo**: il campo scorre verso la camera a `flow` unita' per battuta usando il beat clock, e ogni battuta forte alza una fascia di creste che poi arriva addosso insieme al terreno. Il kick alza le creste, gli alti assottigliano il tratto, la camera respira sul beat
+  - Parametri: `Lines` (numero di fette), `Peaks` (altezza), `Flow` (scorrimento per battuta; a 0 il terreno si ferma e resta la copertina)
+  - In rotazione nell'AutoVJ di dark-industrial, minimal-hypnotic e ambient
+
+### Changed
+- Gli shader ricevono un nuovo uniform **`uBeatClock`**, il contatore di battute continuo che l'engine gia' teneva per gli LFO tempo-sincronizzati. Serviva a Pulsar per far scorrere il terreno a tempo invece che a orologio, ed e' disponibile a tutti gli effetti
+- `scripts/shader-preview.py` alimenta anche `uBeatClock`, `uSub` e `uPresence`, cosi' l'anteprima headless non mente piu' sugli effetti che li usano
+
+### Fixed
+- **`yarn check:output` falliva a proiettore sano**: il colpo di scena partiva 14 secondi dopo l'avvio dell'app, ma su macOS la richiesta del microfono si mangia una decina di secondi prima ancora che le finestre si aprano. La foto arrivava quando la finestra di uscita era viva da un secondo, cioe' prima del primo battito di salute (che e' ogni 5s), e il gate leggeva "nessun battito" su un'immagine perfetta. Ora il conto parte da quando il proiettore dipinge davvero
+
 ## [0.29.2-beta] — 2026-09-08
 
 Passata di caccia ai bug sul codice degli ultimi rilasci. Quattro trovati, tutti
