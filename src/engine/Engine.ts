@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
+import { splitCustomPasses } from './customPasses'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
 import kaleidoscopeFrag from './shaders/kaleidoscope.frag?raw'
@@ -833,12 +834,17 @@ export class Engine {
         uniforms,
       })
     }
-    if (passes.length) this.chains.set(mat, this.createPassChain(id, passes))
+    if (passes.length) {
+      this.chains.set(mat, this.createPassChain(passes, (b, size) => this.effectUniforms(id, b, size)))
+    }
     return mat
   }
 
   /** Allocate the simulation buffers and pass materials of a multi-pass effect */
-  private createPassChain(id: EffectId, defs: EffectPass[]): PassChain {
+  private createPassChain(
+    defs: EffectPass[],
+    makeUniforms: (buffers: string[], size: THREE.Vector2) => Record<string, THREE.IUniform>,
+  ): PassChain {
     const bufNames = defs.map(p => p.buffer)
     const chain: PassChain = { defs, materials: [], sizes: [], buffers: new Map(), frames: 0 }
 
@@ -861,7 +867,7 @@ export class Engine {
       chain.materials.push(new THREE.ShaderMaterial({
         vertexShader: FULLSCREEN_VERT,
         fragmentShader: pass.frag,
-        uniforms: this.effectUniforms(id, bufNames, size),
+        uniforms: makeUniforms(bufNames, size),
       }))
     }
     return chain
@@ -1168,12 +1174,10 @@ export class Engine {
     return error
   }
 
-  /** Load a custom GLSL fragment shader as the active effect */
-  setCustomShader(fragSource: string, params?: EffectParam[], imageInputs?: string[]): boolean {
-    try {
-      const defs = params ?? this.customParamDefs
-      const imgs = imageInputs ?? this.customImageInputs
-      const uniforms: Record<string, THREE.IUniform> = {
+  /** Uniform block of a custom shader pass */
+  private customUniforms(defs: EffectParam[], imgs: string[], buffers: string[],
+                         size: THREE.Vector2): Record<string, THREE.IUniform> {
+    const uniforms: Record<string, THREE.IUniform> = {
         uTime: { value: 0 },
         uBass: { value: 0 },
         uMid: { value: 0 },
@@ -1193,23 +1197,50 @@ export class Engine {
         uHighTime: { value: 0 },
         uColor1: { value: this.colors[0] },
         uColor2: { value: this.colors[1] },
-        uColor3: { value: this.colors[2] },
-        uResolution: { value: this.resolution },
-      }
-      // Custom shader params (e.g. from ISF INPUTS) become uniforms driven per-frame
-      for (const d of defs) uniforms[d.key] = { value: d.default }
-      // Image inputs: previously loaded texture or 1x1 white until the user picks one
-      for (const n of imgs) uniforms[n] = { value: this.customTextures[n] ?? this.getWhiteTexture() }
+      uColor3: { value: this.colors[2] },
+      uResolution: { value: size },
+      uFrame: { value: 0 },
+    }
+    // Custom shader params (e.g. from ISF INPUTS) become uniforms driven per-frame
+    for (const d of defs) uniforms[d.key] = { value: d.default }
+    // Image inputs: previously loaded texture or 1x1 white until the user picks one
+    for (const n of imgs) uniforms[n] = { value: this.customTextures[n] ?? this.getWhiteTexture() }
+    for (const n of buffers) {
+      uniforms[`tBuffer${n}`] = { value: null }
+      uniforms[`uBuffer${n}Size`] = { value: new THREE.Vector2(1, 1) }
+    }
+    return uniforms
+  }
+
+  /** Load a custom GLSL fragment shader as the active effect */
+  setCustomShader(fragSource: string, params?: EffectParam[], imageInputs?: string[]): boolean {
+    try {
+      const defs = params ?? this.customParamDefs
+      const imgs = imageInputs ?? this.customImageInputs
+      const parts = splitCustomPasses(fragSource)
+      const bufPasses: EffectPass[] = parts.slice(0, -1).map(p => ({ frag: p.frag, buffer: p.buffer }))
+      const bufNames = bufPasses.map(p => p.buffer)
+
       const mat = new THREE.ShaderMaterial({
         vertexShader: FULLSCREEN_VERT,
-        fragmentShader: fragSource,
-        uniforms,
+        fragmentShader: parts[parts.length - 1].frag,
+        uniforms: this.customUniforms(defs, imgs, bufNames, this.resolution),
       })
 
+      // Every pass is compiled and validated BEFORE anything is swapped in: a
+      // broken buffer pass must leave the projector on the shader it had
+      const chain = bufPasses.length
+        ? this.createPassChain(bufPasses, (b, size) => this.customUniforms(defs, imgs, b, size))
+        : null
       this.lastShaderError = this.validateMaterial(mat)
+        || (chain ? chain.materials.map(m => this.validateMaterial(m)).find(e => e) ?? null : null)
       if (this.lastShaderError) {
         console.error('[Engine] Custom shader rejected:', this.lastShaderError)
         mat.dispose()
+        if (chain) {
+          for (const m of chain.materials) m.dispose()
+          for (const b of chain.buffers.values()) { b.read.dispose(); b.write.dispose() }
+        }
         return false
       }
 
@@ -1217,6 +1248,7 @@ export class Engine {
       this.cancelCurrentTransition()
       this.disposeEffectMaterial(this.mainMaterial)
       this.mainMaterial = mat
+      if (chain) this.chains.set(mat, chain)
       this.quad.material = this.mainMaterial
       this.customParamDefs = defs
       this.customImageInputs = imgs
@@ -1332,6 +1364,12 @@ export class Engine {
       this.customTextures[name]?.dispose()
       this.customTextures[name] = tex
       if (this.usingCustom) {
+        // a multi-pass custom shader reads the picture in its buffer passes too
+        const chain = this.chains.get(this.mainMaterial)
+        for (const m of chain?.materials ?? []) {
+          const cu = m.uniforms[name]
+          if (cu) cu.value = tex
+        }
         const u = (this.mainMaterial as THREE.ShaderMaterial).uniforms[name]
         if (u) u.value = tex
       }

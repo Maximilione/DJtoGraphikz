@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
 import { ParamControls } from '../ParamControls/ParamControls'
 import { loadISF } from '@engine/IsfLoader'
+import { loadShadertoy } from '@engine/ShadertoyLoader'
 import { usePanelCollapsed } from '../usePanelCollapsed'
 
 interface ShaderEditorProps {
@@ -343,6 +344,31 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
     input.click()
   }, [engine])
 
+  // Import a Shadertoy shader: raw GLSL (one pass) or the API JSON (Buffer A-D)
+  const importShadertoy = useCallback(() => {
+    if (!engine) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.glsl,.frag,.txt,.json'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const res = loadShadertoy(await file.text(), file.name)
+      if ('error' in res) {
+        setError(`Shadertoy: ${res.error}`)
+        return
+      }
+      setError(res.warnings.length ? `Shadertoy: ${res.warnings.join(', ')}` : null)
+      if (engine.setCustomShader(res.fragment, res.params, res.imageInputs)) {
+        setCode(res.fragment)
+        setLastApplied(res.fragment)
+      } else {
+        setError(`Shadertoy: ${engine.getLastShaderError() || 'compilazione fallita'}`)
+      }
+    }
+    input.click()
+  }, [engine])
+
   // Handle tab key in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -487,6 +513,14 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
               title="Importa un generator ISF: gli INPUTS diventano slider automatici"
             >
               Importa ISF
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ flex: 1 }}
+              onClick={importShadertoy}
+              title="Importa uno Shadertoy: incolla il GLSL in un file, oppure il JSON dell'API per avere anche i Buffer A-D"
+            >
+              Importa Shadertoy
             </button>
           </div>
 
