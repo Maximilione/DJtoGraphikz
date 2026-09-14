@@ -1464,6 +1464,11 @@ input[type="color"]:focus {
 
 /* selectable list row with title + subtitle (genres, post FX, presets) */
 .row-item {
+  /* A row reads left: the browser centres a button's text, and .btn does not
+     undo it. Without this the title sits in the middle of a full-width row
+     with the toggle stranded at the edge. */
+  justify-content: flex-start;
+  text-align: left;
   display: flex;
   align-items: center;
   gap: var(--s3);
