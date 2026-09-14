@@ -201,4 +201,9 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'coils', label: 'Coils', min: 3, max: 16, default: 8 },
     { key: 'amp', label: 'Width', min: 0.05, max: 0.3, default: 0.12 },
   ],
+  pulsar: [
+    { key: 'lines', label: 'Lines', min: 16, max: 72, default: 46 },
+    { key: 'peaks', label: 'Peaks', min: 0.2, max: 2.5, default: 1 },
+    { key: 'flow', label: 'Flow', min: 0, max: 1.5, default: 0.35 },
+  ],
 }
