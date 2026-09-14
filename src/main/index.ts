@@ -307,11 +307,16 @@ app.whenReady().then(async () => {
       } catch (err) { console.error('[SelfTest] salvataggio fallito:', err) }
       setTimeout(() => app.quit(), 300)
     })
-    setTimeout(() => {
+    // Count from the moment the projector actually paints, not from app start:
+    // the macOS microphone prompt can eat ten seconds before any window opens,
+    // and the shot then landed before the output window had lived long enough
+    // to log a single 5s heartbeat — which the gate reads as a failure.
+    const shoot = () => setTimeout(() => {
       if (outputWindow && !outputWindow.isDestroyed()) outputWindow.webContents.send('selftest:shot')
       else { console.error('[SelfTest] nessuna finestra output'); app.quit() }
-    }, 14000)
-    setTimeout(() => { console.error('[SelfTest] timeout'); app.quit() }, 25000)
+    }, 8000)
+    ipcMain.once('output:painted', shoot)
+    setTimeout(() => { console.error('[SelfTest] timeout'); app.quit() }, 45000)
   }
   // On macOS, request microphone access at OS level before anything else
   if (process.platform === 'darwin') {
