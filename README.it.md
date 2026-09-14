@@ -40,7 +40,8 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Motore visivo
 
-- **35 effetti GLSL** in 5 categorie (Geometric, Organic, Motion, Digital, Videogame — le torri della PS2, snowboard alla 1080°), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
+- **36 effetti GLSL** in 5 categorie (Geometric, Organic, Motion, Digital, Videogame — le torri della PS2, snowboard alla 1080°), con transizioni crossfade/wipe/radial/dissolve anche beat-synced.
+  - **Pulsar** — le creste di *Unknown Pleasures* disegnate come linescape in prospettiva: un unico terreno tagliato in fette dal vicino al lontano con rimozione delle linee nascoste, e i lati piatti come sulla copertina. Il campo scorre verso la camera agganciato al beat clock, e ogni battuta forte alza una cresta che arriva insieme al terreno.
 - **~85 parametri curati** — 2-3 slider veri per effetto (segments, density, zoom, twist…), ognuno **mappabile all'audio** (bass/mid/high/energy/beat, depth ±100%) o a un **LFO** tempo-sync (sine/saw/square, rate 1/4…32 battute).
 - **Look Bank** — griglia 4×4 con thumbnail reali: click su slot vuoto salva il look completo, click applica con transizione, hotkey Shift+1-0.
 - **Scalette** — una sequenza di look, ognuno tenuto per il suo tempo: li peschi dal Look Bank o prendi quello che c'è sullo schermo, li riordini trascinando, e a ogni passo dai i suoi secondi o le sue battute e la sua transizione. Le scalette salvate si riaprono nell'editor, girano in loop e si esportano in JSON.
