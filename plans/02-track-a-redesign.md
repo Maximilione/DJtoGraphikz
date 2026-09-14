@@ -171,6 +171,15 @@ Le fasi A2–A4 appoggiano su questa. Farla per prima.
 
 ## A3 — Una lingua sola, e dire la verità su cosa è successo
 
+### Deciso durante l'esecuzione (v0.38.0-beta)
+
+I **46 nomi di effetto e i 9 post-FX NON sono stati tradotti**, contro quanto
+diceva questa fase. Sono nomi, non descrizioni: arrivano con un'icona e una
+miniatura dal vivo, i post-FX hanno gia' un sottotitolo italiano, e tradurre
+`Matrix` o `PS2` sarebbe peggio dell'inglese. Tradotto invece tutto quello che
+e' una *descrizione*: le 91 etichette di parametro, le 16 palette, i termini di
+correzione colore, le sorgenti audio.
+
 ### Cosa implementare
 
 **Lingua** — l'interfaccia è ~268 stringhe italiane contro ~232 inglesi. Quattro
@@ -206,10 +215,12 @@ Le ~50 voci di gergo con la proposta di sostituzione stanno in
    nessuno lo dice.
 
 **Stati** — ne mancano due:
-- **Successo: non esiste.** Nessun selettore `.success`/`.ok` nei CSS. Serve la
-  severità aggiunta a `pushToast` in A1.
-- **Caricamento: esiste in un componente su 24** (`IsfBrowser`), senza spinner,
-  senza skeleton, senza `aria-busy`.
+- ~~**Successo: non esiste.**~~ **FATTO in A1** (v0.36.0-beta): `pushToast`
+  prende una severità e il verde è riservato a cio' che è riuscito.
+- **Caricamento: FATTO A META'** (v0.38.0-beta). Aggiunto sui due import di
+  media, che sono il percorso lento visibile (una GIF grande ci mette secondi).
+  Resta da fare: compilazione shader, screenshot, avvio registrazione — e
+  nessuno di questi ha ancora `aria-busy`.
 
 **Cancellazioni** — regola unica, oggi incoerente:
 - preset (`PresetPanel.tsx:385`) e scalette (`:625`): né conferma né annulla
