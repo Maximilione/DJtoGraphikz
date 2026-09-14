@@ -322,6 +322,27 @@ app.whenReady().then(async () => {
           controlWindow.webContents.setZoomFactor(1)
           controlWindow.setContentSize(w, h)
           console.log('[SelfTest] finestra di controllo salvata')
+          // How many controls does each mode actually put on screen? The audit
+          // counted them by hand once (173 / 125 / 47); counting them in the
+          // live DOM is the only way to know whether the redesign moved them.
+          // It clicks through the three modes and puts the starting one back.
+          if (process.env.DJG_SELFTEST_COUNT) {
+            const counts = await controlWindow.webContents.executeJavaScript(`(async () => {
+              const SEL = 'button, select, input, textarea, a[href], [role="button"]'
+              const modes = [...document.querySelectorAll('button')]
+                .filter(b => ['SIMPLE', 'PRO', 'LIVE'].includes(b.textContent.trim()))
+              const before = modes.find(b => b.className.includes('active'))
+              const out = {}
+              for (const m of modes) {
+                m.click()
+                await new Promise(r => setTimeout(r, 400))
+                out[m.textContent.trim()] = document.querySelectorAll(SEL).length
+              }
+              if (before) { before.click(); await new Promise(r => setTimeout(r, 200)) }
+              return out
+            })()`)
+            console.log('[SelfTest] controlli per modalita\':', JSON.stringify(counts))
+          }
         }
       } catch (err) { console.error('[SelfTest] salvataggio fallito:', err) }
       setTimeout(() => app.quit(), 300)
