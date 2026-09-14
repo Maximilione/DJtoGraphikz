@@ -2,16 +2,11 @@ import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId, BlendMode } from '@engine/Engine'
 import { BLEND_MODES } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { ALL_EFFECTS } from '../../catalog'
 
 interface DeckPanelProps {
   engine: Engine | null
 }
-
-const EFFECTS: EffectId[] = [
-  'tunnel', 'kaleidoscope', 'warp', 'plasma', 'matrix', 'voronoi', 'sacred',
-  'fractal', 'particles', 'starfield', 'metaballs', 'mandala', 'grid', 'waves',
-  'lissajous', 'fluid', 'glitch', 'rings', 'fire', 'hexagons', 'dna',
-]
 
 export function DeckPanel({ engine }: DeckPanelProps) {
   const [deckB, setDeckB] = useState<EffectId>('plasma')
@@ -58,7 +53,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
       <span className="deck-label">B</span>
 
       <select value={deckB} onChange={e => changeDeckB(e.target.value as EffectId)} title="Effetto sul deck B">
-        {EFFECTS.map(id => <option key={id} value={id}>{id}</option>)}
+        {ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>)}
       </select>
 
       <select

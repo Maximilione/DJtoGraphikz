@@ -30,7 +30,7 @@
   border-bottom: 1px solid var(--warning);
   color: var(--warning);
   font-size: 12px;
-  padding: 4px 12px;
+  padding: var(--s2) var(--s5);
 }
 
 /* U1.3 — chip stato output */
@@ -54,21 +54,26 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: var(--s3);
   z-index: 1000;
   pointer-events: none;
 }
 .toast {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--text-secondary);
   color: var(--text-primary);
-  padding: 6px 12px;
+  padding: var(--s3) var(--s5);
   border-radius: 4px;
   font-size: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   animation: toast-in 0.15s ease-out;
 }
+/* Severity: the left edge is the whole signal, so it must not be green for
+   something that failed. Neutral is the default — most toasts are just news. */
+.toast-ok { border-left-color: var(--accent); }
+.toast-err { border-left-color: var(--danger); }
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(12px); }
   to { opacity: 1; transform: none; }
@@ -82,12 +87,12 @@
 .tb-group {
   display: flex;
   align-items: center;
-  gap: var(--s2);
+  gap: var(--s4);
   min-width: 0;
 }
 .top-bar .tb-group:not(:first-child) {
   border-left: 1px solid var(--line);
-  padding-left: var(--s2);
+  padding-left: var(--s4);
 }
 
 /* D6 — occhio del logo prima del titolo */
@@ -103,16 +108,16 @@
 .output-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--s1);
+  gap: var(--s2);
 }
 
 /* U4.1 — modalità live: preview massima + striscia Look Bank sotto */
-.live-layout .preview-container { padding: var(--s3); }
+.live-layout .preview-container { padding: var(--s5); }
 .live-lookbank {
   flex-shrink: 0;
   max-height: 220px;
   overflow-y: auto;
-  padding: var(--s1);
+  padding: var(--s2);
   border-top: 1px solid var(--line);
   background: var(--bg0);
 }
@@ -134,7 +139,7 @@
 .beatflash-toggle {
   display: inline-flex;
   align-items: center;
-  gap: var(--s1);
+  gap: var(--s2);
   cursor: pointer;
   color: var(--text-muted);
   user-select: none;
@@ -145,13 +150,13 @@
 .isfb-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--s2, 8px);
+  gap: var(--s4, var(--s4));
 }
 .isfb-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px;
+  gap: var(--s2);
+  padding: var(--s3);
   background: var(--bg2, #16161c);
   border: 1px solid var(--border, #2a2a33);
   border-radius: var(--r-md, 6px);
@@ -183,7 +188,7 @@
   text-overflow: ellipsis;
 }
 .isfb-user { font-size: 10px; color: var(--text-muted, #888); }
-.isfb-more { width: 100%; margin-top: var(--s2, 8px); padding: 8px; }
+.isfb-more { width: 100%; margin-top: var(--s4, 8px); padding: 8px; }
 
 /* ISF buttons: full name on up to 2 lines instead of ellipsis */
 .fx-btn-isf { height: auto; min-height: 26px; align-items: flex-start; }
@@ -209,7 +214,7 @@
   border-radius: var(--r-sm);
   color: var(--text-secondary);
   font-size: var(--fs-xs);
-  padding: 2px 8px;
+  padding: var(--s1) var(--s4);
   cursor: pointer;
 }
 .preview-toggle:hover { color: var(--accent); border-color: var(--accent); }
@@ -219,7 +224,7 @@
 .pm-chip {
   flex-shrink: 0;
   min-width: 52px;
-  padding: 2px 6px;
+  padding: var(--s1) var(--s3);
   font-size: 10px;
   font-family: var(--font-mono);
   font-weight: 700;
@@ -241,18 +246,18 @@
 .pm-chip.none { opacity: 0.6; }
 
 .pm-pop {
-  margin: 2px 0 4px;
-  padding: 6px;
+  margin: var(--s1) 0 var(--s2);
+  padding: var(--s3);
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--s3);
 }
 .pm-srcgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .pm-src {
-  padding: 6px 2px;
+  padding: var(--s3) var(--s1);
   font-size: 10px;
   font-family: var(--font-mono);
   font-weight: 700;
@@ -268,7 +273,7 @@
 .pm-rates { display: flex; gap: 3px; flex: 1; }
 .pm-rate {
   flex: 1;
-  padding: 4px 0;
+  padding: var(--s2) 0;
   font-size: 10px;
   font-family: var(--font-mono);
   background: var(--bg1);
@@ -286,11 +291,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s5);
   background: rgba(255, 68, 85, 0.14);
   border-bottom: 1px solid var(--danger);
   color: var(--danger);
   font-size: 12px;
-  padding: 5px 12px;
+  padding: 5px var(--s5);
 }
 .black-banner strong { letter-spacing: 0.5px; }

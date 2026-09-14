@@ -29,7 +29,7 @@ function savePresetsToStorage(presets: Preset[]) {
   try {
     localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets))
   } catch {
-    pushToast('Spazio esaurito: il preset non è stato salvato su disco')
+    pushToast('Spazio esaurito: il preset non è stato salvato su disco', undefined, undefined, 'err')
   }
 }
 
@@ -45,7 +45,7 @@ function saveSequencesToStorage(playlists: Sequence[]) {
   try {
     localStorage.setItem(STORAGE_KEY_PLAYLISTS, JSON.stringify(playlists))
   } catch {
-    pushToast('Spazio esaurito: la playlist non è stata salvata su disco')
+    pushToast('Spazio esaurito: la scaletta non è stata salvata su disco', undefined, undefined, 'err')
   }
 }
 
@@ -242,11 +242,11 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     const seq = { ...draft, name }
     if (!asNew && editingIndex >= 0) {
       persist(sequences.map((s, i) => (i === editingIndex ? seq : s)))
-      pushToast(`Scaletta "${name}" aggiornata`)
+      pushToast(`Scaletta "${name}" aggiornata`, undefined, undefined, 'ok')
     } else {
       persist([...sequences, seq])
       setEditingIndex(sequences.length)
-      pushToast(`Scaletta "${name}" salvata`)
+      pushToast(`Scaletta "${name}" salvata`, undefined, undefined, 'ok')
     }
   }, [draft, editingIndex, sequences, persist])
 
@@ -306,12 +306,12 @@ export function PresetPanel({ engine }: PresetPanelProps) {
         const imported = migrateAll(JSON.parse(await file.text()))
         if (imported.length) {
           persist([...sequences, ...imported])
-          pushToast(`${imported.length} scalette importate`)
+          pushToast(`${imported.length} scalette importate`, undefined, undefined, 'ok')
         } else {
-          pushToast('Nessuna scaletta nel file')
+          pushToast('Nessuna scaletta nel file', undefined, undefined, 'err')
         }
       } catch {
-        pushToast('File non leggibile')
+        pushToast('File non leggibile', undefined, undefined, 'err')
       }
     }
     input.click()

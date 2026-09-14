@@ -2,6 +2,29 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.36.0-beta] — 2026-09-14
+
+Prima fase del redesign dell'interfaccia (fase A1 di `plans/`), nata
+dall'audit sui dieci principi di Dieter Rams in `DESIGN-IS-2026-09-14/`:
+11/30, verdetto REDESIGN, zero sul principio "meno design possibile" per
+affordance duplicate.
+
+### Added
+- **I toast dicono se e' andata bene o male.** `.toast` aveva lo stesso bordo verde per ogni esito e `pushToast()` non accettava nemmeno una severita': un preset salvato e uno **non** salvato per quota esaurita davano lo stesso messaggio verde. Ora il default e' neutro, il verde e' riservato a cio' che e' riuscito, il rosso a cio' che non e' riuscito. Tredici chiamanti etichettati
+- **`yarn check:contrast`**: legge i token da `global.css`, segue un livello di alias `var()`, compone i colori traslucidi sul fondo reale e calcola i rapporti WCAG. Riproduce i numeri dell'audit sui valori vecchi, che e' il motivo per cui gli si puo' credere sui nuovi
+
+### Changed
+- **Il deck B espone tutti e 46 gli effetti.** Aveva un elenco di 21 scritto a mano che divergeva dal catalogo vero: **25 effetti non si potevano mettere sul deck B**, e non c'era modo di accorgersene se non cercandoli. I tre cataloghi (effetti, post-FX, palette) escono dal pannello che li disegna e vanno in `src/renderer/catalog.ts`, con le ricerche derivate; il telecomando prende le sue etichette dalla stessa fonte invece di riscriverle
+- **Niente piu' identificatori interni a schermo**: il banner dell'effetto attivo, le righe della catena post-FX e il selettore del deck B mostravano `rgb-split`, `tunnel`, `filmgrain`. Ora mostrano il nome
+- **Una griglia di effetti sola.** Il pannello Pro disegnava i 46 effetti con `.fx-btn`, quello Simple gli stessi 46 con `.simple-fx`: due alberi di markup, due famiglie di classi, e due nomi a una lettera di distanza (`.fx-ico` contro `.fx-icon`). Erano gia' divergenti — solo una mostrava le miniature dal vivo. Ora c'e' `<EffectGrid>` con una prop per la densita'
+- **La scala di spaziatura diventa quella che l'app usa davvero.** Era dichiarata 4/8/12/16/24/32 con `--s4` e `--s6` senza un solo riferimento, mentre `6px` compariva 51 volte — piu' di qualunque token. Ribasata su 2px; gli usi esistenti rimappati preservando il pixel reso, quindi a schermo non cambia niente; 86 letterali convertiti, i riferimenti passano da 52 a 138
+- Via il codice morto che il tsconfig non segnalava (`noUnusedLocals` non e' attivo): le prop `label` e `width` di `NumberInput`, mai passate da nessuno degli 8 chiamanti; l'icona `IconPanic`, esportata e mai usata; quattro alias di colore senza riferimenti
+
+### Fixed
+- **Il testo dei suggerimenti non si leggeva.** `--text-muted` stava a **2,63:1** su `--bg3` e non superava 3,15:1 su nessuna superficie, mentre lo ereditano **32 classi**, tutte testo normale fra 11 e 15px: in questa interfaccia niente e' "testo grande", quindi vale 4,5:1 per tutto. Ora 4,67–5,59
+- **L'anello di focus stava a 2,62:1**, sotto la soglia di 3:1 per i bordi dei componenti. E' l'unica cosa che dice dove sei quando navighi da tastiera, in una stanza buia. Ora 5,84–6,45
+- Un toast nominava un concetto che nell'interfaccia non esiste: "playlist" dove il pannello dice "scaletta"
+
 ## [0.35.0-beta] — 2026-09-14
 
 Otto effetti nuovi: 38 → 46.

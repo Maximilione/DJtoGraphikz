@@ -66,14 +66,6 @@ export const IconEye = icon(
   </>
 )
 
-export const IconPanic = icon(
-  <>
-    <path d="M8 2.2 14.6 13.6H1.4Z" />
-    <path d="M8 6.4v3.4" />
-    <circle cx="8" cy="11.7" r="0.6" fill="currentColor" stroke="none" />
-  </>
-)
-
 export const IconMonitor = icon(
   <>
     <rect x="1.6" y="2.5" width="12.8" height="8.8" rx="1" />

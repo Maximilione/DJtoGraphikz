@@ -68,7 +68,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         await window.api?.librarySave(asset.name, asset.data).catch(() => {})
       } catch (err) {
         console.error('[Overlay] import immagine fallito:', err)
-        pushToast(`Non riesco a caricare ${asset.name}`)
+        pushToast(`Non riesco a caricare ${asset.name}`, undefined, undefined, 'err')
       }
     }
     refresh()
@@ -86,7 +86,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
         await window.api?.librarySaveCopy(f.name, f.path).catch(() => {})
       } catch (err) {
         console.error('[Overlay] import video fallito:', err)
-        pushToast(`Non riesco a caricare ${f.name}`)
+        pushToast(`Non riesco a caricare ${f.name}`, undefined, undefined, 'err')
       }
     }
     refresh()
