@@ -211,7 +211,7 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 14px;
   height: 14px;
-  margin-top: -var(--s3); /* centers 14px thumb on 2px track */
+  margin-top: calc(var(--s3) * -1); /* centers 14px thumb on 2px track */
   border-radius: 50%;
   border: none;
   background: var(--slider-thumb);
@@ -639,44 +639,6 @@ input[type="range"]:active::-webkit-slider-thumb {
   margin-top: var(--s2);
 }
 
-.simple-cat {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--text-muted);
-  margin: var(--s2) 0 3px;
-}
-
-.simple-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--s2);
-}
-
-.simple-fx {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  padding: 10px var(--s4);
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--bg2);
-  color: var(--text-secondary);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.simple-fx:hover { background: var(--bg3); border-color: var(--line-strong); }
-.simple-fx.active {
-  background: var(--accent-glow);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-}
-.simple-fx .fx-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
 
 .simple-palettes {
   display: grid;
@@ -1453,6 +1415,10 @@ input[type="color"]:focus {
 
 /* 3-col effect grid (Pro mode) — .fx-btn draws the buttons */
 .fx-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; }
+/* Simple mode: the same grid, roomier rows for a bigger target in the dark */
+.fx-grid-lg { gap: var(--s2); }
+.fx-btn-lg { padding: 10px var(--s4); gap: var(--s3); }
+.fx-btn-lg .fx-ico { font-size: 14px; opacity: 1; }
 .fx-btn { display: flex; align-items: center; gap: 4px; }
 .fx-btn .fx-ico { font-size: 12px; line-height: 1; flex-shrink: 0; opacity: 0.5; }
 .fx-btn.active .fx-ico { opacity: 1; }

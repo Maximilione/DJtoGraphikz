@@ -6,6 +6,7 @@ import { NumberInput } from '../NumberInput/NumberInput'
 import { ParamControls } from '../ParamControls/ParamControls'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
+import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { pushToast } from '../Toasts/Toasts'
 import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, effectLabel, postLabel } from '../../catalog'
 
@@ -408,36 +409,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </div>
             </div>
 
-            {/* Categories */}
-            {EFFECT_CATEGORIES.map(cat => {
-              const filtered = cat.effects.filter(fx =>
-                !search || fx.label.toLowerCase().includes(searchLower) || fx.id.includes(searchLower)
-              )
-              if (filtered.length === 0) return null
-              return (
-                <div key={cat.name}>
-                  <div className="cat-label">{cat.name}</div>
-                  <div className="fx-grid">
-                    {filtered.map(fx => {
-                      const isActive = activeEffect === fx.id
-                      const thumb = getThumb(fx.id)
-                      return (
-                        <button
-                          key={fx.id}
-                          onClick={() => selectEffect(fx.id)}
-                          className={`fx-btn${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
-                          title={`Effetto ${fx.label}`}
-                          style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
-                        >
-                          <span className="fx-ico">{fx.icon}</span>
-                          <span className="fx-name">{fx.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+            {/* Categories — the one shared grid */}
+            <EffectGrid activeId={activeEffect} onPick={selectEffect} search={search} />
 
             {/* ISF library — shaders from ~/.djtographikz/isf */}
             <div>
