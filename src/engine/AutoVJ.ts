@@ -111,6 +111,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'minimal-hypnotic': {
     label: 'Minimal Hypnotic',
     scenes: [
+      { effect: 'swarm', params: { turbulence: v(0.7), drag: v(0.2), burst: v(0.6), dotsize: v(3.2) } },
       { effect: 'pulsar', params: { lines: v(58), peaks: a(0.9, 'energy', 0.35), flow: v(0.25) } },
       { effect: 'moire', params: { speed: v(0.7), density: v(42), moireoff: a(0.1, 'lfo-sine', 0.4, 32), rotspeed: v(0.25) } },
       { effect: 'vortex', params: { speed: v(0.7), arms: v(2), twist: v(1.6), pull: a(0.5, 'lfo-sine', 0.3, 16) } },
@@ -201,6 +202,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'drum-n-bass': {
     label: 'Drum & Bass',
     scenes: [
+      { effect: 'swarm', params: { turbulence: v(1.8), drag: v(0.5), burst: v(1.5), dotsize: v(2.2) } },
       { effect: 'particles', params: { count: v(32), size: a(0.012, 'bass', 0.5), spread: v(1.2) } },
       { effect: 'glitch', params: { blocks: v(16), intensity: a(0.45, 'high', 0.7), fps: v(24) } },
       { effect: 'lasers', params: { beams: v(8), spread: v(0.9), sweep: a(1.5, 'high', 0.4) } },
@@ -318,6 +320,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'psytrance': {
     label: 'Psytrance',
     scenes: [
+      { effect: 'swarm', params: { turbulence: a(1.4, 'lfo-sine', 0.35, 32), drag: v(0.3), burst: v(1.2), dotsize: v(2.6) } },
       { effect: 'reaction', params: { feed: a(0.052, 'lfo-sine', 0.2, 64), kill: v(0.061), inject: v(1.2) } },
       { effect: 'fractal', params: { iterations: v(36), zoom: a(1.3, 'bass', 0.5), morph: a(0.25, 'lfo-sine', 0.5, 8) } },
       { effect: 'kaleidoscope', params: { segments: v(16), zoom: a(1.3, 'bass', 0.45), detail: v(2.8) } },
