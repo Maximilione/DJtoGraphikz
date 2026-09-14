@@ -52,7 +52,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
     <div className="panel simple-panel">
       {/* Auto VJ — the one-button mode */}
       <button type="button" aria-pressed={vjEnabled}
-        className={`simple-autovj${vjEnabled ? ' active' : ''}`}
+        className={`btn simple-autovj${vjEnabled ? ' active' : ''}`}
         onClick={() => onVJToggle(!vjEnabled)}
         title="Cambia effetti, post-FX e colori da solo, a tempo di musica"
       >
@@ -89,7 +89,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
         {COLOR_PRESETS.map((p, i) => (
           <button
             key={p.label}
-            className={`simple-palette${activePalette === i ? ' active' : ''}`}
+            className={`btn simple-palette${activePalette === i ? ' active' : ''}`}
             onClick={() => selectPalette(i)}
             title={`Palette ${p.label}`}
           >

@@ -238,7 +238,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                 {cam.label || `Camera ${i + 1}`}
               </button>
             ))}
-            <button className="media-device-cancel" onClick={() => setWebcamChoices(null)}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setWebcamChoices(null)}>
               Annulla
             </button>
           </div>
@@ -288,14 +288,14 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
           <div key={overlay.id} className="media-card">
             <div className="media-card-header">
               <button type="button" aria-pressed={overlay.visible}
-                className={`media-toggle${overlay.visible ? ' on' : ''}`}
+                className={`btn media-toggle${overlay.visible ? ' on' : ''}`}
                 onClick={() => updateOverlay(overlay.id, { visible: !overlay.visible })}
                 title={overlay.visible ? 'Nascondi' : 'Mostra'}
               />
               <span className="media-name">{overlay.name}</span>
               <span className="media-badge">{mediaBadge(overlay)}</span>
               <button
-                className="media-remove"
+                className="btn btn-ghost btn-sm danger"
                 onClick={() => removeOverlay(overlay.id)}
                 title="Rimuovi media"
                aria-label="Rimuovi media">
@@ -396,14 +396,14 @@ function LibraryRow({ item, onAdd, onDelete }: {
 
   return (
     <div className="media-lib-row">
-      <button type="button" className="media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
+      <button type="button" className="btn media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
         {isImage
           ? (thumb ? <img className="media-lib-thumb" src={thumb} /> : <span className="media-lib-icon">🖼</span>)
           : <span className="media-lib-icon">🎬</span>}
         <span className="media-lib-name">{item.name}</span>
         <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
       </button>
-      <button className="media-remove" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
+      <button className="btn btn-ghost btn-sm danger" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
     </div>
   )
 }

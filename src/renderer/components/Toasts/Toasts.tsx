@@ -65,7 +65,7 @@ export function Toasts() {
           {t.msg}
           {t.action && (
             <button
-              className="toast-undo"
+              className="btn btn-ghost btn-sm toast-action"
               onClick={() => { t.action?.fn(); remove(t.id) }}
             >
               {t.action.label}

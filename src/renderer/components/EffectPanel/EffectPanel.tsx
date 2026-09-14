@@ -387,14 +387,14 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </div>
               {/* Beat sync */}
               <button type="button" aria-pressed={transitionBeatSync}
-                className="u-row"
+                className={`row-item${transitionBeatSync ? ' active' : ''}`}
                 onClick={() => {
                   const v = !transitionBeatSync
                   setTransitionBeatSync(v)
                   engine?.setTransitionBeatSync(v)
                 }}
                 title="La transizione parte sul prossimo beat"
-                style={{ padding: '3px 0', cursor: 'pointer', marginTop: '2px' }}
+                style={{ marginTop: '2px' }}
               >
                 <div className={`toggle${transitionBeatSync ? ' active' : ''}`} />
                 <span className="u-hint" style={transitionBeatSync ? { color: 'var(--text-primary)' } : undefined}>
@@ -491,9 +491,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                       style={{ flex: 1 }}
                       title="Quanto si sente il filtro"
                     />
-                    <button className="tiny-btn" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0} aria-label="Sposta su nella catena">↑</button>
-                    <button className="tiny-btn" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} aria-label="Sposta giù nella catena">↓</button>
-                    <button className="tiny-btn danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)} aria-label="Disattiva effetto">×</button>
+                    <button className="btn btn-ghost btn-sm" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0} aria-label="Sposta su nella catena">↑</button>
+                    <button className="btn btn-ghost btn-sm" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} aria-label="Sposta giù nella catena">↓</button>
+                    <button className="btn btn-ghost btn-sm danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)} aria-label="Disattiva effetto">×</button>
                   </div>
                 ))}
               </div>
@@ -541,7 +541,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                   return (
                     <button
                       key={preset.label}
-                      className={`pal-btn${isActive ? ' active' : ''}`}
+                      className={`btn pal-btn${isActive ? ' active' : ''}`}
                       onClick={() => selectColorPreset(i)}
                       title={`Palette ${preset.label}`}
                     >
@@ -638,14 +638,10 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             <div>
               <div className="cat-label">Ciclo palette</div>
               <button type="button" aria-pressed={cycleEnabled}
-                className="u-row"
+                className={`row-item${cycleEnabled ? ' active' : ''}`}
                 onClick={toggleCycle}
                 title="Cambia palette automaticamente a tempo o a beat"
-                style={{
-                  padding: '4px 6px', borderRadius: 'var(--r-sm)', cursor: 'pointer',
-                  background: cycleEnabled ? 'var(--accent-glow)' : 'transparent',
-                  marginBottom: '4px',
-                }}
+                style={{ marginBottom: '4px' }}
               >
                 <div className={`toggle${cycleEnabled ? ' active' : ''}`} />
                 <span className="u-hint" style={cycleEnabled ? { color: 'var(--text-primary)' } : undefined}>
@@ -685,7 +681,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 {COLOR_PRESETS.map((preset, i) => (
                   <button
                     key={preset.label}
-                    className={`pal-btn${cycleSelection.has(i) ? ' active' : ''}`}
+                    className={`btn pal-btn${cycleSelection.has(i) ? ' active' : ''}`}
                     onClick={() => toggleCyclePreset(i)}
                     title={`${cycleSelection.has(i) ? 'Escludi' : 'Includi'} ${preset.label} nel ciclo`}
                     style={{ padding: '2px', flexDirection: 'row', opacity: cycleSelection.has(i) ? 1 : 0.4, gap: '1px' }}

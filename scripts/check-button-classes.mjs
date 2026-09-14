@@ -2,12 +2,16 @@
 /**
  * How many different ways does this app draw a button?
  *
- * The Rams audit counted ~30 distinct button and toggle treatments. The real
- * shape of the problem is narrower and worse: `.btn` exists as a system and
- * almost nothing uses it — nearly every button brings its own standalone
- * class. Consolidating them is a surface decision (phase A4), but the count
- * must not grow while that is pending, so it is a ratchet: this number may go
- * down, never up.
+ * The Rams audit counted ~30 distinct button and toggle treatments: `.btn`
+ * existed as a system and almost nothing used it — nearly every button brought
+ * its own standalone class. A4 folded them onto `.btn`, so twenty-five
+ * standalone treatments became four.
+ *
+ * The four that remain are the named vocabulary, and they are deliberate:
+ * `.panel-header` (a panel's fold bar, owned by Panel.tsx), `.pill`, `.tab`
+ * and `.row-item`. Everything else is `.btn` plus a variant.
+ *
+ * A ratchet: this number may go down, never up.
  *
  *     node scripts/check-button-classes.mjs
  */
@@ -16,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
-const CAP = 25   // ratchet: lower it when a treatment is merged away
+const CAP = 4    // ratchet: lower it when a treatment is merged away
 
 /** state/variant classes, not treatments of their own */
 const MODIFIERS = new Set([
