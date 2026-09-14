@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import { AutoVJControl } from '../AutoVJ/AutoVJControl'
 import { Panel } from '../Panel/Panel'
 
 // The AutoVJ instance lives in App (shared with Simple mode); this panel is just its Pro-view controls.
@@ -11,18 +11,6 @@ interface AutoVJPanelProps {
   onGenre: (g: Genre) => void
 }
 
-const GENRES: { id: Genre; label: string; desc: string }[] = [
-  { id: 'acid-techno', label: 'Acid Techno', desc: 'Veloce, psichedelico, neon' },
-  { id: 'hard-tekno', label: 'Hard Tekno', desc: 'Aggressivo, intenso, cambi rapidi' },
-  { id: 'dark-industrial', label: 'Dark Industrial', desc: 'Glitch, monocromo, digitale' },
-  { id: 'minimal-hypnotic', label: 'Minimal', desc: 'Lento, fluido, ipnotico' },
-  { id: 'trance', label: 'Trance', desc: 'Colorato, morbido, sognante' },
-  { id: 'drum-n-bass', label: 'Drum & Bass', desc: 'Rapido, energico, particelle' },
-  { id: 'ambient', label: 'Ambient', desc: 'Calmo, fluido, colori tenui' },
-  { id: 'gabber', label: 'Gabber', desc: 'Caos totale, glitch, velocissimo' },
-  { id: 'tech-house', label: 'Tech House', desc: 'Groove caldo, geometrie morbide' },
-  { id: 'psytrance', label: 'Psytrance', desc: 'Frattali, caleidoscopi, acidissimo' },
-]
 
 export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
   const config = GENRE_CONFIGS[vjGenre]
@@ -30,48 +18,10 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
   return (
     <Panel id="autovj" title="Auto VJ">
       <div className="u-col">
-        {/* Enable toggle */}
-        <button type="button" aria-pressed={vjEnabled}
-          className={`row-item${vjEnabled ? ' active' : ''}`}
-          onClick={() => onToggle(!vjEnabled)}
-          title="Cambia effetti, post-FX e colori da solo, a tempo di musica"
-        >
-          <div className={`toggle${vjEnabled ? ' active' : ''}`} />
-          <div style={{ flex: 1 }}>
-            <div className="row-title" style={vjEnabled ? { color: 'var(--accent)' } : undefined}>
-              {vjEnabled ? 'Auto VJ attivo' : 'Attiva Auto VJ'}
-            </div>
-            {vjEnabled && (
-              <div className="row-sub">
-                {vjStatus.count} cambi · ora: {vjStatus.current || '—'}
-              </div>
-            )}
-          </div>
-        </button>
-
-        {/* Genre selector */}
-        <div>
-          <div className="cat-label">Genere</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {GENRES.map(g => {
-              const isActive = vjGenre === g.id
-              return (
-                <button type="button" aria-pressed={isActive}
-                  key={g.id}
-                  className={`row-item${isActive ? ' active' : ''}`}
-                  onClick={() => onGenre(g.id)}
-                  title={`Stile ${g.label}: ${g.desc.toLowerCase()}`}
-                 >
-                  <div className={`status-dot ${isActive ? 'on' : 'off'}`} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="row-title">{g.label}</div>
-                    <div className="row-sub">{g.desc}</div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <AutoVJControl
+          enabled={vjEnabled} genre={vjGenre} status={vjStatus}
+          onToggle={onToggle} onGenre={onGenre}
+        />
 
         {/* Genre info */}
         <details className="u-hint">

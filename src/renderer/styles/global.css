@@ -621,43 +621,18 @@ input[type="range"]:active::-webkit-slider-thumb {
   gap: var(--s4);
 }
 
-.simple-autovj {
-  display: flex;
-  align-items: center;
+/* Simple mode is the same row as everywhere else, with more air. */
+.row-item.lg {
   gap: 10px;
   padding: var(--s5);
   border-radius: var(--r-md);
-  cursor: pointer;
-  background: var(--bg2);
-  border: 1px solid var(--line);
 }
-.simple-autovj:hover:not(.active) {
-  background: var(--bg3);
-  border-color: var(--line-strong);
-}
-.simple-autovj.active {
-  background: var(--accent-glow);
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
-}
-.simple-autovj-title {
-  font-size: var(--fs-md);
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: var(--text-secondary);
-}
-.simple-autovj.active .simple-autovj-title { color: var(--accent); }
-.simple-autovj-sub {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  margin-top: var(--s1);
-}
+.row-item.lg.active { box-shadow: 0 0 12px rgba(0, 255, 136, 0.15); }
+.row-item.lg .row-title { font-size: var(--fs-md); font-weight: 700; letter-spacing: 1.2px; }
+.row-item.lg .row-sub { margin-top: var(--s1); }
 
-.simple-genre {
-  width: 100%;
-  padding: var(--s4);
-  font-size: var(--fs-sm);
-}
+.vj-genre { width: 100%; }
+.vj-genre.lg { padding: var(--s4); font-size: var(--fs-sm); }
 
 .simple-section {
   font-size: var(--fs-xs);
@@ -671,26 +646,6 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 
-.simple-palettes {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--s2);
-}
-.simple-palette {
-  display: flex;
-  gap: var(--s1);
-  justify-content: center;
-  padding: 7px var(--s2);
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--bg2);
-  cursor: pointer;
-}
-.simple-palette:hover:not(.active) { border-color: var(--line-strong); background: var(--bg3); }
-.simple-palette span {
-  width: 14px; height: 14px; border-radius: 3px; display: block;
-}
-.simple-palette.active { border-color: var(--accent); background: var(--accent-glow); }
 
 /* ---- Onboarding ---- */
 .onboarding-backdrop {
@@ -1525,8 +1480,12 @@ input[type="color"]:focus {
 .row-item .row-sub { font-size: var(--fs-xs); color: var(--text-muted); }
 
 /* palette swatch button */
+.pal-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.pal-grid-sm { gap: var(--s1); }
+.pal-grid-md { gap: 3px; }
+.pal-grid-lg { gap: var(--s2); }
+
 .pal-btn {
-  padding: var(--s2) var(--s1) 3px;
   flex-direction: column;
   align-items: center;
   gap: var(--s1);
@@ -1535,6 +1494,22 @@ input[type="color"]:focus {
 .pal-btn.active { border-color: var(--accent); background: var(--accent-glow); }
 .pal-btn .pal-name { font-size: var(--fs-xs); color: var(--text-muted); }
 .pal-btn.active .pal-name { color: var(--accent); font-weight: 600; }
+
+.pal-swatches { display: flex; gap: 1px; }
+.pal-sw { display: block; border-radius: 2px; }
+
+/* The three sizes this app actually uses: the cycle chooser, the Effetti
+   panel, and Simple mode's big targets. */
+.pal-grid-sm .pal-btn { padding: var(--s1); }
+.pal-grid-sm .pal-btn:not(.active) { opacity: 0.4; }
+.pal-grid-sm .pal-sw { width: 8px; height: 8px; border-radius: 1px; }
+
+.pal-grid-md .pal-btn { padding: var(--s2) var(--s1) 3px; }
+.pal-grid-md .pal-sw { width: 12px; height: 12px; }
+
+.pal-grid-lg .pal-btn { padding: 7px var(--s2); }
+.pal-grid-lg .pal-swatches { gap: var(--s1); }
+.pal-grid-lg .pal-sw { width: 14px; height: 14px; border-radius: 3px; }
 
 
 /* NumberInput */
