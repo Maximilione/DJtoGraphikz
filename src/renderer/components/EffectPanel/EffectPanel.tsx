@@ -26,6 +26,9 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'rings', label: 'Rings', icon: '◉' },
       { id: 'moire', label: 'Moiré', icon: '◎' },
       { id: 'neonpoly', label: 'Neon', icon: '⬠' },
+      { id: 'truchet', label: 'Truchet', icon: '◜' },
+      { id: 'quasicrystal', label: 'Quasi', icon: '❉' },
+      { id: 'stringart', label: 'String', icon: '✴' },
     ],
   },
   {
@@ -39,6 +42,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'fractal', label: 'Fractal', icon: '✻' },
       { id: 'inkflow', label: 'Ink', icon: '☰' },
       { id: 'reaction', label: 'React', icon: '❋' },
+      { id: 'caustics', label: 'Caustic', icon: '≈' },
+      { id: 'smoke', label: 'Smoke', icon: '♨' },
       { id: 'ripples', label: 'Ripples', icon: '≈' },
       { id: 'vortex', label: 'Vortex', icon: '❂' },
     ],
@@ -68,6 +73,9 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'lasers', label: 'Lasers', icon: '☄' },
       { id: 'strobegrid', label: 'Strobe', icon: '▦' },
       { id: 'raymarch', label: 'Lattice', icon: '⌗' },
+      { id: 'gyroid', label: 'Gyroid', icon: '⌬' },
+      { id: 'ascii', label: 'ASCII', icon: '⌨' },
+      { id: 'spectrum', label: 'Spectrum', icon: '▁' },
     ],
   },
   {

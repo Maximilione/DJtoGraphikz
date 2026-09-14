@@ -201,6 +201,46 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'coils', label: 'Coils', min: 3, max: 16, default: 8 },
     { key: 'amp', label: 'Width', min: 0.05, max: 0.3, default: 0.12 },
   ],
+  spectrum: [
+    { key: 'bars', label: 'Bars', min: 8, max: 96, default: 40 },
+    { key: 'mirror', label: 'Mirror', min: 0, max: 1, default: 1 },
+    { key: 'scope', label: 'Scope', min: 0, max: 1.5, default: 0.7 },
+  ],
+  truchet: [
+    { key: 'tiles', label: 'Tiles', min: 3, max: 24, default: 9 },
+    { key: 'thickness', label: 'Width', min: 0.3, max: 2.5, default: 1 },
+    { key: 'flip', label: 'Flip', min: 0, max: 2, default: 0.5 },
+  ],
+  caustics: [
+    { key: 'causticscale', label: 'Scale', min: 0.6, max: 5, default: 1.5 },
+    { key: 'sharpness', label: 'Sharp', min: 0, max: 1, default: 0.7 },
+    { key: 'depthk', label: 'Depth', min: 0, max: 2, default: 1 },
+  ],
+  quasicrystal: [
+    { key: 'waves', label: 'Waves', min: 3, max: 12, default: 7 },
+    { key: 'qfreq', label: 'Freq', min: 8, max: 120, default: 45 },
+    { key: 'contrast', label: 'Contrast', min: 0, max: 1, default: 0.35 },
+  ],
+  gyroid: [
+    { key: 'cells', label: 'Cells', min: 0.5, max: 4, default: 2.2 },
+    { key: 'shell', label: 'Shell', min: 0, max: 1.5, default: 0.45 },
+    { key: 'travel', label: 'Travel', min: 0, max: 2, default: 0.8 },
+  ],
+  stringart: [
+    { key: 'nodes', label: 'Nodes', min: 12, max: 120, default: 72 },
+    { key: 'multiplier', label: 'Table', min: 2, max: 12, default: 2.4 },
+    { key: 'linew', label: 'Width', min: 0.3, max: 3, default: 1 },
+  ],
+  ascii: [
+    { key: 'cellsize', label: 'Cell', min: 4, max: 32, default: 12 },
+    { key: 'levels', label: 'Levels', min: 2, max: 6, default: 5 },
+    { key: 'sourcezoom', label: 'Zoom', min: 0.3, max: 2.5, default: 1 },
+  ],
+  smoke: [
+    { key: 'rise', label: 'Rise', min: 0, max: 2, default: 1 },
+    { key: 'swirl', label: 'Swirl', min: 0, max: 3, default: 1.2 },
+    { key: 'dissipate', label: 'Fade', min: 0, max: 1, default: 0.3 },
+  ],
   reaction: [
     { key: 'feed', label: 'Feed', min: 0.014, max: 0.07, default: 0.0545 },
     { key: 'kill', label: 'Kill', min: 0.045, max: 0.07, default: 0.062 },

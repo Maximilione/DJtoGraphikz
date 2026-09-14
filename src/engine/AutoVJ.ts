@@ -51,6 +51,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'acid-techno': {
     label: 'Acid Techno',
     scenes: [
+      { effect: 'quasicrystal', params: { waves: v(5), qfreq: v(60), contrast: a(0.4, 'high', 0.4) } },
       { effect: 'reaction', params: { feed: v(0.0545), kill: a(0.062, 'lfo-sine', 0.15, 32), inject: v(1.4) } },
       { effect: 'tunnel', params: { speed: v(1.2), twist: a(0.5, 'lfo-sine', 0.5, 8), ringdensity: a(8, 'bass', 0.35) } },
       { effect: 'vortex', params: { arms: v(3), twist: a(1.2, 'lfo-sine', 0.4, 16), pull: a(0.8, 'bass', 0.5) } },
@@ -81,6 +82,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'dark-industrial': {
     label: 'Dark Industrial',
     scenes: [
+      { effect: 'gyroid', params: { cells: v(1.8), shell: v(0.35), travel: v(1.3) } },
+      { effect: 'smoke', params: { rise: v(1.3), swirl: v(1.8), dissipate: v(0.2) } },
       { effect: 'pulsar', params: { lines: v(40), peaks: a(1.3, 'bass', 0.5), flow: v(0.5) } },
       { effect: 'glitch', params: { blocks: v(14), intensity: a(0.4, 'high', 0.6), fps: v(12) } },
       { effect: 'matrix', params: { cols: v(48), fallspeed: a(1, 'bass', 0.4), trailfade: v(0.85) } },
@@ -111,6 +114,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'minimal-hypnotic': {
     label: 'Minimal Hypnotic',
     scenes: [
+      { effect: 'stringart', params: { nodes: v(84), multiplier: a(2.4, 'lfo-sine', 0.4, 64), linew: v(0.9) } },
+      { effect: 'truchet', params: { tiles: v(7), thickness: v(1.2), flip: v(0.25) } },
       { effect: 'swarm', params: { turbulence: v(0.7), drag: v(0.2), burst: v(0.6), dotsize: v(3.2) } },
       { effect: 'pulsar', params: { lines: v(58), peaks: a(0.9, 'energy', 0.35), flow: v(0.25) } },
       { effect: 'moire', params: { speed: v(0.7), density: v(42), moireoff: a(0.1, 'lfo-sine', 0.4, 32), rotspeed: v(0.25) } },
@@ -172,6 +177,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'trance': {
     label: 'Trance',
     scenes: [
+      { effect: 'caustics', params: { causticscale: v(1.8), sharpness: v(0.75), depthk: v(1) } },
+      { effect: 'stringart', params: { nodes: v(96), multiplier: a(3.2, 'lfo-saw', 0.3, 64), linew: v(0.8) } },
       { effect: 'kaleidoscope', params: { segments: v(12), zoom: a(1.1, 'lfo-sine', 0.35, 16), detail: v(2.4) } },
       { effect: 'starfield', params: { speed: v(1.2), tile: v(8), density: a(0.6, 'energy', 0.4) } },
       { effect: 'orbits', params: { bodies: v(10), orbitr: a(0.6, 'lfo-sine', 0.25, 32), trail: v(0.8) } },
@@ -202,6 +209,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'drum-n-bass': {
     label: 'Drum & Bass',
     scenes: [
+      { effect: 'ascii', params: { cellsize: v(10), levels: v(5), sourcezoom: a(1, 'lfo-sine', 0.3, 32) } },
+      { effect: 'spectrum', params: { bars: v(64), mirror: v(1), scope: v(0.9) } },
       { effect: 'swarm', params: { turbulence: v(1.8), drag: v(0.5), burst: v(1.5), dotsize: v(2.2) } },
       { effect: 'particles', params: { count: v(32), size: a(0.012, 'bass', 0.5), spread: v(1.2) } },
       { effect: 'glitch', params: { blocks: v(16), intensity: a(0.45, 'high', 0.7), fps: v(24) } },
@@ -232,6 +241,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'ambient': {
     label: 'Ambient',
     scenes: [
+      { effect: 'caustics', params: { causticscale: v(1.3), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.2) } },
+      { effect: 'smoke', params: { rise: v(0.7), swirl: v(1.0), dissipate: v(0.4) } },
       { effect: 'reaction', params: { feed: v(0.038), kill: v(0.059), inject: v(0.5) } },
       { effect: 'pulsar', params: { lines: v(64), peaks: a(0.7, 'lfo-sine', 0.3, 32), flow: v(0.15) } },
       { effect: 'inkflow', params: { speed: v(0.6), inkscale: v(2), flowspd: v(0.4), inkcontrast: a(1.1, 'bass', 0.3) } },
@@ -292,6 +303,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'tech-house': {
     label: 'Tech House',
     scenes: [
+      { effect: 'spectrum', params: { bars: v(48), mirror: v(1), scope: v(0.6) } },
+      { effect: 'truchet', params: { tiles: v(10), thickness: a(1, 'bass', 0.4), flip: v(0.5) } },
       { effect: 'metaballs', params: { count: v(7), size: a(0.1, 'bass', 0.4), threshold: v(1) } },
       { effect: 'voronoi', params: { cells: v(9), edgewidth: a(0.05, 'mid', 0.4) } },
       { effect: 'hexagons', params: { zoom: v(5), wavefreq: a(2, 'bass', 0.4) } },
@@ -320,6 +333,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'psytrance': {
     label: 'Psytrance',
     scenes: [
+      { effect: 'quasicrystal', params: { waves: v(7), qfreq: a(45, 'lfo-sine', 0.3, 64), contrast: v(0.4) } },
+      { effect: 'gyroid', params: { cells: v(2.4), shell: a(0.45, 'bass', 0.4), travel: v(1.0) } },
       { effect: 'swarm', params: { turbulence: a(1.4, 'lfo-sine', 0.35, 32), drag: v(0.3), burst: v(1.2), dotsize: v(2.6) } },
       { effect: 'reaction', params: { feed: a(0.052, 'lfo-sine', 0.2, 64), kill: v(0.061), inject: v(1.2) } },
       { effect: 'fractal', params: { iterations: v(36), zoom: a(1.3, 'bass', 0.5), morph: a(0.25, 'lfo-sine', 0.5, 8) } },
