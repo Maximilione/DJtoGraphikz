@@ -206,6 +206,12 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'kill', label: 'Kill', min: 0.045, max: 0.07, default: 0.062 },
     { key: 'inject', label: 'Inject', min: 0, max: 2, default: 1 },
   ],
+  swarm: [
+    { key: 'turbulence', label: 'Turbulence', min: 0, max: 3, default: 1.2 },
+    { key: 'drag', label: 'Drag', min: 0, max: 1, default: 0.35 },
+    { key: 'burst', label: 'Burst', min: 0, max: 2, default: 1 },
+    { key: 'dotsize', label: 'Dots', min: 1, max: 8, default: 3.2 },
+  ],
   pulsar: [
     { key: 'lines', label: 'Lines', min: 16, max: 72, default: 46 },
     { key: 'peaks', label: 'Peaks', min: 0.2, max: 2.5, default: 1 },
