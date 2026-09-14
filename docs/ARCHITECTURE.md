@@ -211,6 +211,42 @@ reaction: {
   effect keeps simulating through a transition and deck B runs its own copy.
   Disposal goes through `disposeEffectMaterial()`.
 
+### Multi-pass custom shaders, ISF and Shadertoy
+
+A shader written in the editor or imported can be multi-pass too. The passes are
+separated **inside the source**, by marker lines, so a custom shader stays one
+string — presets, the IPC snapshot to the projector and the editor all keep
+working unchanged:
+
+```glsl
+// anything up here is shared by every pass
+//!DJG_BUFFER A
+void main() { /* writes buffer A, reads last frame's via tBufferA */ }
+//!DJG_MAIN
+void main() { /* the visible pass */ }
+```
+
+`splitCustomPasses()` (`src/engine/customPasses.ts`) does the splitting; buffers
+are full render size. If the author declares only buffers, a blit of the last
+one is appended so something reaches the screen.
+
+- **ISF**: a shader with more than one `PASSES` entry now imports. The body is
+  emitted once per pass with its own `PASSINDEX` — which is how ISF itself
+  branches — and each `TARGET` is aliased onto the engine's `tBuffer<name>`.
+  Filters (`inputImage`) and audio inputs are still refused, with a reason.
+- **Shadertoy**: `loadShadertoy()` takes either raw GLSL with `mainImage` (one
+  pass, what a copy-paste gives you) or the JSON the Shadertoy API returns,
+  which is the only way to get Buffer A–D. Buffers map to engine buffers in
+  order, `iChannelN` is wired to whatever that pass reads, and a texture channel
+  becomes an image input the VJ picks a picture for. `iResolution` and `iMouse`
+  are `#define`s: GLSL ES forbids initialising a global from a uniform.
+
+`yarn check:loaders` runs both importers and the splitter over small inputs and
+asserts on the GLSL that comes out. `python3 scripts/check-output.py
+scripts/fixtures/trail.multipass.frag` proves a multi-pass custom shader on the
+real projector — the fixture is a decaying trail, so a buffer that is not
+actually persistent shows a single dot and fails the gate.
+
 ### Geometry effects
 
 An effect can draw real geometry instead of a fullscreen quad: point clouds,

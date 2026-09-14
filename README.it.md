@@ -72,7 +72,9 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 - **Effetti a geometria** — un effetto puo' disegnare geometria vera invece di un quad fullscreen: nuvole di punti, mesh istanziate, modelli. Il primo: **Swarm**, 36.864 particelle la cui posizione vive in un buffer di simulazione e viene letta dal vertex shader, quindi la CPU non tocca un vertice.
 - **Effetti multi-pass con buffer persistenti** — un effetto puo' avere pass di simulazione che rileggono quello che hanno scritto al frame prima: e' quello che serve a reaction-diffusion, fluidi e a qualsiasi simulazione cellulare, e che un singolo pass fullscreen non puo' fare. Il primo: **React**, una reaction-diffusion di Gray-Scott in cui il kick inietta. Vedi `docs/ARCHITECTURE.md`.
-- Editor GLSL live con validazione (gli shader rotti vengono respinti con l'errore esatto).
+- Editor GLSL live con validazione (gli shader rotti vengono respinti con l'errore esatto), **multi-pass**: marca una sezione con `//!DJG_BUFFER A` e quella si prende un buffer persistente tutto suo.
+- **Import Shadertoy** — incolla il GLSL per uno shader a un pass, oppure dagli il JSON dell'API di Shadertoy e ti porti dietro anche i **Buffer A-D**; gli `iChannelN` vengono collegati, i canali texture diventano immagini da scegliere.
+- **ISF multi-pass** importabili: ogni voce di `PASSES` diventa un buffer persistente.
 - **Libreria ISF online** — sfoglia ~3.700 generator di [editor.isf.video](https://editor.isf.video) con thumbnail e ricerca, import con un click; "Importa file…" accetta anche gli `.zip` scaricati dal sito.
 - Gli shader in `~/.djtographikz/isf` compaiono come categoria nel pannello Effects, con slider automatici audio-mappabili.
 - **⚡ Smart map** (in testa al pannello Parametri, per qualsiasi effetto): un tasto mappa tutti i parametri all'audio analizzando nome e uso reale nel codice dello shader (geometria→bass, colori→LFO lento, soglie→beat), con budget di ruoli per non strobare tutto insieme e Annulla nel toast.

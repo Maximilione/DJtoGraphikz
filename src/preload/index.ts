@@ -41,6 +41,10 @@ const api = {
    * and was delivered to nobody.
    */
   selfTestEffect: process.env.DJG_SELFTEST_EFFECT || '',
+  /** Release gate: a custom shader's SOURCE, so a multi-pass import can be
+   *  verified on the projector. The content rides the variable itself — the
+   *  renderer cannot read files, and IPC raced React mounting. */
+  selfTestShader: process.env.DJG_SELFTEST_SHADER || '',
   onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 

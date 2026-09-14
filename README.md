@@ -72,7 +72,9 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 - **Geometry effects** — an effect can draw real geometry instead of a fullscreen quad: point clouds, instanced meshes, models. First one shipped: **Swarm**, 36,864 particles whose positions live in a simulation buffer and are read by the *vertex* shader, so the CPU never touches a vertex.
 - **Multi-pass effects with persistent buffers** — an effect can run simulation passes that read what they wrote last frame, which is what reaction-diffusion, fluids and any cellular simulation need and what a single fullscreen pass cannot do. First one shipped: **React**, a Gray-Scott reaction-diffusion the kick injects into. See `docs/ARCHITECTURE.md`.
-- Live GLSL editor with validation (broken shaders are rejected with the exact error).
+- Live GLSL editor with validation (broken shaders are rejected with the exact error), **multi-pass**: mark a section `//!DJG_BUFFER A` and it gets a persistent buffer of its own.
+- **Shadertoy import** — paste the GLSL for a single-pass shader, or hand it the JSON from the Shadertoy API to get **Buffer A–D** as well; `iChannelN` is wired up, texture channels become picture inputs.
+- **ISF multi-pass** imports: each `PASSES` entry becomes a persistent buffer.
 - **Online ISF library** — browse ~3,700 generators from [editor.isf.video](https://editor.isf.video) with thumbnails and search, one-click import; "Import file…" also accepts the `.zip` downloaded from the site.
 - Shaders in `~/.djtographikz/isf` show up as a category in the Effects panel, with automatic audio-mappable sliders.
 - **⚡ Smart map** (at the top of the Parameters panel, for any effect): one button maps every parameter to the audio by analyzing its name and its actual use in the shader code (geometry→bass, colors→slow LFO, thresholds→beat), with a role budget so everything doesn't strobe together and Undo in the toast.

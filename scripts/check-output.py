@@ -8,6 +8,7 @@ nothing, so this looks at the pixels.
 
     python3 scripts/check-output.py              # exit 0 = projector OK
     python3 scripts/check-output.py reaction     # verify one specific effect
+    python3 scripts/check-output.py x.frag       # verify a custom shader (multi-pass too)
 """
 import os
 import pathlib
@@ -34,8 +35,15 @@ def main() -> int:
 
     env = {**os.environ, "DJG_SELFTEST": str(SHOT)}
     if len(sys.argv) > 1:
-        env["DJG_SELFTEST_EFFECT"] = sys.argv[1]
-        print("effetto richiesto:", sys.argv[1])
+        arg = sys.argv[1]
+        if arg.endswith(".frag") or arg.endswith(".glsl"):
+            # the shader's SOURCE travels in the variable: the renderer cannot
+            # read files, and sending it over IPC raced React mounting
+            env["DJG_SELFTEST_SHADER"] = pathlib.Path(arg).read_text()
+            print("shader richiesto:", arg)
+        else:
+            env["DJG_SELFTEST_EFFECT"] = arg
+            print("effetto richiesto:", arg)
     env.pop("ELECTRON_RUN_AS_NODE", None)   # silently kills Electron
     print("avvio app…")
     proc = subprocess.run(["yarn", "dev"], cwd=REPO, env=env,
