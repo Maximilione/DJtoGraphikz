@@ -105,6 +105,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 yarn            # dependencies
 yarn dev        # development (Electron + Vite)
 npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # minimal check
+yarn check:output   # release gate: is the projector really showing an image?
+yarn check:ui       # photograph the control window (check:ui simple 0.34)
 yarn package:mac   # .dmg (also package:win / package:linux)
 ```
 
