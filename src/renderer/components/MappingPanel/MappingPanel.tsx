@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { Engine } from '@engine/Engine'
-import { usePanelCollapsed } from '../usePanelCollapsed'
 import { pushToast } from '../Toasts/Toasts'
+import { Panel } from '../Panel/Panel'
 
 interface MappingPanelProps {
   engine: Engine | null
@@ -17,7 +17,6 @@ const H = 135
  * fits a skewed projector. State lives in the engine and rides the snapshot.
  */
 export function MappingPanel({ engine }: MappingPanelProps) {
-  const [collapsed, toggleCollapsed] = usePanelCollapsed('mapping', true, 'right')
   const [corners, setCorners] = useState<number[]>(() => engine?.getKeystone() ?? [...DEFAULT])
   const svgRef = useRef<SVGSVGElement>(null)
   const dragRef = useRef<number>(-1)
@@ -67,57 +66,47 @@ export function MappingPanel({ engine }: MappingPanelProps) {
   const active = corners.some((v, i) => Math.abs(v - DEFAULT[i]) > 0.0005)
 
   return (
-    <div className="panel">
-      <button type="button"
-        aria-expanded={!collapsed} className="panel-header"
-        onClick={toggleCollapsed}
-        title={collapsed ? 'Espandi Mapping' : 'Comprimi Mapping'}
-      >
-        <span>Mapping{active ? ' ●' : ''}</span>
-        <span>{collapsed ? '+' : '-'}</span>
-      </button>
-      {!collapsed && (
-        <div className="u-col" style={{ gap: 8 }}>
-          <div className="u-hint">
-            Trascina gli angoli per adattare l'immagine a un proiettore storto (keystone/quad-warp).
-          </div>
-          <svg
-            ref={svgRef}
-            width="100%"
-            viewBox={`0 0 ${W} ${H}`}
-            style={{ background: 'var(--bg0)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', touchAction: 'none' }}
-          >
-            {/* reference frame = full output */}
-            <rect x={px(0)} y={py(0)} width={px(1) - px(0)} height={py(1) - py(0)}
-              fill="none" stroke="var(--border)" strokeDasharray="4 3" />
-            {/* warped quad */}
-            <polygon
-              points={pts.map(p => p.join(',')).join(' ')}
-              fill="rgba(0,255,136,0.08)"
-              stroke="var(--accent)"
-              strokeWidth="1.5"
-            />
-            {pts.map((p, i) => (
-              <g key={i} onPointerDown={onPointerDown(i)} style={{ cursor: 'grab' }}>
-                <circle cx={p[0]} cy={p[1]} r="9" fill="transparent" />
-                <circle cx={p[0]} cy={p[1]} r="5" fill="var(--bg2)" stroke="var(--accent)" strokeWidth="1.5" />
-                <text x={p[0]} y={p[1] - 9} textAnchor="middle" fontSize="8" fill="var(--text-muted)">{LABELS[i]}</text>
-              </g>
-            ))}
-          </svg>
-          <button
-            className="btn"
-            disabled={!active}
-            onClick={() => {
-              const prev = [...corners]
-              apply([...DEFAULT])
-              pushToast('Mapping azzerato', 'mapping-reset', { label: 'Annulla', fn: () => apply(prev) })
-            }}
-          >
-            Azzera mapping
-          </button>
+    <Panel id="mapping" title="Mapping" defaultCollapsed group="right" active={active}>
+      <div className="u-col" style={{ gap: 8 }}>
+        <div className="u-hint">
+          Trascina gli angoli per adattare l'immagine a un proiettore storto (keystone/quad-warp).
         </div>
-      )}
-    </div>
+        <svg
+          ref={svgRef}
+          width="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ background: 'var(--bg0)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', touchAction: 'none' }}
+        >
+          {/* reference frame = full output */}
+          <rect x={px(0)} y={py(0)} width={px(1) - px(0)} height={py(1) - py(0)}
+            fill="none" stroke="var(--border)" strokeDasharray="4 3" />
+          {/* warped quad */}
+          <polygon
+            points={pts.map(p => p.join(',')).join(' ')}
+            fill="rgba(0,255,136,0.08)"
+            stroke="var(--accent)"
+            strokeWidth="1.5"
+          />
+          {pts.map((p, i) => (
+            <g key={i} onPointerDown={onPointerDown(i)} style={{ cursor: 'grab' }}>
+              <circle cx={p[0]} cy={p[1]} r="9" fill="transparent" />
+              <circle cx={p[0]} cy={p[1]} r="5" fill="var(--bg2)" stroke="var(--accent)" strokeWidth="1.5" />
+              <text x={p[0]} y={p[1] - 9} textAnchor="middle" fontSize="8" fill="var(--text-muted)">{LABELS[i]}</text>
+            </g>
+          ))}
+        </svg>
+        <button
+          className="btn"
+          disabled={!active}
+          onClick={() => {
+            const prev = [...corners]
+            apply([...DEFAULT])
+            pushToast('Mapping azzerato', 'mapping-reset', { label: 'Annulla', fn: () => apply(prev) })
+          }}
+        >
+          Azzera mapping
+        </button>
+      </div>
+    </Panel>
   )
 }
