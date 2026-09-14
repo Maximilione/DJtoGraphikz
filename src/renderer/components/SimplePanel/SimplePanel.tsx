@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId } from '@engine/Engine'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
-import { EFFECT_CATEGORIES, COLOR_PRESETS } from '../../catalog'
+import { COLOR_PRESETS } from '../../catalog'
+import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 
 interface SimplePanelProps {
@@ -80,29 +81,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
 
       {/* Effects — big grid, no tabs, no search */}
       <div className="simple-section">EFFETTI</div>
-      {EFFECT_CATEGORIES.map(cat => (
-        <div key={cat.name}>
-          <div className="simple-cat">{cat.name}</div>
-          <div className="simple-grid">
-            {cat.effects.map(fx => {
-              const isActive = activeEffect === fx.id && !vjEnabled
-              const thumb = getThumb(fx.id)
-              return (
-                <button
-                  key={fx.id}
-                  className={`simple-fx${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
-                  onClick={() => selectEffect(fx.id)}
-                  title={`Effetto ${fx.label}`}
-                  style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
-                >
-                  <span className="fx-icon">{fx.icon}</span>
-                  {fx.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ))}
+      <EffectGrid activeId={vjEnabled ? null : activeEffect} onPick={selectEffect} size="lg" />
 
       {/* Palettes — swatch row */}
       <div className="simple-section">COLORI</div>
