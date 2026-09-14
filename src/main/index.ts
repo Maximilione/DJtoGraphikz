@@ -331,14 +331,18 @@ app.whenReady().then(async () => {
               const SEL = 'button, select, input, textarea, a[href], [role="button"]'
               const modes = [...document.querySelectorAll('button')]
                 .filter(b => ['SIMPLE', 'PRO', 'LIVE'].includes(b.textContent.trim()))
-              const before = modes.find(b => b.className.includes('active'))
+              // Clicking a mode persists it. Put the stored value back, or the
+              // count leaves the app in whatever mode happened to be last.
+              const KEY = 'djtographikz-ui-mode'
+              const before = localStorage.getItem(KEY)
               const out = {}
               for (const m of modes) {
                 m.click()
                 await new Promise(r => setTimeout(r, 400))
                 out[m.textContent.trim()] = document.querySelectorAll(SEL).length
               }
-              if (before) { before.click(); await new Promise(r => setTimeout(r, 200)) }
+              if (before === null) localStorage.removeItem(KEY)
+              else localStorage.setItem(KEY, before)
               return out
             })()`)
             console.log('[SelfTest] controlli per modalita\':', JSON.stringify(counts))

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
-import { NumberInput } from '../NumberInput/NumberInput'
+import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
 
@@ -426,30 +426,4 @@ function VideoThumb({ video }: { video: HTMLVideoElement }) {
   }, [video])
 
   return <canvas ref={canvasRef} className="media-thumb" width={114} height={64} />
-}
-
-function SliderRow({ label, value, min, max, step, onChange }: {
-  label: string
-  value: number
-  min: number
-  max: number
-  step: number
-  onChange: (v: number) => void
-}) {
-  return (
-    <div className="media-slider-row">
-      <span>{label}</span>
-      <input
-        type="range"
-        min={min} max={max} step={step}
-        value={value}
-        onChange={e => onChange(parseFloat(e.target.value))}
-      />
-      <NumberInput
-        value={value}
-        min={min} max={max} step={step}
-        onChange={onChange}
-      />
-    </div>
-  )
 }

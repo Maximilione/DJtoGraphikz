@@ -92,14 +92,9 @@ export function NumberInput({
   return (
     <div
       ref={containerRef}
+      className="num-input"
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '2px',
-        width: '42px',
-      }}
     >
       {editing ? (
         <input
