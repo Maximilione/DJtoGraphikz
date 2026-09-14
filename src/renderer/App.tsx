@@ -23,11 +23,14 @@ import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type
 import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { ALL_EFFECTS, COLOR_PRESETS, POST_CATEGORIES } from './catalog'
 import { shouldIgnoreHotkey } from './hotkeys'
+import { loadLooks } from './looks'
+import { readJson, writeJson, writeString, readString } from './storage'
 
 type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
 const SETTINGS_KEY = 'djtographikz-settings'
+const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact'
 const BEATFLASH_KEY = 'djtographikz-beatflash'
 
 // Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
@@ -65,7 +68,7 @@ function cmdToastLabel(type: string, v: any): string {
 
 function loadSettings(): Partial<EngineState> | null {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
+    const raw = readString(SETTINGS_KEY)
     return raw ? JSON.parse(raw) : null
   } catch { return null }
 }
@@ -84,11 +87,11 @@ export function App() {
   // UI mode + onboarding
   const [mode, setMode] = useState<UIMode>(() => {
     // a stale or hand-edited value used to go straight into the layout
-    const saved = localStorage.getItem(MODE_KEY)
+    const saved = readString(MODE_KEY)
     return saved === 'pro' || saved === 'live' || saved === 'simple' ? saved : 'simple'
   })
   const [showRemote, setShowRemote] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDED_KEY))
+  const [showOnboarding, setShowOnboarding] = useState(() => !readString(ONBOARDED_KEY))
 
   // U2.1/U2.2 — menu aiuto + overlay scorciatoie/guida
   const [showHelpMenu, setShowHelpMenu] = useState(false)
@@ -96,10 +99,10 @@ export function App() {
   const [showQuickGuide, setShowQuickGuide] = useState(false)
 
   // Preview riducibile: compatta la striscia video, i pannelli prendono spazio
-  const [previewCompact, setPreviewCompact] = React.useState(() => localStorage.getItem('djtographikz-preview-compact') === '1')
+  const [previewCompact, setPreviewCompact] = React.useState(() => readString(PREVIEW_COMPACT_KEY) === '1')
   const togglePreviewCompact = React.useCallback(() => {
     setPreviewCompact(c => {
-      try { localStorage.setItem('djtographikz-preview-compact', c ? '0' : '1') } catch { /* full */ }
+      writeString(PREVIEW_COMPACT_KEY, c ? '0' : '1')
       return !c
     })
     // engine resizes on window resize — the class toggle alone doesn't fire it
@@ -107,7 +110,7 @@ export function App() {
   }, [])
 
   // U4.2 — flash del bordo preview sul beat (opt-in, persistito)
-  const [beatFlash, setBeatFlash] = useState(() => localStorage.getItem(BEATFLASH_KEY) === '1')
+  const [beatFlash, setBeatFlash] = useState(() => readString(BEATFLASH_KEY) === '1')
   const beatFlashRef = useRef<HTMLDivElement>(null)
 
   // AutoVJ lives here so Simple and Pro views share one instance
@@ -162,8 +165,10 @@ export function App() {
       }
       clearTimeout(persistTimer)
       persistTimer = window.setTimeout(() => {
-        // blackout/frozen excluded on restore
-        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state)) } catch (_) {}
+        // blackout/frozen excluded on restore. This is the biggest writer in
+        // the app — base64 images included, every 400 ms — so it is the one
+        // that fills the quota and makes every other save fail.
+        writeJson(SETTINGS_KEY, state)
       }, 400)
     }
     eng.start()
@@ -363,11 +368,11 @@ export function App() {
 
   const changeMode = useCallback((m: UIMode) => {
     setMode(m)
-    try { localStorage.setItem(MODE_KEY, m) } catch (_) {}
+    writeString(MODE_KEY, m)
   }, [])
 
   const finishOnboarding = useCallback(async (result: OnboardingResult | null) => {
-    localStorage.setItem(ONBOARDED_KEY, '1')
+    writeString(ONBOARDED_KEY, '1')
     setShowOnboarding(false)
     if (!result || !engine) return
     changeVJGenre(result.genre)
@@ -463,12 +468,11 @@ export function App() {
         case 'transitionType': engine.setTransitionType(v); break
         case 'transitionDuration': engine.setTransitionDuration(v); break
         case 'look': {
-          // Looks live in this renderer's localStorage — same source LookBank reads
-          try {
-            const looks = JSON.parse(localStorage.getItem('djtographikz-looks') || '[]') as ({ preset: Preset } | null)[]
-            const slot = looks[v]
-            if (slot?.preset) { toggleVJ(false); engine.applyPreset(slot.preset) }
-          } catch (_) {}
+          // Same source LookBank reads. This used to re-read the raw key by
+          // hand, so a change to the key or the shape broke the phone and MIDI
+          // triggers in silence.
+          const slot = loadLooks()[v]
+          if (slot?.preset) { toggleVJ(false); engine.applyPreset(slot.preset) }
           break
         }
         case 'tap':
@@ -775,7 +779,7 @@ export function App() {
             checked={beatFlash}
             onChange={e => {
               setBeatFlash(e.target.checked)
-              try { localStorage.setItem(BEATFLASH_KEY, e.target.checked ? '1' : '0') } catch (_) {}
+              writeString(BEATFLASH_KEY, e.target.checked ? '1' : '0')
             }}
           />
           flash beat

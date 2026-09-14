@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { readJson, writeJson } from '../../storage'
 import { TRANSITIONS } from '../../catalog'
 import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/Engine'
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
@@ -17,10 +18,7 @@ const STORAGE_KEY_PRESETS = 'djtographikz-presets'
 const STORAGE_KEY_PLAYLISTS = 'djtographikz-playlists'
 
 function loadPresets(): Preset[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PRESETS)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
+  return readJson<Preset[]>(STORAGE_KEY_PRESETS, [])
 }
 
 /**
@@ -29,31 +27,16 @@ function loadPresets(): Preset[] {
  * put the preset on screen until this says yes.
  */
 function savePresetsToStorage(presets: Preset[]): boolean {
-  try {
-    localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets))
-    return true
-  } catch {
-    pushToast('Spazio esaurito: il preset non è stato salvato su disco', undefined, undefined, 'err')
-    return false
-  }
+  return writeJson(STORAGE_KEY_PRESETS, presets)
 }
 
 function loadSequences(): Sequence[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PLAYLISTS)
-    // migrate(): playlists saved before per-step holds existed still load
-    return migrateAll(raw ? JSON.parse(raw) : [])
-  } catch { return [] }
+  // migrate(): playlists saved before per-step holds existed still load
+  return migrateAll(readJson<unknown[]>(STORAGE_KEY_PLAYLISTS, []))
 }
 
 function saveSequencesToStorage(playlists: Sequence[]): boolean {
-  try {
-    localStorage.setItem(STORAGE_KEY_PLAYLISTS, JSON.stringify(playlists))
-    return true
-  } catch {
-    pushToast('Spazio esaurito: la scaletta non è stata salvata su disco', undefined, undefined, 'err')
-    return false
-  }
+  return writeJson(STORAGE_KEY_PLAYLISTS, playlists)
 }
 
 export function PresetPanel({ engine }: PresetPanelProps) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { readJson, writeJson } from '../../storage'
 import type { Engine } from '@engine/Engine'
 import { usePanelCollapsed } from '../usePanelCollapsed'
 
@@ -28,7 +29,7 @@ const DEFAULTS: DmxConfig = {
 }
 
 function load(): DmxConfig {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } } catch { return { ...DEFAULTS } }
+  return { ...DEFAULTS, ...readJson<Partial<DmxConfig>>(STORAGE_KEY, {}) }
 }
 
 /** Audio-reactive ArtNet DMX: palette color on RGB PARs, energy on the dimmer. */
@@ -41,7 +42,7 @@ export function DmxPanel({ engine }: DmxPanelProps) {
   const set = (patch: Partial<DmxConfig>) => {
     setCfg(prev => {
       const next = { ...prev, ...patch }
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch { /* quota */ }
+      writeJson(STORAGE_KEY, next)
       return next
     })
   }
