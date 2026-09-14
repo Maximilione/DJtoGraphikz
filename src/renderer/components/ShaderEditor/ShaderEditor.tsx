@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
-import { ParamControls } from '../ParamControls/ParamControls'
 import { loadISF } from '@engine/IsfLoader'
 import { loadShadertoy } from '@engine/ShadertoyLoader'
 import { Panel } from '../Panel/Panel'
@@ -459,8 +458,12 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
           </button>
         </div>
 
-        {/* Params of the active custom shader (ISF sliders end up here) */}
-        {engine?.isUsingCustomShader() && <ParamControls engine={engine} key={lastApplied} />}
+        {/* The sliders for these params are in the Effetti panel, on the left,
+            where every other effect's params already are. Showing a second
+            copy of the same controls here meant two sliders for one value. */}
+        {engine?.isUsingCustomShader() && (
+          <div className="u-hint">I parametri dello shader sono nel pannello Effetti, a sinistra.</div>
+        )}
 
         {/* Save/Load */}
         <div style={{ display: 'flex', gap: '4px' }}>
