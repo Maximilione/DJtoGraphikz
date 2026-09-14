@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId } from '@engine/Engine'
-import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import type { Genre } from '@engine/AutoVJ'
 import { COLOR_PRESETS } from '../../catalog'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
+import { AutoVJControl } from '../AutoVJ/AutoVJControl'
+import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 
 interface SimplePanelProps {
@@ -50,34 +52,11 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
 
   return (
     <div className="panel simple-panel">
-      {/* Auto VJ — the one-button mode */}
-      <button type="button" aria-pressed={vjEnabled}
-        className={`btn simple-autovj${vjEnabled ? ' active' : ''}`}
-        onClick={() => onVJToggle(!vjEnabled)}
-        title="Cambia effetti, post-FX e colori da solo, a tempo di musica"
-      >
-        <div className={`toggle${vjEnabled ? ' active' : ''}`} />
-        <div style={{ flex: 1 }}>
-          <div className="simple-autovj-title">
-            {vjEnabled ? 'AUTO VJ ATTIVO' : 'AUTO VJ'}
-          </div>
-          <div className="simple-autovj-sub">
-            {vjEnabled
-              ? `${vjStatus.count} cambi · ora: ${vjStatus.current || '—'}`
-              : 'Fa tutto da solo, a tempo di musica'}
-          </div>
-        </div>
-      </button>
-      <select
-        className="simple-genre"
-        value={vjGenre}
-        onChange={e => onVJGenre(e.target.value as Genre)}
-        title="Genere musicale — imposta effetti, colori e velocità"
-      >
-        {(Object.entries(GENRE_CONFIGS) as [Genre, typeof GENRE_CONFIGS[Genre]][]).map(([id, cfg]) => (
-          <option key={id} value={id}>{cfg.label}</option>
-        ))}
-      </select>
+      <AutoVJControl
+        size="lg"
+        enabled={vjEnabled} genre={vjGenre} status={vjStatus}
+        onToggle={onVJToggle} onGenre={onVJGenre}
+      />
 
       {/* Effects — big grid, no tabs, no search */}
       <div className="simple-section">EFFETTI</div>
@@ -85,18 +64,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
 
       {/* Palettes — swatch row */}
       <div className="simple-section">COLORI</div>
-      <div className="simple-palettes">
-        {COLOR_PRESETS.map((p, i) => (
-          <button
-            key={p.label}
-            className={`btn simple-palette${activePalette === i ? ' active' : ''}`}
-            onClick={() => selectPalette(i)}
-            title={`Palette ${p.label}`}
-          >
-            {p.colors.map((c, j) => <span key={j} style={{ background: c }} />)}
-          </button>
-        ))}
-      </div>
+      <PaletteGrid size="lg" isActive={i => activePalette === i} onPick={selectPalette} />
     </div>
   )
 }

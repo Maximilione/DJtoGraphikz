@@ -7,6 +7,7 @@ import { ParamControls } from '../ParamControls/ParamControls'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
+import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
 import { pushToast } from '../Toasts/Toasts'
 import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, TRANSITIONS, effectLabel, postLabel } from '../../catalog'
 
@@ -535,29 +536,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {/* Palette grid */}
             <div>
               <div className="cat-label">Palette</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '3px' }}>
-                {COLOR_PRESETS.map((preset, i) => {
-                  const isActive = activeColorPreset === i
-                  return (
-                    <button
-                      key={preset.label}
-                      className={`btn pal-btn${isActive ? ' active' : ''}`}
-                      onClick={() => selectColorPreset(i)}
-                      title={`Palette ${preset.label}`}
-                    >
-                      <div style={{ display: 'flex', gap: '1px' }}>
-                        {preset.colors.map((c, j) => (
-                          <div key={j} style={{
-                            width: '12px', height: '12px', borderRadius: '2px',
-                            background: c,
-                          }} />
-                        ))}
-                      </div>
-                      <span className="pal-name">{preset.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
+              <PaletteGrid isActive={i => activeColorPreset === i} onPick={selectColorPreset} />
             </div>
 
             {/* Custom palette */}
@@ -677,21 +656,12 @@ export function EffectPanel({ engine }: EffectPanelProps) {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px' }}>
-                {COLOR_PRESETS.map((preset, i) => (
-                  <button
-                    key={preset.label}
-                    className={`btn pal-btn${cycleSelection.has(i) ? ' active' : ''}`}
-                    onClick={() => toggleCyclePreset(i)}
-                    title={`${cycleSelection.has(i) ? 'Escludi' : 'Includi'} ${preset.label} nel ciclo`}
-                    style={{ padding: '2px', flexDirection: 'row', opacity: cycleSelection.has(i) ? 1 : 0.4, gap: '1px' }}
-                  >
-                    {preset.colors.map((c, j) => (
-                      <div key={j} style={{ width: '8px', height: '8px', borderRadius: '1px', background: c }} />
-                    ))}
-                  </button>
-                ))}
-              </div>
+              <PaletteGrid
+                size="sm"
+                isActive={i => cycleSelection.has(i)}
+                onPick={toggleCyclePreset}
+                title={(i, label) => `${cycleSelection.has(i) ? 'Escludi' : 'Includi'} ${label} nel ciclo`}
+              />
             </div>
           </div>
         )}
