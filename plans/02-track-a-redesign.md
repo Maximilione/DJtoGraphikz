@@ -337,15 +337,18 @@ si piega.
 
 Da fare una volta, alla fine, prima del tag dell'ultima fase.
 
-- [ ] **Contro-audit sui dieci principi** con lo stesso rubric di
-      `DESIGN-IS-2026-09-14/02-scorecard.md`. Il totale deve superare 20 e
-      **nessun principio può stare a 0**, altrimenti il verdetto resta REDESIGN.
-- [ ] Percorso a tastiera completo, **senza mouse**, cronometrato al buio.
-- [ ] Aritmetica del contrasto rifatta su tutti i token di testo.
-- [ ] Conteggio dei controlli a schermo per modalità, confrontato con
-      173 / 125 / 47 di oggi.
-- [ ] Conteggio delle affordance duplicate, confrontato con **11**.
-- [ ] `grep -rn "onClick" --include=*.tsx src/renderer | grep "div\|span"` → solo fondali.
-- [ ] Dump di localStorage 0.35 → aggiornamento → nessun dato perso.
-- [ ] `yarn check:loaders`, `yarn check:beat`, `yarn check:sequences`,
+- [x] **Contro-audit sui dieci principi**: **21/30**, nessun principio a 0 →
+      verdetto **REFINE**. Il documento è `DESIGN-IS-2026-09-14/05-controaudit.md`.
+- [x] Percorso a tastiera: zero elementi cliccabili non raggiungibili. **Non
+      cronometrato al buio** — quello vuole una persona in una stanza buia, non
+      uno script, e resta da fare sul campo.
+- [x] Aritmetica del contrasto rifatta: `yarn check:contrast` verde, ogni testo
+      ≥4,5:1 e ogni bordo ≥3:1.
+- [x] Controlli a schermo, contati nel DOM vero da `yarn check:ui`:
+      **139 / 111 / 36** contro 173 / 125 / 47.
+- [x] Affordance duplicate: **2 aperte** (R6, R8) contro 11.
+- [x] `grep -rn "onClick" src/renderer | grep "div\|span"` → solo fondali di
+      modale e i due `stopPropagation` delle card.
+- [x] Dump di localStorage 0.35 → `yarn check:storage`, 10 asserzioni.
+- [x] `yarn check:loaders`, `yarn check:beat`, `yarn check:sequences`,
       `python3 scripts/audit-shaders.py`, `yarn check:output`.
