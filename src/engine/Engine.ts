@@ -300,6 +300,14 @@ export class Engine {
   private postGeometry: THREE.PlaneGeometry
   private customTextures: Record<string, THREE.Texture> = {}
   private whiteTexture: THREE.DataTexture | null = null
+
+  // Audio spectrum as a texture: the scalars (uBass/uMid/uHigh) are five
+  // numbers, this is the whole picture. 512 log-spaced bins in .r and the
+  // oscilloscope trace in .g, one row, so uSpectrum is sampled as
+  // texture2D(uSpectrum, vec2(u, 0.5)) with u = 0..1 = 20Hz..20kHz.
+  private static readonly SPECTRUM_BINS = 512
+  private spectrumPixels = new Uint8Array(Engine.SPECTRUM_BINS * 4)
+  private spectrumTex: THREE.DataTexture | null = null
   private usingCustom = false
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
@@ -652,6 +660,7 @@ export class Engine {
         uBeatPhase: { value: 0 },
         uBarPhase: { value: 0 },
         uBeatClock: { value: 0 },
+        uSpectrum: { value: this.getSpectrumTexture() },
         uSub: { value: 0 },
         uPresence: { value: 0 },
         uBassHit: { value: 0 },
@@ -898,6 +907,7 @@ export class Engine {
         uBeatPhase: { value: 0 },
         uBarPhase: { value: 0 },
         uBeatClock: { value: 0 },
+        uSpectrum: { value: this.getSpectrumTexture() },
         uSub: { value: 0 },
         uPresence: { value: 0 },
         uBassHit: { value: 0 },
@@ -997,6 +1007,45 @@ export class Engine {
     return this.whiteTexture
   }
 
+
+  private getSpectrumTexture(): THREE.DataTexture {
+    if (!this.spectrumTex) {
+      const tex = new THREE.DataTexture(this.spectrumPixels, Engine.SPECTRUM_BINS, 1)
+      tex.minFilter = tex.magFilter = THREE.LinearFilter
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+      tex.needsUpdate = true
+      this.spectrumTex = tex
+    }
+    return this.spectrumTex
+  }
+
+  /**
+   * Pack the analyser's raw bins into the texture. The x axis is logarithmic
+   * (20Hz → 20kHz): linear bins waste nine tenths of the width on frequencies
+   * no club track uses, and squash the whole bass into the first pixels.
+   * Each output bin takes the max of the input bins it covers, so a narrow
+   * peak survives instead of being averaged away.
+   */
+  private packSpectrum(freq: Uint8Array, wave: Uint8Array, binHz: number) {
+    const N = Engine.SPECTRUM_BINS
+    const px = this.spectrumPixels
+    const bins = freq.length
+    if (!bins || !binHz) return
+    for (let i = 0; i < N; i++) {
+      const f0 = 20 * Math.pow(1000, i / N)
+      const f1 = 20 * Math.pow(1000, (i + 1) / N)
+      let b0 = Math.floor(f0 / binHz)
+      const b1 = Math.min(bins - 1, Math.max(b0, Math.floor(f1 / binHz)))
+      if (b0 >= bins) b0 = bins - 1
+      let peak = 0
+      for (let b = b0; b <= b1; b++) if (freq[b] > peak) peak = freq[b]
+      px[i * 4] = peak
+      // waveform: one sample per output bin, centred on 128
+      px[i * 4 + 1] = wave.length ? wave[Math.floor((i / N) * wave.length)] : 128
+      px[i * 4 + 3] = 255
+    }
+    if (this.spectrumTex) this.spectrumTex.needsUpdate = true
+  }
 
   /** Assign a picture (dataURL) to an ISF image input of the active custom shader */
   setCustomImage(name: string, dataUrl: string) {
@@ -1245,7 +1294,7 @@ export class Engine {
   // ---- Remote (output window) API ----
 
   /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
-  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number }) {
+  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number; spectrum?: Uint8Array }) {
     this.smoothBass = data.bass || 0
     this.smoothMid = data.mid || 0
     this.smoothHigh = data.high || 0
@@ -1260,6 +1309,10 @@ export class Engine {
     this.beatPhase = data.beatPhase || 0
     this.barPhase = data.barPhase || 0
     if (typeof data.beatClock === 'number') this.beatClock = data.beatClock
+    if (data.spectrum && data.spectrum.length === this.spectrumPixels.length) {
+      this.spectrumPixels.set(data.spectrum)
+      if (this.spectrumTex) this.spectrumTex.needsUpdate = true
+    }
     if (typeof data.effectTime === 'number') this.effectTime = data.effectTime
     if (data.beatDetected) this.pendingBeat = true
   }
@@ -1945,6 +1998,7 @@ export class Engine {
       this.bassHit = audio.bassHit
       this.midHit = audio.midHit
       this.highHit = audio.highHit
+      this.packSpectrum(audio.spectrum, audio.waveform, audio.binHz)
 
       // Beat pulse with decay
       if (beatDetected) this.beatPulse = 1.0
@@ -2198,6 +2252,7 @@ export class Engine {
     if (u.uBeatPhase) u.uBeatPhase.value = this.beatPhase
     if (u.uBarPhase) u.uBarPhase.value = this.barPhase
     if (u.uBeatClock) u.uBeatClock.value = this.beatClock
+    if (u.uSpectrum) u.uSpectrum.value = this.getSpectrumTexture()
     if (u.uSub) u.uSub.value = this.smoothSub * k
     if (u.uPresence) u.uPresence.value = this.smoothPresence * k
     if (u.uBassHit) u.uBassHit.value = this.bassHit * k
@@ -2292,6 +2347,9 @@ export class Engine {
         // value is the authority, local accumulation just fills the gaps
         beatClock: this.beatClock,
         effectTime: this.effectTime,
+        // the packed texture bytes, not the raw bins: the projector gets
+        // exactly the picture the control window is drawing, no second pack
+        spectrum: this.spectrumPixels,
         bpm,
         beatDetected,
       })
@@ -2328,6 +2386,7 @@ export class Engine {
     this.quadGeometry.dispose()
     this.postGeometry.dispose()
     this.whiteTexture?.dispose()
+    this.spectrumTex?.dispose()
     for (const t of Object.values(this.customTextures)) t.dispose()
     this.customTextures = {}
     this.stateListeners.clear()

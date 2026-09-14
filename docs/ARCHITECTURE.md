@@ -142,15 +142,40 @@ All effect shaders receive these uniforms:
 | Uniform | Type | Description |
 |---------|------|-------------|
 | `uTime` | float | Elapsed time in seconds |
+| `uSub` | float | Sub energy 0–1 (20–60 Hz) |
 | `uBass` | float | Bass energy 0–1 |
 | `uMid` | float | Mid energy 0–1 |
 | `uHigh` | float | High energy 0–1 |
+| `uPresence` | float | Presence energy 0–1 (8–20 kHz) |
 | `uEnergy` | float | Overall energy 0–1 |
 | `uBeat` | float | Beat pulse 0–1 (decays after each beat) |
+| `uBassHit` / `uMidHit` / `uHighHit` | float | Per-band onset pulse 0–1 |
+| `uBeatPhase` | float | 0–1 position inside the current beat |
+| `uBarPhase` | float | 0–1 position inside the current 4-beat bar |
+| `uBeatClock` | float | Continuous beat counter — the clock to use for anything tempo-locked |
+| `uBassTime` / `uHighTime` | float | Gated clocks: advance only while that band plays |
+| `uSpectrum` | sampler2D | 512×1 audio texture, see below |
 | `uColor1` | vec3 | Primary palette color |
 | `uColor2` | vec3 | Secondary palette color |
 | `uColor3` | vec3 | Tertiary palette color |
 | `uResolution` | vec2 | Viewport resolution |
+
+### `uSpectrum`
+
+One row, 512 texels, linear filtering. Sample it as
+`texture2D(uSpectrum, vec2(u, 0.5))`:
+
+- `.r` — magnitude 0–1. **u is logarithmic**: `u = 0` is 20 Hz, `u = 1` is
+  20 kHz. Linear bins would spend nine tenths of the width on frequencies no
+  track uses and squash the whole bass into the first few texels, so the pack
+  step maps them by octave and takes the max of each range (a narrow peak
+  survives instead of being averaged away).
+- `.g` — time-domain sample, **centred on 0.5**, i.e. the oscilloscope trace.
+
+The raw bins are noisier than they look on a plot: smooth over several taps
+before using them as geometry, or the result buzzes. The texture is packed once
+in the control window and the packed bytes ride the audio IPC message, so the
+projector draws from exactly the same data.
 
 Post-processing shaders receive `tDiffuse` (input texture) plus relevant audio uniforms.
 
