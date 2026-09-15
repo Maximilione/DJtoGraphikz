@@ -96,6 +96,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 - **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
 - **Projection mapping** — drag the 4 corners (keystone/quad-warp) to fit a skewed projector.
+- **Venue profiles** — save the room by name: output display and resolution, the 4 mapping corners, audio device and gain, ArtNet node and master. The second night in the same club is one click; a display that is not plugged in tonight is skipped and said so.
 
 ### Output and recording
 

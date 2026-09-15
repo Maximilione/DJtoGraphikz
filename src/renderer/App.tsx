@@ -14,6 +14,7 @@ import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
 import { CameraPanel } from './components/CameraPanel/CameraPanel'
 import { DmxPanel } from './components/DmxPanel/DmxPanel'
+import { VenuePanel } from './components/VenuePanel/VenuePanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { HelpMenu } from './components/Help/HelpMenu'
@@ -27,6 +28,7 @@ import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
+import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
 
 type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
@@ -125,6 +127,14 @@ export function App() {
 
   // Displays for the output-monitor picker
   const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean }[]>([])
+  /** Which display the output was sent to, so a venue profile can find it again */
+  const [outputDisplay, setOutputDisplay] = useState<number | null>(null)
+  /**
+   * P2 — bumped when a venue profile rewrites the audio/DMX stores. Both panels
+   * read their store once, at mount; remounting them is the whole re-read.
+   * ponytail: a store-change event would be tidier, for two readers it is not worth it.
+   */
+  const [panelEpoch, setPanelEpoch] = useState(0)
 
   // U1.2 — beat dot (flashed via direct DOM mutation, no setState per frame) + audio status
   const beatDotRef = useRef<HTMLSpanElement>(null)
@@ -405,6 +415,40 @@ export function App() {
     setVjGenre(g)
     try { window.api?.sendRemoteVj({ enabled: vjRef.current.isEnabled(), genre: g }) } catch (_) {}
   }, [])
+
+  // P2 — "posti": snapshot of the room, not of the show.
+  const captureVenue = useCallback((name: string): Venue | null => {
+    if (!engine) return null
+    return {
+      name,
+      outputRes,
+      displayId: outputDisplay,
+      keystone: engine.getKeystone(),
+      brightness,
+      audio: readJson(AUDIO_STORE_KEY, null),
+      dmx: readJson(DMX_STORE_KEY, null),
+    }
+  }, [engine, outputRes, outputDisplay, brightness])
+
+  const applyVenue = useCallback((v: Venue) => {
+    if (!engine) return
+    const res = parseRes(v.outputRes)
+    if (res) {
+      setOutputRes(v.outputRes)
+      engine.setRenderSize(res[0], res[1])
+      window.api?.setOutputResolution(res[0], res[1])
+    }
+    engine.setKeystone(v.keystone)
+    engine.setBrightness(v.brightness); setBrightness(v.brightness)
+    // The monitor may be unplugged tonight — moving the output to an id that is
+    // gone would put the show on nothing.
+    const hasDisplay = v.displayId !== null && displays.some(d => d.id === v.displayId)
+    if (hasDisplay) { setOutputDisplay(v.displayId); window.api?.moveOutputToDisplay(v.displayId!) }
+    if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
+    if (v.dmx !== null) writeJson(DMX_STORE_KEY, v.dmx)
+    setPanelEpoch(e => e + 1)
+    pushToast(`Posto "${v.name}" caricato${hasDisplay ? '' : ' (display non collegato)'}`)
+  }, [engine, displays])
 
   // U1.1 — PANIC: back to a clean, visible baseline in one gesture.
   // The current effect stays on purpose: switching it mid-panic is more jarring.
@@ -753,10 +797,10 @@ export function App() {
           ))}
           {displays.length > 1 && (
             <select
-              defaultValue=""
+              value={outputDisplay ?? ''}
               onChange={e => {
                 const id = parseInt(e.target.value)
-                if (!isNaN(id)) window.api?.moveOutputToDisplay(id)
+                if (!isNaN(id)) { setOutputDisplay(id); window.api?.moveOutputToDisplay(id) }
               }}
               title="Sposta la finestra di output su un display"
             >
@@ -834,7 +878,7 @@ export function App() {
         {/* Left sidebar */}
         {mode !== 'live' && (
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
-          <AudioPanel engine={engine} />
+          <AudioPanel key={panelEpoch} engine={engine} />
           {mode === 'simple' ? (
             <>
               <SimplePanel
@@ -896,7 +940,8 @@ export function App() {
             <ShaderEditor engine={engine} />
             <CameraPanel engine={engine} />
             <MappingPanel engine={engine} />
-            <DmxPanel engine={engine} />
+            <DmxPanel key={panelEpoch} engine={engine} />
+            <VenuePanel capture={captureVenue} apply={applyVenue} />
             <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
           </div>
         )}

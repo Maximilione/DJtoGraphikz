@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { readJson, writeJson } from '../../storage'
 import type { Engine } from '@engine/Engine'
 import { Panel } from '../Panel/Panel'
+import { DMX_STORE_KEY as STORAGE_KEY } from '../../venues'
 
 interface DmxPanelProps {
   engine: Engine | null
@@ -21,7 +22,6 @@ interface DmxConfig {
   strobeOnBeat: boolean
 }
 
-const STORAGE_KEY = 'djtographikz-dmx'
 const DEFAULTS: DmxConfig = {
   enabled: false, host: '', universe: 0,
   fixtures: 4, baseChannel: 1, hasDimmer: true,
