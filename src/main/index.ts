@@ -19,18 +19,72 @@ import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
 
 let controlWindow: BrowserWindow | null = null
-let outputWindow: BrowserWindow | null = null
 let quitting = false
 
-// The display the projector belongs to. Without this the window drifts: macOS
+/**
+ * One show, many walls.
+ *
+ * An output is a window on a display plus the part of the composition it
+ * presents. The engine state travels to every output unchanged — it is the
+ * show — while this is about the room: which screen, at what resolution, which
+ * rectangle of the canvas, and how hard to drive it (a LED wall crushes blacks
+ * and runs hot at full white).
+ *
+ * Plain JSON: it crosses to the renderer as-is, so the shape is declared again
+ * in `src/renderer/outputs.ts`, the way every other IPC contract here is.
+ */
+interface OutputCfg {
+  displayId: number | null
+  width: number
+  height: number
+  /** x,y,w,h in 0..1 of the composition, y from the bottom (uv) */
+  src: [number, number, number, number]
+  gamma: number
+  brightness: number
+}
+
+const DEFAULT_CFG: OutputCfg = {
+  displayId: null, width: 1920, height: 1080, src: [0, 0, 1, 1], gamma: 1, brightness: 1,
+}
+
+interface Output {
+  id: number
+  win: BrowserWindow
+  cfg: OutputCfg
+  /**
+   * The display this output belongs to. Per output and not global: with one
+   * projector a global was enough, with two the second one inherited the
+   * first one's screen and both landed on the same wall.
+   */
+  displayId: number | null
+}
+
+/** id 1 is the projector every existing feature (and the release gate) means. */
+const PRIMARY = 1
+const outputs = new Map<number, Output>()
+
+function primaryOutput(): Output | null {
+  const o = outputs.get(PRIMARY)
+  return o && !o.win.isDestroyed() ? o : null
+}
+
+function liveOutputs(): Output[] {
+  return [...outputs.values()].filter(o => !o.win.isDestroyed())
+}
+
+/** Every output gets the show. Replaces the single `outputWindow?.send`. */
+function broadcastOutputs(channel: string, ...args: unknown[]) {
+  for (const o of liveOutputs()) o.win.webContents.send(channel, ...args)
+}
+
+// The display an output belongs to. Without this the window drifts: macOS
 // resolves simpleFullScreen against the CURRENT screen, so toggling fullscreen
 // eventually lands the output on the laptop and the projector goes black
 // (seen in a session log: display 2 → 1050px → display 1 fullscreen).
-let outputDisplayId: number | null = null
-
-function targetDisplay() {
+function targetDisplay(o: Output) {
   const all = screen.getAllDisplays()
-  return all.find(d => d.id === outputDisplayId)
+  return all.find(d => d.id === o.displayId)
+    ?? all.find(d => d.id === o.cfg.displayId)
     ?? all.find(d => d.bounds.x !== 0 || d.bounds.y !== 0)
     ?? screen.getPrimaryDisplay()
 }
@@ -48,9 +102,10 @@ function targetDisplay() {
  * A borderless window sized to the display and raised above the menu bar looks
  * identical on the projector and has none of that machinery.
  */
-function setOutputFullscreen(win: BrowserWindow, on: boolean) {
-  const d = targetDisplay()
-  outputDisplayId = d.id
+function setOutputFullscreen(o: Output, on: boolean) {
+  const win = o.win
+  const d = targetDisplay(o)
+  o.displayId = d.id
   // never leave a stale macOS fullscreen state behind (older versions set it)
   if (win.isSimpleFullScreen()) win.setSimpleFullScreen(false)
   if (win.isFullScreen()) win.setFullScreen(false)
@@ -86,19 +141,20 @@ function setOutputFullscreen(win: BrowserWindow, on: boolean) {
     const h = Math.round(d.bounds.height * 0.6)
     win.setBounds({ x: d.bounds.x + 40, y: d.bounds.y + 40, width: w, height: h })
   }
-  logLine('output', `proiezione=${on} su display ${d.id} ${JSON.stringify(win.getBounds())}`)
+  logLine('output', `uscita ${o.id}: proiezione=${on} su display ${d.id} ${JSON.stringify(win.getBounds())}`)
 }
 
-/** Put the projector back if it wandered off its display */
+/** Put each projector back if it wandered off its display */
 function keepOutputOnItsDisplay() {
-  const win = outputWindow
-  if (!win || win.isDestroyed() || outputDisplayId === null) return
-  const current = screen.getDisplayMatching(win.getBounds()).id
-  if (current === outputDisplayId) return
-  const d = screen.getAllDisplays().find(x => x.id === outputDisplayId)
-  if (!d) return                     // that screen is gone: leave it alone
-  logLine('output', `finestra finita sul display ${current}, riportata su ${d.id}`)
-  setOutputFullscreen(win, win.isAlwaysOnTop())
+  for (const o of liveOutputs()) {
+    if (o.displayId === null) continue
+    const current = screen.getDisplayMatching(o.win.getBounds()).id
+    if (current === o.displayId) continue
+    const d = screen.getAllDisplays().find(x => x.id === o.displayId)
+    if (!d) continue                   // that screen is gone: leave it alone
+    logLine('output', `uscita ${o.id} finita sul display ${current}, riportata su ${d.id}`)
+    setOutputFullscreen(o, o.win.isAlwaysOnTop())
+  }
 }
 
 // Cached for output-window replay: a late-loading or recreated output window
@@ -158,10 +214,13 @@ function createControlWindow(): BrowserWindow {
   return win
 }
 
-function createOutputWindow(): BrowserWindow {
-  // Try to find a secondary display for the projector
+function createOutputWindow(id: number, cfg: OutputCfg): Output {
+  // The configured display wins; otherwise fall back to the old heuristic
+  // (first screen that is not the laptop) so a first run still finds the
+  // projector on its own.
   const displays = screen.getAllDisplays()
-  const externalDisplay = displays.find(d => d.bounds.x !== 0 || d.bounds.y !== 0)
+  const externalDisplay = displays.find(d => d.id === cfg.displayId)
+    ?? displays.find(d => d.bounds.x !== 0 || d.bounds.y !== 0)
 
   const bounds = externalDisplay
     ? externalDisplay.bounds
@@ -190,6 +249,9 @@ function createOutputWindow(): BrowserWindow {
   // Prevent throttling when output window loses focus (critical for dual-window VJ)
   win.webContents.setBackgroundThrottling(false)
 
+  const out: Output = { id, win, cfg, displayId: externalDisplay?.id ?? null }
+  outputs.set(id, out)
+
   // macOS gives each display its own Space: a projector window that lands on a
   // Space the monitor isn't showing looks exactly like "second screen black",
   // while the window still reports itself visible. Pin it everywhere.
@@ -205,7 +267,7 @@ function createOutputWindow(): BrowserWindow {
   } else {
     win.once('ready-to-show', () => {
       if (win.isDestroyed()) return
-      outputDisplayId = externalDisplay.id
+      out.displayId = externalDisplay.id
       // Going fullscreen before the renderer has painted its first frame is
       // exactly when the projector comes up black: the macOS fullscreen
       // transition catches a window that is not compositing yet. Wait for the
@@ -214,9 +276,15 @@ function createOutputWindow(): BrowserWindow {
       const goFullscreen = () => {
         if (entered || win.isDestroyed()) return
         entered = true
-        setOutputFullscreen(win, true)
+        ipcMain.removeListener('output:painted', onPainted)
+        setOutputFullscreen(out, true)
       }
-      ipcMain.once('output:painted', goFullscreen)
+      // `once` would be consumed by whichever output painted first, leaving the
+      // others waiting on the 2.5s timeout — so match on the sender instead.
+      const onPainted = (e: Electron.IpcMainEvent) => {
+        if (!win.isDestroyed() && e.sender === win.webContents) goFullscreen()
+      }
+      ipcMain.on('output:painted', onPainted)
       setTimeout(goFullscreen, 2500)
     })
   }
@@ -238,25 +306,58 @@ function createOutputWindow(): BrowserWindow {
   // projector never sits on defaults (output-main.ts subscribes at load)
   win.webContents.on('did-finish-load', () => {
     logDisplayState('output caricata', controlWindow, win)
+    // Its own slice first: a window that gets the show before it knows which
+    // part of it to present shows the whole canvas for a frame.
+    win.webContents.send('output:slice', out.cfg)
+    win.webContents.send('output:set-resolution', out.cfg.width, out.cfg.height)
     if (lastEngineState) win.webContents.send('engine:state-update', lastEngineState)
     for (const data of overlays.values()) win.webContents.send('overlay:add', data)
   })
 
   // Auto-recreate if the output renderer crashes mid-set
   win.webContents.on('render-process-gone', (_e, details) => {
-    console.error('[Main] output renderer gone:', details.reason)
-    if (outputWindow === win) outputWindow = null
+    console.error(`[Main] output ${id} renderer gone:`, details.reason)
+    if (outputs.get(id) === out) outputs.delete(id)
     win.destroy()
-    if (!quitting && controlWindow) outputWindow = createOutputWindow()
+    // Same id and same config: a crashed second wall comes back as itself.
+    if (!quitting && controlWindow) createOutputWindow(id, out.cfg)
   })
 
   win.on('closed', () => {
-    if (outputWindow === win) outputWindow = null
+    if (outputs.get(id) === out) outputs.delete(id)
     notifyOutputChanged()
   })
 
   notifyOutputChanged()
-  return win
+  return out
+}
+
+/**
+ * The renderer owns the list and hands it over whole; main makes the windows
+ * match it. One door instead of add/remove/update, so a half-applied change
+ * cannot leave a window nobody is tracking.
+ */
+function reconcileOutputs(list: OutputCfg[]) {
+  const wanted = list.length ? list : [DEFAULT_CFG]
+  // Close the extra ones first: the display one of them frees may be claimed
+  // by an output below.
+  for (const [id, o] of [...outputs]) {
+    if (id > wanted.length) {
+      outputs.delete(id)
+      if (!o.win.isDestroyed()) o.win.destroy()
+    }
+  }
+  wanted.forEach((cfg, i) => {
+    const id = i + 1
+    const o = outputs.get(id)
+    if (!o || o.win.isDestroyed()) { createOutputWindow(id, cfg); return }
+    const moved = cfg.displayId !== null && cfg.displayId !== o.displayId
+    o.cfg = cfg
+    o.win.webContents.send('output:slice', cfg)
+    o.win.webContents.send('output:set-resolution', cfg.width, cfg.height)
+    if (moved) setOutputFullscreen(o, true)
+  })
+  notifyOutputChanged()
 }
 
 // Control window keeps a status chip in sync (U1.3)
@@ -266,10 +367,9 @@ function notifyOutputChanged() {
   }
 }
 
-// Single instance: recreate on demand if the user closed it
-function ensureOutputWindow(): BrowserWindow {
-  if (!outputWindow || outputWindow.isDestroyed()) outputWindow = createOutputWindow()
-  return outputWindow
+// Recreate the projector on demand if the user closed it
+function ensureOutputWindow(): Output {
+  return primaryOutput() ?? createOutputWindow(PRIMARY, outputs.get(PRIMARY)?.cfg ?? DEFAULT_CFG)
 }
 
 /**
@@ -368,7 +468,8 @@ app.whenReady().then(async () => {
     // wants ten seconds to stabilise.
     const settleMs = Number(process.env.DJG_SELFTEST_DELAY_MS) || 8000
     const shoot = () => setTimeout(() => {
-      if (outputWindow && !outputWindow.isDestroyed()) outputWindow.webContents.send('selftest:shot')
+      const o = primaryOutput()
+      if (o) o.win.webContents.send('selftest:shot')
       else { console.error('[SelfTest] nessuna finestra output'); app.quit() }
     }, settleMs)
     ipcMain.once('output:painted', shoot)
@@ -396,19 +497,21 @@ app.whenReady().then(async () => {
   })
 
   controlWindow = createControlWindow()
-  outputWindow = createOutputWindow()
+  // The projector comes up on defaults; the renderer sends the saved list of
+  // outputs as soon as it has read it, and reconcile makes the rest.
+  const primary = createOutputWindow(PRIMARY, DEFAULT_CFG)
 
-  logDisplayState('avvio', controlWindow, outputWindow)
-  screen.on('display-added', () => logDisplayState('display collegato', controlWindow, outputWindow))
-  screen.on('display-removed', () => logDisplayState('display scollegato', controlWindow, outputWindow))
+  logDisplayState('avvio', controlWindow, primary.win)
+  screen.on('display-added', () => logDisplayState('display collegato', controlWindow, primaryOutput()?.win ?? null))
+  screen.on('display-removed', () => logDisplayState('display scollegato', controlWindow, primaryOutput()?.win ?? null))
   screen.on('display-metrics-changed', () => {
-    logDisplayState('display cambiato', controlWindow, outputWindow)
+    logDisplayState('display cambiato', controlWindow, primaryOutput()?.win ?? null)
     keepOutputOnItsDisplay()
   })
   // periodic guard: nothing else notices when macOS relocates the window
   setInterval(keepOutputOnItsDisplay, 4000)
 
-  setupIpcHandlers(controlWindow, outputWindow)
+  setupIpcHandlers(controlWindow, primary.win)
   setupRemoteServer(controlWindow)
   setupOscServer(controlWindow)
   setupUpdateCheck(() => controlWindow)
@@ -417,50 +520,56 @@ app.whenReady().then(async () => {
   // Forward engine state from control to output window (cache for replay)
   ipcMain.on('engine:state-update', (_event, state) => {
     lastEngineState = state
-    outputWindow?.webContents.send('engine:state-update', state)
+    broadcastOutputs('engine:state-update', state)
   })
 
   // Forward audio data from control to output
   ipcMain.on('audio:data', (_event, data) => {
-    outputWindow?.webContents.send('audio:data', data)
+    broadcastOutputs('audio:data', data)
   })
 
   // Forward overlay operations from control to output (cache descriptors for replay)
   ipcMain.on('overlay:add', (_event, data) => {
     if (data?.id) overlays.set(data.id, data)
-    outputWindow?.webContents.send('overlay:add', data)
+    broadcastOutputs('overlay:add', data)
   })
   ipcMain.on('overlay:remove', (_event, id) => {
     overlays.delete(id)
-    outputWindow?.webContents.send('overlay:remove', id)
+    broadcastOutputs('overlay:remove', id)
   })
   ipcMain.on('overlay:update', (_event, id, updates) => {
     const cached = overlays.get(id)
     if (cached) Object.assign(cached, updates)
-    outputWindow?.webContents.send('overlay:update', id, updates)
+    broadcastOutputs('overlay:update', id, updates)
   })
 
   controlWindow.on('closed', () => {
     controlWindow = null
-    outputWindow?.close()
-    outputWindow = null
+    for (const o of liveOutputs()) o.win.close()
+    outputs.clear()
   })
 
-  // Forward resolution change to output window
+  // The renderer owns the list of outputs; this is the only way in.
+  ipcMain.on('outputs:set', (_event, list: OutputCfg[]) => {
+    if (Array.isArray(list)) reconcileOutputs(list)
+  })
+
+  // Forward resolution change to the projector (the toolbar still drives it)
   ipcMain.on('output:set-resolution', (_event, w: number, h: number) => {
-    ensureOutputWindow().webContents.send('output:set-resolution', w, h)
+    ensureOutputWindow().win.webContents.send('output:set-resolution', w, h)
   })
 
   // Toggle output fullscreen. simpleFullScreen ONLY — it's instant on macOS and,
   // unlike the native one, doesn't fight the window state when toggled fast.
-  ipcMain.on('output:toggle-fullscreen', () => {
-    const win = ensureOutputWindow()
-    setOutputFullscreen(win, !win.isAlwaysOnTop())
+  ipcMain.on('output:toggle-fullscreen', (_event, id: number = PRIMARY) => {
+    const o = id === PRIMARY ? ensureOutputWindow() : outputs.get(id)
+    if (o && !o.win.isDestroyed()) setOutputFullscreen(o, !o.win.isAlwaysOnTop())
   })
 
   // Output window status for the control-window chip (U1.3)
   ipcMain.handle('output:info', () => {
-    const win = outputWindow
+    const o = primaryOutput()
+    const win = o?.win
     if (!win || win.isDestroyed()) return { open: false, fullscreen: false, display: '' }
     const d = screen.getDisplayMatching(win.getBounds())
     const idx = screen.getAllDisplays().findIndex(x => x.id === d.id)
@@ -468,6 +577,8 @@ app.whenReady().then(async () => {
       open: true,
       fullscreen: win.isAlwaysOnTop(),
       display: d.label || `Display ${idx + 1}`,
+      /** How many walls the show is on right now — the chip says "+N" */
+      count: liveOutputs().length,
     }
   })
 
@@ -485,11 +596,12 @@ app.whenReady().then(async () => {
 
   // Move output to specific display (exit fullscreen first: setBounds is a
   // no-op while fullscreen, the window would "move" to the same display)
-  ipcMain.on('output:move-to-display', (_event, displayId: number) => {
+  ipcMain.on('output:move-to-display', (_event, displayId: number, id: number = PRIMARY) => {
     const display = screen.getAllDisplays().find(d => d.id === displayId)
-    if (display) {
-      outputDisplayId = display.id
-      setOutputFullscreen(ensureOutputWindow(), true)
+    const o = id === PRIMARY ? ensureOutputWindow() : outputs.get(id)
+    if (display && o && !o.win.isDestroyed()) {
+      o.displayId = display.id
+      setOutputFullscreen(o, true)
     }
   })
 })
