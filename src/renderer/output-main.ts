@@ -72,6 +72,23 @@ window.api?.onOverlayAdd((data: any) => {
 window.api?.onOverlayRemove((id: string) => engine.removeOverlay(id))
 window.api?.onOverlayUpdate((id: string, updates: any) => engine.updateOverlay(id, updates))
 
+// Release gate: present only this rectangle, so the shot proves the crop runs
+// instead of the log claiming it does.
+if (window.api?.selfTestSlice) {
+  try { engine.setSlice({ src: window.api.selfTestSlice.split(',').map(Number) }) }
+  catch (err) { console.error('[SelfTest] slice illeggibile:', err) }
+}
+
+// Which part of the show this wall presents, and how hard to drive it. Not in
+// the engine state on purpose: the state is the show, and every output gets it
+// unchanged — this is the only thing that is per-window.
+window.api?.onOutputSlice?.((cfg: any) => {
+  // main replays the real config on did-finish-load, i.e. after this module has
+  // run — under the gate that would put the pinned crop straight back to full.
+  if (window.api?.selfTestSlice) return
+  if (cfg) engine.setSlice(cfg)
+})
+
 window.api?.onOutputResolution((w: number, h: number) => {
   engine.setRenderSize(w, h)
   // the letterbox depends on the output aspect — recompute it
