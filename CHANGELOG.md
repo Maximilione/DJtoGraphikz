@@ -2,6 +2,20 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.44.0-beta] — 2026-09-15
+
+**S3 — macro Intensità.** Sotto pressione un comando batte cinque cursori.
+
+### Added
+- **Un fader solo** alza insieme **velocità**, **reattività**, la **densità** di ogni effetto che ne ha una e il **wet della catena post**, con un peso per parametro (`INTENSITY_WEIGHTS`, dichiarati in un posto solo). Raggiungibile da **tasto I**, MIDI, OSC `/djg/intensity`, telefono e barra in alto
+- **Il tasto I segue la regola di S1**: tenuto e' momentaneo, toccato resta
+- `yarn check:intensity` — 10 controlli sull'aritmetica, fra cui che ogni peso dichiarato corrisponde davvero a un parametro esistente, che a zero ogni valore torna identico, e che la macro e' monotona e non sfora mai i limiti
+
+### Changed
+- La macro agisce **quando i parametri vengono risolti**, e non riscrive mai i valori salvati: mollare il fader restituisce esatta la scena impostata a mano. Una macro che lascia i parametri qualche punto piu' in la' a ogni passata e' peggio che non averla — riscrive una serata di regolazioni, un poco per volta
+- I pesi non sono un'euristica sui nomi: sono una tabella esplicita, e un parametro non elencato **non si muove**. Per la soglia il peso e' negativo, perche' li' "piu' intensita'" vuol dire abbassarla
+- L'intensita' viaggia nello snapshot di stato: la finestra di uscita risolve i parametri per conto suo, e senza non mostrerebbe la spinta
+
 ## [0.43.0-beta] — 2026-09-15
 
 **S1 — FX momentanei.** "Ho acceso lo strobe e me lo sono dimenticato" e' il
