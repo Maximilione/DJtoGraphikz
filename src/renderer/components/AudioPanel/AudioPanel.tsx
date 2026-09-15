@@ -15,6 +15,7 @@ const BPM_MODES: { id: BpmMode; label: string; hint: string }[] = [
   { id: 'auto', label: 'Auto', hint: 'Rileva il BPM automaticamente dal segnale audio' },
   { id: 'tap', label: 'Tap', hint: 'Batti il tempo a mano con il pulsante TAP' },
   { id: 'manual', label: 'Manuale', hint: 'Imposta il BPM a mano' },
+  { id: 'midi', label: 'MIDI', hint: 'Prende tempo e posizione nella battuta dal MIDI clock del mixer o del lettore — esatti, non stimati' },
 ]
 
 const AUDIO_STORE_KEY = 'djtographikz-audio'
@@ -37,6 +38,8 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   // Persisted settings from the previous session — read once per mount
   const savedRef = useRef<SavedAudioSettings>(loadAudioSettings())
   const saved = savedRef.current
+  /** live = ticking right now; seen = a clock arrived at some point this session */
+  const [clock, setClock] = useState({ live: false, seen: false })
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>(saved.deviceId ?? '')
   const [audioActive, setAudioActive] = useState(false)
@@ -129,6 +132,16 @@ export function AudioPanel({ engine }: AudioPanelProps) {
       if (m !== bpmMode) setBpmMode(m)
       const mb = engine.audioAnalyzer.getManualBpm()
       if (mb !== manualBpm) setManualBpm(mb)
+      const ck = engine.audioAnalyzer.hasMidiClock()
+      const seen = engine.audioAnalyzer.sawMidiClock()
+      setClock(c => (c.live === ck && c.seen === seen ? c : { live: ck, seen }))
+      // The readout is normally refreshed by the spectrum draw, which only
+      // runs while audio does. A MIDI clock works with no audio at all, so
+      // the number has to be kept alive from here too.
+      if (ck) {
+        const b = Math.round(engine.audioAnalyzer.getEffectiveBpm())
+        setDisplayBpm(d => (d === b ? d : b))
+      }
     }, 500)
     return () => clearInterval(id)
   }, [engine, audioActive, bpmMode, manualBpm])
@@ -394,6 +407,22 @@ export function AudioPanel({ engine }: AudioPanelProps) {
               </button>
             ))}
           </div>
+
+          {/* What the clock is actually doing — the mode is useless without it */}
+          {bpmMode === 'midi' && (
+            <div className="u-hint" style={{ marginBottom: '4px' }}>
+              {clock.live
+                ? 'MIDI clock agganciato — tempo e posizione nella battuta arrivano dal cavo'
+                : clock.seen
+                  ? 'Clock fermo — tengo l\'ultimo tempo ricevuto'
+                  : 'Nessun clock ricevuto: attiva l\'invio del MIDI clock sul mixer o sul lettore'}
+            </div>
+          )}
+          {bpmMode !== 'midi' && clock.seen && (
+            <div className="u-hint" style={{ marginBottom: '4px' }}>
+              Arriva un MIDI clock: con <strong>MIDI</strong> il tempo e' esatto invece che stimato.
+            </div>
+          )}
 
           {/* Tap button */}
           {bpmMode === 'tap' && (
