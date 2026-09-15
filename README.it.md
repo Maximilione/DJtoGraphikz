@@ -50,6 +50,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
   - **Spectrum** — l'analizzatore per quello che e': barre logaritmiche con i cappelli di picco, specchiate, oscilloscopio sopra. **Smoke** — un pennacchio ad advezione semi-lagrangiana, tre bocchette alimentate ognuna dalla sua banda. **Caustics**, **Gyroid** (superficie minima raymarchata), **Truchet**, **Quasicrystal**, **String art**, **ASCII**.
   - **Pulsar** — le creste di *Unknown Pleasures* disegnate come linescape in prospettiva: un unico terreno tagliato in fette dal vicino al lontano con rimozione delle linee nascoste, e i lati piatti come sulla copertina. Il campo scorre verso la camera agganciato al beat clock, e ogni battuta forte alza una cresta che arriva insieme al terreno.
 - **~85 parametri curati** — 2-3 slider veri per effetto (segments, density, zoom, twist…), ognuno **mappabile all'audio** (bass/mid/high/energy/beat, depth ±100%) o a un **LFO** tempo-sync (sine/saw/square, rate 1/4…32 battute).
+- **Tieni premuto = momentaneo** — un tocco breve lascia acceso, tenere premuto e mollare torna com'era. Vale per blackout, freeze, i post-FX su QWER, gli effetti 1-0, i look su Shift+1-0, i pad MIDI (note-on/note-off) e il dito sul telefono. Nessuna modalita' da ricordare al buio: decide il tasto, in base a quanto lo tieni.
 - **Look Bank** — griglia 4×4 con thumbnail reali: click su slot vuoto salva il look completo, click applica con transizione, hotkey Shift+1-0.
 - **Scalette** — una sequenza di look, ognuno tenuto per il suo tempo: li peschi dal Look Bank o prendi quello che c'è sullo schermo, li riordini trascinando, e a ogni passo dai i suoi secondi o le sue battute e la sua transizione. Le scalette salvate si riaprono nell'editor, girano in loop e si esportano in JSON.
 - **Deck A/B + crossfader** — secondo deck con 5 blend mode (mix, add, screen, multiply, difference); il deck B fa da blind mode.
@@ -110,6 +111,7 @@ npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit 
 yarn check:output   # gate di release: il proiettore mostra davvero un'immagine?
 yarn check:ui       # fotografa la finestra di controllo (check:ui simple 0.34)
 yarn check:dryrun   # analizza un brano sintetico a 128 BPM e verifica che l'app lo segua
+yarn check:momentary # tocco contro pressione lunga
 yarn package:mac   # .dmg (anche package:win / package:linux)
 ```
 

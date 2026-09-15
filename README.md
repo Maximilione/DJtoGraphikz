@@ -50,6 +50,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
   - **Spectrum** — the analyser's own picture: log-spaced bars with peak caps, mirrored, oscilloscope over the top. **Smoke** — a semi-Lagrangian advection plume, three vents each fed by its own band. **Caustics**, **Gyroid** (raymarched minimal surface), **Truchet**, **Quasicrystal**, **String art**, **ASCII** terminal readout.
   - **Pulsar** — the *Unknown Pleasures* ridge plot rendered as a perspective linescape: one continuous terrain sliced front to back with hidden-line removal, sides kept dead flat like the sleeve. The field scrolls toward the camera locked to the beat clock, and every downbeat raises a ridge band that rides in with it.
 - **~85 curated parameters** — 2-3 real sliders per effect (segments, density, zoom, twist…), each **mappable to audio** (bass/mid/high/energy/beat, depth ±100%) or to a tempo-synced **LFO** (sine/saw/square, rate 1/4…32 beats).
+- **Hold = momentary** — a quick tap latches, holding and letting go puts it back. Blackout, freeze, the QWER post-FX, effects 1-0, looks on Shift+1-0, MIDI pads (note-on/note-off) and a thumb on the phone. No mode to remember in the dark: the key decides, by how long you hold it.
 - **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
 - **Sequences** — an ordered list of looks, each held for its own time: pick them from the Look Bank or grab whatever is on screen, drag to reorder, set every step to its own number of seconds or beats and its own transition. Saved sequences reopen in the editor, run on a loop, and export to JSON.
 - **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
@@ -110,6 +111,7 @@ npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit 
 yarn check:output   # release gate: is the projector really showing an image?
 yarn check:ui       # photograph the control window (check:ui simple 0.34)
 yarn check:dryrun   # analyse a synthetic 128 BPM track and assert the app follows it
+yarn check:momentary # tap versus hold
 yarn package:mac   # .dmg (also package:win / package:linux)
 ```
 

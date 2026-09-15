@@ -1,6 +1,7 @@
 import type { Engine, PostId } from '@engine/Engine'
 import { MIDI_CLOCK } from '@engine/audio/MidiClock'
 import { readJson, writeJson } from './storage'
+import { momentary } from './momentary'
 
 // Web MIDI learn — bindings route through the same dispatchCmd used by the
 // phone remote and OSC, so MIDI can drive everything those can.
@@ -14,6 +15,17 @@ export interface MidiTarget {
   group: string
   /** v is 0..1 for continuous input; 1 on note-on / CC press for triggers */
   toCmd: (v: number, engine: Engine) => Cmd | null
+  /**
+   * What a *held* note or pad does when it is let go, past the hold
+   * threshold — a quick tap always latches.
+   *
+   * `'toggle'` re-runs `toCmd`, which reads the current state and therefore
+   * inverts what the press did. `'preset'` restores the look that was on
+   * screen, because recalling a slot is not undone by recalling it again.
+   * Left out, the trigger has no momentary behaviour: tapping the tempo twice
+   * is not the opposite of tapping it once.
+   */
+  hold?: 'toggle' | 'preset'
 }
 
 const POSTS: PostId[] = ['bloom', 'rgb-split', 'chromatic', 'feedback', 'filmgrain', 'scanlines', 'pixelate', 'mirror', 'invert']
@@ -34,11 +46,11 @@ export const MIDI_TARGETS: MidiTarget[] = [
   { id: 'grade:vignette', label: 'Vignette', group: 'Grade', toCmd: v => ({ type: 'grade', value: { key: 'vignette', value: v } }) },
   // Triggers / toggles
   { id: 'tap', label: 'Tap BPM', group: 'Trigger', toCmd: () => ({ type: 'tap' }) },
-  { id: 'blackout', label: 'Blackout', group: 'Trigger', toCmd: (_v, e) => ({ type: 'blackout', value: !e.isBlackout() }) },
-  { id: 'freeze', label: 'Freeze', group: 'Trigger', toCmd: (_v, e) => ({ type: 'freeze', value: !e.isFrozen() }) },
-  { id: 'autovj', label: 'Auto VJ', group: 'Trigger', toCmd: () => ({ type: 'autovj', value: '__toggle__' }) },
+  { id: 'blackout', label: 'Blackout', group: 'Trigger', hold: 'toggle', toCmd: (_v, e) => ({ type: 'blackout', value: !e.isBlackout() }) },
+  { id: 'freeze', label: 'Freeze', group: 'Trigger', hold: 'toggle', toCmd: (_v, e) => ({ type: 'freeze', value: !e.isFrozen() }) },
+  { id: 'autovj', label: 'Auto VJ', group: 'Trigger', hold: 'toggle', toCmd: () => ({ type: 'autovj', value: '__toggle__' }) },
   ...Array.from({ length: 16 }, (_, i) => ({
-    id: `look:${i}`, label: `Look ${i + 1}`, group: 'Look Bank',
+    id: `look:${i}`, label: `Look ${i + 1}`, group: 'Look Bank', hold: 'preset' as const,
     toCmd: () => ({ type: 'look', value: i }),
   })),
 ]
@@ -147,10 +159,32 @@ class MidiEngine {
       const bkey = `${kind}:${ch}:${num}`
       const prev = this.lastCcValue.get(bkey) ?? 0
       this.lastCcValue.set(bkey, value)
-      const fired = kind === 'note' ? value === 1 : prev <= 0.5 && value > 0.5
-      if (!fired) return
+      const pressed = kind === 'note' ? value === 1 : prev <= 0.5 && value > 0.5
+      const released = kind === 'note' ? value === 0 : prev > 0.5 && value <= 0.5
+
+      // A pad let go past the hold threshold undoes what pressing it did.
+      // Note-off used to be dropped here, which is why holding a pad and
+      // letting go left the strobe on.
+      if (released) { momentary.release(`midi:${bkey}`) ; return }
+      if (!pressed) return
+
       const cmd = target.toCmd(1, this.engine)
-      if (cmd) this.dispatch(cmd)
+      if (!cmd) return
+      if (target.hold === 'preset') {
+        const before = this.engine.createPreset('prima del richiamo')
+        const engine = this.engine
+        momentary.press(`midi:${bkey}`, () => engine.applyPreset(before))
+      } else if (target.hold === 'toggle') {
+        const engine = this.engine
+        const dispatch = this.dispatch
+        // toCmd reads the state at release time, so running it again inverts
+        // whatever the press did.
+        momentary.press(`midi:${bkey}`, () => {
+          const back = target.toCmd(1, engine)
+          if (back) dispatch(back)
+        })
+      }
+      this.dispatch(cmd)
     } else {
       // Faders: notes act as 0/1 switches, CC passes through
       const cmd = target.toCmd(value, this.engine)

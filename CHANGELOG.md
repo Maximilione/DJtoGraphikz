@@ -2,6 +2,25 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.43.0-beta] — 2026-09-15
+
+**S1 — FX momentanei.** "Ho acceso lo strobe e me lo sono dimenticato" e' il
+modo classico di rovinare una stanza.
+
+### Added
+- **Un tocco breve lascia acceso, tenere premuto e mollare torna com'era.** Sotto i 250 ms e' un tocco e si comporta come prima; oltre, al rilascio si annulla. Vale per **blackout**, **freeze**, i **post-FX** su QWER, gli **effetti** 1-0, i **look** su Shift+1-0, i **pad MIDI** e il **dito sul telefono**
+- Niente seconda fila di comandi e nessuna modalita' da ricordare al buio: decide il tasto, in base a quanto lo tieni. Una pressione nervosa non puo' lasciare niente appeso
+- `yarn check:momentary` — 7 controlli sulla soglia: tocco, pressione lunga, due tasti insieme, ripetizione automatica, doppio rilascio, perdita di fuoco
+
+### Fixed
+- **Il note-off MIDI veniva ignorato del tutto**: tenere un pad e mollarlo lasciava tutto acceso. Adesso rilascia, e anche un CC usato come pulsante rilascia quando riscende sotto meta' corsa
+- Un `keyup` che non arriva mai — la finestra perde il fuoco mentre tieni un tasto — lasciava il tasto logicamente premuto per sempre e la pressione successiva veniva scartata come ripetizione
+
+### Changed
+- L'annullamento e' **catturato alla pressione**, non dedotto: un look tenuto torna al look che c'era a schermo, che non e' la stessa cosa che richiamarne un altro
+- Sul telefono i look e i post-FX rispondono a `pointerdown`/`pointerup` invece che al click
+- La ripetizione automatica non rifa' piu' partire una scorciatoia: tenere premuto **B** non fa lampeggiare il blackout
+
 ## [0.42.0-beta] — 2026-09-15
 
 **P1 — prova a secco con un file audio.** Tutto il lavoro su beat, BPM ed

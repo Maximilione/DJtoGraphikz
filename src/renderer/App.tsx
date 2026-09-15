@@ -23,6 +23,7 @@ import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type
 import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { ALL_EFFECTS, COLOR_PRESETS, POST_CATEGORIES } from './catalog'
 import { shouldIgnoreHotkey } from './hotkeys'
+import { momentary } from './momentary'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
 
@@ -448,6 +449,7 @@ export function App() {
 
   // Live performance hotkeys:
   // B blackout · F freeze · [ ] master · 1-0 effects · QWER post toggles · Space tap BPM
+  // Every one of those latches on a tap and is momentary on a hold — see momentary.ts.
   useEffect(() => {
     if (!engine) return
     const onKey = (e: KeyboardEvent) => {
@@ -455,10 +457,23 @@ export function App() {
 
       const k = e.key.toLowerCase()
 
+      // Auto-repeat would re-press a key that is already down and overwrite
+      // the state captured to go back to — and holding B should not strobe
+      // the blackout either.
+      if (e.repeat || momentary.isDown(k)) return
+
       if (k === 'b') {
-        setBlackout(prev => { engine.setBlackout(!prev); return !prev })
+        setBlackout(prev => {
+          engine.setBlackout(!prev)
+          momentary.press(k, () => { engine.setBlackout(prev); setBlackout(prev) })
+          return !prev
+        })
       } else if (k === 'f') {
-        setFrozen(prev => { engine.setFreeze(!prev); return !prev })
+        setFrozen(prev => {
+          engine.setFreeze(!prev)
+          momentary.press(k, () => { engine.setFreeze(prev); setFrozen(prev) })
+          return !prev
+        })
       } else if (k === 'p') {
         panic()
       } else if (e.key === '?') {
@@ -468,27 +483,68 @@ export function App() {
         setBrightness(prev => { const v = Math.max(0, prev - 0.05); engine.setBrightness(v); return v })
       } else if (e.key === ']') {
         setBrightness(prev => { const v = Math.min(1, prev + 0.05); engine.setBrightness(v); return v })
-      } else if (k >= '0' && k <= '9') {
+      } else if (!e.shiftKey && k >= '0' && k <= '9') {
+        // Shift+digit is the Look Bank's, and it handles its own hold.
         const idx = k === '0' ? 9 : parseInt(k) - 1
         const effect = HOTKEY_EFFECTS[idx]
-        if (effect) { toggleVJ(false); engine.setEffect(effect) }
+        if (effect) {
+          const before = engine.getCurrentEffect()
+          toggleVJ(false)
+          engine.setEffect(effect)
+          momentary.press(k, () => engine.setEffect(before))
+        }
       } else if (k in HOTKEY_POSTS) {
-        engine.togglePost(HOTKEY_POSTS[k])
+        const id = HOTKEY_POSTS[k]
+        const was = engine.isPostActive(id)
+        engine.togglePost(id)
+        momentary.press(k, () => { if (engine.isPostActive(id) !== was) engine.togglePost(id) })
       } else if (k === ' ') {
         e.preventDefault()
         engine.audioAnalyzer.setBpmMode('tap')
         engine.audioAnalyzer.tap()
       }
     }
+
+    // Hold it and it is momentary; tap it and it latches. One key, both.
+    const onKeyUp = (e: KeyboardEvent) => { momentary.release(e.key.toLowerCase()) }
+    // A keyup that never arrives (the window lost focus mid-hold) would leave
+    // the key logically down for ever, and the next press would be ignored.
+    const onBlur = () => momentary.clear()
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+      momentary.clear()
+    }
   }, [engine, toggleVJ, panic])
 
   // Shared command dispatch — phone remote, OSC (via remote:cmd) and MIDI all
   // land here so every surface drives the engine identically
-  const dispatchCmd = useCallback((cmd: { type: string; value?: unknown; source?: string }) => {
+  const dispatchCmd = useCallback((cmd: { type: string; value?: unknown; source?: string; hold?: string }) => {
     if (!engine) return
     const v = cmd.value as any
+
+    // The phone sends a press and a release, so a look or a post-FX held with
+    // a thumb behaves like a held key. `hold` names the press; `release`
+    // undoes it if it lasted.
+    if (cmd.type === 'release') { momentary.release(`remote:${v}`); return }
+    if (cmd.hold) {
+      if (cmd.type === 'look') {
+        const before = engine.createPreset('prima del richiamo')
+        momentary.press(`remote:${cmd.hold}`, () => engine.applyPreset(before))
+      } else if (cmd.type === 'post') {
+        const id = v as PostId
+        const was = engine.isPostActive(id)
+        momentary.press(`remote:${cmd.hold}`, () => {
+          if (engine.isPostActive(id) !== was) engine.togglePost(id)
+        })
+      }
+    }
+
     switch (cmd.type) {
         case 'panic': panic(); break
         case 'effect': toggleVJ(false); engine.setEffect(v); break
@@ -827,7 +883,7 @@ export function App() {
           />
           flash beat
         </label>
-        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · Space tap</span>
+        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · Space tap · tieni premuto = momentaneo</span>
       </div>
 
       <Toasts />
