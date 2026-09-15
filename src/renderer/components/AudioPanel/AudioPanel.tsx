@@ -6,6 +6,8 @@ import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { Panel } from '../Panel/Panel'
+// one source of truth: a venue profile rewrites this very store (P2)
+import { AUDIO_STORE_KEY } from '../../venues'
 
 interface AudioPanelProps {
   engine: Engine | null
@@ -25,8 +27,6 @@ function mmss(seconds: number): string {
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
-
-const AUDIO_STORE_KEY = 'djtographikz-audio'
 
 interface SavedAudioSettings {
   deviceId?: string

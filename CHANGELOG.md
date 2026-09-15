@@ -2,6 +2,23 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.46.0-beta] — 2026-09-15
+
+**P2 — profili locale ("Posti").** La seconda serata nello stesso posto torna a un click.
+
+### Added
+- Pannello **Posti**: salva con un nome **display e risoluzione di uscita, i 4 angoli del mapping, scheda audio e gain, nodo ArtNet e universo, master**. Non e' un preset dello spettacolo — e' la stanza, l'altra meta' che lo snapshot di sessione non copriva
+- Risalvare con lo stesso nome **sostituisce** il posto invece di accodarne un secondo
+- `yarn check:venues` — 5 controlli sulle regole che proteggono il proiettore: una risoluzione che non e' una risoluzione, un mapping con meno di 8 valori o un archivio modificato a mano non arrivano mai al motore
+
+### Changed
+- Il menu "Output su…" ora **ricorda il display scelto**: prima era `defaultValue=""` e la scelta si perdeva, quindi non c'era niente da salvare
+- Le chiavi di archivio di audio e DMX vivono in `venues.ts`: un posto riscrive proprio quegli archivi, e due stringhe uguali in tre file sono due stringhe che divergono
+
+### Note
+- Se il display salvato **non e' collegato** stasera, il resto del posto si applica lo stesso e il toast lo dice: spostare l'uscita su un id che non c'e' piu' vuol dire mandare lo spettacolo sul nulla
+- Caricare un posto **rimonta** i pannelli Audio e Luci DMX, che leggono il loro archivio all'avvio: e' il modo piu' corto per farglielo rileggere
+
 ## [0.45.0-beta] — 2026-09-15
 
 **Q1 — camera master.** Nessun'altra modifica ha questa leva sulla varieta'.
