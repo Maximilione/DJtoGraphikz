@@ -673,12 +673,20 @@ function renderLooks(looks){
     if (l.thumb) { const img = el('img'); img.src = l.thumb; img.alt = ''; d.appendChild(img) }
     d.appendChild(el('span', 'n', String(i + 1)))
     d.appendChild(el('span', 'nm', l.name))
-    d.addEventListener('click', function(){
+    // Tap latches, hold is momentary — the same rule as the keyboard and the
+    // MIDI pads. A phone in your hand is the most natural momentary controller
+    // in the room, so it sends a press and a release, not a click.
+    d.addEventListener('pointerdown', function(ev){
+      ev.preventDefault()
       buzz(25)
-      cmd({ type: 'look', value: i })
+      cmd({ type: 'look', value: i, hold: 'look:' + i })
       d.classList.add('flash')
       setTimeout(function(){ d.classList.remove('flash') }, 350)
     })
+    const letGo = function(){ cmd({ type: 'release', value: 'look:' + i }) }
+    d.addEventListener('pointerup', letGo)
+    d.addEventListener('pointercancel', letGo)
+    d.addEventListener('pointerleave', letGo)
     grid.appendChild(d)
   }
 }
@@ -762,7 +770,14 @@ function rebuildPostUI(e){
   ;(defs.posts || []).forEach(function(p){
     if (active.indexOf(p.id) !== -1) return
     const b = el('button', '', '+ ' + p.label)
-    b.addEventListener('click', function(){ cmd({ type: 'post', value: p.id }) })
+    b.addEventListener('pointerdown', function(ev){
+      ev.preventDefault()
+      cmd({ type: 'post', value: p.id, hold: 'post:' + p.id })
+    })
+    const letGo = function(){ cmd({ type: 'release', value: 'post:' + p.id }) }
+    b.addEventListener('pointerup', letGo)
+    b.addEventListener('pointercancel', letGo)
+    b.addEventListener('pointerleave', letGo)
     add.appendChild(b)
   })
 }
