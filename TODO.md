@@ -52,6 +52,9 @@ Qualità visiva:
 
 Integrazione:
 
+- [x] **I5 Più uscite (muri LED, due proiettori)** — una finestra per uscita, ognuna con schermo, risoluzione libera, ritaglio della scena, gamma e tetto propri. Il muro LED dietro al processore e' un display come gli altri, quindi non serve niente di LED-specifico · **M** — **fatto in v0.47.0-beta**
+- [ ] **I6 Pixel mapping ArtNet/sACN** — pannelli e strip a bassa risoluzione: render target piccolo dedicato, `readRenderTargetPixelsAsync` (c'e' in three 0.170, niente stallo), mappatura pixel → canali. Oltre ~4 universi serve sACN/E1.31: ArtNet in broadcast su venti universi allaga la rete del booth · **M**
+- [ ] **I7 Keystone per uscita** — oggi il mapping e' uno solo e vale per tutte le uscite: con due proiettori storti ne serve uno per finestra, piu' il selettore nel pannello Mapping · **S/M**
 - [ ] **I2 Uscita per OBS / secondo PC** — la stessa pagina di output esposta su una route del server già in piedi, da aprire come Browser Source in OBS anche da un altro computer in rete: è il caso d'uso per cui si voleva NDI, senza SDK. *Limite: è un secondo render, costa GPU; per la sola cattura locale la window-capture di OBS resta gratis* · **M**
 - [ ] **I3 Pro DJ Link / StagelinQ** — titolo del brano e BPM autorevole direttamente dai lettori Pioneer/Denon (protocolli UDP con implementazioni JS pure). Da tenere opzionale e disattivabile: è reverse engineering e richiede il cavo verso lo switch del booth · **L**
 - [ ] **I4 Reel automatico** — buffer circolare degli ultimi 30 secondi: un tasto (o il rilevamento drop di S4) salva una clip 9:16 già pronta da postare · **M**

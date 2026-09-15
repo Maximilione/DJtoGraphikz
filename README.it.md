@@ -96,6 +96,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 - **DMX via ArtNet** — PAR RGB che seguono la palette e pulsano con energia/bass/beat (flash sul beat opzionale); UDP puro, universo/canale base/numero fixture configurabili.
 - **Projection mapping** — trascina i 4 angoli (keystone/quad-warp) per adattare l'immagine a un proiettore storto.
+- **Più uscite** — una finestra per muro: scegli lo schermo, scrivi la risoluzione vera del pannello (anche 1536×256) e che pezzo della scena mostra (tutto, metà, una striscia). Gamma e tetto per uscita, perché il LED schiaccia i neri e a bianco pieno è inguardabile. Un muro LED dietro al suo processore è un display come gli altri; il pannello avvisa quando i pixel totali sono più di quanti una GPU ne disegni.
 - **Posti** — salva il locale per nome: display e risoluzione di uscita, i 4 angoli del mapping, scheda audio e gain, nodo ArtNet e master. La seconda serata nello stesso posto è un click; se il display salvato non è collegato viene saltato e te lo dice.
 
 ### Output e registrazione

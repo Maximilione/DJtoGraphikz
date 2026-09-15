@@ -94,6 +94,16 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
           il frame corrente. Il rendering non si ferma durante la registrazione.
         </p>
 
+        <h3 style={h3Style}>Uscite</h3>
+        <p style={pStyle}>
+          Il pannello Uscite apre una finestra per ogni muro. Un muro LED col suo processore
+          (Novastar, Colorlight, Brompton) è un display come gli altri: scegli lo schermo, scrivi
+          la risoluzione vera del pannello — anche 1536×256 — e decidi che pezzo della scena
+          mostra (tutto, metà, una striscia). Gamma e tetto sono per uscita, perché il LED
+          schiaccia i neri e a bianco pieno è inguardabile. Ogni uscita è un render completo:
+          se la somma dei pixel è alta il pannello te lo dice.
+        </p>
+
         <h3 style={h3Style}>Posti</h3>
         <p style={pStyle}>
           Il pannello Posti salva il locale, non lo spettacolo: display e risoluzione di uscita,
