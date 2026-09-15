@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.46.1-beta] — 2026-09-15
+
+### Fixed
+- **Caricare un posto non cambiava la scheda audio.** Il pannello Audio riparte solo "se non sta girando" (`AudioPanel.tsx`), e in serata sta sempre girando: il posto portava gain, sensibilita' e modo BPM, ma lasciava l'ingresso del locale precedente. La condizione ora e' **"non su quella scheda"**, non "non in funzione" — cosi' l'unica cosa per cui il profilo esiste, da dove entra la musica, e' anche quella che ripristina. Vale pure per il ritorno di una scheda cambiata da fuori il pannello
+- `AudioAnalyzer.currentDeviceId`: da `isRunning` non si poteva sapere **su quale** ingresso stesse girando
+
+### Note
+- Se sta analizzando un **file** (prova a secco P1) il posto non tocca l'ingresso: strappare il brano sotto al test non e' quello che si chiede caricando un profilo
+
 ## [0.46.0-beta] — 2026-09-15
 
 **P2 — profili locale ("Posti").** La seconda serata nello stesso posto torna a un click.
