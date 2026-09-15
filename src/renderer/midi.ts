@@ -35,6 +35,14 @@ export const MIDI_TARGETS: MidiTarget[] = [
   { id: 'crossfade', label: 'Crossfade A/B', group: 'Mix', toCmd: v => ({ type: 'crossfade', value: v }) },
   { id: 'motionblur', label: 'Motion blur', group: 'Mix', toCmd: v => ({ type: 'motionBlur', value: v }) },
   { id: 'intensity', label: 'Intensità', group: 'Mix', toCmd: v => ({ type: 'intensity', value: v }) },
+  // Camera: 0..1 scaled to each control's real range, like the grade above
+  { id: 'cam:zoom', label: 'Camera zoom', group: 'Camera', toCmd: v => ({ type: 'camera', value: { zoom: 0.2 + v * 3.8 } }) },
+  { id: 'cam:rotation', label: 'Camera rotazione', group: 'Camera', toCmd: v => ({ type: 'camera', value: { rotation: v * 360 - 180 } }) },
+  { id: 'cam:panx', label: 'Camera pan X', group: 'Camera', toCmd: v => ({ type: 'camera', value: { panX: v * 2 - 1 } }) },
+  { id: 'cam:pany', label: 'Camera pan Y', group: 'Camera', toCmd: v => ({ type: 'camera', value: { panY: v * 2 - 1 } }) },
+  { id: 'cam:tile', label: 'Camera mosaico', group: 'Camera', toCmd: v => ({ type: 'camera', value: { tile: 1 + Math.round(v * 7) } }) },
+  { id: 'cam:push', label: 'Camera spinta', group: 'Camera', toCmd: v => ({ type: 'camera', value: { push: v } }) },
+  { id: 'cam:reset', label: 'Camera azzera', group: 'Trigger', toCmd: () => ({ type: 'cameraReset' }) },
   ...POSTS.map(p => ({
     id: `wet:${p}`, label: `Wet ${p}`, group: 'Post FX',
     toCmd: (v: number) => ({ type: 'postAmount', value: { id: p, value: v } }),
