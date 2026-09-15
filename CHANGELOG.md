@@ -2,6 +2,23 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.45.0-beta] — 2026-09-15
+
+**Q1 — camera master.** Nessun'altra modifica ha questa leva sulla varieta'.
+
+### Added
+- **Zoom, rotazione, pan, mosaico a specchio e spinta sulla cassa**, applicati a tutta la scena **prima** della catena post. Ricampiona quello che l'effetto ha disegnato invece di chiedere all'effetto di muoversi, quindi sei cursori agiscono su tutti i 46 effetti di serie e su ogni ISF importato insieme — e nessuno di loro sa che la camera esiste
+- Pannello **Camera** nella colonna di destra, piu' MIDI (sei target + azzera), OSC `/djg/cam/zoom|rotation|panx|pany|tile|push|reset` e i cursori sul telefono
+- La **rotazione avviene in spazio quadrato**: su un fotogramma 16:9 ruotare direttamente nello spazio UV inclina l'immagine invece di girarla
+
+### Changed
+- Fuori dall'inquadratura la camera **specchia**, invece di aggrapparsi al bordo o andare in nero: un bordo sbavato si legge come un difetto e il nero si legge come proiettore rotto, mentre lo specchio si legge come una scelta — ed e' anche quello che fa funzionare il mosaico senza una riga in piu'
+- Il pass **non gira affatto** quando la camera e' ferma sull'identita': a riposo non costa niente
+- La camera viaggia nello snapshot di stato e la finestra di uscita la applica sulla **propria** risoluzione
+
+### Note
+- La camera **non entra nei look**: e' un comando master dal vivo, come la luminosita', e richiamare un look non ti sposta l'inquadratura sotto le mani
+
 ## [0.44.0-beta] — 2026-09-15
 
 **S3 — macro Intensità.** Sotto pressione un comando batte cinque cursori.

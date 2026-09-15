@@ -463,6 +463,12 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="addgrid" id="postadd"></div>
       <div class="sect">Intensità</div>
       <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
+      <div class="sect">Camera</div>
+      <div class="prow"><span class="plbl">Zoom</span><input type="range" id="camzoom" min="0.2" max="4" step="0.05" value="1"><span class="pval" id="camzoom_v">1</span></div>
+      <div class="prow"><span class="plbl">Rotaz.</span><input type="range" id="camrot" min="-180" max="180" step="1" value="0"><span class="pval" id="camrot_v">0</span></div>
+      <div class="prow"><span class="plbl">Mosaico</span><input type="range" id="camtile" min="1" max="8" step="1" value="1"><span class="pval" id="camtile_v">1</span></div>
+      <div class="prow"><span class="plbl">Spinta</span><input type="range" id="campush" min="0" max="1" step="0.05" value="0"><span class="pval" id="campush_v">0</span></div>
+      <button id="camreset">Azzera inquadratura</button>
       <div class="sect">Motion Blur</div>
       <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
       <div class="sect">Transizione</div>
@@ -865,6 +871,13 @@ async function poll(){
   if (!dragging['mblur']) { setRange($('mblur'), mb); setText($('mblur_v'), fmtV(mb)) }
   const ints = num(e.intensity, 0)
   if (!dragging['intens']) { setRange($('intens'), ints); setText($('intens_v'), fmtV(ints)) }
+  const cam = e.camera
+  if (cam) {
+    if (!dragging['camzoom']) { setRange($('camzoom'), cam.zoom); setText($('camzoom_v'), fmtV(cam.zoom)) }
+    if (!dragging['camrot']) { setRange($('camrot'), cam.rotation); setText($('camrot_v'), String(Math.round(cam.rotation))) }
+    if (!dragging['camtile']) { setRange($('camtile'), cam.tile); setText($('camtile_v'), String(cam.tile)) }
+    if (!dragging['campush']) { setRange($('campush'), cam.push); setText($('campush_v'), fmtV(cam.push)) }
+  }
 
   // COLORI
   const g = e.grade
@@ -928,6 +941,11 @@ function wireStatic(){
   wireRange($('xfade'), 'xfade', function(v){ return { type: 'crossfade', value: v } })
   wireRange($('mblur'), 'mblur', function(v){ return { type: 'motionBlur', value: v } }, $('mblur_v'))
   wireRange($('intens'), 'intens', function(v){ return { type: 'intensity', value: v } }, $('intens_v'))
+  wireRange($('camzoom'), 'camzoom', function(v){ return { type: 'camera', value: { zoom: v } } }, $('camzoom_v'))
+  wireRange($('camrot'), 'camrot', function(v){ return { type: 'camera', value: { rotation: v } } }, $('camrot_v'))
+  wireRange($('camtile'), 'camtile', function(v){ return { type: 'camera', value: { tile: v } } }, $('camtile_v'))
+  wireRange($('campush'), 'campush', function(v){ return { type: 'camera', value: { push: v } } }, $('campush_v'))
+  $('camreset').addEventListener('click', function(){ cmd({ type: 'cameraReset' }) })
   wireRange($('trdur'), 'trdur', function(v){ return { type: 'transitionDuration', value: v } }, $('trdur_v'))
   GRADE_KEYS.forEach(function(k){
     wireRange($('g_' + k), 'g_' + k, function(v){ return { type: 'grade', value: { key: k, value: v } } }, $('gv_' + k))

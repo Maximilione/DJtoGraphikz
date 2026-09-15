@@ -102,6 +102,13 @@ function toCmd(addr: string, args: OscArg[]): Record<string, unknown> | null {
     case '/djg/crossfade': return f === null ? null : { type: 'crossfade', value: f }
     case '/djg/motionblur': return f === null ? null : { type: 'motionBlur', value: f }
     case '/djg/intensity': return f === null ? null : { type: 'intensity', value: f }
+    case '/djg/cam/zoom': return f === null ? null : { type: 'camera', value: { zoom: f } }
+    case '/djg/cam/rotation': return f === null ? null : { type: 'camera', value: { rotation: f } }
+    case '/djg/cam/panx': return f === null ? null : { type: 'camera', value: { panX: f } }
+    case '/djg/cam/pany': return f === null ? null : { type: 'camera', value: { panY: f } }
+    case '/djg/cam/tile': return f === null ? null : { type: 'camera', value: { tile: f } }
+    case '/djg/cam/push': return f === null ? null : { type: 'camera', value: { push: f } }
+    case '/djg/cam/reset': return { type: 'cameraReset' }
     case '/djg/blackout': return f === null ? null : { type: 'blackout', value: on }
     case '/djg/freeze': return f === null ? null : { type: 'freeze', value: on }
     case '/djg/autovj': return f === null ? null : { type: 'autovj', value: on }

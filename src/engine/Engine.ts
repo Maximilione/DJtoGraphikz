@@ -70,6 +70,7 @@ import blurFrag from './shaders/blur.frag?raw'
 import masterFrag from './shaders/master.frag?raw'
 import deckmixFrag from './shaders/deckmix.frag?raw'
 import motionblurFrag from './shaders/motionblur.frag?raw'
+import cameraFrag from './shaders/camera.frag?raw'
 
 const FULLSCREEN_VERT = `
 varying vec2 vUv;
@@ -85,6 +86,31 @@ uniform sampler2D tDiffuse;
 varying vec2 vUv;
 void main() { gl_FragColor = texture2D(tDiffuse, vUv); }
 `
+
+/**
+ * The master camera: zoom, rotation, pan, mirrored tiling and a push-in on the
+ * kick, applied to the whole scene before anything else samples it.
+ *
+ * It resamples what the effect drew instead of asking the effect to move, so
+ * one set of controls acts on all 46 built-in effects and every imported ISF
+ * at once — none of which know it exists. `CAMERA_NEUTRAL` is the identity,
+ * and the pass is skipped entirely when the camera is sitting on it.
+ */
+export interface CameraState {
+  zoom: number
+  /** degrees, because that is what the UI shows and what a preset should read like */
+  rotation: number
+  panX: number
+  panY: number
+  /** 1 = off; 2 and up mirror-tile the frame that many times across */
+  tile: number
+  /** how far a kick pushes the camera in, 0 = never */
+  push: number
+}
+
+export const CAMERA_NEUTRAL: CameraState = {
+  zoom: 1, rotation: 0, panX: 0, panY: 0, tile: 1, push: 0,
+}
 
 export type GifSyncMode = 'free' | 'beat' | 'bpm'
 
@@ -174,6 +200,8 @@ export interface EngineState {
   colorSpeed?: number
   /** Intensity macro, 0..1 — resolved per-frame, so it has to reach the projector. */
   intensity?: number
+  /** Master camera. The projector applies it itself, on its own resolution. */
+  camera?: CameraState
   cycle?: {
     enabled: boolean
     palettes: [string, string, string][]
@@ -388,6 +416,9 @@ export class Engine {
 
   // Reusable passthrough material (avoid per-frame allocations)
   private passthroughMaterial: THREE.ShaderMaterial
+  private cameraMaterial: THREE.ShaderMaterial
+  /** Master camera. Neutral means the pass does not run at all. */
+  private cameraState: CameraState = { ...CAMERA_NEUTRAL }
 
   // Current state
   private currentEffect: EffectId = 'tunnel'
@@ -587,6 +618,21 @@ export class Engine {
     this.mainMaterial = this.createEffectMaterial('tunnel')
     this.quad = new THREE.Mesh(this.quadGeometry, this.mainMaterial)
     this.scene.add(this.quad)
+
+    this.cameraMaterial = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: cameraFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uResolution: { value: new THREE.Vector2(1, 1) },
+        uZoom: { value: 1 },
+        uRotation: { value: 0 },
+        uPan: { value: new THREE.Vector2(0, 0) },
+        uTile: { value: 1 },
+        uPushAmt: { value: 0 },
+        uBeat: { value: 0 },
+      },
+    })
 
     // Reusable passthrough (never allocate in render loop)
     this.passthroughMaterial = new THREE.ShaderMaterial({
@@ -1573,6 +1619,32 @@ export class Engine {
 
   getIntensity(): number { return this.intensity }
 
+  /** Is the camera doing anything? A neutral camera costs nothing at all. */
+  private cameraActive(): boolean {
+    const c = this.cameraState
+    return c.zoom !== 1 || c.rotation !== 0 || c.panX !== 0 || c.panY !== 0
+      || c.tile > 1 || c.push !== 0
+  }
+
+  setCamera(patch: Partial<CameraState>) {
+    const c = this.cameraState
+    if (typeof patch.zoom === 'number') c.zoom = Math.max(0.2, Math.min(4, patch.zoom))
+    if (typeof patch.rotation === 'number') c.rotation = patch.rotation
+    if (typeof patch.panX === 'number') c.panX = Math.max(-1, Math.min(1, patch.panX))
+    if (typeof patch.panY === 'number') c.panY = Math.max(-1, Math.min(1, patch.panY))
+    if (typeof patch.tile === 'number') c.tile = Math.max(1, Math.min(8, Math.round(patch.tile)))
+    if (typeof patch.push === 'number') c.push = Math.max(0, Math.min(1, patch.push))
+    this.emitState()
+  }
+
+  getCamera(): CameraState { return { ...this.cameraState } }
+
+  /** Back to the identity — the camera's own panic. */
+  resetCamera() {
+    this.cameraState = { ...CAMERA_NEUTRAL }
+    this.emitState()
+  }
+
   // ---- Deck B / crossfader ----
 
   setDeckBEffect(id: EffectId) {
@@ -1652,6 +1724,7 @@ export class Engine {
     if (typeof state.transitionBeatSync === 'boolean') this.transitionBeatSync = state.transitionBeatSync
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
+    if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
     if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
@@ -1715,6 +1788,7 @@ export class Engine {
     }
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
+    if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
     if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
@@ -2153,6 +2227,7 @@ export class Engine {
       // The output window resolves params with its own audio, so the macro has
       // to travel: without it the projector shows the un-boosted scene.
       intensity: this.intensity,
+      camera: { ...this.cameraState },
       // Custom shader must ride the snapshot: any emit without it used to
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
@@ -2553,6 +2628,22 @@ export class Engine {
       if (src !== this.rtA) this.blit(src.texture, this.rtA)
     }
 
+    // Master camera — before the post chain, so everything downstream sees
+    // the framing the VJ chose, and skipped completely when it is neutral.
+    if (this.cameraActive()) {
+      const cu = this.cameraMaterial.uniforms
+      cu.tDiffuse.value = this.rtA.texture
+      cu.uResolution.value.copy(this.resolution)
+      cu.uZoom.value = this.cameraState.zoom
+      cu.uRotation.value = this.cameraState.rotation * Math.PI / 180
+      cu.uPan.value.set(this.cameraState.panX, this.cameraState.panY)
+      cu.uTile.value = this.cameraState.tile
+      cu.uPushAmt.value = this.cameraState.push
+      cu.uBeat.value = this.beatPulse
+      this.renderPass(this.cameraMaterial, this.rtB)
+      this.blit(this.rtB.texture, this.rtA)
+    }
+
     // Post-processing chain — ordered, each with its own wet/dry
     let read = this.rtA
     let write = this.rtB
@@ -2779,6 +2870,7 @@ export class Engine {
     this.rtTransition.dispose()
     this.disposeEffectMaterial(this.mainMaterial)
     this.passthroughMaterial.dispose()
+    this.cameraMaterial.dispose()
     this.transitionMaterial.dispose()
     this.disposeEffectMaterial(this.transitionOldMaterial)
     this.overlayMaterial.dispose()
