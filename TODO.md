@@ -22,7 +22,7 @@ Nessuna richiede addon nativi. Ordine per rapporto valore/costo, non per gruppo.
 - [x] **S3 Macro "Intensità"** — un fader unico (tastiera + MIDI + telefono) che alza insieme densità, velocità, reattività della scena e il wet della catena post, con un peso per parametro. Sotto pressione un comando batte cinque slider · **M** — **fatto in v0.44.0-beta**
   Il pezzo che cambia davvero l'uso in serata e' la **durata per passo**: oggi `advanceInterval` sta sulla playlist (`Engine.ts:193`), uno solo per tutti, quindi non puoi dire "questo per 16 battute, il prossimo per 64". Spostarlo sul singolo passo, con la durata della playlist come valore di partenza, e per passo anche il tipo di transizione (i tipi esistono gia').
   Sovrapposizione con **P5 scaletta**: P5 e' la stessa idea un piano sopra (momenti della serata, ognuno con una pagina di Look Bank). P6 e' il pezzo piccolo e concreto, e va fatto prima: se le playlist diventano modificabili con durate per passo, P5 potrebbe non servire piu' · **S/M**
-- [ ] **P2 Profili locale** — display di output, risoluzione, i 4 angoli del mapping, device audio, gain, ArtNet e master salvati come "posto". La seconda serata nello stesso locale torna a un click · **S/M**
+- [x] **P2 Profili locale** — display di output, risoluzione, i 4 angoli del mapping, device audio, gain, ArtNet e master salvati come "posto". La seconda serata nello stesso locale torna a un click · **S/M** — **fatto in v0.46.0-beta**
 
 - [ ] **Test con musica vera** — set techno in line-in: beat, BPM ×½/×2, envelope, AutoVJ, grade sul proiettore, FPS in 4K. Tara tutto il lavoro audio mai sentito davvero. In mano all'utente, ma **P1 lo rende ripetibile in cinque minuti** invece che una volta a serata · zero codice, 1 serata
 

@@ -94,6 +94,14 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
           il frame corrente. Il rendering non si ferma durante la registrazione.
         </p>
 
+        <h3 style={h3Style}>Posti</h3>
+        <p style={pStyle}>
+          Il pannello Posti salva il locale, non lo spettacolo: display e risoluzione di uscita,
+          i 4 angoli del mapping, scheda audio e gain, nodo ArtNet e master. Dai un nome e salva;
+          la seconda serata nello stesso posto si ricarica con un click. Se il display salvato
+          non è collegato, il resto si applica lo stesso e te lo dice.
+        </p>
+
         <h3 style={h3Style}>In emergenza</h3>
         <p style={pStyle}>
           B = blackout istantaneo. F = congela il frame. P = panic: torna a uno stato pulito e sicuro.
