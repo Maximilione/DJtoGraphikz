@@ -59,6 +59,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Audio
 
+- **MIDI Clock input** — tempo and bar position taken off the cable instead of guessed from the air: 24 ticks per beat, plus start/stop and song-position pointer, from the mixer, the CDJ or Traktor. **MIDI** mode in the audio panel; works with **no line-in at all**, on the MIDI cable alone.
 - Log-scale spectral-flux beat tracking with median+MAD threshold, phase-locked loop and its own BPM estimator (100Hz timestamp grid, kick+full-band voting, genre-aware prior); auto BPM (dual estimator), tap, manual, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery if the audio device drops.
 - Extended vocabulary for shaders: per-band hits (kick/synth/hats), gated clocks, sub/presence, beat/bar phase, a continuous beat clock.

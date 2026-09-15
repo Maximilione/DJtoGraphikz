@@ -2,6 +2,23 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.41.0-beta] — 2026-09-15
+
+**I1 — MIDI Clock in ingresso.** Il tempo che il mixer gia' conosce.
+
+### Added
+- **Modalita' BPM `MIDI`**: tempo e posizione nella battuta arrivano dal MIDI clock (24 tick per movimento) invece che da flusso spettrale, autocorrelazione e PLL. Gestiti anche **Start**, **Stop**, **Continue** e il **puntatore di posizione**, che dice in che punto della battuta siamo
+- Funziona **senza audio in ingresso**: un cavo MIDI e nessun line-in e' un modo vero di lavorare, e tutto cio' che e' guidato dal beat continua a girare
+- Il pannello audio dice cosa sta facendo il clock — agganciato, fermo, mai arrivato — e se un clock arriva mentre sei in un'altra modalita' te lo segnala
+- `yarn check:midiclock` — 14 controlli su un transport sintetico: tempo a 92/128/174, fase sul battito e a meta' battito, fase che scorre fra un tick e l'altro, Start come downbeat, battito segnalato una volta sola, quattro movimenti per battuta, puntatore di posizione, Stop/Continue, clock che sparisce, messaggio in ritardo, buco nel cavo
+
+### Fixed
+- **Il MIDI clock veniva buttato via prima di essere guardato.** `midi.ts` scartava ogni messaggio con `data.length < 2`, e il clock e' un messaggio da **un byte solo**
+
+### Changed
+- Il clock **non** alimenta il PLL di `BeatTracker`: una griglia esatta non va tirata del 35% verso quello che hanno appena fatto gli hi-hat. Quando il clock e' agganciato possiede la fase, e il tracker continua a fare il lavoro che solo lui puo' fare, gli onset per banda
+- Un clock che si ferma **tiene l'ultimo tempo ricevuto** invece di far ricadere le visuali su 128
+
 ## [0.40.0-beta] — 2026-09-14
 
 Fase V del redesign: **il contro-audit**. Stessa rubrica di

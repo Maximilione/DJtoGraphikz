@@ -1,4 +1,5 @@
 import type { Engine, PostId } from '@engine/Engine'
+import { MIDI_CLOCK } from '@engine/audio/MidiClock'
 import { readJson, writeJson } from './storage'
 
 // Web MIDI learn — bindings route through the same dispatchCmd used by the
@@ -56,6 +57,8 @@ class MidiEngine {
   private engine: Engine | null = null
   /** last value per trigger binding, for CC-as-button edge detection */
   private lastCcValue = new Map<string, number>()
+  /** a clock has ticked at least once — notify the UI the first time only */
+  private clockSeen = false
 
   lastMessage = ''
   deviceNames: string[] = []
@@ -91,7 +94,28 @@ class MidiEngine {
 
   private onMessage = (e: MIDIMessageEvent) => {
     const data = e.data
-    if (!data || data.length < 2) return
+    if (!data || data.length < 1) return
+
+    // System Realtime and System Common first: the clock is a **one-byte**
+    // message, so the old `data.length < 2` guard dropped every tick before
+    // anything could look at it. Its status byte is whole — no channel nibble
+    // — and it must never reach learn mode or a binding.
+    const raw = data[0]
+    if (raw >= 0xf0) {
+      if (this.engine) {
+        // The port's own timestamp is measured closer to the wire than the
+        // moment this callback got scheduled; fall back when it is absent.
+        const at = e.timeStamp || performance.now()
+        this.engine.audioAnalyzer.midiClock.onByte(raw, at, data[1] ?? 0, data[2] ?? 0)
+        if (raw === MIDI_CLOCK && !this.clockSeen) {
+          this.clockSeen = true
+          this.notify()          // the panel can now offer the MIDI tempo mode
+        }
+      }
+      return
+    }
+
+    if (data.length < 2) return
     const status = data[0] & 0xf0
     const ch = data[0] & 0x0f
     const num = data[1]
@@ -133,6 +157,9 @@ class MidiEngine {
       if (cmd) this.dispatch(cmd)
     }
   }
+
+  /** Has any port sent a clock tick this session? */
+  hasClock(): boolean { return this.clockSeen }
 
   learn(targetId: string) { this.learnTarget = targetId; this.notify() }
   cancelLearn() { this.learnTarget = null; this.notify() }
