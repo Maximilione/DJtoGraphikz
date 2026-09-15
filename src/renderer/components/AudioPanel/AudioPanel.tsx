@@ -101,13 +101,22 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
   // Restore last session: apply saved settings, and if audio was running with
   // a saved device, auto-start the analyzer (the 500ms poll picks up the UI)
+  //
+  // The condition is "not on that device", not "not running": loading a venue
+  // profile (P2) remounts this panel while the analyzer is already running on
+  // the *previous* room's sound card. `!isRunning` left it there, so the one
+  // setting the profile exists for — which input the music comes in on — was
+  // the one it silently did not restore.
   const restoredRef = useRef(false)
   useEffect(() => {
     if (!engine || restoredRef.current) return
     restoredRef.current = true
     applyAnalyzerSettings()
     const s = savedRef.current
-    if (s.running && s.deviceId && !engine.audioAnalyzer.isRunning) {
+    // A file under analysis is not a room's sound card: switching to the
+    // profile's input there would yank the track being tested.
+    const onFile = engine.audioAnalyzer.getSourceKind() === 'file'
+    if (s.running && s.deviceId && !onFile && engine.audioAnalyzer.currentDeviceId !== s.deviceId) {
       engine.audioAnalyzer.start(s.deviceId)
         .then(applyAnalyzerSettings)
         .catch((err: any) => console.warn('[AudioPanel] auto-start failed:', err))
