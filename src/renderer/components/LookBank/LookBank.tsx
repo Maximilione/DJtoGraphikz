@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { shouldIgnoreHotkey } from '../../hotkeys'
+import { momentary } from '../../momentary'
 import type { Engine, Preset } from '@engine/Engine'
 import { pushToast } from '../Toasts/Toasts'
 import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
@@ -109,20 +110,37 @@ export function LookBank({ engine }: { engine: Engine }) {
 
   // Shift+1..9, Shift+0 → slots 1-10. e.code so shifted symbol layouts don't break.
   useEffect(() => {
+    const slotOf = (e: KeyboardEvent) => {
+      const m = /^Digit(\d)$/.exec(e.code)
+      if (!m) return -1
+      return m[1] === '0' ? 9 : parseInt(m[1]) - 1
+    }
     const onKey = (e: KeyboardEvent) => {
       if (!e.shiftKey) return
       if (shouldIgnoreHotkey(e)) return
-      const m = /^Digit(\d)$/.exec(e.code)
-      if (!m) return
-      const i = m[1] === '0' ? 9 : parseInt(m[1]) - 1
-      if (looks[i]) {
-        e.preventDefault()
-        trigger(i)
-      }
+      const i = slotOf(e)
+      if (i < 0 || !looks[i]) return
+      e.preventDefault()
+      if (e.repeat || !engine || momentary.isDown(`look:${i}`)) return
+      // Held, this is momentary — and going back means restoring the look that
+      // was on screen, which is not the same as recalling a different slot.
+      const before = engine.createPreset('prima del richiamo')
+      trigger(i)
+      momentary.press(`look:${i}`, () => engine.applyPreset(before))
+    }
+    // Shift can come up before the digit does, so the release is read off
+    // e.code alone and never off shiftKey.
+    const onKeyUp = (e: KeyboardEvent) => {
+      const i = slotOf(e)
+      if (i >= 0) momentary.release(`look:${i}`)
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [looks, trigger])
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [looks, trigger, engine])
 
   const commitRename = useCallback(() => {
     if (renaming >= 0) renameLook(renaming, renameText)

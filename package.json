@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.42.0-beta",
+  "version": "0.43.0-beta",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
@@ -16,6 +16,7 @@
     "check:beat": "node scripts/check-beat.mjs",
     "check:midiclock": "node scripts/check-midiclock.mjs",
     "check:dryrun": "python3 scripts/check-dryrun.py",
+    "check:momentary": "node scripts/check-momentary.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
     "check:loaders": "node scripts/check-loaders.mjs",
     "check:storage": "node scripts/check-storage.mjs",
