@@ -52,6 +52,8 @@ const api = {
   selfTestAudio: process.env.DJG_SELFTEST_AUDIO || '',
   /** Master camera as a JSON patch, so the gate can photograph a framed scene. */
   selfTestCamera: process.env.DJG_SELFTEST_CAMERA || '',
+  /** Gate: crop the output window, so a shot can prove the slice really cuts. */
+  selfTestSlice: process.env.DJG_SELFTEST_SLICE || '',
   onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 
@@ -75,7 +77,7 @@ const api = {
   sendRemoteVj: (vj: { enabled: boolean; genre: string }) => ipcRenderer.send('remote:vj', vj),
 
   // Output window status (U1.3)
-  getOutputInfo: (): Promise<{ open: boolean; fullscreen: boolean; display: string }> =>
+  getOutputInfo: (): Promise<{ open: boolean; fullscreen: boolean; display: string; count?: number }> =>
     ipcRenderer.invoke('output:info'),
   reopenOutput: () => ipcRenderer.send('output:reopen'),
   onOutputChanged: (callback: () => void) => {
@@ -84,10 +86,20 @@ const api = {
     return () => { ipcRenderer.removeListener('output:changed', handler) }
   },
 
-  // Display operations
+  // Display operations (id omitted = the projector, output 1)
   listDisplays: () => ipcRenderer.invoke('displays:list'),
-  moveOutputToDisplay: (displayId: number) => ipcRenderer.send('output:move-to-display', displayId),
-  toggleOutputFullscreen: () => ipcRenderer.send('output:toggle-fullscreen'),
+  moveOutputToDisplay: (displayId: number, id?: number) =>
+    ipcRenderer.send('output:move-to-display', displayId, id),
+  toggleOutputFullscreen: (id?: number) => ipcRenderer.send('output:toggle-fullscreen', id),
+
+  // Multi-output: the renderer owns the list, main makes the windows match it
+  setOutputs: (list: unknown[]) => ipcRenderer.send('outputs:set', list),
+  /** Output window only: which rectangle of the show this wall presents */
+  onOutputSlice: (callback: (cfg: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, cfg: unknown) => callback(cfg)
+    ipcRenderer.on('output:slice', handler)
+    return () => ipcRenderer.removeListener('output:slice', handler)
+  },
   setOutputResolution: (w: number, h: number) => ipcRenderer.send('output:set-resolution', w, h),
   onOutputResolution: (callback: (w: number, h: number) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, w: number, h: number) => callback(w, h)
