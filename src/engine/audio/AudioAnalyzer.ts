@@ -102,6 +102,8 @@ export class AudioAnalyzer {
   private bandPulse = [0, 0, 0]
 
   get isRunning() { return this.running }
+  /** Device the graph is actually on — a caller cannot tell from isRunning alone. */
+  get currentDeviceId() { return this.lastDeviceId }
 
   getStatus(): 'running' | 'reconnecting' | 'stopped' {
     if (this.restartTimer) return 'reconnecting'
