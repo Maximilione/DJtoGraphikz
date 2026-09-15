@@ -14,6 +14,7 @@ const KEYBOARD: [string, string][] = [
   ['Q/W/E/R', 'post'],
   ['Shift+1-0', 'look'],
   ['?', 'aiuto'],
+  ['Tieni premuto', 'momentaneo: molli e torna com\'era'],
 ]
 
 const MOUSE: [string, string][] = [
@@ -24,6 +25,7 @@ const MOUSE: [string, string][] = [
 
 const PHONE: [string, string][] = [
   ['📱 in alto', 'QR + codice per il telefono'],
+  ['Dito tenuto', 'momentaneo su look e post-FX'],
 ]
 
 function Section({ title, rows }: { title: string; rows: [string, string][] }) {
