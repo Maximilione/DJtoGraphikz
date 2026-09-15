@@ -101,6 +101,7 @@ function toCmd(addr: string, args: OscArg[]): Record<string, unknown> | null {
     case '/djg/brightness': return f === null ? null : { type: 'brightness', value: f }
     case '/djg/crossfade': return f === null ? null : { type: 'crossfade', value: f }
     case '/djg/motionblur': return f === null ? null : { type: 'motionBlur', value: f }
+    case '/djg/intensity': return f === null ? null : { type: 'intensity', value: f }
     case '/djg/blackout': return f === null ? null : { type: 'blackout', value: on }
     case '/djg/freeze': return f === null ? null : { type: 'freeze', value: on }
     case '/djg/autovj': return f === null ? null : { type: 'autovj', value: on }

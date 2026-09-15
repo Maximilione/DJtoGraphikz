@@ -34,6 +34,7 @@ export const MIDI_TARGETS: MidiTarget[] = [
   { id: 'master', label: 'Master', group: 'Mix', toCmd: v => ({ type: 'brightness', value: v }) },
   { id: 'crossfade', label: 'Crossfade A/B', group: 'Mix', toCmd: v => ({ type: 'crossfade', value: v }) },
   { id: 'motionblur', label: 'Motion blur', group: 'Mix', toCmd: v => ({ type: 'motionBlur', value: v }) },
+  { id: 'intensity', label: 'Intensità', group: 'Mix', toCmd: v => ({ type: 'intensity', value: v }) },
   ...POSTS.map(p => ({
     id: `wet:${p}`, label: `Wet ${p}`, group: 'Post FX',
     toCmd: (v: number) => ({ type: 'postAmount', value: { id: p, value: v } }),
