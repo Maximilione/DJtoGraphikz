@@ -2,6 +2,26 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.42.0-beta] — 2026-09-15
+
+**P1 — prova a secco con un file audio.** Tutto il lavoro su beat, BPM ed
+envelope era verificabile **solo in serata**, perche' l'analisi apriva il
+microfono e basta. Adesso analizza anche un file, e un file si riavvolge.
+
+### Added
+- **Trascina un brano sul pannello audio** (o "Prova a secco con un file…") e l'app lo analizza al posto dell'ingresso: play/pausa, scorrimento, ripetizione, durata. Lo senti anche in cuffia — e' una prova, non una misura
+- `yarn check:dryrun` — **genera** un brano di 30s a un tempo noto, lo fa analizzare all'app e verifica quello che ne esce: tempo, numero di battiti ed energia. Provato a 128 e a 174 BPM, entrambi letti esatti. Il wav non sta nel repo: due megabyte committati per verificare un numero sono un cattivo scambio, e generarlo tiene il segnale e il tempo atteso nello stesso posto
+- `scripts/check-dryrun.py mio.wav` accetta anche un file tuo (riporta e basta, senza attese sul tempo)
+
+### Fixed
+- **Chromium sospende un AudioContext creato senza un click**, e un contesto sospeso da all'analisi silenzio mentre l'elemento audio continua a suonare: si legge esattamente come "il rilevamento del beat e' rotto". Ora l'app dichiara `autoplay-policy: no-user-gesture-required` — qui il proiettore *e'* il prodotto, non una pagina web che deve stare zitta finche' non la tocchi
+- L'errore del microfono restava a schermo mentre suonava un file: l'analisi sta girando, solo non sull'ingresso
+
+### Changed
+- Il grafo audio (gain → analyser → libreria BPM) e' scritto una volta sola e condiviso fra ingresso e file
+- Lo scorrimento nel brano **azzera la stima del tempo**: quello che l'analisi ha sentito prima del salto non e' quello che suona dopo
+- Una sorgente-file non fa scattare la riconnessione automatica: non c'e' nessun dispositivo che possa tornare
+
 ## [0.41.0-beta] — 2026-09-15
 
 **I1 — MIDI Clock in ingresso.** Il tempo che il mixer gia' conosce.
