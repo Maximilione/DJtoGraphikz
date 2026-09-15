@@ -258,3 +258,68 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'flow', label: 'Flusso', min: 0, max: 1.5, default: 0.35 },
   ],
 }
+
+/**
+ * The Intensity macro: how much each param follows one fader.
+ *
+ * Under pressure a single command beats five sliders. This is the weight per
+ * param key — positive pulls the value towards its maximum, negative towards
+ * its minimum, and the size says how hard. A key that is not listed here does
+ * not move at all, which is the point: the macro raises *energy*, and there
+ * are plenty of params where "more" means "worse" or simply "different".
+ *
+ * Weights are applied when a param is resolved, never written back, so the
+ * fader at zero leaves the scene exactly as it was set by hand.
+ */
+export const INTENSITY_WEIGHTS: Record<string, number> = {
+  // Engine-level, present on every effect
+  speed: 0.55,
+  reactivity: 0.8,
+
+  // More of the thing: counts, repeats, subdivisions
+  arms: 0.5, bars: 0.4, beams: 0.6, blocks: 0.5, bodies: 0.5, cells: 0.5,
+  coils: 0.45, cols: 0.4, columns: 0.4, count: 0.6, density: 0.6, detail: 0.5,
+  iterations: 0.45, layers: 0.5, levels: 0.4, lines: 0.4, nodes: 0.5,
+  peaks: 0.5, ridges: 0.5, ringcount: 0.5, ringdensity: 0.5, ringfreq: 0.4,
+  segments: 0.45, shards: 0.6, sides: 0.35, sparks: 0.7, symmetry: 0.35,
+  tiles: 0.45, towers: 0.4, waves: 0.5, gates: 0.4,
+
+  // Motion and disorder
+  burst: 0.7, chaos: 0.7, curviness: 0.5, fallspeed: 0.5, flow: 0.5,
+  flowspd: 0.5, inject: 0.6, morph: 0.5, punch: 0.7, rise: 0.5,
+  rotspeed: 0.5, spread: 0.4, spreadv: 0.4, sweep: 0.5, swirl: 0.6,
+  travel: 0.5, turbulence: 0.7, twist: 0.5, warpamt: 0.6, amp: 0.5,
+
+  // Glow
+  edgeglow: 0.5, glowamt: 0.6, glowk: 0.5, intensity: 0.7, sheen: 0.4,
+
+  // Down, not up: a lower threshold means more of the image survives it
+  threshold: -0.5,
+}
+
+/**
+ * One param under the macro. Pure arithmetic, so it can be asserted without a
+ * WebGL context — see `scripts/check-intensity.mjs`.
+ *
+ * `intensity` 0 returns `base` untouched: that is the contract the whole macro
+ * rests on, because the fader must give back exactly the scene that was set by
+ * hand. A positive weight heads for `def.max`, a negative one for `def.min`,
+ * and a key with no weight never moves.
+ */
+export function intensityValue(def: EffectParam, base: number, intensity: number): number {
+  if (intensity <= 0) return base
+  const w = INTENSITY_WEIGHTS[def.key]
+  if (!w) return base
+  const target = w > 0 ? def.max : def.min
+  return base + Math.min(1, intensity) * Math.abs(w) * (target - base)
+}
+
+/** Post-FX wet under the macro: towards fully wet, never past it. */
+export function intensityWet(amount: number, intensity: number): number {
+  if (intensity <= 0) return amount
+  return amount + Math.min(1, intensity) * INTENSITY_WET_WEIGHT * (1 - amount)
+}
+
+/** How hard the macro pushes the post chain. Less than the params: a chain at
+ *  full wet on every effect is mud, not intensity. */
+export const INTENSITY_WET_WEIGHT = 0.7

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
-import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource } from './EffectParams'
+import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
 
@@ -172,6 +172,8 @@ export interface EngineState {
   transitionDuration?: number
   transitionBeatSync?: boolean
   colorSpeed?: number
+  /** Intensity macro, 0..1 — resolved per-frame, so it has to reach the projector. */
+  intensity?: number
   cycle?: {
     enabled: boolean
     palettes: [string, string, string][]
@@ -446,6 +448,17 @@ export class Engine {
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
   private audioScale = 1     // reactivity multiplier applied to audio uniforms
+
+  /**
+   * The Intensity macro, 0..1. Zero is neutral — the scene is exactly what was
+   * set by hand — and raising it pulls the params in INTENSITY_WEIGHTS towards
+   * their limit, and the post chain towards fully wet.
+   *
+   * It is applied where params are *resolved*, never written back, so letting
+   * the fader go restores the hand-set values exactly. Under pressure one
+   * command beats five sliders, and it must not cost you the five sliders.
+   */
+  private intensity = 0
   private beatClock = 0      // continuous beat counter driving tempo-synced LFOs
 
   // Motion blur + bloom helpers
@@ -1510,10 +1523,10 @@ export class Engine {
     this.emitState()
   }
 
-  /** Live param value: slider base + audio/LFO modulation over the full range */
+  /** Live param value: slider base + Intensity macro + audio/LFO modulation */
   private effParamValue(def: EffectParam): number {
     const st = this.paramBucket()[def.key]
-    const base = st?.value ?? def.default
+    const base = this.withIntensity(def, st?.value ?? def.default)
     if (!st || st.source === 'none' || st.depth === 0) return base
 
     let mod: number
@@ -1536,6 +1549,29 @@ export class Engine {
     const v = base + mod * st.depth * (def.max - def.min)
     return Math.max(def.min, Math.min(def.max, v))
   }
+
+  /**
+   * Pull one param towards its limit by the macro. A positive weight heads for
+   * the maximum, a negative one for the minimum; unlisted params do not move.
+   */
+  private withIntensity(def: EffectParam, base: number): number {
+    return intensityValue(def, base, this.intensity)
+  }
+
+  /** Wet of one post effect, pulled towards fully wet by the macro. */
+  private wetWithIntensity(amount: number): number {
+    return intensityWet(amount, this.intensity)
+  }
+
+  /** The Intensity macro, 0..1. 0 = the scene exactly as it was set by hand. */
+  setIntensity(v: number) {
+    const next = Math.max(0, Math.min(1, v))
+    if (next === this.intensity) return
+    this.intensity = next
+    this.emitState()
+  }
+
+  getIntensity(): number { return this.intensity }
 
   // ---- Deck B / crossfader ----
 
@@ -1615,6 +1651,7 @@ export class Engine {
     if (state.transitionType) this.transitionType = state.transitionType
     if (typeof state.transitionBeatSync === 'boolean') this.transitionBeatSync = state.transitionBeatSync
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
+    if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
@@ -1677,6 +1714,7 @@ export class Engine {
       if (state.activeEffect) this.setEffect(state.activeEffect)
     }
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
+    if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
@@ -2112,6 +2150,9 @@ export class Engine {
       grade: { ...this.grade },
       effectParams: this.paramState,
       paramDefs: this.getParamDefs(),
+      // The output window resolves params with its own audio, so the macro has
+      // to travel: without it the projector shows the un-boosted scene.
+      intensity: this.intensity,
       // Custom shader must ride the snapshot: any emit without it used to
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
@@ -2519,14 +2560,17 @@ export class Engine {
     for (const entry of this.postChain) {
       const mat = this.postMaterials.get(entry.id)
       if (!mat) continue
-      if (entry.amount < 0.01) continue // dry pass: full GPU cost, zero visible effect
+      // The macro reads here and not on entry.amount itself, so letting the
+      // fader go gives back the wet the user dialled in.
+      const wet = this.wetWithIntensity(entry.amount)
+      if (wet < 0.01) continue // dry pass: full GPU cost, zero visible effect
 
       if (entry.id === 'bloom') {
-        this.renderBloom(read, write, entry.amount)
+        this.renderBloom(read, write, wet)
       } else {
         const pu = mat.uniforms
         pu.tDiffuse.value = read.texture
-        if (pu.uWet) pu.uWet.value = entry.amount
+        if (pu.uWet) pu.uWet.value = wet
         if (pu.uBass) pu.uBass.value = this.smoothBass
         if (pu.uMid) pu.uMid.value = this.smoothMid
         if (pu.uHigh) pu.uHigh.value = this.smoothHigh

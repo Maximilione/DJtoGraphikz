@@ -80,6 +80,8 @@ export function App() {
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
   const [fps, setFps] = useState(0)
+  /** Intensity macro, 0..1 — one fader instead of five sliders, key I */
+  const [intensity, setIntensity] = useState(0)
   const [outputRes, setOutputRes] = useState('1920x1080')
   const [brightness, setBrightness] = useState(1)
   const [blackout, setBlackout] = useState(false)
@@ -474,6 +476,16 @@ export function App() {
           momentary.press(k, () => { engine.setFreeze(prev); setFrozen(prev) })
           return !prev
         })
+      } else if (k === 'i') {
+        // The macro as a key: held it is momentary, tapped it latches — the
+        // same rule as everything else. A fader you have to find in the dark
+        // is not a fader you will use.
+        setIntensity(prev => {
+          const next = prev > 0 ? 0 : 1
+          engine.setIntensity(next)
+          momentary.press(k, () => { engine.setIntensity(prev); setIntensity(prev) })
+          return next
+        })
       } else if (k === 'p') {
         panic()
       } else if (e.key === '?') {
@@ -561,6 +573,7 @@ export function App() {
         case 'postMove': engine.movePost(v.id, v.delta); break
         case 'grade': engine.setGrade({ [v.key]: v.value }); break
         case 'motionBlur': engine.setMotionBlur(v); break
+        case 'intensity': setIntensity(v); engine.setIntensity(v); break
         case 'blendMode': engine.setBlendMode(v); break
         case 'param': engine.setParamValue(v.key, v.value); break
         case 'paramMap': engine.setParamMapping(v.key, v.source, v.depth); break
@@ -645,6 +658,21 @@ export function App() {
               LIVE
             </button>
           </div>
+        </div>
+
+        <div className="tb-group">
+          <span className="deck-label" title="Intensità: alza insieme velocità, reattività, densità e il wet dei post-FX (I)">INTENS.</span>
+          <input
+            className="tb-master"
+            type="range" min={0} max={1} step={0.01}
+            value={intensity}
+            onChange={e => {
+              const v = parseFloat(e.target.value)
+              setIntensity(v)
+              engine?.setIntensity(v)
+            }}
+            title="Intensità: un comando invece di cinque cursori — a zero la scena e' quella che hai impostato (I)"
+          />
         </div>
 
         <div className="tb-group">
@@ -883,7 +911,7 @@ export function App() {
           />
           flash beat
         </label>
-        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · Space tap · tieni premuto = momentaneo</span>
+        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · I intensità · Space tap · tieni premuto = momentaneo</span>
       </div>
 
       <Toasts />
