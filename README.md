@@ -59,6 +59,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Audio
 
+- **Dry run on a file** — drop an mp3 or a wav on the audio panel (or pick one with "Prova a secco con un file…") and the app analyses that instead of the input, with play/pause, scrubbing and looping. All the beat, BPM and envelope work used to be testable only at a gig; now it is testable at a desk.
 - **MIDI Clock input** — tempo and bar position taken off the cable instead of guessed from the air: 24 ticks per beat, plus start/stop and song-position pointer, from the mixer, the CDJ or Traktor. **MIDI** mode in the audio panel; works with **no line-in at all**, on the MIDI cable alone.
 - Log-scale spectral-flux beat tracking with median+MAD threshold, phase-locked loop and its own BPM estimator (100Hz timestamp grid, kick+full-band voting, genre-aware prior); auto BPM (dual estimator), tap, manual, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery if the audio device drops.
@@ -108,6 +109,7 @@ yarn dev        # development (Electron + Vite)
 npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # minimal check
 yarn check:output   # release gate: is the projector really showing an image?
 yarn check:ui       # photograph the control window (check:ui simple 0.34)
+yarn check:dryrun   # analyse a synthetic 128 BPM track and assert the app follows it
 yarn package:mac   # .dmg (also package:win / package:linux)
 ```
 

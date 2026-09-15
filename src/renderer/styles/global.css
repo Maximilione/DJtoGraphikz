@@ -1575,6 +1575,12 @@ input[type="color"]:focus {
   color: var(--text-secondary);
 }
 .look-slot.drag-over { border-color: var(--accent-dim); }
+
+/* Drop a track on the audio panel to analyse it instead of the input. */
+.u-col.drag-over {
+  outline: 2px dashed var(--accent-dim);
+  outline-offset: 2px;
+}
 .look-slot .look-rename {
   position: absolute;
   left: 0;

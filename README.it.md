@@ -59,6 +59,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Audio
 
+- **Prova a secco con un file** — trascini un mp3 o un wav nel pannello audio (o lo scegli da "Prova a secco con un file…") e l'app analizza quello al posto dell'ingresso, con play/pausa, scorrimento e ripetizione. Tutto il lavoro su beat, BPM ed envelope era verificabile solo in serata: adesso lo e' alla scrivania.
 - **MIDI Clock in ingresso** — tempo e posizione nella battuta presi dal cavo invece che stimati dall'aria: 24 tick per movimento, piu' start/stop e puntatore di posizione, dal mixer, dal CDJ o da Traktor. Modalita' **MIDI** nel pannello audio; funziona anche **senza line-in**, con il solo cavo MIDI collegato.
 - Beat tracking a spectral flux logaritmico con soglia mediana+MAD, fase agganciata (PLL) e stima BPM propria (griglia timestamp 100Hz, voto kick+spettro pieno, prior dal genere); BPM auto (doppio stimatore), tap, manuale, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery se il device audio cade.
@@ -108,6 +109,7 @@ yarn dev        # sviluppo (Electron + Vite)
 npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # verifica minima
 yarn check:output   # gate di release: il proiettore mostra davvero un'immagine?
 yarn check:ui       # fotografa la finestra di controllo (check:ui simple 0.34)
+yarn check:dryrun   # analizza un brano sintetico a 128 BPM e verifica che l'app lo segua
 yarn package:mac   # .dmg (anche package:win / package:linux)
 ```
 
