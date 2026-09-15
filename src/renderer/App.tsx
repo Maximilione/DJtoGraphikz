@@ -15,6 +15,7 @@ import { MappingPanel } from './components/MappingPanel/MappingPanel'
 import { CameraPanel } from './components/CameraPanel/CameraPanel'
 import { DmxPanel } from './components/DmxPanel/DmxPanel'
 import { VenuePanel } from './components/VenuePanel/VenuePanel'
+import { OutputsPanel, useOutputs } from './components/OutputsPanel/OutputsPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
 import { HelpMenu } from './components/Help/HelpMenu'
@@ -29,6 +30,7 @@ import { momentary } from './momentary'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
+import { sanitizeOutputs, type OutputCfg } from './outputs'
 
 type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
@@ -85,7 +87,15 @@ export function App() {
   const [fps, setFps] = useState(0)
   /** Intensity macro, 0..1 — one fader instead of five sliders, key I */
   const [intensity, setIntensity] = useState(0)
-  const [outputRes, setOutputRes] = useState('1920x1080')
+  /**
+   * The outputs of the show. The projector is outputs[0]: the toolbar edits
+   * that one, the Uscite panel edits them all, and both go through the same
+   * store — two doors onto one truth was how the display picker came to forget
+   * what it had been told.
+   */
+  const [outputs, setOutputs] = useOutputs()
+  const primaryOut = outputs[0]
+  const outputRes = `${primaryOut.width}x${primaryOut.height}`
   const [brightness, setBrightness] = useState(1)
   const [blackout, setBlackout] = useState(false)
   const [frozen, setFrozen] = useState(false)
@@ -127,8 +137,6 @@ export function App() {
 
   // Displays for the output-monitor picker
   const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean }[]>([])
-  /** Which display the output was sent to, so a venue profile can find it again */
-  const [outputDisplay, setOutputDisplay] = useState<number | null>(null)
   /**
    * P2 — bumped when a venue profile rewrites the audio/DMX stores. Both panels
    * read their store once, at mount; remounting them is the whole re-read.
@@ -140,8 +148,11 @@ export function App() {
   const beatDotRef = useRef<HTMLSpanElement>(null)
   const [audioStatus, setAudioStatus] = useState<'running' | 'reconnecting' | 'stopped'>('stopped')
 
+  // Main comes up with one output on defaults; the saved list is the truth.
+  useEffect(() => { try { window.api?.setOutputs?.(outputs) } catch (_) {} }, [])
+
   // U1.3 — output window status chip
-  const [outputInfo, setOutputInfo] = useState<{ open: boolean; fullscreen: boolean; display: string } | null>(null)
+  const [outputInfo, setOutputInfo] = useState<{ open: boolean; fullscreen: boolean; display: string; count?: number } | null>(null)
   const refreshOutputInfo = useCallback(() => {
     window.api?.getOutputInfo?.().then(setOutputInfo).catch(() => {})
   }, [])
@@ -421,34 +432,40 @@ export function App() {
     if (!engine) return null
     return {
       name,
+      // outputRes/displayId describe the projector and stay for profiles saved
+      // before multi-output existed; `outputs` is the whole room.
       outputRes,
-      displayId: outputDisplay,
+      displayId: primaryOut.displayId,
+      outputs,
       keystone: engine.getKeystone(),
       brightness,
       audio: readJson(AUDIO_STORE_KEY, null),
       dmx: readJson(DMX_STORE_KEY, null),
     }
-  }, [engine, outputRes, outputDisplay, brightness])
+  }, [engine, outputRes, outputs, primaryOut.displayId, brightness])
 
   const applyVenue = useCallback((v: Venue) => {
     if (!engine) return
+    // A profile saved before multi-output has only the projector: rebuild the
+    // one-output list from it rather than making the old field a second truth.
     const res = parseRes(v.outputRes)
-    if (res) {
-      setOutputRes(v.outputRes)
-      engine.setRenderSize(res[0], res[1])
-      window.api?.setOutputResolution(res[0], res[1])
-    }
+    const list = sanitizeOutputs(v.outputs ?? [{
+      displayId: v.displayId, width: res?.[0] ?? 1920, height: res?.[1] ?? 1080,
+      src: [0, 0, 1, 1], gamma: 1, brightness: 1,
+    }])
+    // A screen that is not plugged in tonight is dropped: sending an output to
+    // a display id that is gone puts the show on nothing.
+    const missing = list.filter(o => o.displayId !== null && !displays.some(d => d.id === o.displayId))
+    setOutputs(list.map(o => missing.includes(o) ? { ...o, displayId: null } : o))
+    engine.setRenderSize(list[0].width, list[0].height)
+
     engine.setKeystone(v.keystone)
     engine.setBrightness(v.brightness); setBrightness(v.brightness)
-    // The monitor may be unplugged tonight — moving the output to an id that is
-    // gone would put the show on nothing.
-    const hasDisplay = v.displayId !== null && displays.some(d => d.id === v.displayId)
-    if (hasDisplay) { setOutputDisplay(v.displayId); window.api?.moveOutputToDisplay(v.displayId!) }
     if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
     if (v.dmx !== null) writeJson(DMX_STORE_KEY, v.dmx)
     setPanelEpoch(e => e + 1)
-    pushToast(`Posto "${v.name}" caricato${hasDisplay ? '' : ' (display non collegato)'}`)
-  }, [engine, displays])
+    pushToast(`Posto "${v.name}" caricato${missing.length ? ` (${missing.length} schermo/i non collegati)` : ''}`)
+  }, [engine, displays, setOutputs])
 
   // U1.1 — PANIC: back to a clean, visible baseline in one gesture.
   // The current effect stays on purpose: switching it mid-panic is more jarring.
@@ -784,6 +801,7 @@ export function App() {
             <span className="output-chip" title="Stato della finestra di output">
               <IconMonitor size={14} />
               Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
+              {(outputInfo.count ?? 1) > 1 ? ` +${(outputInfo.count ?? 1) - 1}` : ''}
             </span>
           ) : (
             <button
@@ -797,10 +815,10 @@ export function App() {
           ))}
           {displays.length > 1 && (
             <select
-              value={outputDisplay ?? ''}
+              value={primaryOut.displayId ?? ''}
               onChange={e => {
                 const id = parseInt(e.target.value)
-                if (!isNaN(id)) { setOutputDisplay(id); window.api?.moveOutputToDisplay(id) }
+                if (!isNaN(id)) setOutputs(outputs.map((o, i) => i === 0 ? { ...o, displayId: id } : o))
               }}
               title="Sposta la finestra di output su un display"
             >
@@ -813,17 +831,20 @@ export function App() {
           <select
             value={outputRes}
             onChange={e => {
-              setOutputRes(e.target.value)
               const [w, h] = e.target.value.split('x').map(Number)
               engine?.setRenderSize(w, h)
-              window.api?.setOutputResolution(w, h)
+              setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
             }}
-            title="Risoluzione di uscita"
+            title="Risoluzione di uscita del proiettore"
           >
             <option value="1280x720">720p</option>
             <option value="1920x1080">1080p</option>
             <option value="2560x1440">1440p</option>
             <option value="3840x2160">4K</option>
+            {/* the Uscite panel allows any size — never show a wrong value here */}
+            {!['1280x720', '1920x1080', '2560x1440', '3840x2160'].includes(outputRes) && (
+              <option value={outputRes}>{outputRes}</option>
+            )}
           </select>
           <button
             className="btn btn-secondary btn-sm"
@@ -941,6 +962,7 @@ export function App() {
             <CameraPanel engine={engine} />
             <MappingPanel engine={engine} />
             <DmxPanel key={panelEpoch} engine={engine} />
+            <OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} />
             <VenuePanel capture={captureVenue} apply={applyVenue} />
             <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
           </div>

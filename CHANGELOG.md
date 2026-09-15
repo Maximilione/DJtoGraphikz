@@ -2,6 +2,28 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.47.0-beta] — 2026-09-15
+
+**I5 — piu' uscite.** Uno spettacolo, molti muri.
+
+### Added
+- Pannello **Uscite**: fino a 8 finestre di uscita, ognuna con **schermo, risoluzione libera** (anche 1536×256, quella vera del pannello LED), **ritaglio della scena** (tutto, meta', striscia), **gamma** e **tetto** propri. Un muro LED dietro al suo processore e' un display come gli altri: non serve niente di LED-specifico, serve una seconda finestra
+- Il ritaglio, la gamma e il tetto vivono nel pass master (`master.frag`), **dopo** il grade: il voto e' lo spettacolo, questi sono il muro
+- **Avviso sui pixel totali**: ogni uscita e' un render completo sulla stessa GPU, e 1080p + 4K non li disegna un portatile
+- `yarn check:outputs` — 7 controlli sulle regole che proteggono il muro: ritaglio mai vuoto, risoluzione dentro quello che una GPU disegna, archivio modificato a mano che non apre cinquanta finestre
+- Prova visiva del ritaglio sotto il gate (`DJG_SELFTEST_SLICE`): il frame tagliato a meta' coincide con la meta' destra della scena intera (0,4/255) contro 6,07 sulla scena piena
+
+### Changed
+- In main la finestra di uscita **non e' piu' una sola**: `outputs` e' una mappa, lo stato del motore, l'audio e gli overlay vanno in broadcast, e il display a cui una finestra appartiene e' **per uscita** (era globale: la seconda ereditava lo schermo della prima e finivano sullo stesso muro)
+- L'handshake "sto dipingendo" prima usava `ipcMain.once`, che con due uscite veniva consumato dalla prima: ora si riconosce il mittente
+- La lista delle uscite ce l'ha il renderer e main ci si adegua (`outputs:set`), invece di aggiungi/rimuovi/aggiorna separati: una modifica applicata a meta' non puo' lasciare una finestra che nessuno traccia
+- Il menu risoluzione e il menu schermo della barra in alto scrivono nella **stessa lista** del pannello, non in uno stato loro
+- I **Posti** salvano tutte le uscite, non solo il proiettore; i profili salvati prima continuano a caricarsi (il campo vecchio diventa una lista da uno)
+
+### Note
+- **Il keystone e' ancora uno solo** e vale per tutte le uscite: con due proiettori storti ne serve uno per finestra (**I7**, prossimo)
+- Sync e tearing fra due uscite non si risolvono in Electron: non c'e' genlock, e dirlo e' piu' onesto che prometterlo
+
 ## [0.46.1-beta] — 2026-09-15
 
 ### Fixed

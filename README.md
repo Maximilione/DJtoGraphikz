@@ -96,6 +96,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 - **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
 - **Projection mapping** — drag the 4 corners (keystone/quad-warp) to fit a skewed projector.
+- **Multiple outputs** — one window per wall: pick the screen, type the panel's real resolution (1536×256 is fine), and choose which slice of the scene it shows (all, half, a strip). Per-output gamma and ceiling, because a LED wall crushes blacks and is unwatchable at full white. A LED wall behind its processor is just another display; the panel warns when the pixel total is more than one GPU can draw.
 - **Venue profiles** — save the room by name: output display and resolution, the 4 mapping corners, audio device and gain, ArtNet node and master. The second night in the same club is one click; a display that is not plugged in tonight is skipped and said so.
 
 ### Output and recording
