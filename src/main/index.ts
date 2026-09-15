@@ -3,6 +3,12 @@ import { app, BrowserWindow, ipcMain, net, protocol, screen, session, systemPref
 // Menu/dock/notifications name (the bold macOS menu-bar name in dev still reads
 // "Electron" from the dev binary's Info.plist — the packaged app shows this)
 app.setName('DJtoGraphikz')
+
+// Chromium suspends an AudioContext created without a click, and a suspended
+// context feeds the analyser silence while the media element happily plays on
+// — which reads exactly like "the beat detection is broken". Nothing here is a
+// web page that should be quiet until asked: the projector is the product.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { setupIpcHandlers } from './ipc-handlers'
@@ -280,6 +286,8 @@ protocol.registerSchemesAsPrivileged([{
 }])
 
 const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v)$/i
+/** The dry-run audio the gate feeds the analyser; same door as video. */
+const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|flac)$/i
 
 app.whenReady().then(async () => {
   setupDebugLog()
@@ -291,7 +299,7 @@ app.whenReady().then(async () => {
 
   protocol.handle('djg-media', req => {
     const path = new URL(req.url).searchParams.get('p')
-    if (!path || !VIDEO_EXT.test(path)) return new Response('', { status: 400 })
+    if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path))) return new Response('', { status: 400 })
     return net.fetch(pathToFileURL(path).toString())
   })
 
@@ -355,12 +363,16 @@ app.whenReady().then(async () => {
     // the macOS microphone prompt can eat ten seconds before any window opens,
     // and the shot then landed before the output window had lived long enough
     // to log a single 5s heartbeat — which the gate reads as a failure.
+    // A dry run (DJG_SELFTEST_AUDIO) needs the analyser to have heard enough
+    // of the file before anyone reads the tempo off it — the BPM library alone
+    // wants ten seconds to stabilise.
+    const settleMs = Number(process.env.DJG_SELFTEST_DELAY_MS) || 8000
     const shoot = () => setTimeout(() => {
       if (outputWindow && !outputWindow.isDestroyed()) outputWindow.webContents.send('selftest:shot')
       else { console.error('[SelfTest] nessuna finestra output'); app.quit() }
-    }, 8000)
+    }, settleMs)
     ipcMain.once('output:painted', shoot)
-    setTimeout(() => { console.error('[SelfTest] timeout'); app.quit() }, 45000)
+    setTimeout(() => { console.error('[SelfTest] timeout'); app.quit() }, settleMs + 40000)
   }
   // On macOS, request microphone access at OS level before anything else
   if (process.platform === 'darwin') {

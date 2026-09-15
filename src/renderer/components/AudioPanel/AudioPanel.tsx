@@ -18,6 +18,14 @@ const BPM_MODES: { id: BpmMode; label: string; hint: string }[] = [
   { id: 'midi', label: 'MIDI', hint: 'Prende tempo e posizione nella battuta dal MIDI clock del mixer o del lettore — esatti, non stimati' },
 ]
 
+/** 93.4 → "1:33". A transport with a raw seconds count is not a transport. */
+function mmss(seconds: number): string {
+  if (!isFinite(seconds) || seconds <= 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 const AUDIO_STORE_KEY = 'djtographikz-audio'
 
 interface SavedAudioSettings {
@@ -40,6 +48,10 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   const saved = savedRef.current
   /** live = ticking right now; seen = a clock arrived at some point this session */
   const [clock, setClock] = useState({ live: false, seen: false })
+  /** file transport, polled with the rest of the panel */
+  const [file, setFile] = useState({ name: '', playing: false, at: 0, len: 0, loop: true })
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>(saved.deviceId ?? '')
   const [audioActive, setAudioActive] = useState(false)
@@ -142,9 +154,39 @@ export function AudioPanel({ engine }: AudioPanelProps) {
         const b = Math.round(engine.audioAnalyzer.getEffectiveBpm())
         setDisplayBpm(d => (d === b ? d : b))
       }
+      const a = engine.audioAnalyzer
+      if (a.getSourceKind() === 'file') {
+        setFile({
+          name: a.getFileName(), playing: a.isPlaying(),
+          at: a.getCurrentTime(), len: a.getDuration(), loop: a.isLooping(),
+        })
+      } else if (file.name) {
+        setFile({ name: '', playing: false, at: 0, len: 0, loop: true })
+      }
     }, 500)
     return () => clearInterval(id)
-  }, [engine, audioActive, bpmMode, manualBpm])
+  }, [engine, audioActive, bpmMode, manualBpm, file.name])
+
+  const loadFile = useCallback(async (f: File) => {
+    if (!engine) return
+    setError(null)
+    try {
+      await engine.audioAnalyzer.startFile(f)
+      setAudioActive(true)
+      drawSpectrum()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Non riesco a leggere il file')
+    }
+  // drawSpectrum is a stable module-level closure over refs, not a dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine])
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) loadFile(f)
+  }, [loadFile])
 
   // Detectors often lock onto half or double tempo on four-to-the-floor —
   // these snap the current BPM by the factor and hand control to manual mode
@@ -276,8 +318,72 @@ export function AudioPanel({ engine }: AudioPanelProps) {
 
   return (
     <Panel id="audio" title="Ingresso audio">
-      <div className="u-col">
-        {error && <div className="u-error">{error}</div>}
+      <div
+        className={`u-col${dragOver ? ' drag-over' : ''}`}
+        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+      >
+        {/* A mic that was refused is not news while a file is playing: the
+            analysis is running, just not on the input. An error about the file
+            itself still shows, because then there is no file loaded. */}
+        {error && !file.name && <div className="u-error">{error}</div>}
+
+        {/* Dry run: the same analysis, on a file you can rewind. Everything
+            about beat, BPM and envelope was otherwise only testable at a gig. */}
+        {file.name ? (
+          <div className="sub-card u-col" style={{ gap: 'var(--s2)' }}>
+            <div className="u-row">
+              <span className="cat-label" style={{ margin: 0, flex: 1, minWidth: 0,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Prova a secco · {file.name}
+              </span>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={stopAudio}
+                title="Chiudi il file e torna all'ingresso dal vivo"
+              >
+                Torna al vivo
+              </button>
+            </div>
+            <div className="u-row">
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => { engine?.audioAnalyzer.playPause(); setFile(f => ({ ...f, playing: !f.playing })) }}
+                title={file.playing ? 'Pausa' : 'Riproduci'}
+                style={{ width: '52px' }}
+              >
+                {file.playing ? '❚❚' : '▶'}
+              </button>
+              <input
+                type="range"
+                min={0} max={Math.max(1, file.len)} step={0.1}
+                value={file.at}
+                title="Scorri nel brano — il rilevamento del tempo riparte da capo"
+                onChange={e => {
+                  const t = parseFloat(e.target.value)
+                  engine?.audioAnalyzer.seek(t)
+                  setFile(f => ({ ...f, at: t }))
+                }}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <span className="u-value" style={{ width: '74px', flexShrink: 0 }}>
+                {mmss(file.at)} / {mmss(file.len)}
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-pressed={file.loop}
+              className={`row-item${file.loop ? ' active' : ''}`}
+              onClick={() => { engine?.audioAnalyzer.setLooping(!file.loop); setFile(f => ({ ...f, loop: !f.loop })) }}
+              title="Ricomincia da capo alla fine del brano"
+            >
+              <div className={`toggle${file.loop ? ' active' : ''}`} />
+              <span className="row-title">Ripeti</span>
+            </button>
+          </div>
+        ) : (
+        <>
         <div>
           <div className="label">Dispositivo ({devices.length} trovati)</div>
           <select
@@ -313,6 +419,23 @@ export function AudioPanel({ engine }: AudioPanelProps) {
             Aggiorna
           </button>
         </div>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => fileInputRef.current?.click()}
+          title="Analizza un mp3 o un wav al posto dell'ingresso: la prova a secco di beat, BPM e reattivita' senza serata"
+        >
+          Prova a secco con un file…
+        </button>
+        <div className="u-hint">Oppure trascina qui un brano.</div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          hidden
+          onChange={e => { const f = e.target.files?.[0]; if (f) loadFile(f); e.target.value = '' }}
+        />
+        </>
+        )}
 
         {/* Input Gain — amplify weak mic signals */}
         {audioActive && (

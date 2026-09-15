@@ -185,6 +185,47 @@ export function App() {
     if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
     else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
 
+    // Dry run under the gate: analyse a file instead of opening the mic, so a
+    // script can assert on what the beat and BPM machinery actually reports.
+    // The renderer cannot read a path — it goes through the same djg-media
+    // protocol the video overlays already use.
+    // StrictMode mounts effects twice in dev, and the second mount is the one
+    // that survives: without clearing this the first engine's timer keeps
+    // reporting on an analyser that was already disposed, i.e. silence.
+    let dryRunTimer = 0
+    // The timer is created inside a promise that resolves long after the
+    // StrictMode cleanup has already run, so clearing it there is not enough:
+    // the dead mount has to know it is dead before it starts anything.
+    let disposed = false
+    const dryRun = window.api?.selfTestAudio
+    if (dryRun) {
+      fetch(`djg-media://f?p=${encodeURIComponent(dryRun)}`)
+        .then(r => r.blob())
+        .then(b => eng.audioAnalyzer.startFile(new File([b], dryRun.split('/').pop() || 'prova.wav')))
+        .then(() => {
+          if (disposed) return
+          // One line a second, so the check can read the tempo the analysis
+          // settled on instead of guessing when it was ready.
+          let beats = 0
+          const a = eng.audioAnalyzer
+          eng.onAudioFrame(hit => { if (hit) beats++ })
+          dryRunTimer = window.setInterval(() => {
+            const d = a.getData()
+            // Through the log bridge, not console.log: the session log keeps
+            // warnings and up on purpose, and this has to survive to the file
+            // for the check to read it — the same door output/health uses.
+            window.api?.logToFile?.('dryrun',
+              `[DryRun] t=${a.getCurrentTime().toFixed(1)}s bpm=${d.bpm}`
+              + ` conf=${a.getBpmConfidence().toFixed(2)} beats=${beats}`
+              + ` energy=${d.energy.toFixed(2)} bass=${d.bass.toFixed(2)}`)
+          }, 1000)
+        })
+        .catch(err => {
+          console.error('[DryRun] non riesco ad aprire', dryRun, err)
+          window.api?.logToFile?.('dryrun', `[DryRun] fallito: ${err}`)
+        })
+    }
+
     // Wire AutoVJ → engine
     const vj = vjRef.current
     vj.onSceneChange = (scene) => {
@@ -221,6 +262,8 @@ export function App() {
     return () => {
       clearTimeout(ipcTimer)
       clearTimeout(persistTimer)
+      disposed = true
+      clearInterval(dryRunTimer)
       unsubscribe()
       vj.onSceneChange = null
       vj.onPostChange = null
