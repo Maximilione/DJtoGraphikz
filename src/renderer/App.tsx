@@ -12,6 +12,7 @@ import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
+import { CameraPanel } from './components/CameraPanel/CameraPanel'
 import { DmxPanel } from './components/DmxPanel/DmxPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
@@ -187,6 +188,12 @@ export function App() {
     // custom shader source it handed over (DJG_SELFTEST_SHADER)
     if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
     else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
+
+    // Gate: frame the scene, so a screenshot can prove the camera pass runs.
+    if (window.api?.selfTestCamera) {
+      try { eng.setCamera(JSON.parse(window.api.selfTestCamera)) }
+      catch (err) { console.error('[SelfTest] camera illeggibile:', err) }
+    }
 
     // Dry run under the gate: analyse a file instead of opening the mic, so a
     // script can assert on what the beat and BPM machinery actually reports.
@@ -574,6 +581,8 @@ export function App() {
         case 'grade': engine.setGrade({ [v.key]: v.value }); break
         case 'motionBlur': engine.setMotionBlur(v); break
         case 'intensity': setIntensity(v); engine.setIntensity(v); break
+        case 'camera': engine.setCamera(v); break
+        case 'cameraReset': engine.resetCamera(); break
         case 'blendMode': engine.setBlendMode(v); break
         case 'param': engine.setParamValue(v.key, v.value); break
         case 'paramMap': engine.setParamMapping(v.key, v.source, v.depth); break
@@ -885,6 +894,7 @@ export function App() {
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
+            <CameraPanel engine={engine} />
             <MappingPanel engine={engine} />
             <DmxPanel engine={engine} />
             <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
