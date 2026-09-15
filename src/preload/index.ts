@@ -50,6 +50,8 @@ const api = {
   selfTestMode: process.env.DJG_SELFTEST_MODE || '',
   /** Dry run: an audio file to analyse instead of the input, for scripts/check-dryrun.py. */
   selfTestAudio: process.env.DJG_SELFTEST_AUDIO || '',
+  /** Master camera as a JSON patch, so the gate can photograph a framed scene. */
+  selfTestCamera: process.env.DJG_SELFTEST_CAMERA || '',
   onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 
