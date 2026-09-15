@@ -35,7 +35,16 @@ export type BpmMode = 'auto' | 'manual' | 'tap' | 'midi'
 export class AudioAnalyzer {
   private context: AudioContext | null = null
   private analyser: AnalyserNode | null = null
-  private source: MediaStreamAudioSourceNode | null = null
+  private source: AudioNode | null = null
+  /**
+   * Where the signal comes from. A file is not a device: it cannot be yanked,
+   * so none of the reconnection machinery applies to it, and it is the only
+   * source you can rewind — which is the whole point of having it.
+   */
+  private sourceKind: 'device' | 'file' = 'device'
+  private mediaEl: HTMLAudioElement | null = null
+  private mediaUrl = ''
+  private fileName = ''
   private gainNode: GainNode | null = null
   private stream: MediaStream | null = null
   private freqData: Uint8Array<ArrayBuffer> = new Uint8Array(0)
@@ -111,6 +120,8 @@ export class AudioAnalyzer {
 
   private scheduleRestart(reason: string, delayMs = 1000) {
     if (this.userStopped || this.restartTimer) return
+    // A file has no device to come back: restarting would re-open the mic.
+    if (this.sourceKind === 'file') return
     console.warn(`[AudioAnalyzer] audio device lost (${reason}) — restarting in ${delayMs}ms`)
     this.restartTimer = window.setTimeout(() => {
       this.restartTimer = 0
@@ -148,12 +159,7 @@ export class AudioAnalyzer {
       await this.context.resume()
     }
 
-    this.analyser = this.context.createAnalyser()
-    this.analyser.fftSize = 2048
-    // Lower smoothing = better transient detection
-    this.analyser.smoothingTimeConstant = 0.4
-    this.analyser.minDecibels = -90
-    this.analyser.maxDecibels = -10
+    this.makeAnalyser()
 
     const constraints: MediaStreamConstraints = {
       audio: deviceId
@@ -175,16 +181,81 @@ export class AudioAnalyzer {
     if (track) track.onended = () => this.scheduleRestart('track ended')
 
     this.source = this.context.createMediaStreamSource(this.stream)
+    await this.wireGraph()
 
+    console.log('[AudioAnalyzer] Started with device:', deviceId || 'default',
+      'sample rate:', this.context.sampleRate,
+      'bins:', this.analyser!.frequencyBinCount)
+  }
+
+  /**
+   * Analyse a file instead of an input.
+   *
+   * Every bit of the beat, BPM and envelope work is only verifiable on a
+   * night out, with a real set through a real line-in — which means it was
+   * never verifiable at a desk. Drop an mp3 in and the same graph runs on it,
+   * with a transport you can rewind.
+   */
+  async startFile(file: File): Promise<void> {
+    this.stop()
+    this.userStopped = false
+    this.sourceKind = 'file'
+    this.fileName = file.name
+
+    this.context = new AudioContext()
+    if (this.context.state === 'suspended') await this.context.resume()
+    this.makeAnalyser()
+
+    this.mediaUrl = URL.createObjectURL(file)
+    const el = new Audio(this.mediaUrl)
+    el.crossOrigin = 'anonymous'
+    el.loop = true
+    this.mediaEl = el
+
+    await new Promise<void>((resolve, reject) => {
+      el.onloadedmetadata = () => resolve()
+      el.onerror = () => reject(new Error(`Non riesco a leggere ${file.name}`))
+    })
+
+    this.source = this.context.createMediaElementSource(el)
+    await this.wireGraph()
+    // You have to hear it: this is a rehearsal, not a measurement.
+    this.gainNode!.connect(this.context.destination)
+
+    await el.play()
+    // A media element keeps playing on a suspended context, and the analyser
+    // then reads pure silence — indistinguishable from broken beat detection.
+    if (this.context.state !== 'running') {
+      await this.context.resume().catch(() => {})
+      if ((this.context.state as string) !== 'running') {
+        console.warn('[AudioAnalyzer] AudioContext sospeso: l\'analisi leggera\' silenzio')
+      }
+    }
+    console.log('[AudioAnalyzer] file:', file.name, `${el.duration.toFixed(1)}s`,
+      'sample rate:', this.context.sampleRate)
+  }
+
+  /** The analyser settings, which are the same whatever feeds them. */
+  private makeAnalyser(): void {
+    this.analyser = this.context!.createAnalyser()
+    this.analyser.fftSize = 2048
+    // Lower smoothing = better transient detection
+    this.analyser.smoothingTimeConstant = 0.4
+    this.analyser.minDecibels = -90
+    this.analyser.maxDecibels = -10
+  }
+
+  /** gain → analyser → BPM library, and the buffers that read them. */
+  private async wireGraph(): Promise<void> {
     // Add gain node for input amplification (useful for weak mic signals)
-    this.gainNode = this.context.createGain()
+    this.gainNode = this.context!.createGain()
     this.gainNode.gain.value = this.inputGain
-    this.source.connect(this.gainNode)
-    this.gainNode.connect(this.analyser)
+    this.source!.connect(this.gainNode)
+    this.gainNode.connect(this.analyser!)
 
     // Initialize realtime-bpm-analyzer
     try {
-      this.bpmAnalyzer = await createRealtimeBpmAnalyzer(this.context, {
+      this.bpmAnalyzer = await createRealtimeBpmAnalyzer(this.context!, {
         continuousAnalysis: true,
         stabilizationTime: 10000,
       })
@@ -219,9 +290,9 @@ export class AudioAnalyzer {
       console.warn('[AudioAnalyzer] Failed to init realtime-bpm-analyzer, falling back to manual:', err)
     }
 
-    this.freqData = new Uint8Array(this.analyser.frequencyBinCount)
-    this.waveData = new Uint8Array(this.analyser.fftSize)
-    this.specBuf = new Float32Array(this.analyser.frequencyBinCount)
+    this.freqData = new Uint8Array(this.analyser!.frequencyBinCount)
+    this.waveData = new Uint8Array(this.analyser!.fftSize)
+    this.specBuf = new Float32Array(this.analyser!.frequencyBinCount)
     this.running = true
 
     // Reset detection state
@@ -230,10 +301,6 @@ export class AudioAnalyzer {
     this.libraryBpm = 0
     this.libraryConfidence = 0
     this.libraryStable = false
-
-    console.log('[AudioAnalyzer] Started with device:', deviceId || 'default',
-      'sample rate:', this.context.sampleRate,
-      'bins:', this.analyser.frequencyBinCount)
   }
 
   stop(): void {
@@ -252,6 +319,17 @@ export class AudioAnalyzer {
     this.gainNode?.disconnect()
     this.source?.disconnect()
     this.stream?.getTracks().forEach(t => t.stop())
+
+    if (this.mediaEl) {
+      this.mediaEl.pause()
+      this.mediaEl.src = ''
+      this.mediaEl = null
+    }
+    // An object URL pins the whole file in memory until it is revoked, and a
+    // set is 100 MB of wav.
+    if (this.mediaUrl) { URL.revokeObjectURL(this.mediaUrl); this.mediaUrl = '' }
+    this.fileName = ''
+    this.sourceKind = 'device'
     if (this.context && this.context.state !== 'closed') {
       this.context.close().catch(() => {})
     }
@@ -260,6 +338,40 @@ export class AudioAnalyzer {
     this.source = null
     this.gainNode = null
     this.stream = null
+  }
+
+  // ---- File transport ----
+  // Only meaningful while a file is the source; all of it is a no-op otherwise,
+  // so callers do not have to branch.
+
+  /** 'device' or 'file' — what is feeding the analysis right now. */
+  getSourceKind(): 'device' | 'file' { return this.sourceKind }
+  getFileName(): string { return this.fileName }
+
+  isPlaying(): boolean { return !!this.mediaEl && !this.mediaEl.paused }
+  getDuration(): number { return this.mediaEl?.duration ?? 0 }
+  getCurrentTime(): number { return this.mediaEl?.currentTime ?? 0 }
+  isLooping(): boolean { return this.mediaEl?.loop ?? false }
+  setLooping(on: boolean): void { if (this.mediaEl) this.mediaEl.loop = on }
+
+  playPause(): void {
+    const el = this.mediaEl
+    if (!el) return
+    if (el.paused) el.play().catch(err => console.warn('[AudioAnalyzer] play:', err))
+    else el.pause()
+  }
+
+  /**
+   * Jump to a point in seconds. The tempo estimator keeps a running history
+   * that a jump invalidates — what it heard before the jump is not what plays
+   * after it — so the estimate starts over.
+   */
+  seek(seconds: number): void {
+    const el = this.mediaEl
+    if (!el) return
+    el.currentTime = Math.max(0, Math.min(el.duration || 0, seconds))
+    this.tracker.reset()
+    this.resetBpm()
   }
 
   // ---- Public configuration ----

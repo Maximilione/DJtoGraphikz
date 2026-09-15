@@ -48,6 +48,8 @@ const api = {
   /** UI gate: which of the three modes to open in, so scripts/check-ui.py can
    *  photograph each one. Rides the environment for the same reason. */
   selfTestMode: process.env.DJG_SELFTEST_MODE || '',
+  /** Dry run: an audio file to analyse instead of the input, for scripts/check-dryrun.py. */
+  selfTestAudio: process.env.DJG_SELFTEST_AUDIO || '',
   onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 
