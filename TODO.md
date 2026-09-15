@@ -15,7 +15,7 @@ non rompe niente: aggiunge.
 
 Nessuna richiede addon nativi. Ordine per rapporto valore/costo, non per gruppo.
 
-- [ ] **I1 MIDI Clock in ingresso** — BPM **esatto** e fase della battuta dal mixer/CDJ/Traktor invece che stimati dall'aria. È il grosso del valore di Ableton Link (parcheggiato perché richiede addon nativo) su un canale già aperto dalla v0.11. Nota tecnica: il clock è un messaggio da 1 byte e oggi viene scartato in `midi.ts` dal controllo `data.length < 2` · **S**
+- [x] **I1 MIDI Clock in ingresso** — BPM **esatto** e fase della battuta dal mixer/CDJ/Traktor invece che stimati dall'aria. È il grosso del valore di Ableton Link (parcheggiato perché richiede addon nativo) su un canale già aperto dalla v0.11. Nota tecnica: il clock è un messaggio da 1 byte e oggi viene scartato in `midi.ts` dal controllo `data.length < 2` · **S** — **fatto in v0.41.0-beta**
 - [ ] **Q1 Camera master** — zoom, rotazione, pan, tiling a specchio e push-in sul kick applicati nel master shader **prima** del sampling: agisce su tutti e 35 gli effetti e sui ~3.700 ISF insieme. Nessun'altra modifica ha questa leva sulla varietà · **S/M**
 - [ ] **P1 Prova a secco con un file audio** — trascini un mp3/wav (o la registrazione di un tuo set) e l'app lo analizza al posto del line-in, con play/scrub. Sblocca "Test con musica vera" (Ordine di lavoro n.1): tutto il lavoro su beat e BPM oggi è verificabile solo in serata · **S/M**
 - [ ] **S1 FX momentanei (tieni premuto)** — tieni il tasto: l'effetto è attivo; molli: torna com'era. Vale per post-FX, look e note MIDI (note-on/note-off) e per il tap sul telefono. Risolve il classico "ho acceso lo strobe e me lo sono dimenticato". Serve distinguere keydown/keyup, il wet è già animabile · **S**
