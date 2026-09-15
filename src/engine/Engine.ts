@@ -689,6 +689,10 @@ export class Engine {
         uLift: { value: this.grade.lift },
         uWarpOn: { value: false },
         uWarpInv: { value: new THREE.Matrix3() },
+        uSrcOff: { value: new THREE.Vector2(0, 0) },
+        uSrcScale: { value: new THREE.Vector2(1, 1) },
+        uGamma: { value: 1 },
+        uOutBright: { value: 1 },
       }
     })
 
@@ -1352,6 +1356,30 @@ export class Engine {
     this.keystone = corners.map(v => Math.max(-0.5, Math.min(1.5, v)))
     this.applyKeystone()
     this.emitState()
+  }
+
+  /**
+   * Which rectangle of the composition this window presents, and how hard.
+   *
+   * One show, many outputs: the state snapshot stays the show, and this is the
+   * part that is about the *wall* — so it never travels in the snapshot, or
+   * every output would end up with the last window's crop.
+   *
+   * src is x,y,w,h in 0..1 with y measured from the bottom, like uv.
+   */
+  setSlice(s: { src?: number[]; gamma?: number; brightness?: number }) {
+    const u = this.masterMaterial.uniforms
+    if (s.src && s.src.length === 4) {
+      const [x, y, w, h] = s.src
+      // A zero-width slice is a black output that looks exactly like a dead
+      // projector: refuse it rather than present it.
+      if (w > 0.001 && h > 0.001) {
+        u.uSrcOff.value.set(x, y)
+        u.uSrcScale.value.set(w, h)
+      }
+    }
+    if (typeof s.gamma === 'number') u.uGamma.value = Math.max(0.2, Math.min(4, s.gamma))
+    if (typeof s.brightness === 'number') u.uOutBright.value = Math.max(0, Math.min(1, s.brightness))
   }
 
   getKeystone(): number[] { return [...this.keystone] }

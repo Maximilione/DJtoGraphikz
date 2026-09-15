@@ -11,6 +11,15 @@ uniform float uLift;         // shadow lift, 0 = neutral
 // Keystone / quad-warp (projection mapping): inverse homography screen→source
 uniform bool uWarpOn;
 uniform mat3 uWarpInv;
+// Slice: which rectangle of the composition this output shows (0,0,1,1 = all).
+// Two projectors split the canvas; a LED wall takes a strip of it.
+uniform vec2 uSrcOff;
+uniform vec2 uSrcScale;
+// Per-output trim. A LED wall crushes blacks and runs hot at full white, so it
+// needs its own gamma and ceiling — the master grade is the show, this is the
+// wall.
+uniform float uGamma;
+uniform float uOutBright;
 varying vec2 vUv;
 
 void main() {
@@ -23,7 +32,7 @@ void main() {
       return;
     }
   }
-  vec3 c = texture2D(tDiffuse, uv).rgb;
+  vec3 c = texture2D(tDiffuse, uSrcOff + uv * uSrcScale).rgb;
 
   // Lift (shadows) then contrast around mid grey
   c += uLift * (1.0 - c);
@@ -38,7 +47,9 @@ void main() {
   float vig = 1.0 - dot(d, d) * uVignette * 2.0;
   c *= max(vig, 0.0);
 
-  c *= uBrightness;
+  c *= uBrightness * uOutBright;
 
-  gl_FragColor = vec4(max(c, vec3(0.0)), 1.0);
+  c = pow(max(c, vec3(0.0)), vec3(1.0 / uGamma));
+
+  gl_FragColor = vec4(c, 1.0);
 }
