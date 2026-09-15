@@ -1,5 +1,6 @@
 import { createRealtimeBpmAnalyzer } from 'realtime-bpm-analyzer'
 import { BeatTracker } from './BeatTracker'
+import { MidiClock } from './MidiClock'
 
 export interface AudioData {
   sub: number
@@ -28,7 +29,8 @@ export interface AudioData {
 const EMPTY_SPECTRUM = new Uint8Array(128)
 const EMPTY_WAVEFORM = new Uint8Array(128).fill(128)
 
-export type BpmMode = 'auto' | 'manual' | 'tap'
+/** 'midi' takes tempo and phase from a MIDI clock — the only one that is not a guess. */
+export type BpmMode = 'auto' | 'manual' | 'tap' | 'midi'
 
 export class AudioAnalyzer {
   private context: AudioContext | null = null
@@ -55,6 +57,14 @@ export class AudioAnalyzer {
   private libraryBpm = 0
   private libraryConfidence = 0
   private libraryStable = false
+
+  /**
+   * Tempo off the wire. Lives here and not in the MIDI module because this is
+   * where tempo and phase are decided; `midi.ts` only hands it bytes, and it
+   * keeps working with no audio device at all — a cable and no line-in is a
+   * real way to run a night.
+   */
+  readonly midiClock = new MidiClock()
 
   // BPM mode
   private bpmMode: BpmMode = 'auto'
@@ -259,6 +269,12 @@ export class AudioAnalyzer {
     if (mode === 'tap') this.tapTimes = []
   }
 
+  /** Is a MIDI clock actually ticking right now? (Offer the mode, or explain it.) */
+  hasMidiClock(): boolean { return this.midiClock.read(performance.now()).running }
+
+  /** Has one ever ticked this session? Used to point the user at the mode. */
+  sawMidiClock(): boolean { return this.midiClock.seen }
+
   getBpmMode(): BpmMode { return this.bpmMode }
 
   setManualBpm(bpm: number) {
@@ -328,7 +344,13 @@ export class AudioAnalyzer {
   // ---- Main update ----
 
   update(): AudioData {
-    if (!this.analyser || !this.running) return this.data
+    // A MIDI clock is worth following even with no audio device: the cable
+    // carries tempo and phase, and everything beat-driven runs off those.
+    if (!this.analyser || !this.running) {
+      if (this.bpmMode === 'midi') this.applyMidiClock()
+      else this.data.beatDetected = false
+      return this.data
+    }
 
     this.analyser.getByteFrequencyData(this.freqData)
     this.analyser.getByteTimeDomainData(this.waveData)
@@ -410,11 +432,40 @@ export class AudioAnalyzer {
     this.data.waveform = this.waveData
     this.data.binHz = binHz
 
+    // The clock wins outright over the PLL: it is not an estimate, and pulling
+    // an exact grid 35% towards whatever the hats just did can only make it
+    // worse. The tracker still runs — the per-band hits above are its work.
+    if (this.bpmMode === 'midi') this.applyMidiClock()
+
     return this.data
+  }
+
+  /** Overwrite tempo and phase from the clock, when it is running. */
+  private applyMidiClock(): void {
+    const c = this.midiClock.read(performance.now())
+    this.data.bpm = this.getEffectiveBpm()
+    if (!c.running) {
+      // Clock gone mid-set: keep the last tempo and stop claiming beats rather
+      // than snapping the visuals back to whatever the microphone thinks.
+      this.data.beatDetected = false
+      return
+    }
+    this.data.beatPhase = c.beatPhase
+    this.data.barPhase = c.barPhase
+    this.data.beatDetected = c.beatDetected
+    // This is the one caller per frame that consumes it; every other read of
+    // the clock (the panel, getEffectiveBpm) is a peek.
+    this.midiClock.clearBeat()
   }
 
   getEffectiveBpm(): number {
     switch (this.bpmMode) {
+      case 'midi': {
+        const c = this.midiClock.read(performance.now())
+        // A stopped transport keeps the tempo it last sent: a DJ who hits stop
+        // between tracks should not watch the visuals fall back to 128.
+        return c.bpm > 0 ? Math.round(c.bpm) : this.manualBpm
+      }
       case 'manual':
       case 'tap':
         return this.manualBpm

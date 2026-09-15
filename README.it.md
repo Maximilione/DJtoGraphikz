@@ -59,6 +59,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Audio
 
+- **MIDI Clock in ingresso** — tempo e posizione nella battuta presi dal cavo invece che stimati dall'aria: 24 tick per movimento, piu' start/stop e puntatore di posizione, dal mixer, dal CDJ o da Traktor. Modalita' **MIDI** nel pannello audio; funziona anche **senza line-in**, con il solo cavo MIDI collegato.
 - Beat tracking a spectral flux logaritmico con soglia mediana+MAD, fase agganciata (PLL) e stima BPM propria (griglia timestamp 100Hz, voto kick+spettro pieno, prior dal genere); BPM auto (doppio stimatore), tap, manuale, ×½/×2.
 - Envelope follower, auto-gain, noise gate, input gain; auto-recovery se il device audio cade.
 - Vocabolario esteso per gli shader: hit per banda (kick/synth/hats), clock gated, sub/presence, beat/bar phase, un beat clock continuo.
