@@ -19,6 +19,12 @@ export interface Venue {
   /** 8 values: TL,TR,BR,BL as x,y */
   keystone: number[]
   brightness: number
+  /**
+   * Every output of the room. Optional: profiles saved before multi-output
+   * carry only `outputRes`/`displayId`, and a room with one projector is the
+   * same thing written shorter.
+   */
+  outputs?: unknown[]
   /** Raw blobs of the two panel stores, replayed as-is on load */
   audio: unknown
   dmx: unknown
