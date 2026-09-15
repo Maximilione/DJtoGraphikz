@@ -461,6 +461,8 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
       <div class="addgrid" id="postadd"></div>
+      <div class="sect">Intensità</div>
+      <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
       <div class="sect">Motion Blur</div>
       <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
       <div class="sect">Transizione</div>
@@ -861,6 +863,8 @@ async function poll(){
   }
   const mb = num(e.motionBlur, 0)
   if (!dragging['mblur']) { setRange($('mblur'), mb); setText($('mblur_v'), fmtV(mb)) }
+  const ints = num(e.intensity, 0)
+  if (!dragging['intens']) { setRange($('intens'), ints); setText($('intens_v'), fmtV(ints)) }
 
   // COLORI
   const g = e.grade
@@ -923,6 +927,7 @@ function wireStatic(){
   wireRange($('master'), 'master', function(v){ return { type: 'brightness', value: v } })
   wireRange($('xfade'), 'xfade', function(v){ return { type: 'crossfade', value: v } })
   wireRange($('mblur'), 'mblur', function(v){ return { type: 'motionBlur', value: v } }, $('mblur_v'))
+  wireRange($('intens'), 'intens', function(v){ return { type: 'intensity', value: v } }, $('intens_v'))
   wireRange($('trdur'), 'trdur', function(v){ return { type: 'transitionDuration', value: v } }, $('trdur_v'))
   GRADE_KEYS.forEach(function(k){
     wireRange($('g_' + k), 'g_' + k, function(v){ return { type: 'grade', value: { key: k, value: v } } }, $('gv_' + k))

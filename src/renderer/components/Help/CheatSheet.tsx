@@ -12,6 +12,7 @@ const KEYBOARD: [string, string][] = [
   ['Space', 'tap BPM'],
   ['1-0', 'effetti'],
   ['Q/W/E/R', 'post'],
+  ['I', 'intensità (tieni = momentanea)'],
   ['Shift+1-0', 'look'],
   ['?', 'aiuto'],
   ['Tieni premuto', 'momentaneo: molli e torna com\'era'],
