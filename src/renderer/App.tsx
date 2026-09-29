@@ -23,7 +23,7 @@ import { CheatSheet } from './components/Help/CheatSheet'
 import { QuickGuide } from './components/Help/QuickGuide'
 import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
-import { AutoVJ, GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
 import { ALL_EFFECTS, COLOR_PRESETS, POST_CATEGORIES } from './catalog'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
@@ -133,7 +133,7 @@ export function App() {
   const vjRef = useRef<AutoVJ>(new AutoVJ())
   const [vjEnabled, setVjEnabled] = useState(false)
   const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
-  const [vjStatus, setVjStatus] = useState({ current: '', count: 0 })
+  const [vjStatus, setVjStatus] = useState<{ current: string; count: number; phase: Phase }>({ current: '', count: 0, phase: 'groove' })
 
   // Displays for the output-monitor picker
   const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean }[]>([])
@@ -259,11 +259,19 @@ export function App() {
 
     // Wire AutoVJ → engine
     const vj = vjRef.current
-    vj.onSceneChange = (scene) => {
+    vj.onSceneChange = (scene, cut, phase) => {
       // one state change for the whole scene: effect + a setter per param used
       // to emit ~10 snapshots in the same frame, each one re-rendering panels
       eng.batch(() => {
+        // the Auto VJ decides how to move into a scene (the drop cuts, a break
+        // fades slow); the user's own transition comes back right after
+        const prevType = eng.getTransitionType()
+        const prevSeconds = eng.getTransitionDuration()
+        eng.setTransitionType(cut.type)
+        eng.setTransitionDuration(cut.seconds)
         eng.setEffect(scene.effect)
+        eng.setTransitionType(prevType)
+        eng.setTransitionDuration(prevSeconds)
         // tuned params + audio mappings make the scene, not just the effect
         for (const [key, sp] of Object.entries(scene.params ?? {})) {
           if (typeof sp.value === 'number') eng.setParamValue(key, sp.value)
@@ -271,7 +279,7 @@ export function App() {
           else eng.setParamMapping(key, 'none', 0.5)
         }
       })
-      setVjStatus(prev => ({ current: scene.effect, count: prev.count + 1 }))
+      setVjStatus(prev => ({ current: scene.effect, count: prev.count + 1, phase }))
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
@@ -414,7 +422,7 @@ export function App() {
   const toggleVJ = useCallback((on: boolean) => {
     vjRef.current.setEnabled(on)
     setVjEnabled(on)
-    if (on) setVjStatus({ current: '', count: 0 })
+    if (on) setVjStatus({ current: '', count: 0, phase: 'groove' })
     // Keep the phone remote honest — hotkeys/effect cmds disable AutoVJ silently
     try { window.api?.sendRemoteVj({ enabled: on, genre: vjRef.current.getGenre() }) } catch (_) {}
   }, [])

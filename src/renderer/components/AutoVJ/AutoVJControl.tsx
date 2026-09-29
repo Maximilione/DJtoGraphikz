@@ -1,10 +1,10 @@
-import type { Genre } from '@engine/AutoVJ'
+import type { Genre, Phase } from '@engine/AutoVJ'
 import { GENRES } from '../../catalog'
 
 interface AutoVJControlProps {
   enabled: boolean
   genre: Genre
-  status: { current: string; count: number }
+  status: { current: string; count: number; phase: Phase }
   onToggle: (on: boolean) => void
   onGenre: (g: Genre) => void
   /** 'lg' is Simple mode: the same row and the same select, with more air. */
@@ -21,6 +21,8 @@ interface AutoVJControlProps {
  * of them. The list of ten became a select that carries the descriptions, so
  * both modes say the same thing and Pro spends one control where it spent ten.
  */
+const PHASE_LABEL: Record<Phase, string> = { break: 'pausa', groove: 'groove', peak: 'picco' }
+
 export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, size = 'sm' }: AutoVJControlProps) {
   const lg = size === 'lg'
   return (
@@ -35,7 +37,7 @@ export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, size 
           <div className="row-title">{enabled ? 'Auto VJ attivo' : 'Auto VJ'}</div>
           <div className="row-sub">
             {enabled
-              ? `${status.count} cambi · ora: ${status.current || '—'}`
+              ? `${status.count} cambi · ${PHASE_LABEL[status.phase]} · ora: ${status.current || '—'}`
               : 'Fa tutto da solo, a tempo di musica'}
           </div>
         </div>

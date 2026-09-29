@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId } from '@engine/Engine'
-import type { Genre } from '@engine/AutoVJ'
+import type { Genre, Phase } from '@engine/AutoVJ'
 import { COLOR_PRESETS } from '../../catalog'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { AutoVJControl } from '../AutoVJ/AutoVJControl'
@@ -11,7 +11,7 @@ interface SimplePanelProps {
   engine: Engine | null
   vjEnabled: boolean
   vjGenre: Genre
-  vjStatus: { current: string; count: number }
+  vjStatus: { current: string; count: number; phase: Phase }
   onVJToggle: (on: boolean) => void
   onVJGenre: (g: Genre) => void
 }

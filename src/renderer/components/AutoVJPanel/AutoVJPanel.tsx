@@ -1,4 +1,4 @@
-import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
+import { GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
 import { AutoVJControl } from '../AutoVJ/AutoVJControl'
 import { Panel } from '../Panel/Panel'
 
@@ -6,11 +6,13 @@ import { Panel } from '../Panel/Panel'
 interface AutoVJPanelProps {
   vjEnabled: boolean
   vjGenre: Genre
-  vjStatus: { current: string; count: number }
+  vjStatus: { current: string; count: number; phase: Phase }
   onToggle: (on: boolean) => void
   onGenre: (g: Genre) => void
 }
 
+
+const PHASE_LABEL: Record<Phase, string> = { break: 'Pausa', groove: 'Groove', peak: 'Picco' }
 
 export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
   const config = GENRE_CONFIGS[vjGenre]
@@ -29,25 +31,19 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
             Configurazione {config.label}
           </summary>
           <div style={{ paddingLeft: '6px', lineHeight: '1.6' }}>
+            {(['break', 'groove', 'peak'] as Phase[]).map(ph => (
+              <div key={ph}>
+                <span style={{ color: 'var(--accent)' }}>{PHASE_LABEL[ph]}:</span>{' '}
+                {config.scenes.filter(sc => sc.phase === ph).map(sc => sc.effect).join(', ')}
+              </div>
+            ))}
             <div>
-              <span style={{ color: 'var(--accent)' }}>Scene:</span>{' '}
-              {config.scenes.map(sc => sc.effect).join(', ')}
+              <span style={{ color: 'var(--accent)' }}>Frase:</span>{' '}
+              {config.phraseBars} battute nel groove, {Math.max(2, config.phraseBars / 2)} al picco, {config.phraseBars * 2} in pausa
             </div>
             <div>
               <span style={{ color: 'var(--accent)' }}>Cambio:</span>{' '}
-              ogni {config.switchBeats} beat ({config.transitionStyle})
-            </div>
-            <div>
-              <span style={{ color: 'var(--accent)' }}>Soglia energia:</span>{' '}
-              {(config.energyThreshold * 100).toFixed(0)}%
-            </div>
-            <div>
-              <span style={{ color: 'var(--accent)' }}>Combo post-FX:</span>{' '}
-              {config.postSets.length}
-            </div>
-            <div>
-              <span style={{ color: 'var(--accent)' }}>Palette:</span>{' '}
-              {config.palettes.length}
+              {config.cut.seconds}s sul groove · 2.5s verso la pausa · taglio secco sul drop
             </div>
             {/* Palette swatches */}
             <div style={{ display: 'flex', gap: '4px', marginTop: '3px' }}>
