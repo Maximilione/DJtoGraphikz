@@ -2,6 +2,28 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.49.0-beta] — 2026-09-29
+
+**Auto VJ rifatto: un set, non una slot machine.** Chiude S4 (struttura del pezzo) del TODO.
+
+Prima: tre sacchetti indipendenti (scene, post-FX, palette) pescati a caso ogni N beat, quindi una mezzatinta fotocopiata poteva finire sotto una palette pastello con l'RGB split; `transitionStyle` non era letto da nessuno; e nel breakdown — niente kick, niente beat — scattava un cambio a caso ogni cinque secondi, cioe' proprio quando un VJ sta fermo.
+
+### Added
+- **Fasi del pezzo** in `AutoVJ.ts`: l'inviluppo del basso (60–250 Hz, lento) dice se c'e' il kick, quello dell'energia quanto spinge — `break` / `groove` / `peak`, con isteresi e tempo di tenuta. Ogni scena e' scritta per una fase
+- **Il drop**: il kick che rientra dopo una pausa taglia la scena **su quel primo kick**, senza dissolvenza (`DROP_CUT`), verso una scena di picco, con una palette nuova. Unico cambio che non aspetta il battere
+- **La pausa**: dissolvenza lenta di 2.5 s su una scena di pausa (`BREAK_CUT`) e poi si tiene; la rotazione fra le scene di pausa e' a frase doppia. Il silenzio totale e' una pausa: niente piu' cambi ogni cinque secondi
+- **Frasi**: nel groove una scena dura `phraseBars` battute (8 techno, 16 minimal/ambient, 4 DnB/gabber), la meta' al picco, il doppio in pausa; il cambio cade sul battere. Senza beat rilevati la frase avanza al BPM del genere
+- **Palette a blocchi**: cambia ogni quattro scene di groove/picco, mai in pausa, sempre sul drop
+- **Famiglie visive** (`FAMILY`, una per effetto, `Record<EffectId, Family>` cosi' il compilatore pretende che ogni effetto ne abbia una): due scene della stessa famiglia non si susseguono, un effetto non torna per tre cambi
+- **Post-FX per scena**: ogni scena porta i suoi (`flash` senza bloom, `halftone` con la grana, `barcode` con le scanline…); niente piu' combo a caso
+- Le dieci tabelle riscritte: 10 generi, 288 scene, ogni scena classificata per fase, con i valori gia' tarati delle vecchie tabelle dove c'erano. Hard Tekno, Gabber e Dark Industrial ora hanno palette bianco/rosso/nero e le sedici scene Tekno distribuite per fase
+- `yarn check:autovj`: simula una traccia sintetica a 60 fps e verifica groove sul battere e a frase, pausa lenta e tenuta, drop entro 250 ms con taglio secco e palette, picco a mezza frase, palette ogni quattro, avanzamento senza beat, silenzio come pausa; e che **ogni parametro di ogni scena esista e stia nel range dello slider** (ha trovato subito `starfield.density=0.8` su un massimo di 0.6)
+
+### Changed
+- `onSceneChange(scene, cut, phase)`: l'Auto VJ decide come entrare nella scena; `App` applica il taglio e ripristina subito la transizione dell'utente
+- La riga di stato dell'Auto VJ mostra la fase (`pausa · groove · picco`); il pannello Pro elenca le scene per fase, la lunghezza di frase e i tagli
+- Rimossi `postSets`, `switchBeats`, `transitionStyle`, `energyThreshold` da `GenreConfig`
+
 ## [0.48.0-beta] — 2026-09-29
 
 **Tekno.** Sedici visual scuri per una serata in una stanza nera: 46 → 62 effetti.
