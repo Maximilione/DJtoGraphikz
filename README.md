@@ -59,7 +59,11 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 - **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
 - **Post-FX chain** — 9 reorderable effects with per-effect wet/dry (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + master color grade (exposure/contrast/saturation/lift/vignette), ACES tone mapping, temporal motion blur.
 - **16 palettes** + custom editor, smooth color transitions, timer- or beat-based cycling.
-- **AutoVJ** — 10 genres, ~14 **curated scenes** each (136 total) (effect + tuned params + audio mappings), no-repeat rotation, switches on the downbeat, adaptive energy.
+- **Auto VJ** — 10 genres, ~28 **curated scenes** each (effect + tuned params + audio mappings + the post-FX that fit it), and it follows the track instead of a timer:
+  - **Phases.** The bass envelope says whether there is a kick, the energy envelope how hard the room is going: **break / groove / peak**. Every scene is written for one phase, so a breakdown gets a dark, slow scene and the peak gets the strobes.
+  - **The drop.** A kick coming back after a break cuts the scene on that first kick, with no fade, to a peak scene and a fresh palette. Everything else waits for a downbeat.
+  - **Phrases.** In the groove a scene lasts a phrase (8 bars for techno, 16 for minimal, 4 for drum & bass), half at the peak, twice in a break. The palette changes once per four scenes.
+  - **Coherence.** Two scenes of the same visual family (two tunnels, two radial things) never play back to back; an effect does not return for three switches. Silence is a break, not a slot machine.
 
 ### Audio
 
