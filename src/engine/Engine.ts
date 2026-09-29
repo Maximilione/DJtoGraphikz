@@ -54,6 +54,22 @@ import stringartFrag from './shaders/stringart.frag?raw'
 import asciiFrag from './shaders/ascii.frag?raw'
 import smokeFrag from './shaders/smoke.frag?raw'
 import smokeSimFrag from './shaders/smoke.sim.frag?raw'
+import flashFrag from './shaders/flash.frag?raw'
+import halftoneFrag from './shaders/halftone.frag?raw'
+import spiralFrag from './shaders/spiral.frag?raw'
+import warehouseFrag from './shaders/warehouse.frag?raw'
+import impactFrag from './shaders/impact.frag?raw'
+import barcodeFrag from './shaders/barcode.frag?raw'
+import staticFrag from './shaders/static.frag?raw'
+import cageFrag from './shaders/cage.frag?raw'
+import radarFrag from './shaders/radar.frag?raw'
+import downpourFrag from './shaders/downpour.frag?raw'
+import cracksFrag from './shaders/cracks.frag?raw'
+import tribalFrag from './shaders/tribal.frag?raw'
+import chevronsFrag from './shaders/chevrons.frag?raw'
+import sevensegFrag from './shaders/sevenseg.frag?raw'
+import eclipseFrag from './shaders/eclipse.frag?raw'
+import blindsFrag from './shaders/blinds.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -152,6 +168,9 @@ export type EffectId =
   | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm'
   | 'spectrum' | 'truchet' | 'caustics' | 'quasicrystal' | 'gyroid'
   | 'stringart' | 'ascii' | 'smoke'
+  | 'flash' | 'halftone' | 'spiral' | 'warehouse' | 'impact' | 'barcode'
+  | 'static' | 'cage' | 'radar' | 'downpour' | 'cracks' | 'tribal'
+  | 'chevrons' | 'sevenseg' | 'eclipse' | 'blinds'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -381,6 +400,22 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
     passes: [{ frag: smokeSimFrag, buffer: 'S', rows: 320 }],
     main: smokeFrag,
   },
+  flash: flashFrag,
+  halftone: halftoneFrag,
+  spiral: spiralFrag,
+  warehouse: warehouseFrag,
+  impact: impactFrag,
+  barcode: barcodeFrag,
+  static: staticFrag,
+  cage: cageFrag,
+  radar: radarFrag,
+  downpour: downpourFrag,
+  cracks: cracksFrag,
+  tribal: tribalFrag,
+  chevrons: chevronsFrag,
+  sevenseg: sevensegFrag,
+  eclipse: eclipseFrag,
+  blinds: blindsFrag,
   swarm: {
     // 192x192 texels = 36,864 particles on a fixed grid: the count must not
     // change with the projector's aspect ratio. 65k turned the frame into even
