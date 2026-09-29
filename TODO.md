@@ -36,7 +36,7 @@ C4 e C6 in v0.27.3-beta, C7..C20 in v0.28.0-beta. In archivio in fondo.
 Serata — servono mentre si suona, al buio, sotto pressione:
 
 - [ ] **S2 Beat-roll (stutter a tempo)** — tenendo un tasto l'immagine viene ripetuta ogni 1/4, 1/8, 1/16 di battuta usando la fase del PLL già disponibile: l'equivalente visivo del loop roll del DJ. Un solo buffer in più oltre al freeze esistente · **S/M**
-- [ ] **S4 Struttura del pezzo: breakdown / build / drop** — tre indicatori lenti sopra il BeatTracker (sparizione del kick, salita di energia senza cassa, rientro del kick). L'AutoVJ smette di cambiare a caso nel build e piazza il cambio scena **sul drop**, che oggi è l'unico momento che sbaglia · **M/L**
+- [x] **S4 Struttura del pezzo: breakdown / build / drop** — fatto in v0.49.0 dentro l'Auto VJ (`AutoVJ.ts`: fasi pausa/groove/picco dagli inviluppi di basso ed energia, cambio **sul drop** con taglio secco, tenuta nel breakdown). Manca solo la parte visibile: i tre indicatori sopra il BeatTracker e un `onPhaseChange` per I4 · **S**
 - [ ] **S5 Idle sicuro sul silenzio** — se l'audio manca per N secondi, dissolvenza su un look calmo o sul logo invece di lasciare un fermo immagine o un pattern impazzito; rientra da solo. Noise gate e recovery esistono già, manca la politica · **S**
 
 Preparazione — per arrivare pronti alla serata:
