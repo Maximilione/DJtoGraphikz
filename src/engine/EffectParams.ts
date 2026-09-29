@@ -241,6 +241,87 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'swirl', label: 'Vortice', min: 0, max: 3, default: 1.2 },
     { key: 'dissipate', label: 'Dissolvenza', min: 0, max: 1, default: 0.3 },
   ],
+  // --- Tekno: scuri, monocromi, guidati dal kick
+  flash: [
+    { key: 'decay', label: 'Coda', min: 0.5, max: 8, default: 3 },
+    { key: 'scan', label: 'Scansione', min: 0, max: 1, default: 0.4 },
+    { key: 'tint', label: 'Tinta', min: 0, max: 1, default: 0.3 },
+  ],
+  halftone: [
+    { key: 'dots', label: 'Punti', min: 20, max: 120, default: 60 },
+    { key: 'contrast', label: 'Contrasto', min: 0.5, max: 3, default: 1.6 },
+    { key: 'drift', label: 'Deriva', min: 0, max: 2, default: 0.6 },
+  ],
+  spiral: [
+    { key: 'arms', label: 'Bracci', min: 1, max: 8, default: 2 },
+    { key: 'twist', label: 'Torsione', min: 1, max: 14, default: 8 },
+    { key: 'pulse', label: 'Pulsazione', min: 0, max: 1, default: 0.5 },
+  ],
+  warehouse: [
+    { key: 'pillars', label: 'Pilastri', min: 0.5, max: 4, default: 2 },
+    { key: 'fog', label: 'Nebbia', min: 0, max: 2, default: 1 },
+    { key: 'flicker', label: 'Sfarfallio', min: 0, max: 1, default: 0.6 },
+  ],
+  impact: [
+    { key: 'rings', label: 'Onde', min: 1, max: 8, default: 3 },
+    { key: 'width', label: 'Spessore', min: 0.5, max: 3, default: 1 },
+    { key: 'fade', label: 'Dissolvenza', min: 0.2, max: 2, default: 1 },
+  ],
+  barcode: [
+    { key: 'bars', label: 'Barre', min: 10, max: 120, default: 48 },
+    { key: 'gap', label: 'Vuoti', min: 0, max: 0.9, default: 0.45 },
+    { key: 'jitter', label: 'Strappo', min: 0, max: 2, default: 0.8 },
+  ],
+  static: [
+    { key: 'grain', label: 'Grana', min: 1, max: 8, default: 3 },
+    { key: 'roll', label: 'Scorrimento', min: 0, max: 2, default: 0.8 },
+    { key: 'bands', label: 'Bande', min: 0, max: 1, default: 0.5 },
+  ],
+  cage: [
+    { key: 'size', label: 'Dimensione', min: 0.5, max: 2, default: 1 },
+    { key: 'thickness', label: 'Spessore', min: 0.5, max: 4, default: 1.5 },
+    { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.8 },
+  ],
+  radar: [
+    { key: 'sweep', label: 'Giro', min: 0.2, max: 3, default: 1 },
+    { key: 'blips', label: 'Contatti', min: 1, max: 24, default: 8 },
+    { key: 'fade', label: 'Dissolvenza', min: 0.5, max: 4, default: 1.5 },
+  ],
+  downpour: [
+    { key: 'density', label: 'Densità', min: 10, max: 120, default: 60 },
+    { key: 'streak', label: 'Scia', min: 0.05, max: 0.5, default: 0.2 },
+    { key: 'wind', label: 'Vento', min: -1, max: 1, default: 0.15 },
+  ],
+  cracks: [
+    { key: 'cells', label: 'Lastre', min: 3, max: 20, default: 8 },
+    { key: 'width', label: 'Spessore', min: 0.2, max: 3, default: 1 },
+    { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
+  ],
+  tribal: [
+    { key: 'blades', label: 'Lame', min: 3, max: 16, default: 8 },
+    { key: 'spikes', label: 'Punte', min: 0, max: 1, default: 0.6 },
+    { key: 'turn', label: 'Scatto', min: 0, max: 2, default: 0.5 },
+  ],
+  chevrons: [
+    { key: 'lanes', label: 'Corsie', min: 1, max: 12, default: 5 },
+    { key: 'thickness', label: 'Spessore', min: 0.1, max: 0.95, default: 0.5 },
+    { key: 'drift', label: 'Deriva', min: 0, max: 3, default: 1 },
+  ],
+  sevenseg: [
+    { key: 'digits', label: 'Cifre', min: 1, max: 4, default: 2 },
+    { key: 'ghost', label: 'Fantasma', min: 0, max: 0.3, default: 0.06 },
+    { key: 'jitter', label: 'Strappo', min: 0, max: 1, default: 0.4 },
+  ],
+  eclipse: [
+    { key: 'radius', label: 'Raggio', min: 0.1, max: 0.5, default: 0.28 },
+    { key: 'corona', label: 'Corona', min: 0.2, max: 2, default: 1 },
+    { key: 'wobble', label: 'Oscillazione', min: 0, max: 1, default: 0.4 },
+  ],
+  blinds: [
+    { key: 'slats', label: 'Lamelle', min: 4, max: 40, default: 14 },
+    { key: 'open', label: 'Apertura', min: 0.05, max: 1, default: 0.5 },
+    { key: 'tilt', label: 'Inclinazione', min: 0, max: 1, default: 0.2 },
+  ],
   reaction: [
     { key: 'feed', label: 'Nutrimento', min: 0.014, max: 0.07, default: 0.0545 },
     { key: 'kill', label: 'Consumo', min: 0.045, max: 0.07, default: 0.062 },
