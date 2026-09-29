@@ -2,6 +2,31 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.48.0-beta] — 2026-09-29
+
+**Tekno.** Sedici visual scuri per una serata in una stanza nera: 46 → 62 effetti.
+
+### Added
+- Categoria **Tekno** nel catalogo, con 16 effetti nuovi, tutti a schermo nero e guidati dal kick (`uBassHit`) e dal beat clock, monocromi con un tocco di palette:
+  - **Flash** — strobo a blackout: il frame e' nero, il kick lo dipinge di bianco per un istante e la coda decade; una riga di scansione per battuta tiene vivo lo schermo nel buio
+  - **Impact** — onde d'urto: ogni beat lascia cadere un anello al centro che si allarga e muore, gli ultimi beat sono ancora in volo
+  - **Spiral** — spirale logaritmica bianco/nero, inverte il verso a ogni battuta, il kick ingrassa i bracci
+  - **Tribal** — sole tribale a fasce di lame controrotanti, scatta di una lama per beat come un ingranaggio
+  - **Xerox** — mezzatinta da volantino fotocopiato: un campo scuro campionato una volta per punto su un retino a 45°
+  - **Barcode** — barre verticali rigenerate a ogni beat, tre bande che si strappano sugli hi-hat
+  - **Hazard** — corsie di chevron a strisce, verso alternato, un dente in avanti a ogni beat
+  - **Counter** — contatore delle battute suonate a sette segmenti, con i segmenti spenti in fantasma e il punto che lampeggia sul beat
+  - **Static** — canale morto: neve TV tenuta scura, scorrimento verticale guidato dal basso, righe che strappano sugli hi-hat
+  - **Radar** — un giro per battuta, i contatti si accendono al passaggio del fascio e si spengono fino al prossimo
+  - **Cage** — due cubi wireframe annidati e controrotanti, solo i bordi brillano
+  - **Cracks** — cemento crepato: rete di bordi Voronoi, un impulso di luce per beat corre lungo le crepe dal centro
+  - **Bunker** — corridoio di cemento raymarchato, pilastri e travi ripetuti, una lampada davanti alla camera che sfarfalla come un reattore rotto
+  - **Rain** — pioggia su nero in tre strati, il basso la fa cadere, il kick e' il lampo
+  - **Eclipse** — un disco nero con la sola corona visibile, i raggi si allungano sul basso
+  - **Blinds** — veneziana con un faro dietro: si vede solo la luce nelle fessure, che si aprono sul basso
+- Le sedici scene sono in rotazione nell'AutoVJ: Hard Tekno e Dark Industrial ne prendono otto ciascuno, Acid Techno e Gabber tre
+- Ogni effetto ha 3 parametri curati in `EffectParams.ts`, mappabili ad audio e LFO come gli altri
+
 ## [0.47.0-beta] — 2026-09-15
 
 **I5 — piu' uscite.** Uno spettacolo, molti muri.

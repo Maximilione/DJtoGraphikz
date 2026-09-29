@@ -51,6 +51,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'acid-techno': {
     label: 'Acid Techno',
     scenes: [
+      { effect: 'spiral', params: { arms: v(3), twist: a(5, 'lfo-sine', 0.3, 16), pulse: v(0.4) } },
+      { effect: 'radar', params: { sweep: v(2), blips: v(12), fade: v(2) } },
+      { effect: 'eclipse', params: { radius: v(0.24), corona: a(1.4, 'bass', 0.5), wobble: v(0.8) } },
       { effect: 'quasicrystal', params: { waves: v(5), qfreq: v(60), contrast: a(0.4, 'high', 0.4) } },
       { effect: 'reaction', params: { feed: v(0.0545), kill: a(0.062, 'lfo-sine', 0.15, 32), inject: v(1.4) } },
       { effect: 'tunnel', params: { speed: v(1.2), twist: a(0.5, 'lfo-sine', 0.5, 8), ringdensity: a(8, 'bass', 0.35) } },
@@ -82,6 +85,14 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'dark-industrial': {
     label: 'Dark Industrial',
     scenes: [
+      { effect: 'warehouse', params: { pillars: v(2), fog: v(1.2), flicker: v(0.7) } },
+      { effect: 'static', params: { grain: v(3), roll: a(0.8, 'bass', 0.5), bands: v(0.6) } },
+      { effect: 'cracks', params: { cells: v(8), width: v(1), glow: a(1, 'bass', 0.6) } },
+      { effect: 'downpour', params: { density: v(60), streak: v(0.2), wind: a(0.15, 'lfo-sine', 0.5, 32) } },
+      { effect: 'eclipse', params: { radius: v(0.28), corona: a(1, 'bass', 0.5), wobble: v(0.4) } },
+      { effect: 'halftone', params: { dots: v(60), contrast: v(1.6), drift: v(0.6) } },
+      { effect: 'blinds', params: { slats: v(14), open: a(0.5, 'bass', 0.5), tilt: v(0.2) } },
+      { effect: 'radar', params: { sweep: v(1), blips: v(8), fade: v(1.5) } },
       { effect: 'gyroid', params: { cells: v(1.8), shell: v(0.35), travel: v(1.3) } },
       { effect: 'smoke', params: { rise: v(1.3), swirl: v(1.8), dissipate: v(0.2) } },
       { effect: 'pulsar', params: { lines: v(40), peaks: a(1.3, 'bass', 0.5), flow: v(0.5) } },
@@ -147,6 +158,14 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'hard-tekno': {
     label: 'Hard Tekno',
     scenes: [
+      { effect: 'flash', params: { decay: v(3), scan: v(0.3), tint: v(0.2) } },
+      { effect: 'impact', params: { rings: v(4), width: a(1, 'bass', 0.5), fade: v(1) } },
+      { effect: 'spiral', params: { arms: v(2), twist: v(6), pulse: v(0.6) } },
+      { effect: 'tribal', params: { blades: v(8), spikes: a(0.6, 'high', 0.3), turn: v(1) } },
+      { effect: 'chevrons', params: { lanes: v(5), thickness: v(0.5), drift: v(1.5) } },
+      { effect: 'barcode', params: { bars: v(56), gap: v(0.4), jitter: a(1, 'high', 0.6) } },
+      { effect: 'sevenseg', params: { digits: v(2), ghost: v(0.06), jitter: v(0.6) } },
+      { effect: 'cage', params: { size: v(1.1), thickness: v(1.8), spin: v(1.2) } },
       { effect: 'tunnel', params: { speed: v(1.6), sides: v(6), twist: a(0.8, 'bass', 0.5), ringdensity: v(10) } },
       { effect: 'strobegrid', params: { cells: v(10), litratio: a(0.35, 'energy', 0.4), chaos: v(0.7) } },
       { effect: 'lasers', params: { beams: v(9), spread: v(1.1), sweep: a(1.3, 'energy', 0.5) } },
@@ -275,6 +294,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'gabber': {
     label: 'Gabber',
     scenes: [
+      { effect: 'flash', params: { decay: v(5), scan: v(0.6), tint: v(0) } },
+      { effect: 'impact', params: { rings: v(6), width: v(1.5), fade: v(1.6) } },
+      { effect: 'barcode', params: { bars: v(80), gap: v(0.5), jitter: v(1.6) } },
       { effect: 'strobegrid', params: { cells: v(8), litratio: v(0.5), chaos: v(1) } },
       { effect: 'fire', params: { falloff: v(0.6), turbulence: v(1), sparks: v(16) } },
       { effect: 'glitch', params: { blocks: v(24), intensity: a(0.7, 'high', 0.6), fps: v(30) } },

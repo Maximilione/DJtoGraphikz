@@ -83,6 +83,27 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'snowride', label: 'Snow', icon: '❅' },
     ],
   },
+  {
+    name: 'Tekno',
+    effects: [
+      { id: 'flash', label: 'Flash', icon: '▮' },
+      { id: 'impact', label: 'Impact', icon: '◎' },
+      { id: 'spiral', label: 'Spiral', icon: '๑' },
+      { id: 'tribal', label: 'Tribal', icon: '✵' },
+      { id: 'halftone', label: 'Xerox', icon: '⁙' },
+      { id: 'barcode', label: 'Barcode', icon: '▥' },
+      { id: 'chevrons', label: 'Hazard', icon: '⋀' },
+      { id: 'sevenseg', label: 'Counter', icon: '▯' },
+      { id: 'static', label: 'Static', icon: '▩' },
+      { id: 'radar', label: 'Radar', icon: '◔' },
+      { id: 'cage', label: 'Cage', icon: '▣' },
+      { id: 'cracks', label: 'Cracks', icon: '⌇' },
+      { id: 'warehouse', label: 'Bunker', icon: '⌂' },
+      { id: 'downpour', label: 'Rain', icon: '⁞' },
+      { id: 'eclipse', label: 'Eclipse', icon: '●' },
+      { id: 'blinds', label: 'Blinds', icon: '☰' },
+    ],
+  },
 ]
 
 export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; icon: string; desc: string }[] }[] = [
