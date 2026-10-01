@@ -64,6 +64,8 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
   - **Il drop.** Il kick che rientra dopo una pausa taglia la scena su quel primo kick, senza dissolvenza, verso una scena di picco con una palette nuova. Tutto il resto aspetta il battere.
   - **Frasi.** Nel groove una scena dura una frase (8 battute per la techno, 16 per la minimal, 4 per il drum & bass), la meta' al picco, il doppio in pausa. La palette cambia una volta ogni quattro scene.
   - **Coerenza.** Due scene della stessa famiglia visiva (due tunnel, due cose radiali) non si susseguono mai; un effetto non torna per tre cambi. Il silenzio e' una pausa, non una slot machine.
+  - **Tonalita' → colore.** Un rilevatore di tonalita' a croma (profili di Krumhansl, finestra 8 s) nomina la tonalita'; quando la palette cambia e' quella del genere piu' vicina alla tonalita' sul cerchio delle quinte, calda per le maggiori, fredda per le minori: lo stesso pezzo ha gli stessi colori ogni sera.
+  - **Scene tue.** Salva il look corrente (effetto, parametri, mapping audio, catena post) come scena di un genere e di una fase; entra in rotazione, o la sostituisce per le fasi che hai scritto ("solo le mie").
 
 ### Audio
 
@@ -100,6 +102,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 ### Luci e palco
 
 - **DMX via ArtNet** — PAR RGB che seguono la palette e pulsano con energia/bass/beat (flash sul beat opzionale); UDP puro, universo/canale base/numero fixture configurabili.
+- **Pixel mapping** — il frame proiettato campionato alla risoluzione di un pannello o di una striscia LED (qualunque L×A, cablaggio a serpentina), 170 pixel per universo, via **sACN (E1.31) multicast** o ArtNet; lettura GPU asincrona, 1–60 fps, salvato con il profilo del posto.
 - **Projection mapping** — trascina i 4 angoli (keystone/quad-warp) per adattare l'immagine a un proiettore storto.
 - **Più uscite** — una finestra per muro: scegli lo schermo, scrivi la risoluzione vera del pannello (anche 1536×256) e che pezzo della scena mostra (tutto, metà, una striscia). Gamma e tetto per uscita, perché il LED schiaccia i neri e a bianco pieno è inguardabile. Un muro LED dietro al suo processore è un display come gli altri; il pannello avvisa quando i pixel totali sono più di quanti una GPU ne disegni.
 - **Posti** — salva il locale per nome: display e risoluzione di uscita, i 4 angoli del mapping, scheda audio e gain, nodo ArtNet e master. La seconda serata nello stesso posto è un click; se il display salvato non è collegato viene saltato e te lo dice.
