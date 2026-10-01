@@ -1,5 +1,6 @@
 import type { EffectId, PostId, TransitionType } from './Engine'
 import type { AudioSource } from './EffectParams'
+import type { Key } from './audio/KeyDetector'
 
 /**
  * Auto VJ: a set, not a slot machine.
@@ -601,6 +602,62 @@ const BEAT_TIMEOUT_MS = 2000
 
 const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 
+/** the analyser must stand this far above the runner-up key before colours follow it */
+const KEY_CONFIDENCE = 0.35
+
+function hueOf(hex: string): number {
+  const n = parseInt(hex.slice(1), 16)
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  if (d === 0) return -1
+  let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return h * 60
+}
+
+/** circular mean of the palette's hues; -1 for a grey palette */
+export function paletteHue(p: [string, string, string]): number {
+  let x = 0, y = 0, n = 0
+  for (const c of p) {
+    const h = hueOf(c)
+    if (h < 0) continue
+    x += Math.cos(h * Math.PI / 180); y += Math.sin(h * Math.PI / 180); n++
+  }
+  if (!n) return -1
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+}
+
+// Keys on the circle of fifths, a colour wheel: C red, G orange, D yellow, A
+// green … the mapping Scriabin and most VJs reach for. A minor key takes the
+// hue of its relative major, so A minor is red like C major, but pulls the
+// pick toward the cooler palettes.
+const FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]   // C G D A E B F# C# G# D# A# F
+export function keyHue(key: Key): number {
+  const major = key.mode === 'major' ? key.tonic : (key.tonic + 3) % 12
+  return FIFTHS.indexOf(major) * 30
+}
+
+/**
+ * The genre palette nearest the key's hue, never the one already showing. A
+ * major key prefers warm palettes, a minor one cool; a grey palette is a
+ * neutral the key never picks on its own.
+ */
+export function paletteForKey(palettes: [string, string, string][], key: Key, current: number): number {
+  const target = keyHue(key)
+  let best = -1, bestScore = Infinity
+  palettes.forEach((p, i) => {
+    if (i === current) return
+    const h = paletteHue(p)
+    if (h < 0) return
+    let d = Math.abs(h - target); if (d > 180) d = 360 - d
+    const warm = h < 60 || h > 330
+    const cool = h > 150 && h < 270
+    const mode = key.mode === 'major' ? (cool ? 45 : 0) : (warm ? 45 : 0)
+    const score = d + mode
+    if (score < bestScore) { bestScore = score; best = i }
+  })
+  return best
+}
+
 /** One frame of what the analyser heard. `bassRaw` / `energyRaw` are the unclipped levels. */
 export interface AudioFrame {
   beat: boolean
@@ -609,6 +666,8 @@ export interface AudioFrame {
   barPhase: number
   bassRaw: number
   energyRaw: number
+  /** the analyser's key, when it has one; picks the palette for the track */
+  key?: Key | null
 }
 
 export class AutoVJ {
@@ -644,6 +703,12 @@ export class AutoVJ {
   private lastFamily: Family | null = null
   private switchesOnPalette = 0
   private palette = 0
+  private key: Key | null = null
+
+  // the user's own scenes (P4), by genre; `onlyMine` makes them the whole
+  // rotation for the phases where the user has some
+  private userScenes: Partial<Record<Genre, Scene[]>> = {}
+  private onlyMine = false
 
   public onSceneChange: ((scene: Scene, cut: SceneCut, phase: Phase) => void) | null = null
   public onPostChange: ((posts: PostId[]) => void) | null = null
@@ -658,6 +723,11 @@ export class AutoVJ {
   isEnabled(): boolean { return this.enabled }
   getGenre(): Genre { return this.genre }
   getPhase(): Phase { return this.phase }
+  getKey(): Key | null { return this.key }
+  setUserScenes(byGenre: Partial<Record<Genre, Scene[]>>, onlyMine: boolean) {
+    this.userScenes = byGenre
+    this.onlyMine = onlyMine
+  }
   /** what the phase is read from — for the replay tool and the phase lamps */
   getEnvelopes(): { kick: number; loud: number; loudMean: number } {
     return { kick: this.swing, loud: this.loud, loudMean: Math.max(0, this.loudMean) }
@@ -701,6 +771,7 @@ export class AutoVJ {
   update(frame: AudioFrame, t: number = now()) {
     if (!this.enabled) return
     const config = GENRE_CONFIGS[this.genre]
+    if (frame.key !== undefined) this.key = frame.key
     const dt = this.lastFrameAt ? Math.min(100, t - this.lastFrameAt) : 16
     this.lastFrameAt = t
     this.elapsed += dt
@@ -834,7 +905,10 @@ export class AutoVJ {
   private nextPalette(config: GenreConfig) {
     this.switchesOnPalette = 0
     if (config.palettes.length < 2) return
-    const next = (this.palette + 1 + Math.floor(Math.random() * (config.palettes.length - 1))) % config.palettes.length
+    const byKey = this.key && this.key.confidence >= KEY_CONFIDENCE
+      ? paletteForKey(config.palettes, this.key, this.palette) : -1
+    const next = byKey >= 0 ? byKey
+      : (this.palette + 1 + Math.floor(Math.random() * (config.palettes.length - 1))) % config.palettes.length
     this.palette = next
     this.onPaletteChange?.(config.palettes[next])
   }
@@ -846,11 +920,16 @@ export class AutoVJ {
    * neighbouring phase stands in.
    */
   private pick(config: GenreConfig, phase: Phase): Scene | null {
-    const inPhase = config.scenes.filter(sc => sc.phase === phase)
+    const mine = this.userScenes[this.genre] ?? []
+    const mineInPhase = mine.filter(sc => sc.phase === phase)
+    // "solo le mie" holds for the phases the user has written; the others
+    // still need a picture, so the factory covers them
+    const all = this.onlyMine && mineInPhase.length ? mine : [...config.scenes, ...mine]
+    const inPhase = all.filter(sc => sc.phase === phase)
     // a genre with no build scenes rides the build on its break scenes
     const pool = inPhase.length ? inPhase
-      : phase === 'build' ? config.scenes.filter(sc => sc.phase === 'break')
-      : config.scenes.filter(sc => sc.phase === 'groove')
+      : phase === 'build' ? all.filter(sc => sc.phase === 'break')
+      : all.filter(sc => sc.phase === 'groove')
     if (!pool.length) return null
     const notRecent = (sc: Scene) => !this.recent.includes(sc.effect)
     const otherFamily = (sc: Scene) => FAMILY[sc.effect] !== this.lastFamily

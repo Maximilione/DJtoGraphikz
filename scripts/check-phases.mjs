@@ -30,6 +30,7 @@ const load = async (entry) => {
 const { AutoVJ, PHASE, GENRE_CONFIGS } = await load('src/engine/AutoVJ.ts')
 const { BeatTracker } = await load('src/engine/audio/BeatTracker.ts')
 const { BandHits } = await load('src/engine/audio/BandHits.ts')
+const { KeyDetector, keyName } = await load('src/engine/audio/KeyDetector.ts')
 
 // ---------------------------------------------------------------- args
 const args = process.argv.slice(2)
@@ -111,6 +112,9 @@ tracker.tempoPrior = GENRE_CONFIGS[genre].preferredBpm
 const tempoLog = []
 let lockedAt = -1
 const bandHits = new BandHits()
+const keyDet = new KeyDetector()
+const byteSpec = new Uint8Array(HALF)
+let key = null
 let kicks = 0, kickWindow = 0, prevHit = 0
 const beatTimes = []
 const kickTimes = []
@@ -168,7 +172,7 @@ for (let f = 0; f * hop + N <= pcm.length; f++) {
   bandFlux[0] = bandFlux[1] = bandFlux[2] = 0
   const bt = tracker.update(spec, binHz, tNow, bandFlux, gated === 1)
   if (bt.beat) { beats++; beatTimes.push(tNow) }
-  if (f % (FPS * 10) === 0) tempoLog.push(`${mmss(tNow)} ${bt.acfBpm.toFixed(1)}@${bt.acfConfidence.toFixed(2)}`)
+  if (f % (FPS * 10) === 0) tempoLog.push(`${mmss(tNow)} ${bt.acfBpm.toFixed(1)}@${bt.acfConfidence.toFixed(2)} ${keyName(key)}${key ? (key.confidence * 100).toFixed(0) + '%' : ''}`)
   if (lockedAt < 0 && tracker.bpm() > 0) lockedAt = tNow
   const hits = bandHits.update([bandFlux[0] / HALF, bandFlux[1] / HALF, bandFlux[2] / HALF], gated)
   // the pulse is set to 1 and decayed to 0.85 in the same frame: an onset is the frame it jumps
@@ -180,7 +184,8 @@ for (let f = 0; f * hop + N <= pcm.length; f++) {
   const per = f % 15 === 0 ? periodicity(tracker.bpm() || 130) : lastPer
   lastPer = per
   trace.push(rawBass, hits[0], per)
-  vj.update({ beat: bt.beat, energy, bass, barPhase: bt.barPhase, bassRaw: rawBass, energyRaw: rawEnergy }, tNow)
+  if (gated) { for (let i = 0; i < HALF; i++) byteSpec[i] = bytes[i]; keyDet.update(byteSpec, binHz, 1000 / FPS); if (f % 30 === 0) key = keyDet.estimate() }
+  vj.update({ beat: bt.beat, energy, bass, barPhase: bt.barPhase, bassRaw: rawBass, energyRaw: rawEnergy, key }, tNow)
   const phase = vj.getPhase()
   if (phase !== lastPhase) { segments.push({ t: tNow, phase }); lastPhase = phase }
   if (f % Math.round(FPS / 4) === 0) {
@@ -192,6 +197,7 @@ for (let f = 0; f * hop + N <= pcm.length; f++) {
 
 // ---------------------------------------------------------------- report
 const GLYPH = { break: '_', build: '^', groove: '-', peak: '#' }
+console.log(`tonalita' finale: ${keyName(key)} (${key ? (key.confidence * 100).toFixed(0) : 0}%)`)
 console.log(`\nkick (onset banda bassa): ${kicks}; beat rilevati: ${beats} (${(beats / seconds * 60).toFixed(0)} al minuto), tempo stimato ${tracker.bpm().toFixed(0)} BPM`)
 {
   // inter-beat intervals in units of the tracker's own period: 1.0 = on the

@@ -284,8 +284,8 @@ export function App() {
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPhaseChange = (phase) => setVjStatus(prev => ({ ...prev, phase }))
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
-    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw) =>
-      vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw }))
+    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) =>
+      vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key }))
 
     // Push catalogs to the phone remote (served at GET /defs, version added server-side)
     try {
@@ -927,6 +927,8 @@ export function App() {
             <>
               <EffectPanel engine={engine} />
               <AutoVJPanel
+                engine={engine}
+                vj={vjRef.current}
                 vjEnabled={vjEnabled}
                 vjGenre={vjGenre}
                 vjStatus={vjStatus}
