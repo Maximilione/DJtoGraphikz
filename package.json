@@ -37,6 +37,7 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:buttons": "node scripts/check-button-classes.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
+    "check:deckmix": "python3 scripts/check-deckmix.py",
     "shader:preview": "python3 scripts/shader-preview.py"
   },
   "build": {

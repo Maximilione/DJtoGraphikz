@@ -180,7 +180,11 @@ const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
 }
 
 export type BlendMode = 'mix' | 'add' | 'screen' | 'multiply' | 'difference'
-export const BLEND_MODES: BlendMode[] = ['mix', 'add', 'screen', 'multiply', 'difference']
+  | 'split-v' | 'split-h' | 'radial' | 'luma' | 'audio'
+/** Five blends, then the masks: with a mask the crossfader is the edge position. */
+export const BLEND_MODES: BlendMode[] = ['mix', 'add', 'screen', 'multiply', 'difference',
+  'split-v', 'split-h', 'radial', 'luma', 'audio']
+const MASK_FIRST = BLEND_MODES.indexOf('split-v')
 
 export interface Grade {
   contrast: number    // 1 = neutral
@@ -232,6 +236,8 @@ export interface EngineState {
   deckBEffect?: EffectId
   crossfade?: number
   blendMode?: BlendMode
+  /** Mask edge softness 0..1 (only matters for the mask blend modes) */
+  maskSoft?: number
   brightness?: number
   blackout?: boolean
   frozen?: boolean
@@ -251,6 +257,8 @@ export interface Preset {
   deckBEffect?: EffectId
   crossfade?: number
   blendMode?: BlendMode
+  /** Mask edge softness 0..1 (only matters for the mask blend modes) */
+  maskSoft?: number
   /** Per-effect param values + audio mappings — a look isn't a look without them */
   effectParams?: Record<string, Record<string, ParamState>>
   customShader?: string
@@ -480,6 +488,7 @@ export class Engine {
   private deckBMaterial: THREE.ShaderMaterial | null = null
   private crossfade = 0            // 0 = deck A only, 1 = full B
   private blendMode: BlendMode = 'mix'
+  private maskSoft = 0.25
   private deckMixMaterial!: THREE.ShaderMaterial
 
   // Master stage (always on)
@@ -721,6 +730,8 @@ export class Engine {
       uniforms: {
         tDeckA: { value: null }, tDeckB: { value: null },
         uMix: { value: 0 }, uBlend: { value: 0 },
+        uMaskMode: { value: 0 }, uMaskSoft: { value: 0.25 },
+        uResolution: { value: this.resolution }, uBass: { value: 0 }, uBeat: { value: 0 },
       }
     })
 
@@ -1743,8 +1754,13 @@ export class Engine {
   }
   getCrossfade(): number { return this.crossfade }
 
-  setBlendMode(mode: BlendMode) { this.blendMode = mode; this.emitState() }
+  setBlendMode(mode: BlendMode) {
+    if (!BLEND_MODES.includes(mode)) return   // stale id from a preset/remote/settings
+    this.blendMode = mode; this.emitState()
+  }
   getBlendMode(): BlendMode { return this.blendMode }
+  setMaskSoft(v: number) { this.maskSoft = Math.max(0, Math.min(1, v)); this.emitState() }
+  getMaskSoft(): number { return this.maskSoft }
 
   // ---- Master ----
 
@@ -1810,7 +1826,8 @@ export class Engine {
     }
     if (state.deckBEffect) this.setDeckBEffect(state.deckBEffect)
     if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
-    if (state.blendMode) this.blendMode = state.blendMode
+    if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
+    if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
@@ -1888,7 +1905,8 @@ export class Engine {
 
     if (state.deckBEffect && state.deckBEffect !== this.deckBEffect) this.setDeckBEffect(state.deckBEffect)
     if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
-    if (state.blendMode) this.blendMode = state.blendMode
+    if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
+    if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.blackout === 'boolean') this.blackout = state.blackout
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
@@ -2234,6 +2252,7 @@ export class Engine {
       deckBEffect: this.deckBEffect,
       crossfade: this.crossfade,
       blendMode: this.blendMode,
+      maskSoft: this.maskSoft,
       effectParams: JSON.parse(JSON.stringify(this.paramState)),
       customShader: this.usingCustom ? this.customShaderSource : undefined,
       customParams: this.usingCustom ? this.customParamDefs : undefined,
@@ -2253,7 +2272,8 @@ export class Engine {
     if (typeof preset.motionBlur === 'number') this.motionBlur = preset.motionBlur
     if (preset.deckBEffect && preset.deckBEffect !== this.deckBEffect) this.setDeckBEffect(preset.deckBEffect)
     if (typeof preset.crossfade === 'number') this.setCrossfade(preset.crossfade)
-    if (preset.blendMode) this.blendMode = preset.blendMode
+    if (preset.blendMode && BLEND_MODES.includes(preset.blendMode)) this.blendMode = preset.blendMode
+    if (typeof preset.maskSoft === 'number') this.maskSoft = preset.maskSoft
     if (preset.effectParams) this.paramState = JSON.parse(JSON.stringify(preset.effectParams))
 
     if (preset.customShader) {
@@ -2310,6 +2330,7 @@ export class Engine {
       deckBEffect: this.deckBEffect,
       crossfade: this.crossfade,
       blendMode: this.blendMode,
+      maskSoft: this.maskSoft,
       brightness: this.brightness,
       blackout: this.blackout,
       frozen: this.frozen,
@@ -2681,7 +2702,11 @@ export class Engine {
       du.tDeckA.value = this.rtA.texture
       du.tDeckB.value = this.rtDeckB.texture
       du.uMix.value = this.crossfade
-      du.uBlend.value = BLEND_MODES.indexOf(this.blendMode)
+      const bi = Math.max(0, BLEND_MODES.indexOf(this.blendMode))
+      du.uBlend.value = bi < MASK_FIRST ? bi : 0
+      du.uMaskMode.value = bi < MASK_FIRST ? 0 : bi - MASK_FIRST + 1
+      du.uMaskSoft.value = this.maskSoft
+      this.applyEffectUniforms(this.deckMixMaterial, time)   // uBass/uBeat/uResolution for the masks
       this.renderPass(this.deckMixMaterial, this.rtB)
       this.blit(this.rtB.texture, this.rtA)
     }
