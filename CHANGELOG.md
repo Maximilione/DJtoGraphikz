@@ -2,6 +2,19 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.52.0-beta] — 2026-10-01
+
+**Il resto della roadmap dello studio: Q5, P4, I6.** I8 verificato e parcheggiato.
+
+### Added
+- **Q5 — tonalita' → palette.** `KeyDetector.ts` (puro): croma a 12 classi dallo spettro in byte (55 Hz–4.2 kHz, peso per vicinanza al semitono e per risoluzione del bin), finestra di 8 s, correlazione di Pearson con i profili di Krumhansl-Kessler nelle 24 rotazioni; confidenza = distacco dal secondo. `AudioData.key`, inoltrato dall'Engine all'Auto VJ. Quando la palette cambia (blocco o drop) e la confidenza e' almeno 0.35, e' la palette del genere **piu' vicina alla tonalita' sul cerchio delle quinte** (Do rosso, Sol arancio, Re giallo…; la minore prende la tinta della relativa maggiore), mai quella corrente, con una spinta verso le palette calde per le maggiori e fredde per le minori; le palette grigie non vengono mai scelte dalla tonalita'. Il pannello audio mostra `Key: Am 72%`. `yarn check:key`: scale e triadi sintetiche, silenzio, scelta della palette
+- **P4 — scene mie.** `userScenes.ts`: il look corrente (effetto, tutti i parametri curati con i mapping audio/LFO, catena post) salvato come scena di un genere e di una fase, in `localStorage`. Nel pannello Auto VJ: "+ Look corrente come scena" con la fase (default: quella che la macchina sente adesso), la lista delle scene del genere con rimozione, e **"Solo le mie (dove ne ho)"**: per le fasi in cui hai scritto almeno una scena la rotazione e' solo tua, le altre restano di fabbrica. `check:autovj` lo verifica
+- **I6 — pixel mapping ArtNet/sACN.** L'Engine ripete il pass master in un render target di `cols×rows` (filtro lineare: ogni LED e' la media della sua pezza di frame, non un texel) e lo legge con `readRenderTargetPixelsAsync` (three 0.170, nessuno stallo), a 1–60 fps. `pixelmap.ts` (puro) taglia in universi da **170 pixel** (510 canali, mai un pixel a cavallo), in alto a sinistra per primo, serpentina opzionale. `sacn.ts` (puro) costruisce il pacchetto **E1.31**: root/framing/DMP, CID fisso, nome sorgente, priorita' 100, sequenza, multicast `239.255.hi.lo:5568`; ArtNet resta per chi lo vuole. Configurazione nel pannello Luci DMX, nello stesso store del DMX cosi' il profilo del posto la porta con se'. `yarn check:pixelmap`: taglio, serpentina, byte del pacchetto, sanitizzazione
+- Il TODO per **I8 Ableton Link** riporta la verifica: nessuna implementazione JS pura, i due pacchetti npm sono addon nativi da ricompilare per l'ABI di Electron; resta parcheggiato, I1 MIDI Clock copre la resa
+
+### Changed
+- `Engine.onAudioFrame` passa anche la tonalita'; `AutoVJ.update` la legge dal frame
+
 ## [0.51.0-beta] — 2026-10-01
 
 **Il beat tracker su musica vera, e le fasi complete.** Chiude S7 e S8 del TODO.

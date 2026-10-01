@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
@@ -622,12 +623,13 @@ export class Engine {
   }
 
   // Per-frame audio listeners (AutoVJ, playlist beat-advance — fresh beat data, one call per frame)
-  private audioFrameListeners = new Set<(beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number) => void>()
+  private audioFrameListeners = new Set<(beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number, key: Key | null) => void>()
   private bassRaw = 0
   private energyRaw = 0
+  private key: Key | null = null
 
   /** Subscribe to per-frame audio. Returns an unsubscribe function. */
-  onAudioFrame(fn: (beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number) => void): () => void {
+  onAudioFrame(fn: (beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number, key: Key | null) => void): () => void {
     this.audioFrameListeners.add(fn)
     return () => { this.audioFrameListeners.delete(fn) }
   }
@@ -2523,6 +2525,7 @@ export class Engine {
       this.smoothPresence = env(this.smoothPresence, audio.presence)
       this.bassRaw = audio.bassRaw
       this.energyRaw = audio.energyRaw
+      this.key = audio.key
       this.bassHit = audio.bassHit
       this.midHit = audio.midHit
       this.highHit = audio.highHit
@@ -2542,7 +2545,7 @@ export class Engine {
 
     // Per-frame audio listeners (AutoVJ, playlist beat-advance)
     for (const fn of this.audioFrameListeners) {
-      fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase, this.bassRaw, this.energyRaw)
+      fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase, this.bassRaw, this.energyRaw, this.key)
     }
 
     // Beat-synced transition: trigger pending effect change on beat — or
@@ -2871,6 +2874,7 @@ export class Engine {
     mu.uBrightness.value = this.blackout ? 0 : this.brightness
     this.renderPass(this.masterMaterial, null)
     this.renderer.setRenderTarget(null)
+    this.samplePixelMap()
 
     // Screenshot must read the buffer in the same task as the render.
     // A list, not a slot: saving a look and capturing an effect thumbnail can
@@ -2883,6 +2887,52 @@ export class Engine {
   }
 
   private screenshotCbs: ((blob: Blob | null) => void)[] = []
+
+  // ---- Pixel map (I6): the master frame at the LED panel's resolution ----
+  private pixelRT: THREE.WebGLRenderTarget | null = null
+  private pixelBuf: Uint8Array | null = null
+  private pixelCfg: { cols: number; rows: number; fps: number } | null = null
+  private pixelLastAt = 0
+  private pixelBusy = false
+  /** rgba, GL row order (bottom first); the renderer packs it into universes */
+  public onPixelFrame: ((rgba: Uint8Array, cols: number, rows: number) => void) | null = null
+
+  /** null turns it off and frees the target */
+  setPixelMap(cfg: { cols: number; rows: number; fps: number } | null) {
+    if (this.remote) return
+    if (!cfg) {
+      this.pixelRT?.dispose(); this.pixelRT = null; this.pixelBuf = null; this.pixelCfg = null
+      return
+    }
+    if (!this.pixelRT || this.pixelRT.width !== cfg.cols || this.pixelRT.height !== cfg.rows) {
+      this.pixelRT?.dispose()
+      // linear filtering: each LED is the average of its patch of the frame, not one texel
+      this.pixelRT = new THREE.WebGLRenderTarget(cfg.cols, cfg.rows, {
+        minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat, type: THREE.UnsignedByteType, depthBuffer: false, stencilBuffer: false,
+      })
+      this.pixelBuf = new Uint8Array(cfg.cols * cfg.rows * 4)
+    }
+    this.pixelCfg = cfg
+  }
+
+  private samplePixelMap() {
+    const cfg = this.pixelCfg
+    if (!cfg || !this.pixelRT || !this.pixelBuf || this.pixelBusy || !this.onPixelFrame) return
+    const now = performance.now()
+    if (now - this.pixelLastAt < 1000 / cfg.fps) return
+    this.pixelLastAt = now
+    // the master pass again, into the small target: same brightness, same
+    // blackout, same grade the projector shows. The texture is still bound.
+    this.renderPass(this.masterMaterial, this.pixelRT)
+    this.renderer.setRenderTarget(null)
+    this.pixelBusy = true
+    // async readback: no GPU stall on the render thread (three 0.170)
+    this.renderer.readRenderTargetPixelsAsync(this.pixelRT, 0, 0, cfg.cols, cfg.rows, this.pixelBuf)
+      .then(() => { this.onPixelFrame?.(this.pixelBuf!, cfg.cols, cfg.rows) })
+      .catch(() => { /* a lost context; the next frame tries again */ })
+      .finally(() => { this.pixelBusy = false })
+  }
 
   /** Capture the next rendered frame as a PNG blob */
   screenshot(): Promise<Blob | null> {
@@ -2948,6 +2998,7 @@ export class Engine {
     this.disposeEffectMaterial(this.deckBMaterial)
     this.deckMixMaterial.dispose()
     this.masterMaterial.dispose()
+    this.pixelRT?.dispose()
     this.motionBlurMaterial.dispose()
     this.bloomPrefilterMaterial.dispose()
     this.blurMaterial.dispose()
