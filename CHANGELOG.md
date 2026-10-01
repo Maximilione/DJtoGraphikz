@@ -2,6 +2,24 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.50.0-beta] — 2026-10-01
+
+**S6 — le fasi tarate su musica vera.** Il rilevatore di v0.49.0 era tarato su una traccia sintetica e su musica vera non funzionava: dieci minuti di mix hard tekno leggevano "picco" dall'inizio alla fine, zero pause, zero drop.
+
+### Fixed
+- **Il basso normalizzato e' inchiodato a 1.0 su qualunque traccia masterizzata.** L'analizzatore scala ogni banda contro un unico picco lento dell'intero spettro, e la banda dei bassi sta ben sopra quel picco: `bass` satura e un breakdown e' invisibile. Lo stesso vale per `energy`. Nessuno se n'era accorto perche' gli shader usano `uBass` in somma, non in soglia
+- Il rilevatore di fasi ora legge i livelli **grezzi** (`bassRaw`, `energyRaw`: byte/255 dello spettro in dB, mai tagliati), nuovi campi di `AudioData` che `Engine.onAudioFrame` inoltra. Nessun uniform degli shader cambia
+- **Il kick e' un'escursione, non un livello**: una pausa spesso tiene il basso e perde solo il transiente. Presenza del kick = escursione (max−min) del basso grezzo lisciato in mezzo secondo: 15–25 dB con il kick, meno di 5 senza. La prima versione usava la rugosita' frame per frame, dominata dal jitter a 60 fps
+- Il drop e' un salto del basso grezzo di almeno 0.18 (circa 14 dB) in 50 ms durante una pausa di almeno 4 s; una pausa e' 3.2 s senza kick (un fill dura 1–2 s, un break 8 battute). Picco = energia grezza sopra la sua media lunga di 0.03 (2.4 dB)
+
+### Added
+- `yarn check:phases <audio> [--genre] [--cues] [--from] [--to] [--breakKick x] …`: rigioca una registrazione nel rilevatore **senza avviare l'app e senza audio in sala** — ffmpeg, FFT come l'AnalyserNode (Blackman, 2048, smoothing 0.4, −90…−10 dB), stesse bande, `BeatTracker` e `AutoVJ` veri. Stampa le fasi a strisce (2 s per carattere), l'escursione del basso, l'energia sopra la media, e con un file di cue a mano (`1:36 drop`) dice quali ha colto e con quanto ritardo
+- Soglie in un oggetto `PHASE` esportato e mutabile, cosi' il tool le spazza da riga di comando
+- `BandHits.ts`: la logica degli impulsi per banda (`bassHit`…) estratta da `AudioAnalyzer`, invariata, per riusarla nel tool
+
+### Taratura
+- Mix hard tekno di 10 minuti, cue segnate a occhio sull'inviluppo del basso: **3 drop su 3 colti** (+0.8, +1.9, +1.2 s), 2 pause su 3 (la terza con 30 s di ritardo: in quel punto l'escursione e' uguale a quella delle sezioni con kick debole), 1 falso drop. Due demo house: nessuna falsa pausa. Resta da rifare con una registrazione dell'impianto vero, e' il motivo per cui il tool esiste
+
 ## [0.49.0-beta] — 2026-09-29
 
 **Auto VJ rifatto: un set, non una slot machine.** Chiude S4 (struttura del pezzo) del TODO.

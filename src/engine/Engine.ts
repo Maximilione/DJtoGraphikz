@@ -622,10 +622,12 @@ export class Engine {
   }
 
   // Per-frame audio listeners (AutoVJ, playlist beat-advance — fresh beat data, one call per frame)
-  private audioFrameListeners = new Set<(beatDetected: boolean, energy: number, bass: number, barPhase: number) => void>()
+  private audioFrameListeners = new Set<(beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number) => void>()
+  private bassRaw = 0
+  private energyRaw = 0
 
   /** Subscribe to per-frame audio. Returns an unsubscribe function. */
-  onAudioFrame(fn: (beatDetected: boolean, energy: number, bass: number, barPhase: number) => void): () => void {
+  onAudioFrame(fn: (beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number) => void): () => void {
     this.audioFrameListeners.add(fn)
     return () => { this.audioFrameListeners.delete(fn) }
   }
@@ -2519,6 +2521,8 @@ export class Engine {
       this.smoothEnergy = env(this.smoothEnergy, audio.energy)
       this.smoothSub = env(this.smoothSub, audio.sub)
       this.smoothPresence = env(this.smoothPresence, audio.presence)
+      this.bassRaw = audio.bassRaw
+      this.energyRaw = audio.energyRaw
       this.bassHit = audio.bassHit
       this.midHit = audio.midHit
       this.highHit = audio.highHit
@@ -2538,7 +2542,7 @@ export class Engine {
 
     // Per-frame audio listeners (AutoVJ, playlist beat-advance)
     for (const fn of this.audioFrameListeners) {
-      fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase)
+      fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase, this.bassRaw, this.energyRaw)
     }
 
     // Beat-synced transition: trigger pending effect change on beat — or

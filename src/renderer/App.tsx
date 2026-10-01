@@ -283,7 +283,8 @@ export function App() {
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
-    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase) => vj.update(beat, energy, bass, barPhase))
+    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw) =>
+      vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw }))
 
     // Push catalogs to the phone remote (served at GET /defs, version added server-side)
     try {
