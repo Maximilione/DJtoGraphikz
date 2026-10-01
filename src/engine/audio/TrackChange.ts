@@ -50,12 +50,14 @@ export interface TrackChangeFrame {
 export const TRACK_CHANGE = {
   /** tempo must move by this fraction of the old one */
   bpmShift: 0.015,
-  bpmHoldMs: 8000,
+  // 20 s, not 8: on a 15-minute hard tekno mix 8 s gave three tempo events
+  // that were the estimator hunting, 20 s gave none and kept every drop
+  bpmHoldMs: 20000,
   /** ...and the old one must have held this long first: an estimator hunting between two peaks is not news */
   bpmStableMs: 30000,
   /** the key analyser must stand this far above the runner-up; the tempo estimate too */
   keyConfidence: 0.5,
-  keyHoldMs: 10000,
+  keyHoldMs: 20000,
   /** a break shorter than this followed by a drop is the same track's drop */
   breakMinMs: 20000,
   audioCooldownMs: 60000,

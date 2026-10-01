@@ -18,9 +18,6 @@ interface PresetPanelProps {
   engine: Engine | null
 }
 
-// integrazione: tipizzare con Engine.onTrackChange quando feat/track-change è dentro
-type TrackChangeEvent = { at: number; source: 'prolink' | 'audio'; reason: string; trackId?: number }
-type TrackChangeSource = { onTrackChange?: (fn: (e: TrackChangeEvent) => void) => () => void }
 
 const STORAGE_KEY_PRESETS = 'djtographikz-presets'
 const STORAGE_KEY_PLAYLISTS = 'djtographikz-playlists'
@@ -137,13 +134,12 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     })
   }, [playing, playingSeq, step, engine, advance])
 
-  // Track advance — one step per song. The engine may not expose the event
-  // yet (older build): the banner says so instead of silently never moving.
-  const trackChange = (engine as unknown as TrackChangeSource | null)?.onTrackChange
+  // Track advance — one step per song, on Engine.onTrackChange (Pro DJ Link
+  // track id, or the audio heuristic when there are no CDJs)
   useEffect(() => {
-    if (!playing || !playingSeq || playingSeq.mode !== 'track' || !engine || !trackChange) return
-    return trackChange.call(engine, () => advance())
-  }, [playing, playingSeq, engine, trackChange, advance])
+    if (!playing || !playingSeq || playingSeq.mode !== 'track' || !engine) return
+    return engine.onTrackChange(() => advance())
+  }, [playing, playingSeq, engine, advance])
 
   // Apply the step's look (and its transition, when it names one) and put its
   // graphics up; leaving the step — or stopping — takes them down again
@@ -525,7 +521,7 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                 </div>
                 {playingSeq.mode === 'track' && (
                   <div className="u-hint" style={{ marginTop: '2px' }}>
-                    {trackChange ? 'in attesa del cambio canzone…' : 'cambio canzone non disponibile in questa build: usa Succ / N'}
+                    in attesa del cambio canzone… (Pro DJ Link o audio; Succ / N per forzare)
                   </div>
                 )}
                 {playingSeq.mode === 'manual' && (
