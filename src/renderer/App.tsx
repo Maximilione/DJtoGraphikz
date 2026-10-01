@@ -825,6 +825,14 @@ export function App() {
     return window.api.onRemoteCommand(dispatchCmd)
   }, [engine, dispatchCmd])
 
+  // Pro DJ Link beats → the analyzer's clock (main only listens while the mode is on)
+  useEffect(() => {
+    if (!engine) return
+    const offBeat = window.api.onProLinkBeat(b => engine.audioAnalyzer.proLink.onBeat(b, performance.now()))
+    const offDevices = window.api.onProLinkDevices(d => engine.audioAnalyzer.proLink.setDevices(d))
+    return () => { offBeat(); offDevices() }
+  }, [engine])
+
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
 
   return (

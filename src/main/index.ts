@@ -15,6 +15,7 @@ import { pathToFileURL } from 'url'
 import { setupIpcHandlers } from './ipc-handlers'
 import { publishOutput, setupRemoteServer } from './remote-server'
 import { setupOscServer } from './osc-server'
+import { setupProDjLink } from './prodjlink'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
@@ -545,6 +546,7 @@ app.whenReady().then(async () => {
     replayShow(send, { ...DEFAULT_CFG, width, height })
   })
   setupOscServer(controlWindow)
+  setupProDjLink(controlWindow)
   setupUpdateCheck(() => controlWindow)
   setupArtnet()
 
