@@ -29,6 +29,7 @@ import { allPalettes } from './palettes'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
+import { ReelBuffer, cropRect, reelFileName, loadReelSettings, onReelSettings, CHUNK_MS, DROP_DELAY_MS, REEL_FPS, type ReelLap, type ReelSettings } from './reel'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
@@ -282,6 +283,8 @@ export function App() {
         }
       })
       setVjStatus(prev => ({ current: scene.effect, count: prev.count + 1, phase }))
+      // the drop is the hard cut into peak — the reel (I4) may want it
+      if (phase === 'peak' && cut.seconds === 0) reelRef.current?.drop()
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPhaseChange = (phase) => setVjStatus(prev => ({ ...prev, phase }))
@@ -449,6 +452,92 @@ export function App() {
     setRecording(true)
   }, [])
 
+  // I4 — reel: the last 15–30 s of the preview in 9:16, armed in the Outputs
+  // panel, saved by V, the toolbar chip or (opt-in) the Auto VJ's drop. The
+  // policy is in reel.ts; here only the 9:16 canvas and the two recorders.
+  const [reelArmed, setReelArmed] = useState(false)
+  const reelRef = useRef<{ save: () => void; drop: () => void } | null>(null)
+  useEffect(() => {
+    if (!engine) return
+    let cur: ReelSettings | null = null
+    let teardown: (() => void) | null = null
+    const arm = (s: ReelSettings) => {
+      teardown?.(); teardown = null; reelRef.current = null; setReelArmed(false)
+      if (!s.enabled) return
+      const W = s.height * 9 / 16, H = s.height
+      const canvas = document.createElement('canvas')
+      canvas.width = W; canvas.height = H
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      const unFrame = engine.onFrameRendered(src => {
+        const [sx, sy, sw, sh] = cropRect(src.width, src.height)
+        ctx.drawImage(src, sx, sy, sw, sh, 0, 0, W, H)
+      })
+      const stream = canvas.captureStream(REEL_FPS)
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm'
+      const buf = new ReelBuffer<Blob>()
+      const recs: (MediaRecorder | null)[] = [null, null]
+      let pending: ReelLap<Blob> | null = null
+      const download = (lap: ReelLap<Blob>) => {
+        const url = URL.createObjectURL(new Blob(lap.chunks, { type: 'video/webm' }))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = reelFileName(new Date())
+        a.click()
+        URL.revokeObjectURL(url)
+        pushToast(`Reel salvato · ${Math.round((performance.now() - lap.startedAt) / 1000)} s · ${W}×${H}`, 'reel')
+      }
+      const tick = () => {
+        const now = performance.now()
+        for (const slot of buf.due(now)) {
+          const old = recs[slot]
+          if (old && old.state !== 'inactive') old.stop()
+          // a recorder per lap: the old one's last chunk lands in its own lap
+          const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 })
+          const lap = buf.started(slot, now)
+          rec.ondataavailable = e => {
+            if (e.data.size > 0) lap.chunks.push(e.data)
+            if (pending === lap) { pending = null; download(lap) }
+          }
+          rec.start(CHUNK_MS)
+          recs[slot] = rec
+        }
+      }
+      tick()
+      const timer = window.setInterval(tick, CHUNK_MS)
+      let dropTimer = 0
+      const save = () => {
+        const best = buf.best(performance.now())
+        if (!best) { pushToast('Reel: ancora niente in memoria', 'reel'); return }
+        // the second in progress comes too: requestData flushes it, the handler saves
+        pending = buf.laps[best.slot]
+        recs[best.slot]?.requestData()
+      }
+      const drop = () => {
+        if (!cur?.onDrop) return
+        clearTimeout(dropTimer)
+        dropTimer = window.setTimeout(save, DROP_DELAY_MS)
+      }
+      reelRef.current = { save, drop }
+      setReelArmed(true)
+      teardown = () => {
+        clearInterval(timer); clearTimeout(dropTimer); pending = null
+        for (const r of recs) if (r && r.state !== 'inactive') r.stop()
+        stream.getTracks().forEach(t => t.stop())
+        unFrame()
+      }
+    }
+    // a checkbox must not throw away 30 s of buffer: rebuild only when the picture changes
+    const apply = (s: ReelSettings) => {
+      const rebuild = !cur || cur.enabled !== s.enabled || cur.height !== s.height
+      cur = s
+      if (rebuild) arm(s)
+    }
+    apply(loadReelSettings())
+    const un = onReelSettings(apply)
+    return () => { un(); teardown?.(); reelRef.current = null }
+  }, [engine])
+
   const toggleVJ = useCallback((on: boolean) => {
     vjRef.current.setEnabled(on)
     setVjEnabled(on)
@@ -602,6 +691,9 @@ export function App() {
         momentary.press(k, () => engine.setBeatRoll(prev))
       } else if (k === 'p') {
         panic()
+      } else if (k === 'v') {
+        if (reelRef.current) reelRef.current.save()
+        else pushToast('Reel spento — attivalo nel pannello Uscite', 'reel')
       } else if (e.key === '?') {
         // U2.2 — Shift+/ apre/chiude direttamente la cheat sheet
         setShowCheatSheet(prev => !prev)
@@ -840,6 +932,13 @@ export function App() {
            aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
             {recording ? <IconStop /> : <IconRecord />}
           </button>
+          {reelArmed && (
+            <button className="btn btn-secondary btn-sm" onClick={() => reelRef.current?.save()}
+              title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)"
+              aria-label="Salva il reel degli ultimi 15–30 s">
+              <span style={{ color: 'var(--accent)' }}>●</span> Reel
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
             <IconPhone />
           </button>

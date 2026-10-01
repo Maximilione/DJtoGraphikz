@@ -2917,9 +2917,19 @@ export class Engine {
       this.screenshotCbs = []
       this.canvas.toBlob(b => { for (const cb of cbs) cb(b) }, 'image/png')
     }
+    // Same rule for anyone copying the frame elsewhere (the reel's 9:16 canvas):
+    // after this task the drawing buffer is gone.
+    for (const fn of this.frameRenderedListeners) fn(this.canvas)
   }
 
   private screenshotCbs: ((blob: Blob | null) => void)[] = []
+  private frameRenderedListeners = new Set<(canvas: HTMLCanvasElement) => void>()
+
+  /** Called right after each frame hits the canvas, while its pixels are still readable. */
+  onFrameRendered(fn: (canvas: HTMLCanvasElement) => void): () => void {
+    this.frameRenderedListeners.add(fn)
+    return () => { this.frameRenderedListeners.delete(fn) }
+  }
 
   // ---- Pixel map (I6): the master frame at the LED panel's resolution ----
   private pixelRT: THREE.WebGLRenderTarget | null = null
@@ -3009,6 +3019,7 @@ export class Engine {
   dispose() {
     this.disposed = true
     this.audioFrameListeners.clear()
+    this.frameRenderedListeners.clear()
     cancelAnimationFrame(this.animFrameId)
     if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = 0 }
     if (this.overlayIpcTimer) { clearTimeout(this.overlayIpcTimer); this.overlayIpcTimer = 0 }
