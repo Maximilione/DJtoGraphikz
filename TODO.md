@@ -37,12 +37,12 @@ Lo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto
 
 Serata — servono mentre si suona, al buio, sotto pressione:
 
-- [ ] **S2 Beat-roll (stutter a tempo)** — tenendo un tasto l'immagine viene ripetuta ogni 1/4, 1/8, 1/16 di battuta usando la fase del PLL già disponibile: l'equivalente visivo del loop roll del DJ. Un solo buffer in più oltre al freeze esistente · **S/M**
+- [x] **S2 Beat-roll (stutter a tempo)** — fatto in v0.53.0: `, . /` = 1/4 1/8 1/16, `Engine.setBeatRoll` fa girare in loop i clock dal frame a schermo; niente buffer, gli shader sono funzioni del tempo · **S**
 - [x] **S4 Struttura del pezzo: breakdown / build / drop** — fatto in v0.49.0 dentro l'Auto VJ (`AutoVJ.ts`: fasi pausa/groove/picco dagli inviluppi di basso ed energia, cambio **sul drop** con taglio secco, tenuta nel breakdown). Manca solo la parte visibile: i tre indicatori sopra il BeatTracker e un `onPhaseChange` per I4 · **S**
 - [x] **S6 Taratura delle fasi sull'impianto vero** — fatto in v0.50.0 per quanto si puo' a tavolino: `yarn check:phases` rigioca una registrazione nel rilevatore senza app ne' audio; su un mix hard tekno 3 drop su 3, 2 pause su 3, 1 falso drop. **Da rifare con una registrazione dall'impianto della serata**: 10 minuti dal mixer, cue a mano (`m:ss drop|break`), `yarn check:phases rec.wav --genre hard-tekno --cues rec.cues`, poi ritoccare `PHASE` in `AutoVJ.ts` · **S**
 - [x] **S7 Spie di fase** — fatto in v0.51.0: pausa / salita / groove / picco sotto lo spettro, `onPhaseChange` nell'Auto VJ · **S**
 - [x] **S8 Build-up come quarta fase** — fatto in v0.51.0: `build` = pausa con energia in salita e niente kick, scene dedicate per genere mappate all'energia; sul mix tekno compare nei 20 s prima di ogni drop · **M**
-- [ ] **S5 Idle sicuro sul silenzio** — se l'audio manca per N secondi, dissolvenza su un look calmo o sul logo invece di lasciare un fermo immagine o un pattern impazzito; rientra da solo. Noise gate e recovery esistono già, manca la politica · **S**
+- [x] **S5 Idle sicuro sul silenzio** — fatto in v0.53.0: `idle.ts`, N s sotto il gate → dissolvenza su un effetto calmo, rientro da solo; solo con Auto VJ spento; `check:idle` · **S**
 
 Preparazione — per arrivare pronti alla serata:
 
@@ -52,7 +52,7 @@ Preparazione — per arrivare pronti alla serata:
 Qualità visiva:
 
 - [x] **Q5 Tonalita' → palette** — fatto in v0.52.0: `KeyDetector.ts` (croma + Krumhansl, 8 s), palette del genere piu' vicina sul cerchio delle quinte, calde/fredde per modo; `check:key` · **M**
-- [ ] **Q2 Palette da un'immagine** — trascini flyer o logo del locale, k-means su una miniatura estrae 5 colori ordinati e li salva come palette · **S**
+- [x] **Q2 Palette da un'immagine** — fatto in v0.53.0: k-means++ su miniatura, dominante + due piu' lontani, slot nella griglia, palette tue in un solo spazio di indici; `check:palette` · **S**
 - [ ] **Q3 Maschere fra i deck** — oltre ai 5 blend attuali: split con bordo morbido, radiale, luma-key, e maschera guidata dall'audio. Il crossfader diventa la posizione del bordo, non solo la quantità · **M**
 - [ ] **Q4 Loop video come sorgente di deck** — una playlist di clip al posto di un effetto, con velocità agganciata al BPM e cambio sul giro di battuta. *Limite onesto: Chromium legge mp4/webm ma non HAP né ProRes (i formati dei pack VJ commerciali), servirebbe conversione a monte* · **M/L**
 

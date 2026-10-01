@@ -54,6 +54,8 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 - **Camera master** — zoom, rotazione, pan, mosaico a specchio e spinta sulla cassa applicati a tutta la scena **prima** dei post-FX: sei cursori che agiscono su tutti i 46 effetti e sui ~3.700 ISF insieme, nessuno dei quali sa che esiste. Fuori dall'inquadratura specchia invece di sbavare o andare in nero. Da pannello, MIDI, OSC `/djg/cam/*` e telefono.
 - **Macro Intensità** — un fader solo (tasto **I**, MIDI, OSC, telefono, barra in alto) che alza insieme velocità, reattività, densità e il wet della catena post, con un peso per parametro. **A zero la scena è esattamente quella che hai impostato**: la macro agisce quando i parametri vengono risolti, non li riscrive.
 - **Tieni premuto = momentaneo** — un tocco breve lascia acceso, tenere premuto e mollare torna com'era. Vale per blackout, freeze, i post-FX su QWER, gli effetti 1-0, i look su Shift+1-0, i pad MIDI (note-on/note-off) e il dito sul telefono. Nessuna modalita' da ricordare al buio: decide il tasto, in base a quanto lo tieni.
+- **Beat-roll** — tieni `,` `.` `/` e l'orologio dell'effetto gira in loop su un quarto, un ottavo o un sedicesimo di battuta: il loop roll in immagine. Tocca per bloccarlo, tocca ancora per lasciarlo. Niente buffer di frame: gli shader sono funzioni del tempo, far girare il tempo e' rigiocare i frame.
+- **Palette da un'immagine** — trascina il flyer o il logo del locale sull'ultimo slot delle palette: un k-means sulla miniatura prende il colore dominante e i due piu' lontani da lui, e la palette e' tua (tasto destro per toglierla).
 - **Look Bank** — griglia 4×4 con thumbnail reali: click su slot vuoto salva il look completo, click applica con transizione, hotkey Shift+1-0.
 - **Scalette** — una sequenza di look, ognuno tenuto per il suo tempo: li peschi dal Look Bank o prendi quello che c'è sullo schermo, li riordini trascinando, e a ogni passo dai i suoi secondi o le sue battute e la sua transizione. Le scalette salvate si riaprono nell'editor, girano in loop e si esportano in JSON.
 - **Deck A/B + crossfader** — secondo deck con 5 blend mode (mix, add, screen, multiply, difference); il deck B fa da blind mode.
@@ -101,6 +103,7 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (serve per as
 
 ### Luci e palco
 
+- **Idle sul silenzio** — con l'Auto VJ spento, N secondi senza musica sfumano il muro su un effetto calmo a tua scelta, e la musica riporta da sola il look di prima.
 - **DMX via ArtNet** — PAR RGB che seguono la palette e pulsano con energia/bass/beat (flash sul beat opzionale); UDP puro, universo/canale base/numero fixture configurabili.
 - **Pixel mapping** — il frame proiettato campionato alla risoluzione di un pannello o di una striscia LED (qualunque L×A, cablaggio a serpentina), 170 pixel per universo, via **sACN (E1.31) multicast** o ArtNet; lettura GPU asincrona, 1–60 fps, salvato con il profilo del posto.
 - **Projection mapping** — trascina i 4 angoli (keystone/quad-warp) per adattare l'immagine a un proiettore storto.
@@ -137,4 +140,4 @@ Le novità di ogni versione sono in [CHANGELOG.md](CHANGELOG.md) (formato Keep a
 
 ## Licenza
 
-MIT
+Proprietario — tutti i diritti riservati. Dalla v0.53.0 il sorgente e' chiuso; le release precedenti sono uscite con licenza MIT e tali restano.
