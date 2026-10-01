@@ -3,6 +3,7 @@ import { BandHits } from './BandHits'
 import { KeyDetector, type Key } from './KeyDetector'
 import { BeatTracker } from './BeatTracker'
 import { MidiClock } from './MidiClock'
+import { ProDjLinkClock } from './ProDjLinkClock'
 
 export interface AudioData {
   sub: number
@@ -37,8 +38,11 @@ export interface AudioData {
 const EMPTY_SPECTRUM = new Uint8Array(128)
 const EMPTY_WAVEFORM = new Uint8Array(128).fill(128)
 
-/** 'midi' takes tempo and phase from a MIDI clock — the only one that is not a guess. */
-export type BpmMode = 'auto' | 'manual' | 'tap' | 'midi'
+/**
+ * 'midi' takes tempo and phase from a MIDI clock, 'prodjlink' from the Pioneer
+ * decks on the booth LAN — the two that are not a guess.
+ */
+export type BpmMode = 'auto' | 'manual' | 'tap' | 'midi' | 'prodjlink'
 
 export class AudioAnalyzer {
   private context: AudioContext | null = null
@@ -81,6 +85,8 @@ export class AudioAnalyzer {
    * real way to run a night.
    */
   readonly midiClock = new MidiClock()
+  /** Same idea over the network: beats forwarded by main from the CDJs (App.tsx feeds it). */
+  readonly proLink = new ProDjLinkClock()
 
   // BPM mode
   private bpmMode: BpmMode = 'auto'
@@ -400,6 +406,19 @@ export class AudioAnalyzer {
   /** Has one ever ticked this session? Used to point the user at the mode. */
   sawMidiClock(): boolean { return this.midiClock.seen }
 
+  /** Is a CDJ beating at us right now? */
+  hasProLink(): boolean { return this.proLink.read(performance.now()).running }
+
+  /** Has one ever? */
+  sawProLink(): boolean { return this.proLink.seen }
+
+  /** The exact clock the mode follows, if the mode follows one. */
+  private externalClock(): MidiClock | ProDjLinkClock | null {
+    if (this.bpmMode === 'midi') return this.midiClock
+    if (this.bpmMode === 'prodjlink') return this.proLink
+    return null
+  }
+
   getBpmMode(): BpmMode { return this.bpmMode }
 
   setManualBpm(bpm: number) {
@@ -473,7 +492,8 @@ export class AudioAnalyzer {
     // A MIDI clock is worth following even with no audio device: the cable
     // carries tempo and phase, and everything beat-driven runs off those.
     if (!this.analyser || !this.running) {
-      if (this.bpmMode === 'midi') this.applyMidiClock()
+      const ext = this.externalClock()
+      if (ext) this.applyClock(ext)
       else this.data.beatDetected = false
       return this.data
     }
@@ -558,14 +578,15 @@ export class AudioAnalyzer {
     // The clock wins outright over the PLL: it is not an estimate, and pulling
     // an exact grid 35% towards whatever the hats just did can only make it
     // worse. The tracker still runs — the per-band hits above are its work.
-    if (this.bpmMode === 'midi') this.applyMidiClock()
+    const ext = this.externalClock()
+    if (ext) this.applyClock(ext)
 
     return this.data
   }
 
   /** Overwrite tempo and phase from the clock, when it is running. */
-  private applyMidiClock(): void {
-    const c = this.midiClock.read(performance.now())
+  private applyClock(clock: MidiClock | ProDjLinkClock): void {
+    const c = clock.read(performance.now())
     this.data.bpm = this.getEffectiveBpm()
     if (!c.running) {
       // Clock gone mid-set: keep the last tempo and stop claiming beats rather
@@ -578,13 +599,14 @@ export class AudioAnalyzer {
     this.data.beatDetected = c.beatDetected
     // This is the one caller per frame that consumes it; every other read of
     // the clock (the panel, getEffectiveBpm) is a peek.
-    this.midiClock.clearBeat()
+    clock.clearBeat()
   }
 
   getEffectiveBpm(): number {
     switch (this.bpmMode) {
-      case 'midi': {
-        const c = this.midiClock.read(performance.now())
+      case 'midi':
+      case 'prodjlink': {
+        const c = this.externalClock()!.read(performance.now())
         // A stopped transport keeps the tempo it last sent: a DJ who hits stop
         // between tracks should not watch the visuals fall back to 128.
         return c.bpm > 0 ? Math.round(c.bpm) : this.manualBpm

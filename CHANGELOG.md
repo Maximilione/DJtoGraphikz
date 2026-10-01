@@ -2,6 +2,17 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.55.0-beta] — 2026-10-01
+
+**I3 — Pro DJ Link** (solo Pioneer; StagelinQ Denon rimandato). Senza tag: esce con la release di fine giornata.
+
+### Added
+- Modalita' BPM **Pro DJ Link**: tempo, battito nella battuta e lettore master dai CDJ Pioneer sulla rete del booth, esatti come il MIDI clock. `src/main/prodjlink-packets.ts` (parser puro: beat 0x28, keep-alive 0x06, status 0x0a, ogni offset commentato con la fonte Beat Link / dysentery), `src/main/prodjlink.ts` (tre socket UDP 50000–50002 aperti **solo** quando il modo e' scelto, keep-alive come lettore virtuale #7 che sale fino a 15 se il numero e' occupato: i numeri 1–6 dei lettori veri non si toccano mai; inoltra `prolink:beat` e `prolink:devices`), `ProDjLinkClock.ts` (puro, modellato su `MidiClock`: segue il master, senza flag il primo lettore sentito finche' non tace 2,5 s; scarta BPM fuori 40–300). `AudioAnalyzer`: `applyMidiClock` generalizzato in `applyClock`. Pannello Audio: pill "Pro DJ Link" e stato (agganciato a / lettori in rete / nessun lettore visto). `prolink-connect` scartato: trascina `better-sqlite3` nativo e Sentry; zero dipendenze
+- `yarn check:prodjlink`: 15 controlli su fixture esadecimali del parser e sul clock
+
+### Noto
+- **Mai provato su un CDJ vero**: le fixture sono costruite dagli offset documentati, non catture. Il primo test si fa guardando i log `[ProDJLink]`. Se i lettori ignorano il nostro annuncio il flag master non arriva e il clock segue il primo deck sentito. Titolo del brano non disponibile (serve la sessione dbserver TCP)
+
 ## [0.54.0-beta] — 2026-10-01
 
 **Cinque voci del TODO in parallelo** (P3, I7, I2, I4, Q3), ognuna sul suo branch, integrate in `feat/integrazione-2026-10-01`. Prima versione senza tag: la release esce a fine giornata.
