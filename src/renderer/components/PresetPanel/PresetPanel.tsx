@@ -5,8 +5,11 @@ import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/E
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
 import {
   migrateAll, migrate, clampHold, nextIndex, prevIndex, moveStep, totalHold, indexAfterRemoval,
-  HOLD_LIMITS, type Sequence, type SequenceStep,
+  usesHold, HOLD_LIMITS, MODE_LABELS, type Sequence, type SequenceStep, type SequenceMode, type StepOverlay,
 } from './sequences'
+import { enterStep, clearStepOverlays, paramsFromScreen } from './sequencePlayer'
+import { readLibraryImage, IMAGE_RE, type LibraryItem } from '../OverlayPanel/OverlayPanel'
+import { shouldIgnoreHotkey } from '../../hotkeys'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
 import { SliderRow } from '../SliderRow/SliderRow'
@@ -14,6 +17,7 @@ import { SliderRow } from '../SliderRow/SliderRow'
 interface PresetPanelProps {
   engine: Engine | null
 }
+
 
 const STORAGE_KEY_PRESETS = 'djtographikz-presets'
 const STORAGE_KEY_PLAYLISTS = 'djtographikz-playlists'
@@ -65,6 +69,14 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
   const [showLookPicker, setShowLookPicker] = useState(false)
 
+  // Step graphics editor: which step has its picker open, the image library,
+  // the text being typed, and which step is on screen as a trial
+  const [pickerFor, setPickerFor] = useState(-1)
+  const [library, setLibrary] = useState<LibraryItem[]>([])
+  const [stepText, setStepText] = useState('')
+  const [stepTextColor, setStepTextColor] = useState('#ffffff')
+  const [trialStep, setTrialStep] = useState(-1)
+
   const timerRef = useRef<number>(0)
   const beatCountRef = useRef(0)
   const dragFrom = useRef(-1)
@@ -83,6 +95,20 @@ export function PresetPanel({ engine }: PresetPanelProps) {
         return prev
       }
       return next
+    })
+  }, [playingSeq])
+
+  const seqPrev = useCallback(() => {
+    setStepIndex(prev => {
+      const p = prevIndex(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false)
+      return p < 0 ? prev : p
+    })
+  }, [playingSeq])
+
+  const seqNext = useCallback(() => {
+    setStepIndex(prev => {
+      const n = nextIndex(prev, playingSeq?.steps.length ?? 0, true)  // manual skip always wraps
+      return n < 0 ? prev : n
     })
   }, [playingSeq])
 
@@ -108,12 +134,34 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     })
   }, [playing, playingSeq, step, engine, advance])
 
-  // Apply the step's look (and its transition, when it names one)
+  // Track advance — one step per song, on Engine.onTrackChange (Pro DJ Link
+  // track id, or the audio heuristic when there are no CDJs)
+  useEffect(() => {
+    if (!playing || !playingSeq || playingSeq.mode !== 'track' || !engine) return
+    return engine.onTrackChange(() => advance())
+  }, [playing, playingSeq, engine, advance])
+
+  // Apply the step's look (and its transition, when it names one) and put its
+  // graphics up; leaving the step — or stopping — takes them down again
   useEffect(() => {
     if (!playing || !engine || !step) return
     if (step.transition) engine.setTransitionType(step.transition)
     engine.applyPreset(step.preset)
+    let alive = true
+    enterStep(engine, step, readLibraryImage, () => alive)
+    return () => { alive = false; clearStepOverlays(engine) }
   }, [step, playing, engine])
+
+  // N / Shift+N step the running sequence — the only way to move in 'manual'
+  useEffect(() => {
+    if (!playing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.key.toLowerCase() !== 'n' || shouldIgnoreHotkey(e)) return
+      if (e.shiftKey) seqPrev(); else seqNext()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [playing, seqPrev, seqNext])
 
   // Save preset
   const savePreset = useCallback(() => {
@@ -219,8 +267,77 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     setDraft(d => ({ ...d, steps: [...d.steps.slice(0, i + 1), { ...d.steps[i] }, ...d.steps.slice(i + 1)] }))
   }, [])
 
+  // ---- Step graphics ----
+
+  const addStepOverlay = useCallback((i: number, ov: StepOverlay) => {
+    setDraft(d => ({
+      ...d,
+      steps: d.steps.map((s, j) => (j === i ? { ...s, overlays: [...(s.overlays ?? []), ov] } : s)),
+    }))
+  }, [])
+
+  const removeStepOverlay = useCallback((i: number, k: number) => {
+    setDraft(d => ({
+      ...d,
+      steps: d.steps.map((s, j) => (j === i ? { ...s, overlays: (s.overlays ?? []).filter((_, m) => m !== k) } : s)),
+    }))
+  }, [])
+
+  const openPicker = useCallback((i: number) => {
+    setPickerFor(p => (p === i ? -1 : i))
+    window.api?.libraryList().then(l => setLibrary(l.filter(x => IMAGE_RE.test(x.name)))).catch(() => {})
+  }, [])
+
+  /** A library image/GIF → step graphic, with the on-screen params if it is already up */
+  const graphicFromLibrary = useCallback((i: number, item: LibraryItem) => {
+    addStepOverlay(i, {
+      kind: /\.gif$/i.test(item.name) ? 'gif' : 'image',
+      name: item.name, path: item.path,
+      ...paramsFromScreen(engine?.getOverlays() ?? [], item.name),
+    })
+  }, [engine, addStepOverlay])
+
+  /** Files from disk go through the library first, so the step points at a path that survives restarts */
+  const graphicFromFile = useCallback(async (i: number) => {
+    const assets = await window.api?.importAssets()
+    if (!assets?.length) return
+    for (const a of assets) {
+      try {
+        graphicFromLibrary(i, await window.api.librarySave(a.name, a.data))
+      } catch {
+        pushToast(`Non riesco a salvare ${a.name}`, undefined, undefined, 'err')
+      }
+    }
+    setLibrary((await window.api?.libraryList() ?? []).filter(x => IMAGE_RE.test(x.name)))
+  }, [graphicFromLibrary])
+
+  const graphicFromText = useCallback((i: number) => {
+    const text = stepText.trim()
+    if (!text) return
+    addStepOverlay(i, {
+      kind: 'text', name: text, text, color: stepTextColor,
+      ...paramsFromScreen(engine?.getOverlays() ?? [], text),
+    })
+    setStepText('')
+  }, [engine, stepText, stepTextColor, addStepOverlay])
+
+  /** Show one step — look and graphics — without running the sequence; press again to take it down */
+  const tryStep = useCallback((i: number) => {
+    const st = draft.steps[i]
+    if (!engine || !st) return
+    if (trialStep === i) {
+      clearStepOverlays(engine)
+      setTrialStep(-1)
+      return
+    }
+    if (st.transition) engine.setTransitionType(st.transition)
+    engine.applyPreset(st.preset)
+    enterStep(engine, st, readLibraryImage)
+    setTrialStep(i)
+  }, [engine, draft.steps, trialStep])
+
   /** Switching unit re-clamps every hold — 60s is fine, 60 beats is not always */
-  const setMode = useCallback((mode: 'timer' | 'beats') => {
+  const setMode = useCallback((mode: SequenceMode) => {
     setDraft(d => ({
       ...d,
       mode,
@@ -261,6 +378,7 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     setPlayingSeq(seq)
     setStepIndex(0)
     setPlaying(true)
+    setTrialStep(-1)   // the first step's enter replaces whatever was on trial
   }, [])
 
   const stopSequence = useCallback(() => {
@@ -280,20 +398,6 @@ export function PresetPanel({ engine }: PresetPanelProps) {
         fn: () => persist([...next.slice(0, i), removed, ...next.slice(i)]),
       })
   }, [sequences, playingSeq, editingIndex, stopSequence, persist])
-
-  const seqPrev = useCallback(() => {
-    setStepIndex(prev => {
-      const p = prevIndex(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false)
-      return p < 0 ? prev : p
-    })
-  }, [playingSeq])
-
-  const seqNext = useCallback(() => {
-    setStepIndex(prev => {
-      const n = nextIndex(prev, playingSeq?.steps.length ?? 0, true)  // manual skip always wraps
-      return n < 0 ? prev : n
-    })
-  }, [playingSeq])
 
   const exportSequences = useCallback(() => {
     const json = JSON.stringify(sequences, null, 2)
@@ -412,8 +516,17 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                 <div className="active-banner-label">In riproduzione: {playingSeq.name}</div>
                 <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-primary)', marginTop: '3px' }}>
                   {stepIndex + 1}/{playingSeq.steps.length}: {step.name}
-                  <span className="u-hint"> · {step.hold}{HOLD_LIMITS[playingSeq.mode].unit}</span>
+                  {usesHold(playingSeq.mode) && <span className="u-hint"> · {step.hold}{HOLD_LIMITS[playingSeq.mode].unit}</span>}
+                  {step.overlays?.length ? <span className="u-hint"> · {step.overlays.length} grafiche</span> : null}
                 </div>
+                {playingSeq.mode === 'track' && (
+                  <div className="u-hint" style={{ marginTop: '2px' }}>
+                    in attesa del cambio canzone… (Pro DJ Link o audio; Succ / N per forzare)
+                  </div>
+                )}
+                {playingSeq.mode === 'manual' && (
+                  <div className="u-hint" style={{ marginTop: '2px' }}>avanza con Succ / N, indietro con Prec / Shift+N</div>
+                )}
                 <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
                   <button className="btn btn-secondary btn-sm" title="Passo precedente" onClick={seqPrev}>Prec</button>
                   <button className="btn btn-secondary btn-sm" title="Passo successivo" onClick={seqNext}>Succ</button>
@@ -469,26 +582,34 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                         title="Nome del passo"
                         style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
                       />
-                      <button className="btn btn-ghost btn-sm" title="Applica ora questo passo" onClick={() => engine?.applyPreset(st.preset)} aria-label="Applica ora questo passo">▶</button>
+                      <button className={`btn btn-ghost btn-sm${trialStep === i ? ' active' : ''}`} title={trialStep === i ? 'Togli la prova dallo schermo' : 'Prova: mostra look e grafica di questo passo senza avviare la scaletta'} onClick={() => tryStep(i)} disabled={playing} aria-label="Prova questo passo">{trialStep === i ? '■' : 'Prova'}</button>
                       <button className="btn btn-ghost btn-sm" title="Duplica il passo" onClick={() => duplicateStep(i)} aria-label="Duplica il passo">⧉</button>
                       <button className="btn btn-ghost btn-sm danger" title="Togli il passo" onClick={() => removeStep(i)} aria-label="Togli il passo">×</button>
                     </div>
                     <div className="u-row" style={{ gap: '5px' }}>
                       <span className="u-hint" style={{ width: '14px', flexShrink: 0 }} />
-                      <span className="u-hint" style={{ flexShrink: 0 }}>tieni</span>
-                      <input
-                        type="range"
-                        min={HOLD_LIMITS[draft.mode].min}
-                        max={HOLD_LIMITS[draft.mode].max}
-                        step={1}
-                        value={st.hold}
-                        title={draft.mode === 'timer' ? 'Secondi su questo passo' : 'Beat su questo passo'}
-                        onChange={e => updateStep(i, { hold: clampHold(parseInt(e.target.value), draft.mode) })}
-                        style={{ flex: 1 }}
-                      />
-                      <span className="u-value" style={{ width: '32px', flexShrink: 0 }}>
-                        {st.hold}{HOLD_LIMITS[draft.mode].unit}
-                      </span>
+                      {usesHold(draft.mode) ? (
+                        <>
+                          <span className="u-hint" style={{ flexShrink: 0 }}>tieni</span>
+                          <input
+                            type="range"
+                            min={HOLD_LIMITS[draft.mode].min}
+                            max={HOLD_LIMITS[draft.mode].max}
+                            step={1}
+                            value={st.hold}
+                            title={draft.mode === 'timer' ? 'Secondi su questo passo' : 'Beat su questo passo'}
+                            onChange={e => updateStep(i, { hold: clampHold(parseInt(e.target.value), draft.mode) })}
+                            style={{ flex: 1 }}
+                          />
+                          <span className="u-value" style={{ width: '32px', flexShrink: 0 }}>
+                            {st.hold}{HOLD_LIMITS[draft.mode].unit}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="u-hint" style={{ flex: 1 }}>
+                          {draft.mode === 'track' ? 'fino alla prossima canzone' : 'fino ad Avanti'}
+                        </span>
+                      )}
                       <select
                         value={st.transition ?? ''}
                         title="Transizione con cui entrare in questo passo"
@@ -501,6 +622,46 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                         ))}
                       </select>
                     </div>
+                    {/* Graphics: the images / GIFs / text that come up with this step */}
+                    <div className="u-row" style={{ gap: '5px', alignItems: 'flex-start' }}>
+                      <span className="u-hint" style={{ width: '14px', flexShrink: 0 }} />
+                      <span className="u-hint" style={{ flexShrink: 0 }}>grafica</span>
+                      <div className="seq-chips">
+                        {(st.overlays ?? []).map((ov, k) => (
+                          <span key={k} className="seq-chip" title={ov.kind === 'text' ? `Testo: ${ov.text}` : ov.path ?? ov.name}>
+                            <span>{ov.kind === 'text' ? '"' + ov.name + '"' : ov.name}</span>
+                            <button className="btn btn-ghost btn-sm danger" title="Togli questa grafica dal passo" aria-label="Togli questa grafica dal passo" onClick={() => removeStepOverlay(i, k)}>✕</button>
+                          </span>
+                        ))}
+                        {!st.overlays?.length && <span className="u-hint">nessuna</span>}
+                      </div>
+                      <button className={`btn btn-ghost btn-sm${pickerFor === i ? ' active' : ''}`} title="Aggiungi una grafica a questo passo" aria-label="Aggiungi una grafica a questo passo" onClick={() => openPicker(i)}>＋</button>
+                    </div>
+                    {pickerFor === i && (
+                      <div className="u-col seq-picker">
+                        <div className="u-row" style={{ gap: '4px' }}>
+                          <input
+                            type="text"
+                            value={stepText}
+                            onChange={e => setStepText(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && graphicFromText(i)}
+                            placeholder="Testo…"
+                            title="Testo che compare con questo passo (Invio per aggiungere)"
+                            style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
+                          />
+                          <input type="color" value={stepTextColor} onChange={e => setStepTextColor(e.target.value)} title="Colore del testo" style={{ width: '26px', padding: 0 }} />
+                          <button className="btn btn-secondary btn-sm" title="Aggiungi il testo al passo" onClick={() => graphicFromText(i)} disabled={!stepText.trim()}>Testo</button>
+                          <button className="btn btn-secondary btn-sm" title="Scegli un file PNG/JPG/GIF/WebP: finisce anche nella libreria" onClick={() => graphicFromFile(i)}>File…</button>
+                        </div>
+                        {library.map(item => (
+                          <button key={item.path} type="button" className="btn media-lib-item" title={`Aggiungi "${item.name}" al passo`} onClick={() => graphicFromLibrary(i, item)}>
+                            <span className="media-lib-name">{item.name}</span>
+                            <span className="media-badge">{/\.gif$/i.test(item.name) ? 'GIF' : 'IMG'}</span>
+                          </button>
+                        ))}
+                        {library.length === 0 && <span className="u-hint">Libreria vuota: importa un file o aggiungi un testo</span>}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -548,31 +709,37 @@ export function PresetPanel({ engine }: PresetPanelProps) {
               </div>
             )}
 
-            {/* Unit + default hold + loop */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button className={`pill${draft.mode === 'timer' ? ' active' : ''}`} title="Le durate sono in secondi" onClick={() => setMode('timer')}>
-                Secondi
-              </button>
-              <button className={`pill${draft.mode === 'beats' ? ' active' : ''}`} title="Le durate sono in beat, agganciate alla musica" onClick={() => setMode('beats')}>
-                Beat
-              </button>
+            {/* Advance mode + default hold + loop */}
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {(Object.keys(MODE_LABELS) as SequenceMode[]).map(m => (
+                <button key={m} className={`pill${draft.mode === m ? ' active' : ''}`} onClick={() => setMode(m)} title={
+                  m === 'timer' ? 'Le durate sono in secondi'
+                    : m === 'beats' ? 'Le durate sono in beat, agganciate alla musica'
+                      : m === 'track' ? 'Un passo per canzone: avanza quando il DJ cambia traccia'
+                        : 'Avanza solo con Succ / N'
+                }>
+                  {MODE_LABELS[m]}
+                </button>
+              ))}
               <button className={`pill${draft.loop ? ' active' : ''}`} title="Alla fine ricomincia da capo" onClick={() => setDraft(d => ({ ...d, loop: !d.loop }))}>
                 Loop
               </button>
             </div>
-            <SliderRow
-              label="Durata nuovi" suffix={HOLD_LIMITS[draft.mode].unit}
-              value={draft.defaultHold}
-              min={HOLD_LIMITS[draft.mode].min}
-              max={HOLD_LIMITS[draft.mode].max}
-              step={1}
-              title="Durata data ai passi aggiunti da qui in avanti"
-              onChange={v => setDraft(d => ({ ...d, defaultHold: clampHold(v, d.mode) }))}
-            />
+            {usesHold(draft.mode) && (
+              <SliderRow
+                label="Durata nuovi" suffix={HOLD_LIMITS[draft.mode].unit}
+                value={draft.defaultHold}
+                min={HOLD_LIMITS[draft.mode].min}
+                max={HOLD_LIMITS[draft.mode].max}
+                step={1}
+                title="Durata data ai passi aggiunti da qui in avanti"
+                onChange={v => setDraft(d => ({ ...d, defaultHold: clampHold(v, d.mode) }))}
+              />
+            )}
 
             {draft.steps.length > 0 && (
               <div className="u-hint" style={{ textAlign: 'right' }}>
-                {draft.steps.length} passi · durata totale {totalHold(draft)}{HOLD_LIMITS[draft.mode].unit}
+                {draft.steps.length} passi{usesHold(draft.mode) ? ` · durata totale ${totalHold(draft)}${HOLD_LIMITS[draft.mode].unit}` : ''}
               </div>
             )}
 
@@ -611,7 +778,7 @@ export function PresetPanel({ engine }: PresetPanelProps) {
                     {seq.name}
                   </span>
                   <span className="row-sub">
-                    {seq.steps.length} passi · {totalHold(seq)}{HOLD_LIMITS[seq.mode].unit}
+                    {seq.steps.length} passi · {usesHold(seq.mode) ? `${totalHold(seq)}${HOLD_LIMITS[seq.mode].unit}` : MODE_LABELS[seq.mode].toLowerCase()}
                   </span>
                   <button className="btn btn-secondary btn-sm" onClick={() => startSequence(seq)} title="Avvia la scaletta" aria-label="Avvia la scaletta">▶</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => editSequence(i)} title="Apri nell'editor" aria-label="Apri nell'editor">✎</button>

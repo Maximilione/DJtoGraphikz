@@ -31,6 +31,7 @@ const { AutoVJ, PHASE, GENRE_CONFIGS } = await load('src/engine/AutoVJ.ts')
 const { BeatTracker } = await load('src/engine/audio/BeatTracker.ts')
 const { BandHits } = await load('src/engine/audio/BandHits.ts')
 const { KeyDetector, keyName } = await load('src/engine/audio/KeyDetector.ts')
+const { TrackChangeDetector, TRACK_CHANGE } = await load('src/engine/audio/TrackChange.ts')
 
 // ---------------------------------------------------------------- args
 const args = process.argv.slice(2)
@@ -42,6 +43,8 @@ if (!GENRE_CONFIGS[genre]) { console.error(`genere sconosciuto: ${genre}`); proc
 const from = Number(opt('from', 0))
 const to = Number(opt('to', 0))
 for (const k of Object.keys(PHASE)) { const v = opt(k); if (v !== undefined) PHASE[k] = Number(v) }
+// --keyHoldMs 20000, --bpmStableMs 60000 ...: the track-change thresholds, same way
+for (const k of Object.keys(TRACK_CHANGE)) { const v = opt(k); if (v !== undefined) TRACK_CHANGE[k] = Number(v) }
 
 // ---------------------------------------------------------------- decode
 const SR = 44100
@@ -142,6 +145,9 @@ const trace = []
 let lastPer = 0
 const vj = new AutoVJ()
 const changes = []
+// the track-change heuristics, fed what the Engine feeds them: the tracker's tempo and confidence, the key, the Auto VJ's phase
+const trackChange = new TrackChangeDetector()
+const trackChanges = []
 vj.onSceneChange = (scene, cut, phase) => changes.push({ t: tNow, kind: 'scene', phase, effect: scene.effect, seconds: cut.seconds })
 vj.setGenre(genre)
 vj.setEnabled(true)
@@ -188,6 +194,8 @@ for (let f = 0; f * hop + N <= pcm.length; f++) {
   vj.update({ beat: bt.beat, energy, bass, barPhase: bt.barPhase, bassRaw: rawBass, energyRaw: rawEnergy, key }, tNow)
   const phase = vj.getPhase()
   if (phase !== lastPhase) { segments.push({ t: tNow, phase }); lastPhase = phase }
+  const tc = trackChange.update({ t: tNow, bpm: tracker.bpm(), bpmConfidence: bt.acfConfidence, key, phase })
+  if (tc) trackChanges.push(tc)
   if (f % Math.round(FPS / 4) === 0) {
     const env = vj.getEnvelopes()
     rows.push({ t: tNow / 1000, bass, energy, rawBass, rawEnergy, per, kicks: kickWindow, kick: env.kick, above: env.loud - env.loudMean, phase })
@@ -261,6 +269,9 @@ for (let i = 1; i < segments.length; i++) {
 const drops = changes.filter(c => c.seconds === 0)
 const breaks = changes.filter(c => c.phase === 'break' && c.seconds > 1)
 console.log(`\n${changes.length} cambi scena: ${drops.length} drop (taglio secco), ${breaks.length} entrate in pausa, ${changes.length - drops.length - breaks.length} a frase`)
+
+console.log(`\ncambi canzone (euristica audio, ${trackChanges.length}; soglie ${JSON.stringify(TRACK_CHANGE)}):`)
+for (const c of trackChanges) console.log(`  ${mmss(c.at).padStart(6)}  ${c.reason}`)
 
 const cuesFile = opt('cues')
 if (cuesFile) {

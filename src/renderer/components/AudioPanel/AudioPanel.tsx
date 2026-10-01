@@ -6,6 +6,7 @@ import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import type { Phase } from '@engine/AutoVJ'
 import { keyName } from '@engine/audio/KeyDetector'
+import type { TrackChangeEvent } from '@engine/audio/TrackChange'
 import { loadIdleSettings, saveIdleSettings, type IdleSettings } from '../../idle'
 import { ALL_EFFECTS } from '../../catalog'
 import { SliderRow } from '../SliderRow/SliderRow'
@@ -53,6 +54,8 @@ const PHASES: { id: Phase; label: string }[] = [
   { id: 'break', label: 'pausa' }, { id: 'build', label: 'salita' }, { id: 'groove', label: 'groove' }, { id: 'peak', label: 'picco' },
 ]
 
+const agoLabel = (ms: number) => ms < 60000 ? `${Math.max(0, Math.round(ms / 1000))} s fa` : `${Math.round(ms / 60000)} min fa`
+
 export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
   const [idle, setIdle] = useState<IdleSettings>(loadIdleSettings)
   const setIdleCfg = (patch: Partial<IdleSettings>) => setIdle(prev => { const next = { ...prev, ...patch }; saveIdleSettings(next); return next })
@@ -62,6 +65,15 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
   /** live = ticking right now; seen = a clock arrived at some point this session */
   const [clock, setClock] = useState({ live: false, seen: false })
   const [link, setLink] = useState({ live: false, source: '', decks: '' })
+  const [lastChange, setLastChange] = useState<TrackChangeEvent | null>(engine?.getLastTrackChange() ?? null)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (!engine) return
+    setLastChange(engine.getLastTrackChange())
+    const off = engine.onTrackChange(setLastChange)
+    const id = window.setInterval(() => tick(n => n + 1), 10000)   // keeps "N min fa" honest
+    return () => { off(); clearInterval(id) }
+  }, [engine])
   /** file transport, polled with the rest of the panel */
   const [file, setFile] = useState({ name: '', playing: false, at: 0, len: 0, loop: true })
   const [dragOver, setDragOver] = useState(false)
@@ -615,6 +627,9 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
                   : 'Nessun lettore visto: collega il computer allo switch dei CDJ, stessa rete dei lettori'}
             </div>
           )}
+          <div className="u-hint" style={{ marginBottom: '4px' }} title="Quando il rilevatore ha sentito passare a un altro brano: dal lettore (Pro DJ Link) o dall'audio (tempo, tonalita', drop dopo una pausa)">
+            Ultimo cambio canzone: {lastChange ? `${agoLabel(performance.now() - lastChange.at)} (${lastChange.reason})` : '—'}
+          </div>
           {bpmMode !== 'midi' && clock.seen && (
             <div className="u-hint" style={{ marginBottom: '4px' }}>
               Arriva un MIDI clock: con <strong>MIDI</strong> il tempo e' esatto invece che stimato.

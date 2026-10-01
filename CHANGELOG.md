@@ -2,6 +2,21 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.57.0-beta] — 2026-10-01
+
+**La playlist completa: scalette con grafica per passo, che avanzano al cambio canzone.** Due branch in parallelo (`feat/scaletta-grafica`, `feat/track-change`), interfaccia fissata prima: `Engine.onTrackChange`.
+
+### Added
+- **Scalette con grafica.** Ogni passo porta `overlays`: immagini, GIF e testi dalla libreria media, da file (copiato in libreria, il passo punta al percorso) o digitati, con opacita'/scala/posizione/gifSync ("usa come e' ora" se quell'overlay e' gia' a schermo). Il player, all'ingresso del passo, toglie tutte le grafiche di scaletta (id `seq:*`) e mette quelle del passo; gli overlay dell'utente non si toccano; Stop pulisce. Pulsante **Prova** per passo. Modi: Secondi, Beat, **Canzone** (un passo per traccia), **Manuale** (Succ/Prec, tasti `N` / `Shift+N`). `sequencePlayer.ts` puro; `readLibraryImage` estratto da `OverlayPanel` (era duplicato); `check:sequences` esteso
+- **Rilevatore di cambio canzone** (`TrackChange.ts`, puro). Da Pro DJ Link: `prolink:track` quando cambia l'id rekordbox del lettore seguito (master, o il primo sentito battere). Dall'audio senza CDJ: tempo che si sposta di piu' dell'1,5 % e resta 20 s dopo essere stato stabile 30 s (salti di ottava ignorati), tonalita' con confidenza ≥ 0,5 che cambia e resta 20 s, pausa di almeno 20 s seguita dal drop; cooldown 60 s, e dopo un evento Pro DJ Link l'audio tace 30 s. `Engine.onTrackChange(fn)`, `getLastTrackChange()`; pannello Audio: "Ultimo cambio canzone: N min fa (motivo)". `check:trackchange` 11 controlli; `check-phases` stampa i cambi trovati e accetta `--keyHoldMs` ecc.
+- Taratura sul mix hard tekno di 15 minuti: con le soglie da 8/10 s uscivano 8 eventi (tre erano lo stimatore di tempo che oscillava fra due lag); a 20 s ne restano 5, uno ogni 3 minuti, e i tre drop dopo pausa lunga (1:38, 7:23, 14:29) ci sono tutti. Su tekno a tempo fisso il segnale affidabile e' la pausa + drop
+
+### Changed
+- L'Auto VJ segue la fase (pausa/salita/groove/picco) anche da spento, cosi' il rilevatore ha il drop con la Scaletta al posto dell'Auto VJ; scene e palette si muovono solo da acceso
+
+### Noto
+- Le immagini di passo sono riferite per percorso nella libreria locale: una scaletta portata su un'altra macchina perde le immagini, non i testi. Il primo id Pro DJ Link visto ad app aperta a set in corso conta come cambio. Il cooldown non ha priorita': un evento tonalita' puo' assorbire un drop vero pochi secondi dopo
+
 ## [0.56.0-beta] — 2026-10-01
 
 **Q4 — loop video come sorgente di deck.** Chiude la sezione 4 del TODO. Ultima versione prima del tag di fine giornata.

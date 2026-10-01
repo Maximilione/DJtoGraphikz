@@ -37,6 +37,8 @@ Lo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto
 
 Serata — servono mentre si suona, al buio, sotto pressione:
 
+- [x] **S9 Scaletta completa con grafica e cambio canzone** — fatto in v0.57.0: passi con immagini/GIF/testo, modi Canzone e Manuale, rilevatore di cambio canzone (Pro DJ Link + audio), `check:sequences`, `check:trackchange`. Aperto: priorita' del drop nel cooldown, grafica di passo esportabile con le immagini dentro · **M**
+
 - [x] **S2 Beat-roll (stutter a tempo)** — fatto in v0.53.0: `, . /` = 1/4 1/8 1/16, `Engine.setBeatRoll` fa girare in loop i clock dal frame a schermo; niente buffer, gli shader sono funzioni del tempo · **S**
 - [x] **S4 Struttura del pezzo: breakdown / build / drop** — fatto in v0.49.0 dentro l'Auto VJ (`AutoVJ.ts`: fasi pausa/groove/picco dagli inviluppi di basso ed energia, cambio **sul drop** con taglio secco, tenuta nel breakdown). Manca solo la parte visibile: i tre indicatori sopra il BeatTracker e un `onPhaseChange` per I4 · **S**
 - [x] **S6 Taratura delle fasi sull'impianto vero** — fatto in v0.50.0 per quanto si puo' a tavolino: `yarn check:phases` rigioca una registrazione nel rilevatore senza app ne' audio; su un mix hard tekno 3 drop su 3, 2 pause su 3, 1 falso drop. **Da rifare con una registrazione dall'impianto della serata**: 10 minuti dal mixer, cue a mano (`m:ss drop|break`), `yarn check:phases rec.wav --genre hard-tekno --cues rec.cues`, poi ritoccare `PHASE` in `AutoVJ.ts` · **S**

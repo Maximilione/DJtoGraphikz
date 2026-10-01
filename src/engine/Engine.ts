@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
+import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
+import type { Phase } from './AutoVJ'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
@@ -661,6 +663,28 @@ export class Engine {
   onAudioFrame(fn: (beatDetected: boolean, energy: number, bass: number, barPhase: number, bassRaw: number, energyRaw: number, key: Key | null) => void): () => void {
     this.audioFrameListeners.add(fn)
     return () => { this.audioFrameListeners.delete(fn) }
+  }
+
+  // Track change (Pro DJ Link id or audio heuristics) — the playlist turns its page on it
+  private trackChange = new TrackChangeDetector()
+  private trackChangeListeners = new Set<(e: TrackChangeEvent) => void>()
+  /** the Auto VJ's phase, pushed by App every frame (the Auto VJ lives there) */
+  private phase: Phase = 'groove'
+
+  /** Subscribe to track changes. Returns an unsubscribe function. */
+  onTrackChange(fn: (e: TrackChangeEvent) => void): () => void {
+    this.trackChangeListeners.add(fn)
+    return () => { this.trackChangeListeners.delete(fn) }
+  }
+  getLastTrackChange(): TrackChangeEvent | null { return this.trackChange.last }
+  notePhase(phase: Phase): void { this.phase = phase }
+  /** A Pro DJ Link status named this rekordbox id on the followed deck. */
+  noteProLinkTrack(trackId: number): void {
+    const ev = this.trackChange.feedProLink(trackId, performance.now())
+    if (ev) this.emitTrackChange(ev)
+  }
+  private emitTrackChange(ev: TrackChangeEvent): void {
+    for (const fn of this.trackChangeListeners) { try { fn(ev) } catch (_) {} }
   }
 
   constructor(private canvas: HTMLCanvasElement, options: { remote?: boolean } = {}) {
@@ -2696,6 +2720,15 @@ export class Engine {
     for (const fn of this.audioFrameListeners) {
       fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase, this.bassRaw, this.energyRaw, this.key)
     }
+    // after the listeners: App has just pushed this frame's phase
+    if (!this.remote) {
+      const a = this.audioAnalyzer
+      const ev = this.trackChange.update({
+        t: this.lastFrameAt, bpm, phase: this.phase, key: this.key,
+        bpmConfidence: a.getBpmMode() === 'auto' ? a.getBpmConfidence() : 1,
+      })
+      if (ev) this.emitTrackChange(ev)
+    }
 
     // Beat-synced transition: trigger pending effect change on beat — or
     // after 2s without one (dead audio must not swallow effect switches)
@@ -3159,6 +3192,7 @@ export class Engine {
   dispose() {
     this.disposed = true
     this.audioFrameListeners.clear()
+    this.trackChangeListeners.clear()
     this.frameRenderedListeners.clear()
     cancelAnimationFrame(this.animFrameId)
     if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = 0 }
