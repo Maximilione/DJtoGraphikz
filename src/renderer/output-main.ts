@@ -1,4 +1,5 @@
 import { Engine } from '@engine/Engine'
+import { frameStats } from './soundcheck'
 
 // Output window: same Engine as the control window, fed entirely over IPC.
 const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
@@ -11,6 +12,29 @@ window.api?.onSelfTestShot?.(() => {
     if (!blob) return
     blob.arrayBuffer().then(buf => window.api?.sendSelfTestData?.(buf))
   })
+})
+
+// Soundcheck (P3): one second of frames plus the luma of a reduced frame, the
+// same numbers the release gate reads off the projector shot.
+window.api?.onOutputProbe?.(async (id: number) => {
+  const f0 = engine.frames
+  const t0 = performance.now()
+  // a frozen renderer never resolves a screenshot: that is the finding, not a hang
+  const blob = await Promise.race([engine.screenshot(), new Promise<null>(r => setTimeout(() => r(null), 2000))])
+  await new Promise(r => setTimeout(r, 1000))
+  const fps = (engine.frames - f0) / ((performance.now() - t0) / 1000)
+  let stats = { mean: 0, std: 0, bright: 0 }
+  if (blob) {
+    try {
+      const bmp = await createImageBitmap(blob)
+      const small = new OffscreenCanvas(64, 36)
+      const ctx = small.getContext('2d')!
+      ctx.drawImage(bmp, 0, 0, 64, 36)
+      stats = frameStats(ctx.getImageData(0, 0, 64, 36).data)
+      bmp.close()
+    } catch (err) { console.error('[Soundcheck] frame illeggibile:', err) }
+  }
+  window.api?.sendOutputProbe?.(id, { ...stats, fps, canvas: `${canvas.width}x${canvas.height}` })
 })
 
 // Tell main we are actually painting, so it can enter fullscreen safely

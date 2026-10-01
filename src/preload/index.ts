@@ -64,6 +64,19 @@ const api = {
   sendPixelMap: (msg: { host: string; protocol: 'artnet' | 'sacn'; frames: { universe: number; values: number[] }[] }) =>
     ipcRenderer.send('pixelmap:frame', msg),
 
+  // Soundcheck (P3): on-demand probes, one invoke each
+  probeOutput: (): Promise<{ mean: number; std: number; bright: number; fps: number; canvas: string } | null> =>
+    ipcRenderer.invoke('output:probe'),
+  /** Output window only: main asks for a frame's statistics */
+  onOutputProbe: (callback: (id: number) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, id: number) => callback(id)
+    ipcRenderer.on('output:probe', handler)
+    return () => ipcRenderer.removeListener('output:probe', handler)
+  },
+  sendOutputProbe: (id: number, data: unknown) => ipcRenderer.send('output:probe-result', id, data),
+  probeDmx: (host: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('dmx:probe', host),
+  getDiskFree: (): Promise<number> => ipcRenderer.invoke('disk:free'),
+
   // Web remote
   getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
   resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),

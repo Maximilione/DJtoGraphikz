@@ -9,6 +9,7 @@ import { SACN_PORT, sacnMulticast, sacnPacket } from './sacn'
 const ARTNET_PORT = 6454
 const HEADER = Buffer.from('Art-Net\0', 'ascii')
 const OP_DMX = 0x5000
+const OP_POLL = 0x2000
 const PROT_VER = 14
 
 let socket: Socket | null = null
@@ -35,6 +36,15 @@ function artDmxPacket(universe: number, data: Uint8Array): Buffer {
   buf.writeUInt16LE(universe & 0x7fff, 14)   // SubUni + Net
   buf.writeUInt16BE(len, 16)
   Buffer.from(data.subarray(0, len)).copy(buf, 18)
+  return buf
+}
+
+/** ArtPoll: a legal packet that moves no channel, for the soundcheck probe */
+function artPollPacket(): Buffer {
+  const buf = Buffer.alloc(14)
+  HEADER.copy(buf, 0)
+  buf.writeUInt16LE(OP_POLL, 8)
+  buf.writeUInt16BE(PROT_VER, 10)
   return buf
 }
 
@@ -73,4 +83,15 @@ export function setupArtnet() {
       console.error('[ArtNet] send failed:', e.message)
     }
   })
+
+  // Soundcheck (P3): does a packet leave on the same socket the frames use?
+  // ArtPoll instead of ArtDMX so the probe never blinks a fixture.
+  ipcMain.handle('dmx:probe', (_e, host?: string) => new Promise<{ ok: boolean; error?: string }>(resolve => {
+    const to = typeof host === 'string' && host.trim() ? host.trim() : '255.255.255.255'
+    try {
+      ensureSocket().send(artPollPacket(), ARTNET_PORT, to, err => resolve(err ? { ok: false, error: err.message } : { ok: true }))
+    } catch (e: any) {
+      resolve({ ok: false, error: e.message })
+    }
+  }))
 }

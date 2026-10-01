@@ -18,6 +18,7 @@ import { VenuePanel } from './components/VenuePanel/VenuePanel'
 import { OutputsPanel, useOutputs } from './components/OutputsPanel/OutputsPanel'
 import { Onboarding, type OnboardingResult } from './components/Onboarding/Onboarding'
 import { RemoteModal } from './components/RemoteModal/RemoteModal'
+import { Soundcheck } from './components/Soundcheck/Soundcheck'
 import { HelpMenu } from './components/Help/HelpMenu'
 import { CheatSheet } from './components/Help/CheatSheet'
 import { QuickGuide } from './components/Help/QuickGuide'
@@ -111,6 +112,7 @@ export function App() {
     return saved === 'pro' || saved === 'live' || saved === 'simple' ? saved : 'simple'
   })
   const [showRemote, setShowRemote] = useState(false)
+  const [showSoundcheck, setShowSoundcheck] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(() => !readString(ONBOARDED_KEY))
 
   // U2.1/U2.2 — menu aiuto + overlay scorciatoie/guida
@@ -736,6 +738,7 @@ export function App() {
     <div className="app-layout">
       {showOnboarding && <Onboarding onDone={finishOnboarding} />}
       {showRemote && <RemoteModal onClose={() => setShowRemote(false)} />}
+      {showSoundcheck && <Soundcheck engine={engine} outputRes={outputRes} onClose={() => setShowSoundcheck(false)} />}
       {showHelpMenu && (
         <HelpMenu
           onShortcuts={() => { setShowHelpMenu(false); setShowCheatSheet(true) }}
@@ -852,6 +855,9 @@ export function App() {
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
             <IconPhone />
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowSoundcheck(true)} title="Soundcheck: ingresso, proiettore, fps, DMX, telefono e disco in pochi secondi">
+            Soundcheck
           </button>
           {outputInfo && (outputInfo.open ? (
             <span className="output-chip" title="Stato della finestra di output">
