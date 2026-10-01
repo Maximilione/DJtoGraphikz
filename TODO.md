@@ -54,7 +54,7 @@ Qualità visiva:
 - [x] **Q5 Tonalita' → palette** — fatto in v0.52.0: `KeyDetector.ts` (croma + Krumhansl, 8 s), palette del genere piu' vicina sul cerchio delle quinte, calde/fredde per modo; `check:key` · **M**
 - [x] **Q2 Palette da un'immagine** — fatto in v0.53.0: k-means++ su miniatura, dominante + due piu' lontani, slot nella griglia, palette tue in un solo spazio di indici; `check:palette` · **S**
 - [x] **Q3 Maschere fra i deck** — fatto in v0.54.0: split/radiale/luma/audio in `deckmix.frag`, crossfader = bordo, SOFT, `check:deckmix` · **M**
-- [ ] **Q4 Loop video come sorgente di deck** — una playlist di clip al posto di un effetto, con velocità agganciata al BPM e cambio sul giro di battuta. *Limite onesto: Chromium legge mp4/webm ma non HAP né ProRes (i formati dei pack VJ commerciali), servirebbe conversione a monte* · **M/L**
+- [x] **Q4 Loop video come sorgente di deck** — fatto in v0.56.0: `videoDeck.ts`, deck B = playlist a tempo, `check:videodeck`. Solo formati Chromium (niente HAP/ProRes) · **M/L**
 
 Integrazione:
 
