@@ -15,6 +15,7 @@ import { pathToFileURL } from 'url'
 import { setupIpcHandlers } from './ipc-handlers'
 import { setupRemoteServer } from './remote-server'
 import { setupOscServer } from './osc-server'
+import { setupProDjLink } from './prodjlink'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
@@ -516,6 +517,7 @@ app.whenReady().then(async () => {
   setupIpcHandlers(controlWindow, primary.win)
   setupRemoteServer(controlWindow)
   setupOscServer(controlWindow)
+  setupProDjLink(controlWindow)
   setupUpdateCheck(() => controlWindow)
   setupArtnet()
 
