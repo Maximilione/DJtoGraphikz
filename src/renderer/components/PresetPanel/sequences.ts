@@ -6,7 +6,26 @@
  * ever be built, never reopened. Old playlists still load: migrate() turns them
  * into sequences whose steps all inherit the list-wide interval.
  */
-import type { Preset, TransitionType } from '@engine/Engine'
+import type { Preset, TransitionType, GifSyncMode } from '@engine/Engine'
+
+/**
+ * A graphic that comes up with a step: image, GIF (an image with gifSync) or
+ * text. Images point at the media library (`path`) so the sequence stays small
+ * in storage; `dataUrl` is honoured too for sequences imported from elsewhere.
+ */
+export interface StepOverlay {
+  kind: 'image' | 'gif' | 'text'
+  name: string
+  dataUrl?: string
+  path?: string
+  text?: string
+  color?: string
+  opacity: number
+  scale: number
+  offsetX: number
+  offsetY: number
+  gifSync?: GifSyncMode
+}
 
 export interface SequenceStep {
   name: string
@@ -16,13 +35,21 @@ export interface SequenceStep {
   hold: number
   /** Transition INTO this step; undefined = leave whatever is set globally */
   transition?: TransitionType
+  /** Graphics shown for this step only; absent = no sequence graphics */
+  overlays?: StepOverlay[]
 }
+
+/**
+ * timer/beats advance on their own; 'track' waits for the next song, 'manual'
+ * only moves with Avanti/Indietro. The last two ignore `hold`.
+ */
+export type SequenceMode = 'timer' | 'beats' | 'track' | 'manual'
 
 export interface Sequence {
   name: string
   steps: SequenceStep[]
   loop: boolean
-  mode: 'timer' | 'beats'
+  mode: SequenceMode
   /** Hold given to newly added steps */
   defaultHold: number
 }
@@ -34,12 +61,28 @@ type StoredSequence = Partial<Sequence> & {
   advanceInterval?: number
 }
 
-export const HOLD_LIMITS = {
-  timer: { min: 1, max: 120, unit: 's' },
+const TIMER_LIMITS = { min: 1, max: 120, unit: 's' } as const
+export const HOLD_LIMITS: Record<SequenceMode, { min: number; max: number; unit: string }> = {
+  timer: TIMER_LIMITS,
   beats: { min: 1, max: 128, unit: 'b' },
-} as const
+  // hold is ignored in these modes but is kept (clamped as seconds) so
+  // switching back to Secondi does not lose what the user typed
+  track: TIMER_LIMITS,
+  manual: TIMER_LIMITS,
+}
 
-export function clampHold(hold: number, mode: 'timer' | 'beats'): number {
+export const MODE_LABELS: Record<SequenceMode, string> = {
+  timer: 'Secondi', beats: 'Beat', track: 'Canzone', manual: 'Manuale',
+}
+
+const MODES = new Set<string>(Object.keys(MODE_LABELS))
+
+/** Does this mode advance by itself after `hold`? */
+export function usesHold(mode: SequenceMode): boolean {
+  return mode === 'timer' || mode === 'beats'
+}
+
+export function clampHold(hold: number, mode: SequenceMode): number {
   const { min, max } = HOLD_LIMITS[mode]
   if (!Number.isFinite(hold)) return min
   return Math.min(max, Math.max(min, Math.round(hold)))
@@ -47,7 +90,8 @@ export function clampHold(hold: number, mode: 'timer' | 'beats'): number {
 
 /** One stored entry → a sequence, whatever version wrote it */
 export function migrate(raw: StoredSequence): Sequence {
-  const mode: 'timer' | 'beats' = raw.mode ?? raw.advanceMode ?? 'timer'
+  const stored = raw.mode ?? raw.advanceMode
+  const mode: SequenceMode = stored && MODES.has(stored) ? stored : 'timer'
   const defaultHold = clampHold(raw.defaultHold ?? raw.advanceInterval ?? 8, mode)
   const steps: SequenceStep[] = raw.steps?.length
     ? raw.steps.map(s => ({ ...s, hold: clampHold(s.hold ?? defaultHold, mode) }))
