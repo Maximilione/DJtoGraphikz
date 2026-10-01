@@ -13,6 +13,7 @@ const KEYBOARD: [string, string][] = [
   ['1-0', 'effetti'],
   ['Q/W/E/R', 'post'],
   ['I', 'intensità (tieni = momentanea)'],
+  [', . /', 'beat-roll 1/4 1/8 1/16 (tieni = momentaneo)'],
   ['Shift+1-0', 'look'],
   ['?', 'aiuto'],
   ['Tieni premuto', 'momentaneo: molli e torna com\'era'],
