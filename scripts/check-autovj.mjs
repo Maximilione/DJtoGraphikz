@@ -56,7 +56,7 @@ check('ogni scena nomina effetto, parametri e post-FX veri', () => {
 
 check('ogni genere ha scene per pausa, groove e picco, e piu\' di una famiglia per fase', () => {
   for (const [genre, cfg] of Object.entries(GENRE_CONFIGS)) {
-    for (const phase of ['break', 'groove', 'peak']) {
+    for (const phase of ['break', 'build', 'groove', 'peak']) {
       const scenes = cfg.scenes.filter(sc => sc.phase === phase)
       assert.ok(scenes.length >= 3, `${genre}: ${scenes.length} scene di ${phase}`)
       const families = new Set(scenes.map(sc => FAMILY[sc.effect]))
@@ -150,6 +150,35 @@ check('il drop taglia sul primo kick, su una scena di picco, con palette nuova',
   assert.deepEqual(drop.cut, DROP_CUT)
   const pal = events.find(e => e.palette && e.t >= 32000 && e.t <= drop.t)
   assert.ok(pal, 'nessuna palette nuova sul drop')
+})
+
+check('la salita: pausa che si alza senza kick, poi il drop la chiude', () => {
+  const { events, vj } = run('hard-tekno', [
+    { ms: 20000, energy: 0.5, bass: 0.6, energyRaw: 0.2 },
+    { ms: 12000, energy: 0.3, bass: 0.08, beats: false, energyRaw: 0.12 },
+    { ms: 12000, energy: 0.5, bass: 0.08, beats: false, energyRaw: 0.2 },
+    { ms: 6000, energy: 0.9, bass: 0.95, energyRaw: 0.3 },
+  ])
+  const build = scenes(events).find(e => e.phase === 'build')
+  assert.ok(build, 'nessuna scena di salita')
+  assert.ok(build.t > 32000 && build.t < 40000, `salita a ${(build.t / 1000) | 0} s`)
+  assert.equal(build.scene.phase, 'build')
+  const drop = scenes(events).find(e => e.t >= 44000)
+  assert.ok(drop && drop.cut.seconds === 0 && drop.phase === 'peak', 'il drop dopo la salita non taglia')
+  assert.equal(vj.getPhase(), 'peak')
+})
+
+check('onPhaseChange suona a ogni cambio di fase, scena o no', () => {
+  const vj = new AutoVJ()
+  const seen = []
+  vj.onPhaseChange = (p) => seen.push(p)
+  vj.setGenre('hard-tekno'); vj.setEnabled(true)
+  let clock = 0
+  const step = (ms, f) => { const end = clock + ms; while (clock < end) { vj.update(f(clock), clock); clock += 1000 / 60 } }
+  const beatMs = 60000 / 155
+  step(20000, t => ({ beat: t % beatMs < 17, energy: 0.5, bass: 0.6, barPhase: ((t / beatMs) % 4) / 4, bassRaw: 0.5 + 0.28 * Math.exp(-(t % beatMs) / 120), energyRaw: 0.2 }))
+  step(12000, t => ({ beat: false, energy: 0.3, bass: 0.1, barPhase: 0, bassRaw: 0.5, energyRaw: 0.12 }))
+  assert.deepEqual(seen, ['break'])
 })
 
 check('al picco le scene durano mezza frase', () => {
