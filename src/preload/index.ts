@@ -65,8 +65,8 @@ const api = {
     ipcRenderer.send('pixelmap:frame', msg),
 
   // Web remote
-  getRemoteInfo: (): Promise<{ url: string; code: string }> => ipcRenderer.invoke('remote:info'),
-  resetRemote: (): Promise<{ code: string }> => ipcRenderer.invoke('remote:reset'),
+  getRemoteInfo: (): Promise<{ url: string; code: string; obsUrl: string }> => ipcRenderer.invoke('remote:info'),
+  resetRemote: (): Promise<{ code: string; obsUrl: string }> => ipcRenderer.invoke('remote:reset'),
   onRemoteCommand: (callback: (cmd: { type: string; value?: unknown; source?: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, cmd: any) => callback(cmd)
     ipcRenderer.on('remote:cmd', handler)

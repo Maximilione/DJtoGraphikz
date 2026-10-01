@@ -1,6 +1,40 @@
 import { Engine } from '@engine/Engine'
+import type { ApiType } from '../preload/index'
+import { decodeEvent } from '../shared/obsWire'
 
-// Output window: same Engine as the control window, fed entirely over IPC.
+// Output window: same Engine as the control window, fed entirely over IPC —
+// or, in OBS / a browser on the LAN (I2), over SSE from the remote server.
+// Either way the show arrives on the same channels with the same arguments,
+// so the transport is the only thing that differs: `api` below is the slice
+// of the preload bridge this page listens on, and the browser gets it from
+// an EventSource instead of ipcRenderer. One pipeline.
+type FeedKeys = 'onEngineState' | 'onAudioData' | 'onOverlayAdd' | 'onOverlayRemove' | 'onOverlayUpdate' |
+  'onOutputSlice' | 'onOutputResolution'
+// same callbacks as the preload; the unsubscribe handle is never used here
+type Feed = { [K in FeedKeys]: (cb: Parameters<ApiType[K]>[0]) => unknown }
+
+function sseFeed(): Feed {
+  const q = new URLSearchParams(location.search)
+  // `feed=`: the server's origin when the page comes from the vite dev server
+  const es = new EventSource(`${q.get('feed') || ''}/events?token=${encodeURIComponent(q.get('token') || '')}`)
+  const on = (channel: string, cb: (...args: any[]) => void) => {
+    const h = (e: Event) => cb(...decodeEvent((e as MessageEvent).data))
+    es.addEventListener(channel, h)
+    return () => es.removeEventListener(channel, h)
+  }
+  return {
+    onEngineState: cb => on('engine:state-update', cb),
+    onAudioData: cb => on('audio:data', cb),
+    onOverlayAdd: cb => on('overlay:add', cb),
+    onOverlayRemove: cb => on('overlay:remove', cb),
+    onOverlayUpdate: cb => on('overlay:update', cb),
+    onOutputSlice: cb => on('output:slice', cb),
+    onOutputResolution: cb => on('output:set-resolution', cb),
+  }
+}
+
+const api: Feed = window.api ?? sseFeed()
+
 const canvas = document.getElementById('output-canvas') as HTMLCanvasElement
 const engine = new Engine(canvas, { remote: true })
 engine.start()
@@ -51,10 +85,10 @@ setInterval(() => {
   } catch { /* no api */ }
 }, 5000)
 
-window.api?.onEngineState((state: any) => engine.applyRemoteState(state))
-window.api?.onAudioData((data: any) => engine.setAudioData(data))
+api.onEngineState((state: any) => engine.applyRemoteState(state))
+api.onAudioData((data: any) => engine.setAudioData(data))
 
-window.api?.onOverlayAdd((data: any) => {
+api.onOverlayAdd((data: any) => {
   const added = data.source?.kind === 'text'
     ? Promise.resolve(engine.addTextOverlay(data.source.text, data.source, data.id))
     : data.source
@@ -69,8 +103,8 @@ window.api?.onOverlayAdd((data: any) => {
     })
   }).catch(err => console.error('[Output] overlay add failed:', err))
 })
-window.api?.onOverlayRemove((id: string) => engine.removeOverlay(id))
-window.api?.onOverlayUpdate((id: string, updates: any) => engine.updateOverlay(id, updates))
+api.onOverlayRemove((id: string) => engine.removeOverlay(id))
+api.onOverlayUpdate((id: string, updates: any) => engine.updateOverlay(id, updates))
 
 // Release gate: present only this rectangle, so the shot proves the crop runs
 // instead of the log claiming it does.
@@ -82,14 +116,14 @@ if (window.api?.selfTestSlice) {
 // Which part of the show this wall presents, and how hard to drive it. Not in
 // the engine state on purpose: the state is the show, and every output gets it
 // unchanged — this is the only thing that is per-window.
-window.api?.onOutputSlice?.((cfg: any) => {
+api.onOutputSlice((cfg: any) => {
   // main replays the real config on did-finish-load, i.e. after this module has
   // run — under the gate that would put the pinned crop straight back to full.
   if (window.api?.selfTestSlice) return
   if (cfg) engine.setSlice(cfg)
 })
 
-window.api?.onOutputResolution((w: number, h: number) => {
+api.onOutputResolution((w: number, h: number) => {
   engine.setRenderSize(w, h)
   // the letterbox depends on the output aspect — recompute it
   window.dispatchEvent(new Event('resize'))
