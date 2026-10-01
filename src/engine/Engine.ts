@@ -2511,6 +2511,9 @@ export class Engine {
   private frameCounter = 0
   private remoteStateCount = 0
 
+  /** Frames rendered so far; two reads a second apart give the real fps */
+  get frames(): number { return this.frameCounter }
+
   private renderFrame() {
     this.frameCounter++
     this.lastFrameAt = performance.now()
