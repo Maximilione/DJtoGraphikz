@@ -13,7 +13,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { setupIpcHandlers } from './ipc-handlers'
-import { setupRemoteServer } from './remote-server'
+import { publishOutput, setupRemoteServer } from './remote-server'
 import { setupOscServer } from './osc-server'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
@@ -76,6 +76,22 @@ function liveOutputs(): Output[] {
 /** Every output gets the show. Replaces the single `outputWindow?.send`. */
 function broadcastOutputs(channel: string, ...args: unknown[]) {
   for (const o of liveOutputs()) o.win.webContents.send(channel, ...args)
+  // OBS / browsers on the LAN: same channels, same args, over SSE (I2)
+  publishOutput(channel, ...args)
+}
+
+/**
+ * What an output needs before its first frame: its slice, its resolution, the
+ * last state and every overlay. Same for a window on did-finish-load and for a
+ * browser that connects mid-set — one function, or the two drift.
+ */
+function replayShow(send: (channel: string, ...args: unknown[]) => void, cfg: OutputCfg) {
+  // Its own slice first: an output that gets the show before it knows which
+  // part of it to present shows the whole canvas for a frame.
+  send('output:slice', cfg)
+  send('output:set-resolution', cfg.width, cfg.height)
+  if (lastEngineState) send('engine:state-update', lastEngineState)
+  for (const data of overlays.values()) send('overlay:add', data)
 }
 
 // The display an output belongs to. Without this the window drifts: macOS
@@ -307,12 +323,7 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
   // projector never sits on defaults (output-main.ts subscribes at load)
   win.webContents.on('did-finish-load', () => {
     logDisplayState('output caricata', controlWindow, win)
-    // Its own slice first: a window that gets the show before it knows which
-    // part of it to present shows the whole canvas for a frame.
-    win.webContents.send('output:slice', out.cfg)
-    win.webContents.send('output:set-resolution', out.cfg.width, out.cfg.height)
-    if (lastEngineState) win.webContents.send('engine:state-update', lastEngineState)
-    for (const data of overlays.values()) win.webContents.send('overlay:add', data)
+    replayShow((channel, ...args) => win.webContents.send(channel, ...args), out.cfg)
   })
 
   // Auto-recreate if the output renderer crashes mid-set
@@ -514,7 +525,14 @@ app.whenReady().then(async () => {
   setInterval(keepOutputOnItsDisplay, 4000)
 
   setupIpcHandlers(controlWindow, primary.win)
-  setupRemoteServer(controlWindow)
+  // A browser gets the whole show at the projector's resolution: OBS crops on
+  // its side, and a LED-wall slice would be a surprise in a stream.
+  // ponytail: replay only at connect — a resolution change mid-set reaches
+  // the browser at its next reconnect, not live.
+  setupRemoteServer(controlWindow, send => {
+    const { width, height } = primaryOutput()?.cfg ?? DEFAULT_CFG
+    replayShow(send, { ...DEFAULT_CFG, width, height })
+  })
   setupOscServer(controlWindow)
   setupUpdateCheck(() => controlWindow)
   setupArtnet()

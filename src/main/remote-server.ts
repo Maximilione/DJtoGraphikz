@@ -2,7 +2,10 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { randomBytes, randomInt, timingSafeEqual } from 'crypto'
 import { networkInterfaces } from 'os'
+import { readFileSync } from 'fs'
+import { basename, join } from 'path'
 import { AUDIO_SOURCES } from '../engine/EffectParams'
+import { encodeEvent, tokenFromRequest } from '../shared/obsWire'
 
 // Web remote: phone on the same wifi opens the QR, enters the pairing code,
 // gets a session token and drives the engine over plain HTTP.
@@ -35,6 +38,37 @@ let looksRev = 0
 // osc-server reads the same caches — one source of truth for catalogs/state
 export const getRemoteDefs = () => remoteDefs
 export const getLastEngineState = () => lastEngineState
+
+// ---- OBS / browser output (I2) ----
+// `GET /output?token=…` serves the very same output.html the projector window
+// runs, and `GET /events` streams it the same IPC messages over SSE. Open it as
+// a Browser Source in OBS, or in a browser on another computer on the LAN.
+// Honest limit: it is a second render — the GPU of whoever opens the page pays
+// for it. For capturing on this machine, OBS window-capture stays free.
+let outputToken = randomBytes(24).toString('hex')
+const feedClients = new Set<ServerResponse>()
+// A browser that stops reading would pile frames up in RAM at 30 msg/s
+const FEED_MAX_BACKLOG = 1 << 20
+
+/** Same signature as `broadcastOutputs` in index.ts: the browsers are outputs too. */
+export function publishOutput(channel: string, ...args: unknown[]) {
+  if (feedClients.size === 0) return
+  const frame = encodeEvent(channel, args)
+  for (const res of feedClients) {
+    if (res.writableLength > FEED_MAX_BACKLOG) res.destroy()
+    else res.write(frame)
+  }
+}
+
+function outputAuthorized(req: IncomingMessage): boolean {
+  const t = tokenFromRequest(req.url || '', req.headers.cookie)
+  return t !== '' && safeEqual(t, outputToken)
+}
+
+const ASSET_TYPES: Record<string, string> = {
+  '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8',
+  '.woff2': 'font/woff2', '.png': 'image/png', '.svg': 'image/svg+xml',
+}
 
 function lanIp(): string {
   for (const addrs of Object.values(networkInterfaces())) {
@@ -78,15 +112,76 @@ function authorized(req: IncomingMessage): boolean {
   return ok
 }
 
-export function setupRemoteServer(controlWindow: BrowserWindow) {
+/**
+ * @param replayOutput what a freshly opened output window gets on
+ *   did-finish-load (slice, resolution, last state, overlays) — a browser that
+ *   connects mid-set needs exactly that, from the same function.
+ */
+export function setupRemoteServer(
+  controlWindow: BrowserWindow,
+  replayOutput: (send: (channel: string, ...args: unknown[]) => void) => void = () => {},
+) {
   pairingCode = String(randomInt(0, 1000000)).padStart(6, '0')
 
   const server = createServer(async (req, res) => {
     const url = req.url || '/'
+    const path = url.split('?')[0]
 
     if (req.method === 'GET' && url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(REMOTE_PAGE)
+      return
+    }
+
+    // The output page itself. The token rides the URL (that is what OBS gets
+    // pasted) and is echoed as a cookie so the page's module scripts under
+    // /assets can be served without exposing the renderer bundle to the LAN.
+    if (req.method === 'GET' && path === '/output') {
+      if (!outputAuthorized(req)) { res.writeHead(401); res.end('token mancante o errato'); return }
+      const dev = process.env.ELECTRON_RENDERER_URL
+      if (dev) {
+        // In dev the page lives on the vite server: send the browser there and
+        // tell it where the feed is (another origin, hence `feed=` + CORS).
+        const feed = `http://${lanIp()}:${port}`
+        res.writeHead(302, { Location: `${dev}/output.html?feed=${encodeURIComponent(feed)}&token=${outputToken}` })
+        res.end()
+        return
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': `djg-out=${outputToken}; Path=/; HttpOnly; SameSite=Lax`,
+      })
+      res.end(readFileSync(join(__dirname, '../renderer/output.html')))
+      return
+    }
+
+    if (req.method === 'GET' && path.startsWith('/assets/')) {
+      if (!outputAuthorized(req)) { res.writeHead(401); res.end(); return }
+      // basename: whatever the URL says, only a file directly in assets/
+      const name = basename(path)
+      const ext = name.slice(name.lastIndexOf('.'))
+      try {
+        const body = readFileSync(join(__dirname, '../renderer/assets', name))
+        res.writeHead(200, { 'Content-Type': ASSET_TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' })
+        res.end(body)
+      } catch { res.writeHead(404); res.end() }
+      return
+    }
+
+    // The feed: every IPC message the output windows get, as SSE
+    if (req.method === 'GET' && path === '/events') {
+      if (!outputAuthorized(req)) { res.writeHead(401); res.end(); return }
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-store',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      })
+      res.write(': djtographikz output feed\n\n')
+      replayOutput((channel, ...args) => res.write(encodeEvent(channel, args)))
+      feedClients.add(res)
+      res.on('close', () => feedClients.delete(res))
       return
     }
 
@@ -212,13 +307,17 @@ export function setupRemoteServer(controlWindow: BrowserWindow) {
   ipcMain.handle('remote:info', () => ({
     url: `http://${lanIp()}:${port}/`,
     code: pairingCode,
+    obsUrl: `http://${lanIp()}:${port}/output?token=${outputToken}`,
   }))
 
-  // Invalidate all sessions and rotate the pairing code
+  // Invalidate all sessions and rotate the pairing code and the output token
   ipcMain.handle('remote:reset', () => {
     sessionTokens = []
     pairingCode = String(randomInt(0, 1000000)).padStart(6, '0')
-    return { code: pairingCode }
+    outputToken = randomBytes(24).toString('hex')
+    for (const res of feedClients) res.destroy()
+    feedClients.clear()
+    return { code: pairingCode, obsUrl: `http://${lanIp()}:${port}/output?token=${outputToken}` }
   })
 }
 
