@@ -2,6 +2,20 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.54.0-beta] — 2026-10-01
+
+**Cinque voci del TODO in parallelo** (P3, I7, I2, I4, Q3), ognuna sul suo branch, integrate in `feat/integrazione-2026-10-01`. Prima versione senza tag: la release esce a fine giornata.
+
+### Added
+- **P3 — Soundcheck a un tasto.** Pulsante nella barra in alto: in 6–7 s una lista verde/gialla/rossa di ingresso audio (≥3 s di segnale su 6), finestra di output che disegna davvero (sonda `output:probe`: 1 s di frame + luma di un frame ridotto, le stesse soglie di `check-output.py`: nera < 0.008, uniforme std < 0.01), fps alla risoluzione scelta per entrambe le finestre (≥50 ok, ≥30 attenzione), pacchetto ArtNet (`dmx:probe`, un ArtPoll: prova rete e socket senza far lampeggiare i fari), URL del telefono, spazio disco (`disk:free`, soglia 2 GB). Logica pura in `soundcheck.ts`, `yarn check:soundcheck`
+- **I7 — Keystone per uscita.** Ogni finestra di uscita ha i suoi 4 angoli in `outputs.ts`; il pannello Mapping ha il selettore "Uscita" quando ce n'e' piu' di una e "Azzera" agisce sulla scelta; i profili dei posti li salvano con le uscite. Il keystone globale delle versioni precedenti migra una volta sola come mapping dell'uscita 1, cosi' la taratura della serata prima non si perde; lo snapshot non porta piu' `keystone`, viaggia con `output:slice`. `check:outputs` 10, `check:venues` 6
+- **I2 — Uscita per OBS / secondo PC.** La pagina di output e' servita dal server del remote su `/output?token=…` e riceve lo stesso stato+audio della finestra Electron via **SSE** (`/events`; spettro in base64, codec puro in `src/shared/obsWire.ts`); `output-main.ts` ha un adattatore di trasporto (`window.api` oppure `EventSource`) sugli stessi canali: una pipeline. Il browser che si collega a serata iniziata riceve lo stesso handshake della finestra (`replayShow`). Indirizzo con pulsante Copia nel pannello Remote; "Nuovo codice" lo rigenera e scollega i browser. Limiti: secondo render, overlay video da file e webcam non arrivano nel browser, risoluzione replayata solo alla connessione. `yarn check:obs`
+- **I4 — Reel automatico.** Gli ultimi 15–30 s della preview, ritagliati 9:16, in WebM pronti da postare: tasto `V`, chip "Reel" in toolbar, o il drop dell'Auto VJ (a scelta, 8 s dopo il colpo cosi' la clip contiene salita e drop). Due `MediaRecorder` sfalsati di 15 s che ripartono ogni 30 s, perche' i chunk WebM dopo il primo non sono decodificabili da soli; `Engine.onFrameRendered` copia il frame nello stesso task del render. Default spento, 720×1280 (due encoder VP9 software: 10–20% di un core ciascuno); i file `djtographikz-reel-*` vanno dritti in Download senza dialog. `yarn check:reel`
+- **Q3 — Maschere fra i deck.** Oltre ai 5 blend: split verticale/orizzontale, radiale, luma-key e maschera audio (il raggio respira col basso e scatta sul beat), tutto in `deckmix.frag` con `uMaskMode`/`uMaskSoft`, nessun pass in piu'. Con una maschera il crossfader e' la posizione del bordo (0 = tutto A, 1 = tutto B) e SOFT la morbidezza; `maskSoft` in stato, preset e telefono (slider "Bordo"). `yarn check:deckmix`: contact sheet e probe pixel senza aprire l'app, ha trovato un bordo invertito nella prima versione
+
+### Changed
+- Regola di rilascio (CLAUDE.md): tag e installer ogni 5 versioni o a fine giornata, non a ogni batch; il gate `check:output` gira sul pacchetto costruito/impacchettato prima del tag
+
 ## [0.53.0-beta] — 2026-10-01
 
 **Sorgente chiuso, e tre cose per la serata: beat-roll, idle sul silenzio, palette dal flyer.**

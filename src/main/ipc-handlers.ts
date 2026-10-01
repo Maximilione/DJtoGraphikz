@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain, dialog, net } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'fs'
+import { statfs } from 'fs/promises'
 import { basename, join } from 'path'
 import { homedir } from 'os'
 import { inflateRawSync } from 'zlib'
@@ -57,6 +58,12 @@ export function setupIpcHandlers(
   _outputWindow: BrowserWindow
 ) {
   ensureDirs()
+
+  // Soundcheck (P3): free bytes on the volume that holds the user data
+  ipcMain.handle('disk:free', async () => {
+    const s = await statfs(USER_DATA_DIR)
+    return s.bavail * s.bsize
+  })
 
   // Media library: assets copied under ~/.djtographikz/assets survive restarts
   ipcMain.handle('library:save', async (_e, name: string, dataUrl: string) => {
