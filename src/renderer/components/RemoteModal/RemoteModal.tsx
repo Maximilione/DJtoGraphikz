@@ -7,10 +7,12 @@ interface RemoteModalProps {
 
 /** QR + pairing code for the phone remote. Server runs in the main process. */
 export function RemoteModal({ onClose }: RemoteModalProps) {
-  const [info, setInfo] = useState<{ url: string; code: string } | null>(null)
+  type Info = { url: string; code: string; obsUrl: string }
+  const [info, setInfo] = useState<Info | null>(null)
   const [qr, setQr] = useState('')
+  const [copied, setCopied] = useState(false)
 
-  const load = async (i?: { url: string; code: string }) => {
+  const load = async (i?: Info) => {
     const data = i ?? await window.api.getRemoteInfo()
     setInfo(data)
     setQr(await QRCode.toDataURL(data.url, {
@@ -48,15 +50,38 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
             }}>
               {info.code}
             </div>
+            {/* I2: the same output page for OBS (Browser Source) or a browser on
+                another computer. Second render: it costs GPU to whoever opens it. */}
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', gap: '6px', alignItems: 'center', maxWidth: '100%' }}>
+              <span style={{ whiteSpace: 'nowrap' }}>OBS / browser:</span>
+              <span
+                title={info.obsUrl}
+                style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {info.obsUrl}
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                title="Copia l'indirizzo da incollare in OBS come Browser Source"
+                onClick={() => {
+                  navigator.clipboard.writeText(info.obsUrl).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1500)
+                  }).catch(console.error)
+                }}
+              >
+                {copied ? 'Copiato' : 'Copia'}
+              </button>
+            </div>
           </>
         )}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             className="btn btn-secondary btn-sm"
-            title="Scollega i telefoni collegati e genera un nuovo codice"
+            title="Scollega telefoni e browser OBS collegati, genera codice e indirizzo nuovi"
             onClick={async () => {
-              const { code } = await window.api.resetRemote()
-              if (info) load({ ...info, code })
+              const { code, obsUrl } = await window.api.resetRemote()
+              if (info) load({ ...info, code, obsUrl })
             }}
           >
             Nuovo codice
