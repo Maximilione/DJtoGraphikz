@@ -38,6 +38,7 @@
     "check:buttons": "node scripts/check-button-classes.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
     "check:deckmix": "python3 scripts/check-deckmix.py",
+    "check:videodeck": "node scripts/check-videodeck.mjs",
     "shader:preview": "python3 scripts/shader-preview.py"
   },
   "build": {
