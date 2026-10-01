@@ -1,10 +1,12 @@
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { bytecodePlugin, defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    // V8 bytecode in production: the main process and the preload ship as
+    // .jsc, not as readable JavaScript (closed source since v0.53)
+    plugins: [externalizeDepsPlugin(), bytecodePlugin()],
     build: {
       rollupOptions: {
         input: {
@@ -14,6 +16,9 @@ export default defineConfig({
     }
   },
   preload: {
+    // no bytecode here: the renderers are sandboxed (Electron's default with a
+    // preload) and a sandboxed preload cannot run the bytecode loader. The
+    // preload is the IPC bridge, forty lines of channel names: nothing to hide.
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
@@ -32,6 +37,14 @@ export default defineConfig({
         input: {
           main: resolve(__dirname, 'src/renderer/index.html'),
           output: resolve(__dirname, 'src/renderer/output.html')
+        },
+        output: {
+          // libraries in their own chunks: scripts/obfuscate.mjs scrambles
+          // only our code, and three.js is public anyway
+          manualChunks: {
+            three: ['three'],
+            vendor: ['react', 'react-dom', 'react-dom/client']
+          }
         }
       }
     },

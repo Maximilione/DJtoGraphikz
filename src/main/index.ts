@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, net, protocol, screen, session, systemPreferences } from 'electron'
+import { writeFileSync } from 'fs'
 
 // Menu/dock/notifications name (the bold macOS menu-bar name in dev still reads
 // "Electron" from the dev binary's Info.plist — the packaged app shows this)
@@ -409,7 +410,8 @@ app.whenReady().then(async () => {
   if (process.env.DJG_SELFTEST) {
     ipcMain.on('selftest:data', async (_e, buf: ArrayBuffer) => {
       try {
-        const { writeFileSync } = await import('fs')
+        // static import: the main process is V8 bytecode, and a vm-compiled
+        // script has no dynamic import() (ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING)
         writeFileSync(process.env.DJG_SELFTEST!, Buffer.from(buf))
         console.log('[SelfTest] frame del proiettore salvato:', buf.byteLength, 'byte')
         // The projector shot says the engine is alive; it says nothing about
