@@ -79,6 +79,19 @@ const api = {
   // AutoVJ status pushed by the renderer so the phone stays in sync
   sendRemoteVj: (vj: { enabled: boolean; genre: string }) => ipcRenderer.send('remote:vj', vj),
 
+  // Pro DJ Link (CDJ tempo over the booth LAN) — off until the renderer asks
+  setProLink: (on: boolean) => ipcRenderer.send('prolink:enable', on),
+  onProLinkBeat: (callback: (beat: { device: number; name: string; bpm: number; pitch: number; beatInBar: number; master?: boolean }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, beat: any) => callback(beat)
+    ipcRenderer.on('prolink:beat', handler)
+    return () => { ipcRenderer.removeListener('prolink:beat', handler) }
+  },
+  onProLinkDevices: (callback: (devices: { device: number; name: string }[]) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, devices: any) => callback(devices)
+    ipcRenderer.on('prolink:devices', handler)
+    return () => { ipcRenderer.removeListener('prolink:devices', handler) }
+  },
+
   // Output window status (U1.3)
   getOutputInfo: (): Promise<{ open: boolean; fullscreen: boolean; display: string; count?: number }> =>
     ipcRenderer.invoke('output:info'),

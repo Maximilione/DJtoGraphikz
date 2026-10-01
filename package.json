@@ -17,6 +17,7 @@
     "check:ui": "python3 scripts/check-ui.py",
     "check:beat": "node scripts/check-beat.mjs",
     "check:midiclock": "node scripts/check-midiclock.mjs",
+    "check:prodjlink": "node scripts/check-prodjlink.mjs",
     "check:dryrun": "python3 scripts/check-dryrun.py",
     "check:momentary": "node scripts/check-momentary.mjs",
     "check:intensity": "node scripts/check-intensity.mjs",

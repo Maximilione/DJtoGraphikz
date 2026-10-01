@@ -24,6 +24,7 @@ const BPM_MODES: { id: BpmMode; label: string; hint: string }[] = [
   { id: 'tap', label: 'Tap', hint: 'Batti il tempo a mano con il pulsante TAP' },
   { id: 'manual', label: 'Manuale', hint: 'Imposta il BPM a mano' },
   { id: 'midi', label: 'MIDI', hint: 'Prende tempo e posizione nella battuta dal MIDI clock del mixer o del lettore — esatti, non stimati' },
+  { id: 'prodjlink', label: 'Pro DJ Link', hint: 'Tempo e battuta dal lettore master Pioneer via rete (UDP 50000–50002): serve il computer collegato allo switch dei CDJ' },
 ]
 
 /** 93.4 → "1:33". A transport with a raw seconds count is not a transport. */
@@ -60,6 +61,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
   const saved = savedRef.current
   /** live = ticking right now; seen = a clock arrived at some point this session */
   const [clock, setClock] = useState({ live: false, seen: false })
+  const [link, setLink] = useState({ live: false, source: '', decks: '' })
   /** file transport, polled with the rest of the panel */
   const [file, setFile] = useState({ name: '', playing: false, at: 0, len: 0, loop: true })
   const [dragOver, setDragOver] = useState(false)
@@ -69,6 +71,14 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
   const [audioActive, setAudioActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bpmMode, setBpmMode] = useState<BpmMode>(saved.bpmMode ?? 'auto')
+
+  // The network listener in main exists only while this mode is selected:
+  // nothing binds UDP ports for a feature the user never turned on.
+  useEffect(() => {
+    const on = bpmMode === 'prodjlink'
+    window.api.setProLink(on)
+    if (!on) engine?.audioAnalyzer.proLink.reset()
+  }, [bpmMode, engine])
   const [manualBpm, setManualBpm] = useState(saved.manualBpm ?? 128)
   const [displayBpm, setDisplayBpm] = useState(128)
   const [sensitivity, setSensitivity] = useState(saved.sensitivity ?? 0.5)
@@ -171,10 +181,13 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       const ck = engine.audioAnalyzer.hasMidiClock()
       const seen = engine.audioAnalyzer.sawMidiClock()
       setClock(c => (c.live === ck && c.seen === seen ? c : { live: ck, seen }))
+      const pl = engine.audioAnalyzer.proLink
+      const lk = { live: engine.audioAnalyzer.hasProLink(), source: pl.sourceLabel, decks: [...pl.devices].map(([n, name]) => `${name} #${n}`).join(', ') }
+      setLink(l => (l.live === lk.live && l.source === lk.source && l.decks === lk.decks ? l : lk))
       // The readout is normally refreshed by the spectrum draw, which only
       // runs while audio does. A MIDI clock works with no audio at all, so
       // the number has to be kept alive from here too.
-      if (ck) {
+      if (ck || lk.live) {
         const b = Math.round(engine.audioAnalyzer.getEffectiveBpm())
         setDisplayBpm(d => (d === b ? d : b))
       }
@@ -591,6 +604,15 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
                 : clock.seen
                   ? 'Clock fermo — tengo l\'ultimo tempo ricevuto'
                   : 'Nessun clock ricevuto: attiva l\'invio del MIDI clock sul mixer o sul lettore'}
+            </div>
+          )}
+          {bpmMode === 'prodjlink' && (
+            <div className="u-hint" style={{ marginBottom: '4px' }}>
+              {link.live
+                ? `Agganciato a ${link.source} — tempo e battuta arrivano dalla rete`
+                : link.decks
+                  ? `Lettori in rete: ${link.decks} — nessun beat (lettore fermo?)`
+                  : 'Nessun lettore visto: collega il computer allo switch dei CDJ, stessa rete dei lettori'}
             </div>
           )}
           {bpmMode !== 'midi' && clock.seen && (
