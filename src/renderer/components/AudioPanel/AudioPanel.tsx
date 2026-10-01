@@ -5,6 +5,7 @@ import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import type { Phase } from '@engine/AutoVJ'
+import { keyName } from '@engine/audio/KeyDetector'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { Panel } from '../Panel/Panel'
 // one source of truth: a venue profile rewrites this very store (P2)
@@ -330,6 +331,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       ctx.fillText(`Energy: ${(audioData.energy * 100).toFixed(0)}%`, 4, 24)
       ctx.fillText(`Bass: ${(audioData.bass * 100).toFixed(0)}%`, w - 80, 12)
       ctx.fillText(`Beat: ${audioData.beatDetected ? 'YES' : '-'}`, w - 80, 24)
+      if (audioData.key) ctx.fillText(`Key: ${keyName(audioData.key)} ${(audioData.key.confidence * 100).toFixed(0)}%`, w - 80, 36)
 
       // the Auto VJ's phase lamps, bottom row: what the machine hears the
       // track doing — pausa / salita / groove / picco

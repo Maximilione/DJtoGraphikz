@@ -1,5 +1,6 @@
 import { createRealtimeBpmAnalyzer } from 'realtime-bpm-analyzer'
 import { BandHits } from './BandHits'
+import { KeyDetector, type Key } from './KeyDetector'
 import { BeatTracker } from './BeatTracker'
 import { MidiClock } from './MidiClock'
 
@@ -29,6 +30,8 @@ export interface AudioData {
   waveform: Uint8Array
   /** Hz per spectrum bin, so consumers can map bins to frequencies */
   binHz: number
+  /** musical key over the last ~8 s, null until there is enough harmony to name one */
+  key: Key | null
 }
 
 const EMPTY_SPECTRUM = new Uint8Array(128)
@@ -95,7 +98,7 @@ export class AudioAnalyzer {
 
   private data: AudioData = {
     sub: 0, bass: 0, mid: 0, high: 0, presence: 0,
-    energy: 0, bassRaw: 0, energyRaw: 0, bassHit: 0, midHit: 0, highHit: 0,
+    energy: 0, bassRaw: 0, energyRaw: 0, bassHit: 0, midHit: 0, highHit: 0, key: null,
     bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
     spectrum: EMPTY_SPECTRUM, waveform: EMPTY_WAVEFORM, binHz: 21.5
   }
@@ -103,6 +106,9 @@ export class AudioAnalyzer {
   // Per-band onset detection — same spectral-flux idea as the beat detector,
   // one rolling history per band so hats don't need kick-sized transients
   private bandHits = new BandHits()
+  private keyDetector = new KeyDetector()
+  private keyFrames = 0
+  private lastKeyAt = 0
 
   get isRunning() { return this.running }
   /** Device the graph is actually on — a caller cannot tell from isRunning alone. */
@@ -303,6 +309,8 @@ export class AudioAnalyzer {
     // Reset detection state
     this.tracker.reset()
     this.bandHits.reset()
+    this.keyDetector.reset()
+    this.data.key = null
     this.libraryBpm = 0
     this.libraryConfidence = 0
     this.libraryStable = false
@@ -538,6 +546,14 @@ export class AudioAnalyzer {
     this.data.spectrum = this.freqData
     this.data.waveform = this.waveData
     this.data.binHz = binHz
+
+    // key: chroma every frame, the 24-way correlation twice a second
+    if (gated) {
+      const dtKey = this.lastKeyAt ? Math.min(100, now - this.lastKeyAt) : 16
+      this.keyDetector.update(this.freqData, binHz, dtKey)
+      if (++this.keyFrames >= 30) { this.keyFrames = 0; this.data.key = this.keyDetector.estimate() }
+    }
+    this.lastKeyAt = now
 
     // The clock wins outright over the PLL: it is not an estimate, and pulling
     // an exact grid 35% towards whatever the hats just did can only make it
