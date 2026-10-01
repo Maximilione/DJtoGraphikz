@@ -314,6 +314,7 @@ export function App() {
     }
     const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) => {
       vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
+      eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
       if (!idleSettings.enabled || vj.isEnabled()) return
       const ev = idle.update(energyRaw > 0, performance.now())
       if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
@@ -830,7 +831,8 @@ export function App() {
     if (!engine) return
     const offBeat = window.api.onProLinkBeat(b => engine.audioAnalyzer.proLink.onBeat(b, performance.now()))
     const offDevices = window.api.onProLinkDevices(d => engine.audioAnalyzer.proLink.setDevices(d))
-    return () => { offBeat(); offDevices() }
+    const offTrack = window.api.onProLinkTrack(t => engine.noteProLinkTrack(t.trackId))
+    return () => { offBeat(); offDevices(); offTrack() }
   }, [engine])
 
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
