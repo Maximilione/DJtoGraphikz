@@ -3,6 +3,7 @@ import { readJson, writeJson } from '../../storage'
 import type { Engine } from '@engine/Engine'
 import { Panel } from '../Panel/Panel'
 import { DMX_STORE_KEY as STORAGE_KEY } from '../../venues'
+import { PIXEL_MAP_DEFAULTS, packUniverses, sanitizePixelMap, universesFor, type PixelMapConfig } from '../../pixelmap'
 
 interface DmxPanelProps {
   engine: Engine | null
@@ -20,16 +21,20 @@ interface DmxConfig {
   hasDimmer: boolean  // ch layout: [dimmer,] R, G, B
   dimmerSource: 'energy' | 'bass' | 'beat' | 'full'
   strobeOnBeat: boolean
+  /** I6: the frame on a LED panel, stored with the DMX config so a venue profile carries it */
+  pixelMap: PixelMapConfig
 }
 
 const DEFAULTS: DmxConfig = {
   enabled: false, host: '', universe: 0,
   fixtures: 4, baseChannel: 1, hasDimmer: true,
   dimmerSource: 'energy', strobeOnBeat: false,
+  pixelMap: PIXEL_MAP_DEFAULTS,
 }
 
 function load(): DmxConfig {
-  return { ...DEFAULTS, ...readJson<Partial<DmxConfig>>(STORAGE_KEY, {}) }
+  const raw = readJson<Partial<DmxConfig>>(STORAGE_KEY, {})
+  return { ...DEFAULTS, ...raw, pixelMap: sanitizePixelMap(raw.pixelMap) }
 }
 
 /** Audio-reactive ArtNet DMX: palette color on RGB PARs, energy on the dimmer. */
@@ -89,6 +94,19 @@ export function DmxPanel({ engine }: DmxPanelProps) {
     })
   }, [engine])
 
+  // pixel map: the engine samples the master frame, this packs and sends it
+  const pm = cfg.pixelMap
+  useEffect(() => {
+    if (!engine) return
+    if (!pm.enabled) { engine.setPixelMap(null); engine.onPixelFrame = null; return }
+    engine.setPixelMap({ cols: pm.cols, rows: pm.rows, fps: pm.fps })
+    engine.onPixelFrame = (rgba) => {
+      window.api?.sendPixelMap?.({ host: pm.host, protocol: pm.protocol, frames: packUniverses(rgba, pm) })
+    }
+    return () => { engine.onPixelFrame = null }
+  }, [engine, pm.enabled, pm.cols, pm.rows, pm.fps, pm.host, pm.protocol, pm.snake, pm.universe])
+  const setPm = (patch: Partial<PixelMapConfig>) => set({ pixelMap: { ...pm, ...patch } })
+
   // blackout on disable: one zero-frame so the lights don't stay stuck on
   useEffect(() => {
     if (!cfg.enabled) {
@@ -144,6 +162,41 @@ export function DmxPanel({ engine }: DmxPanelProps) {
             <input type="checkbox" checked={cfg.strobeOnBeat} onChange={e => set({ strobeOnBeat: e.target.checked })} />
             <span className="label">Flash sul beat</span>
           </label>
+        </div>
+
+        <div className="u-hint" style={{ marginTop: 8 }}>
+          <b>Pixel map</b> — il frame campionato alla risoluzione del pannello LED, {universesFor(pm.cols, pm.rows)} universi da 170 pixel.
+          sACN multicast (239.255.x.y:5568) regge decine di universi; ArtNet in broadcast allaga la rete oltre quattro.
+        </div>
+        <label className="slider-row" style={{ cursor: 'pointer' }}>
+          <span className="label">Pixel map</span>
+          <input type="checkbox" checked={pm.enabled} onChange={e => setPm({ enabled: e.target.checked })} />
+          <select value={pm.protocol} onChange={e => setPm({ protocol: e.target.value as PixelMapConfig['protocol'] })} style={{ marginLeft: 8 }}>
+            <option value="sacn">sACN</option>
+            <option value="artnet">ArtNet</option>
+          </select>
+        </label>
+        <div className="slider-row">
+          <span className="label">Pixel</span>
+          <input type="number" min={1} max={1024} value={pm.cols} onChange={e => setPm({ cols: Math.max(1, Math.min(1024, +e.target.value | 0)) })} style={{ width: 56 }} aria-label="Colonne" />
+          <span>×</span>
+          <input type="number" min={1} max={1024} value={pm.rows} onChange={e => setPm({ rows: Math.max(1, Math.min(1024, +e.target.value | 0)) })} style={{ width: 56 }} aria-label="Righe" />
+          <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={pm.snake} onChange={e => setPm({ snake: e.target.checked })} />
+            <span className="label">Serpentina</span>
+          </label>
+        </div>
+        <div className="slider-row">
+          <span className="label">Universo</span>
+          <input type="number" min={0} max={63999} value={pm.universe} onChange={e => setPm({ universe: Math.max(0, +e.target.value | 0) })} style={{ width: 64 }} />
+          <span className="label" style={{ marginLeft: 8 }}>fps</span>
+          <input type="number" min={1} max={60} value={pm.fps} onChange={e => setPm({ fps: Math.max(1, Math.min(60, +e.target.value | 0)) })} style={{ width: 48 }} />
+        </div>
+        <div className="slider-row">
+          <span className="label">Destinazione</span>
+          <input type="text" placeholder={pm.protocol === 'sacn' ? 'multicast' : 'broadcast'} value={pm.host}
+            onChange={e => setPm({ host: e.target.value })}
+            style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
         </div>
       </div>
     </Panel>
