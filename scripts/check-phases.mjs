@@ -105,9 +105,17 @@ function bandAvg(lowHz, highHz) {
 
 // ---------------------------------------------------------------- replay
 const tracker = new BeatTracker()
-tracker.externalBpm = 0
+// --bpm N plays the role of the BPM library / manual tempo the app feeds the PLL
+tracker.externalBpm = Number(opt('bpm', 0))
+tracker.tempoPrior = GENRE_CONFIGS[genre].preferredBpm
+const tempoLog = []
+let lockedAt = -1
 const bandHits = new BandHits()
 let kicks = 0, kickWindow = 0, prevHit = 0
+const beatTimes = []
+const kickTimes = []
+const beatPhases = []
+const mmss = (ms) => { const s = Math.round(ms / 1000) + from; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
 // kick periodicity: autocorrelation of the raw bass envelope at the beat lag,
 // over the last 4 s. A kick is periodic; a bassline or a pad in a break is not.
 const RING = 4 * FPS
@@ -159,12 +167,15 @@ for (let f = 0; f * hop + N <= pcm.length; f++) {
   const energy = norm(rawEnergy)
   bandFlux[0] = bandFlux[1] = bandFlux[2] = 0
   const bt = tracker.update(spec, binHz, tNow, bandFlux, gated === 1)
-  if (bt.beat) beats++
+  if (bt.beat) { beats++; beatTimes.push(tNow) }
+  if (f % (FPS * 10) === 0) tempoLog.push(`${mmss(tNow)} ${bt.acfBpm.toFixed(1)}@${bt.acfConfidence.toFixed(2)}`)
+  if (lockedAt < 0 && tracker.bpm() > 0) lockedAt = tNow
   const hits = bandHits.update([bandFlux[0] / HALF, bandFlux[1] / HALF, bandFlux[2] / HALF], gated)
   // the pulse is set to 1 and decayed to 0.85 in the same frame: an onset is the frame it jumps
   const kick = hits[0] > 0.84 && prevHit <= 0.84
   prevHit = hits[0]
-  if (kick) { kicks++; kickWindow++ }
+  if (kick) { kicks++; kickWindow++; kickTimes.push(tNow) }
+  if (bt.beat) beatPhases.push(bt.beatPhase)
   ring[ringPos] = rawBass; ringPos = (ringPos + 1) % RING
   const per = f % 15 === 0 ? periodicity(tracker.bpm() || 130) : lastPer
   lastPer = per
@@ -180,10 +191,36 @@ for (let f = 0; f * hop + N <= pcm.length; f++) {
 }
 
 // ---------------------------------------------------------------- report
-const mmss = (ms) => { const s = Math.round(ms / 1000) + from; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
-const GLYPH = { break: '_', groove: '-', peak: '#' }
+const GLYPH = { break: '_', build: '^', groove: '-', peak: '#' }
 console.log(`\nkick (onset banda bassa): ${kicks}; beat rilevati: ${beats} (${(beats / seconds * 60).toFixed(0)} al minuto), tempo stimato ${tracker.bpm().toFixed(0)} BPM`)
-console.log('\nfasi (una riga ogni 2 minuti, un carattere ogni 2 s: _ pausa  - groove  # picco):')
+{
+  // inter-beat intervals in units of the tracker's own period: 1.0 = on the
+  // grid, 0.5 = double triggers, 2.0 = missed beats
+  const period = 60000 / (tracker.bpm() || 128)
+  const bins = new Map()
+  console.log(`tempo ACF ogni 10 s (bpm@confidenza): ${tempoLog.join('  ')}`)
+  console.log(`tempo agganciato (bpm() > 0) a: ${lockedAt < 0 ? 'mai' : mmss(lockedAt)}`)
+  console.log(`beat accettati per: ${Object.entries(tracker.accepted).map(([k, v]) => `${k} ${v}`).join(', ')}`)
+  for (let i = 1; i < beatTimes.length; i++) {
+    if (beatTimes[i - 1] < lockedAt) continue
+    const r = (beatTimes[i] - beatTimes[i - 1]) / period
+    const key = r < 0.35 ? '<0.35' : r < 0.65 ? '0.5' : r < 0.85 ? '0.75' : r < 1.15 ? '1.0' : r < 1.6 ? '1.25-1.5' : r < 2.4 ? '2.0' : '>2.4'
+    bins.set(key, (bins.get(key) ?? 0) + 1)
+  }
+  const n = beatTimes.filter(t => t >= lockedAt).length - 1
+  console.log('intervalli fra beat (dopo l\'aggancio), in periodi del tempo stimato: ' +
+    ['<0.35', '0.5', '0.75', '1.0', '1.25-1.5', '2.0', '>2.4'].map(k => `${k}: ${((bins.get(k) ?? 0) / n * 100).toFixed(0)}%`).join('  '))
+}
+if (opt('debug')) {
+  const d0 = Number(opt('debug')) * 1000
+  const fmt = (arr) => arr.filter(t => t >= d0 && t < d0 + 8000).map(t => ((t - d0) / 1000).toFixed(3)).join(' ')
+  console.log('\nDEBUG 8 s da ' + mmss(d0))
+  console.log('  kick:  ' + fmt(kickTimes))
+  console.log('  beat:  ' + fmt(beatTimes))
+  const ph = beatTimes.map((t, i) => [t, beatPhases[i]]).filter(([t]) => t >= d0 && t < d0 + 8000).map(([, p]) => p.toFixed(2)).join(' ')
+  console.log('  fase al beat: ' + ph)
+}
+console.log('\nfasi (una riga ogni 2 minuti, un carattere ogni 2 s: _ pausa  ^ salita  - groove  # picco):')
 const perChar = 2
 let strip = ''
 for (let s = 0; s < seconds; s += perChar) {
