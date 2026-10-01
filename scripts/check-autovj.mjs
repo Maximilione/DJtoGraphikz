@@ -79,13 +79,20 @@ function run(genre, script) {
   vj.setEnabled(true)
   let clock = 0, beats = 0, nextBeat = 0
   const beatMs = 60000 / bpm
+  // raw bass: a bassline floor plus, while the kick plays, a sharp spike on
+  // every beat that decays over ~120 ms. A break keeps the floor and loses the
+  // spikes — that is what the detector has to see.
   for (const step of script) {
     const end = clock + step.ms
     while (clock < end) {
       const beat = step.beats !== false && clock >= nextBeat
       if (beat) { nextBeat += beatMs; beats++ }
       const barPhase = ((clock / beatMs) % 4) / 4
-      vj.update(beat, step.energy, step.bass, barPhase, clock)
+      const sinceBeat = (clock % beatMs)
+      const spike = step.beats !== false ? 0.28 * Math.exp(-sinceBeat / 120) : 0
+      const bassRaw = step.silent ? 0 : 0.5 + spike
+      const energyRaw = step.silent ? 0 : (step.energyRaw ?? 0.2)
+      vj.update({ beat, energy: step.energy, bass: step.bass, barPhase, bassRaw, energyRaw }, clock)
       clock += 1000 / 60
     }
   }
@@ -120,7 +127,7 @@ check('la pausa entra piano su una scena di pausa e poi tiene', () => {
   ])
   const sc = scenes(events).filter(e => e.t > 20000)
   assert.ok(sc.length >= 1, 'nessun cambio nella pausa')
-  assert.ok(sc[0].t - 20000 < 4000, `la pausa e\' arrivata dopo ${(sc[0].t - 20000) | 0} ms`)
+  assert.ok(sc[0].t - 20000 < 6000, `la pausa e\' arrivata dopo ${(sc[0].t - 20000) | 0} ms`)
   assert.equal(sc[0].phase, 'break')
   assert.equal(sc[0].scene.phase, 'break')
   assert.deepEqual(sc[0].cut, BREAK_CUT)
@@ -147,8 +154,8 @@ check('il drop taglia sul primo kick, su una scena di picco, con palette nuova',
 
 check('al picco le scene durano mezza frase', () => {
   const cfg = GENRE_CONFIGS['hard-tekno']
-  const { events, beatMs } = run('hard-tekno', [{ ms: 90000, energy: 0.9, bass: 0.8 }])
-  const sc = scenes(events).filter(e => e.t > 10000)
+  const { events, beatMs } = run('hard-tekno', [{ ms: 60000, energy: 0.5, bass: 0.6, energyRaw: 0.2 }, { ms: 90000, energy: 0.9, bass: 0.8, energyRaw: 0.26 }])
+  const sc = scenes(events).filter(e => e.t > 70000 && e.t < 140000)
   assert.ok(sc.length >= 6, `solo ${sc.length} cambi al picco`)
   for (const e of sc) assert.equal(e.scene.phase, 'peak', e.scene.effect)
   for (let i = 1; i < sc.length; i++) {
@@ -176,7 +183,7 @@ check('senza beat il tempo del genere manda avanti la frase', () => {
 })
 
 check('il silenzio e\' una pausa: nessun cambio ogni cinque secondi', () => {
-  const { events, vj } = run('dark-industrial', [{ ms: 60000, energy: 0, bass: 0, beats: false }])
+  const { events, vj } = run('dark-industrial', [{ ms: 60000, energy: 0, bass: 0, beats: false, silent: true }])
   const sc = scenes(events)
   assert.ok(sc.length <= 3, `${sc.length} cambi in un minuto di silenzio`)
   assert.equal(vj.getPhase(), 'break')

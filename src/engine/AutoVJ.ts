@@ -529,17 +529,37 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
 export const BREAK_CUT: SceneCut = { type: 'crossfade', seconds: 2.5 }
 export const DROP_CUT: SceneCut = { type: 'crossfade', seconds: 0 }
 
-// Phase thresholds on the analyser's normalized bands (0..1 against a slowly
-// decaying peak). The bass envelope is the kick: below BREAK_BASS for
-// BREAK_HOLD_MS there is no kick and the track is in a break. Coming back
-// above DROP_BASS from a break is the drop. Energy above PEAK_ENERGY held for
-// PEAK_HOLD_MS is the peak; it lets go below PEAK_RELEASE.
-const BREAK_BASS = 0.22
-const DROP_BASS = 0.45
-const BREAK_HOLD_MS = 1800
-const PEAK_ENERGY = 0.62
-const PEAK_RELEASE = 0.48
-const PEAK_HOLD_MS = 2500
+// How the phase is read. `scripts/check-phases.mjs` replays a recording
+// through this same class and prints where it heard breaks and drops; these
+// were set against a ten-minute hard tekno mix and two demo tracks, by eye on
+// the raw bass envelope, and they are the first thing to touch when the
+// detector is wrong on a rig.
+//
+// Why the RAW levels: the analyser scales every band against one slowly
+// decaying peak of the whole spectrum, and the bass band sits well above that
+// peak on any mastered track, so `bass` is pinned at 1.0 the whole night and
+// a breakdown is invisible in it. `bassRaw` is the band's dB-domain level
+// (byte/255), never clipped.
+//
+// Why SWING, not level: a break often keeps a bassline or a pad, so the bass
+// level barely moves; what disappears is the kick's transient. The swing
+// (max - min) of the smoothed raw bass over half a second is 15-25 dB while a
+// kick plays and under 5 dB when it does not, whatever the level. In byte/255
+// units 0.0375 is 3 dB.
+export const PHASE = {
+  /** swing of the smoothed raw bass over 0.5 s below this = no kick (0.1 = 8 dB) */
+  breakKick: 0.09,
+  /** no kick for this long = break. A fill is 1-2 s; a break is 8 bars. */
+  breakHoldMs: 3200,
+  /** raw bass rising this much within ~50 ms during a break = the drop */
+  dropRise: 0.18,
+  /** swing back above this for 2 s with no sharp drop = quiet exit from the break */
+  kickBack: 0.16,
+  /** loudness (raw energy, ~1.5 s) above its 120 s mean by this = peak; byte/255: 0.0375 is 3 dB */
+  peakAbove: 0.03,
+  peakRelease: 0.012,
+  peakHoldMs: 2500,
+}
 /** a scene keeps its palette for this many groove/peak switches */
 const PALETTE_EVERY = 4
 /** no beats for this long and the phrase clock free-runs at the genre's BPM */
@@ -547,17 +567,34 @@ const BEAT_TIMEOUT_MS = 2000
 
 const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 
+/** One frame of what the analyser heard. `bassRaw` / `energyRaw` are the unclipped levels. */
+export interface AudioFrame {
+  beat: boolean
+  energy: number
+  bass: number
+  barPhase: number
+  bassRaw: number
+  energyRaw: number
+}
+
 export class AutoVJ {
   private enabled = false
   private genre: Genre = 'hard-tekno'
   private phase: Phase = 'groove'
 
-  // envelopes: a fast one for the drop, slow ones for the phase
-  private fastBass = 0
-  private slowBass = 0
-  private slowEnergy = 0
-  private bassLowSince = -1
-  private energyHighSince = -1
+  // kick presence: swing of the smoothed raw bass over the last half second
+  private bassSmooth = -1
+  private swingRing: { t: number; v: number }[] = []
+  private swing = 0
+  private bassRing: number[] = []
+  private kickLowSince = -1
+  private kickBackSince = -1
+  private breakSince = 0
+  // loudness against its own long mean
+  private loud = 0
+  private loudMean = -1
+  private loudHighSince = -1
+  private elapsed = 0
 
   // phrase clock
   private beatsSinceSwitch = 0
@@ -584,6 +621,10 @@ export class AutoVJ {
   isEnabled(): boolean { return this.enabled }
   getGenre(): Genre { return this.genre }
   getPhase(): Phase { return this.phase }
+  /** what the phase is read from — for the replay tool and the phase lamps */
+  getEnvelopes(): { kick: number; loud: number; loudMean: number } {
+    return { kick: this.swing, loud: this.loud, loudMean: Math.max(0, this.loudMean) }
+  }
 
   setGenre(genre: Genre) {
     this.genre = genre
@@ -598,68 +639,99 @@ export class AutoVJ {
     this.lastFamily = null
     this.switchesOnPalette = 0
     this.palette = Math.floor(Math.random() * GENRE_CONFIGS[this.genre].palettes.length)
-    this.bassLowSince = -1
-    this.energyHighSince = -1
+    this.bassSmooth = -1
+    this.swingRing = []
+    this.swing = 0
+    this.bassRing = []
+    this.kickLowSince = -1
+    this.kickBackSince = -1
+    this.loud = 0
+    this.loudMean = -1
+    this.loudHighSince = -1
+    this.elapsed = 0
     this.lastBeatAt = 0
     this.lastFrameAt = 0
   }
 
-  /**
-   * Call every frame with the analyser's data. Bands are 0..1, normalized.
-   * `barPhase` wraps at the downbeat. `t` is a clock in ms, for tests.
-   */
-  update(beatDetected: boolean, energy: number, bass: number, barPhase: number, t: number = now()) {
+  /** Call every frame. `t` is a clock in ms, for tests and the replay tool. */
+  update(frame: AudioFrame, t: number = now()) {
     if (!this.enabled) return
     const config = GENRE_CONFIGS[this.genre]
     const dt = this.lastFrameAt ? Math.min(100, t - this.lastFrameAt) : 16
     this.lastFrameAt = t
-
-    // envelopes, time-based so the frame rate does not change the feel
+    this.elapsed += dt
     const k = (ms: number) => 1 - Math.exp(-dt / ms)
-    this.fastBass += (bass - this.fastBass) * k(90)
-    this.slowBass += (bass - this.slowBass) * k(700)
-    this.slowEnergy += (energy - this.slowEnergy) * k(1200)
 
-    // --- the drop: a kick after a break. Cut now, on this frame.
-    if (this.phase === 'break' && this.fastBass > DROP_BASS) {
+    // --- kick presence: swing of the smoothed bass over the last 500 ms
+    this.bassSmooth = this.bassSmooth < 0 ? frame.bassRaw : this.bassSmooth + (frame.bassRaw - this.bassSmooth) * k(40)
+    this.swingRing.push({ t, v: this.bassSmooth })
+    while (this.swingRing.length && this.swingRing[0].t < t - 500) this.swingRing.shift()
+    let lo = 1, hi = 0
+    for (const e of this.swingRing) { if (e.v < lo) lo = e.v; if (e.v > hi) hi = e.v }
+    // smoothed itself, so one quiet half-second between two kicks is not a break
+    this.swing += ((hi - lo) - this.swing) * k(400)
+    const kick = this.swing
+    this.bassRing.push(frame.bassRaw)
+    if (this.bassRing.length > 4) this.bassRing.shift()
+    const rise = frame.bassRaw - this.bassRing[0]
+
+    // --- loudness against its long mean (the mean ignores silence)
+    this.loud += (frame.energyRaw - this.loud) * k(1500)
+    if (frame.energyRaw > 0.02) {
+      if (this.loudMean < 0) this.loudMean = frame.energyRaw
+      else this.loudMean += (frame.energyRaw - this.loudMean) * k(Math.min(120000, 8000 + this.elapsed))
+    }
+
+    // --- the drop: the bass comes back sharply after a break. Cut now.
+    if (this.phase === 'break' && t - this.breakSince > 4000 && rise > PHASE.dropRise) {
       this.phase = 'peak'
-      this.energyHighSince = t
-      this.bassLowSince = -1
+      this.loudHighSince = t
+      this.kickLowSince = -1
+      this.swing = PHASE.kickBack          // assume the kick is back; the envelope confirms in a beat
       this.nextPalette(config)
       this.switchTo(config, 'peak', DROP_CUT)
       return
     }
 
     // --- the break: no kick for a while. Fade slow, then hold.
-    if (this.slowBass < BREAK_BASS) {
-      if (this.bassLowSince < 0) this.bassLowSince = t
-      else if (this.phase !== 'break' && t - this.bassLowSince > BREAK_HOLD_MS) {
+    if (kick < PHASE.breakKick) {
+      if (this.kickLowSince < 0) this.kickLowSince = t
+      else if (this.phase !== 'break' && t - this.kickLowSince > PHASE.breakHoldMs) {
         this.phase = 'break'
+        this.breakSince = t
         this.armed = false
         this.switchTo(config, 'break', BREAK_CUT)
         return
       }
     } else {
-      this.bassLowSince = -1
+      this.kickLowSince = -1
+    }
+    // a kick that fades back in without a drop: leave the break quietly
+    if (this.phase === 'break' && kick > PHASE.kickBack) {
+      if (this.kickBackSince < 0) this.kickBackSince = t
+      else if (t - this.kickBackSince > 2000) { this.phase = 'groove'; this.armed = true; this.armedAt = t }
+    } else {
+      this.kickBackSince = -1
     }
 
-    // --- peak / groove on the energy envelope, with hysteresis
-    if (this.phase !== 'break') {
-      if (this.slowEnergy > PEAK_ENERGY) {
-        if (this.energyHighSince < 0) this.energyHighSince = t
-        else if (this.phase === 'groove' && t - this.energyHighSince > PEAK_HOLD_MS) {
+    // --- peak / groove on loudness, with hysteresis
+    if (this.phase !== 'break' && this.loudMean >= 0) {
+      const above = this.loud - this.loudMean
+      if (above > PHASE.peakAbove) {
+        if (this.loudHighSince < 0) this.loudHighSince = t
+        else if (this.phase === 'groove' && t - this.loudHighSince > PHASE.peakHoldMs) {
           this.phase = 'peak'
           this.armed = true       // a peak wants its own scene on the next downbeat
           this.armedAt = t
         }
       } else {
-        this.energyHighSince = -1
-        if (this.phase === 'peak' && this.slowEnergy < PEAK_RELEASE) this.phase = 'groove'
+        this.loudHighSince = -1
+        if (this.phase === 'peak' && above < PHASE.peakRelease) this.phase = 'groove'
       }
     }
 
     // --- phrase clock: real beats, or the genre's tempo when the tracker is silent
-    if (beatDetected) {
+    if (frame.beat) {
       this.beatsSinceSwitch += 1
       this.lastBeatAt = t
     } else if (this.lastBeatAt === 0 || t - this.lastBeatAt > BEAT_TIMEOUT_MS) {
@@ -673,14 +745,14 @@ export class AutoVJ {
 
     // an armed switch fires on the downbeat, or after two bars if there is none
     if (this.armed) {
-      const barWrapped = this.prevBarPhase > 0.5 && barPhase < 0.1
+      const barWrapped = this.prevBarPhase > 0.5 && frame.barPhase < 0.1
       const barMs = 4 * 60000 / config.preferredBpm
       if (barWrapped || t - this.armedAt > 2 * barMs) {
         this.armed = false
         this.switchTo(config, this.phase, config.cut)
       }
     }
-    this.prevBarPhase = barPhase
+    this.prevBarPhase = frame.barPhase
   }
 
   /** beats a scene lasts in the current phase */
