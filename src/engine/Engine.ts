@@ -4,6 +4,7 @@ import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
+import { type VideoDeck, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
 import kaleidoscopeFrag from './shaders/kaleidoscope.frag?raw'
@@ -238,6 +239,8 @@ export interface EngineState {
   blendMode?: BlendMode
   /** Mask edge softness 0..1 (only matters for the mask blend modes) */
   maskSoft?: number
+  /** Deck B as a video playlist (Q4): the output mirrors clip + clipStartBeat */
+  videoDeck?: VideoDeck
   brightness?: number
   blackout?: boolean
   frozen?: boolean
@@ -490,6 +493,14 @@ export class Engine {
   private blendMode: BlendMode = 'mix'
   private maskSoft = 0.25
   private deckMixMaterial!: THREE.ShaderMaterial
+  // Deck B as video (Q4). One <video> per window; the control decides the clip,
+  // the output mirrors it from the snapshot and seeks to the beat grid.
+  private videoDeck: VideoDeck = { ...VIDEO_DECK_DEFAULT }
+  private deckVideo: HTMLVideoElement | null = null
+  private deckVideoTex: THREE.VideoTexture | null = null
+  private deckVideoPath = ''        // what the <video> is loading/playing
+  private deckVideoSeek = false     // clipStartBeat changed: seek on the next ready frame
+  private prevBarPhase = 0
 
   // Master stage (always on)
   private masterMaterial!: THREE.ShaderMaterial
@@ -1762,6 +1773,84 @@ export class Engine {
   setMaskSoft(v: number) { this.maskSoft = Math.max(0, Math.min(1, v)); this.emitState() }
   getMaskSoft(): number { return this.maskSoft }
 
+  // ---- Deck B as video playlist (Q4) ----
+
+  getVideoDeck(): VideoDeck { return this.videoDeck }
+
+  /**
+   * Patch the playlist; the render loop reconciles the <video> with it.
+   * A bare `clip` (UI jump) starts that clip now, on the current beat.
+   */
+  setVideoDeck(patch: Partial<VideoDeck>) {
+    if (patch.clip !== undefined && patch.clipStartBeat === undefined) patch = { ...patch, clipStartBeat: this.beatClock, bars: 0 }
+    const next = clampClip({ ...this.videoDeck, ...patch })
+    if (next.clip !== this.videoDeck.clip || next.clipStartBeat !== this.videoDeck.clipStartBeat) this.deckVideoSeek = true
+    this.videoDeck = next
+    this.emitState()
+  }
+
+  /** Native BPM defaults to the BPM playing now, so a clip added live runs at rate 1. */
+  addVideoClips(files: { name: string; path: string }[]) {
+    const bpm = Math.round(this.audioAnalyzer.getData().bpm || 128)
+    const clips = [...this.videoDeck.clips, ...files.map(f => ({ path: f.path, name: f.name, bpm }))]
+    this.setVideoDeck({ clips, enabled: true })
+  }
+
+  private syncDeckVideo(state: VideoDeck) {
+    const wasStart = this.videoDeck.clipStartBeat
+    this.videoDeck = state
+    if (state.clipStartBeat !== wasStart) this.deckVideoSeek = true
+  }
+
+  /** The <video> lives as long as the deck is in video mode; clips swap its src. */
+  private loadDeckClip(path: string) {
+    this.deckVideoPath = path
+    if (!this.deckVideo) {
+      const v = document.createElement('video')
+      v.muted = true; v.playsInline = true; v.loop = true
+      this.deckVideo = v
+      this.deckVideoTex = new THREE.VideoTexture(v)
+      this.deckVideoTex.minFilter = THREE.LinearFilter
+      this.deckVideoTex.magFilter = THREE.LinearFilter
+    }
+    const v = this.deckVideo
+    // Same streaming protocol as the video overlays (see addVideoOverlay).
+    // HAP/ProRes clips fail here: Chromium has no decoder, see videoDeck.ts.
+    v.onerror = () => console.error('[Engine] deck video illeggibile (mp4 H.264 / webm):', path)
+    v.src = `djg-media://f/?p=${encodeURIComponent(path)}`
+    this.deckVideoSeek = true
+    v.play().catch(err => console.error('[Engine] deck video play failed:', err))
+  }
+
+  /**
+   * Per frame: load the clip the deck wants, pin playbackRate to the BPM and
+   * keep currentTime on the beat grid. Both windows run this on their own
+   * <video>; the output's beatClock arrives over IPC a frame late, and seeks
+   * land on a keyframe, so a drift of a few frames between control and
+   * projector is expected — anything past a quarter second gets re-seeked.
+   */
+  private tickDeckVideo(bpm: number): THREE.Texture | null {
+    const d = this.videoDeck
+    const clip = d.enabled ? d.clips[d.clip] : undefined
+    if (!clip) {
+      if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
+      return null
+    }
+    if (clip.path !== this.deckVideoPath) this.loadDeckClip(clip.path)
+    const v = this.deckVideo!
+    const rate = playbackRate(bpm, clip.bpm)
+    if (Math.abs(v.playbackRate - rate) > 0.01) v.playbackRate = rate
+    if (v.readyState >= 1 && v.duration > 0) {
+      const want = clipTime(this.beatClock, d.clipStartBeat, clip.bpm, v.duration)
+      if (this.deckVideoSeek || loopDrift(v.currentTime, want, v.duration) > 0.25) {
+        v.currentTime = want
+        this.deckVideoSeek = false
+      }
+      if (v.paused) v.play().catch(() => {})
+    }
+    return v.readyState >= 2 ? this.deckVideoTex : null
+  }
+
   // ---- Master ----
 
   setBrightness(v: number) { this.brightness = Math.max(0, Math.min(1, v)); this.emitState() }
@@ -1828,6 +1917,7 @@ export class Engine {
     if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
     if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
+    if (state.videoDeck) this.videoDeck = clampClip({ ...VIDEO_DECK_DEFAULT, ...state.videoDeck, clip: 0, clipStartBeat: 0, bars: 0 })
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
@@ -1907,6 +1997,7 @@ export class Engine {
     if (typeof state.crossfade === 'number') this.setCrossfade(state.crossfade)
     if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
+    if (state.videoDeck) this.syncDeckVideo(state.videoDeck)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.blackout === 'boolean') this.blackout = state.blackout
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
@@ -2331,6 +2422,7 @@ export class Engine {
       crossfade: this.crossfade,
       blendMode: this.blendMode,
       maskSoft: this.maskSoft,
+      videoDeck: this.videoDeck,
       brightness: this.brightness,
       blackout: this.blackout,
       frozen: this.frozen,
@@ -2592,6 +2684,14 @@ export class Engine {
     // Beat clock for tempo-synced LFOs (works in remote mode too — bpm over IPC)
     this.beatClock += dt * ((bpm || 128) / 60)
 
+    // Deck B video: change clip on the bar, every N bars (control decides, output mirrors)
+    if (!this.remote && this.videoDeck.enabled && barWrapped(this.prevBarPhase, this.barPhase)) {
+      const next = onBar(this.videoDeck, this.beatClock)
+      if (next.clipStartBeat !== this.videoDeck.clipStartBeat) { this.videoDeck = next; this.deckVideoSeek = true; this.emitState() }
+      else this.videoDeck = next
+    }
+    this.prevBarPhase = this.barPhase
+
     // Per-frame audio listeners (AutoVJ, playlist beat-advance)
     for (const fn of this.audioFrameListeners) {
       fn(beatDetected, this.smoothEnergy, this.smoothBass, this.barPhase, this.bassRaw, this.energyRaw, this.key)
@@ -2693,10 +2793,22 @@ export class Engine {
       }
     }
 
-    // Deck B + crossfader
-    if (this.crossfade > 0.001 && this.deckBMaterial) {
-      this.applyEffectUniforms(this.deckBMaterial, time)
-      this.renderEffect(this.deckBMaterial, this.rtDeckB)
+    // Deck B + crossfader. In video mode the clip is blitted into the same
+    // target, so blends and masks see no difference between effect and video.
+    // ponytail: the blit stretches to the deck's aspect; a 9:16 clip on a 16:9
+    // output gets squashed — add a cover-fit UV in passthrough if it matters.
+    const videoMode = this.videoDeck.enabled && this.videoDeck.clips.length > 0
+    const deckVideoTex = (this.crossfade > 0.001 || videoMode) ? this.tickDeckVideo(bpm) : null
+    if (this.crossfade > 0.001 && (this.deckBMaterial || videoMode)) {
+      if (deckVideoTex) this.blit(deckVideoTex, this.rtDeckB)
+      else if (!videoMode) {
+        this.applyEffectUniforms(this.deckBMaterial!, time)
+        this.renderEffect(this.deckBMaterial!, this.rtDeckB)
+      }
+      // video mode with no frame yet (src just swapped): rtDeckB keeps the last
+      // frame, so a clip change holds the picture instead of flashing the effect.
+      // ponytail: that hold is ~100-300 ms on a local file; preload the next clip
+      // in a second <video> if it reads as a hiccup.
 
       const du = this.deckMixMaterial.uniforms
       du.tDeckA.value = this.rtA.texture
@@ -3069,6 +3181,8 @@ export class Engine {
     for (const rt of [this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2, this.rtBloomA, this.rtBloomB]) rt.dispose()
     this.disposeEffectMaterial(this.deckBMaterial)
     this.deckMixMaterial.dispose()
+    if (this.deckVideo) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideo = null }
+    this.deckVideoTex?.dispose(); this.deckVideoTex = null
     this.masterMaterial.dispose()
     this.pixelRT?.dispose()
     this.motionBlurMaterial.dispose()
