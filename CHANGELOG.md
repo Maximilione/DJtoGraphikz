@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.56.0-beta] — 2026-10-01
+
+**Q4 — loop video come sorgente di deck.** Chiude la sezione 4 del TODO. Ultima versione prima del tag di fine giornata.
+
+### Added
+- **Deck B come playlist di clip video.** Pill "Effetto / Video" nella deck-bar; ＋ sceglie mp4 (H.264), webm, mov-H.264; ogni clip entra con BPM nativo = BPM che suona ora (rate 1), correggibile per clip; `playbackRate` = BPM live / BPM nativo (clamp 0.0625–16, i limiti di Chromium); cambio clip sul giro di battuta ogni N battute (1–16, default 4), loop. `src/engine/videoDeck.ts` e' la logica pura (`playbackRate`, `barWrapped`, `onBar`, `clipTime` dal solo `beatClock` cosi' le due finestre concordano); nell'Engine un `<video>` + `VideoTexture` per finestra, la texture viene blittata in `rtDeckB` e blend/maschere restano com'erano: nessun pass in piu'. Playlist in `stateSnapshot()`, l'uscita carica la stessa clip e fa seek a `clipTime()`; deriva di qualche frame fra controllo e proiettore, riallineo automatico sopra 0.25 s. `yarn check:videodeck`
+- Limiti dichiarati: solo i formati che Chromium decodifica (niente HAP/ProRes dei pack VJ: `ffmpeg -c:v libx264` a monte); al cambio clip 100–300 ms con l'ultimo frame fermo; la clip viene stirata all'aspetto del deck
+
 ## [0.55.0-beta] — 2026-10-01
 
 **I3 — Pro DJ Link** (solo Pioneer; StagelinQ Denon rimandato). Senza tag: esce con la release di fine giornata.
