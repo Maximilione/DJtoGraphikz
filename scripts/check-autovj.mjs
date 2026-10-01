@@ -181,6 +181,27 @@ check('onPhaseChange suona a ogni cambio di fase, scena o no', () => {
   assert.deepEqual(seen, ['break'])
 })
 
+check('le scene mie entrano in rotazione, e con "solo le mie" sono la rotazione', () => {
+  const mineScene = { effect: 'glitch', phase: 'groove', posts: ['scanlines'], params: { blocks: { value: 10 } } }
+  const mk = (onlyMine) => {
+    const vj = new AutoVJ()
+    const seen = []
+    vj.onSceneChange = (sc) => seen.push(sc.effect)
+    vj.setGenre('hard-tekno'); vj.setEnabled(true)
+    vj.setUserScenes({ 'hard-tekno': [mineScene] }, onlyMine)
+    const beatMs = 60000 / 155
+    for (let t = 0; t < 240000; t += 1000 / 60) {
+      vj.update({ beat: t % beatMs < 17, energy: 0.5, bass: 0.6, barPhase: ((t / beatMs) % 4) / 4, bassRaw: 0.5 + 0.28 * Math.exp(-(t % beatMs) / 120), energyRaw: 0.2 }, t)
+    }
+    return seen
+  }
+  const mixed = mk(false)
+  assert.ok(mixed.includes('glitch'), 'la scena mia non e\' mai uscita in quattro minuti')
+  assert.ok(mixed.some(e => e !== 'glitch'), 'con "tutte" uscivano solo le mie')
+  const only = mk(true)
+  assert.ok(only.length >= 5 && only.every(e => e === 'glitch'), `con "solo le mie": ${only.join(',')}`)
+})
+
 check('al picco le scene durano mezza frase', () => {
   const cfg = GENRE_CONFIGS['hard-tekno']
   const { events, beatMs } = run('hard-tekno', [{ ms: 60000, energy: 0.5, bass: 0.6, energyRaw: 0.2 }, { ms: 90000, energy: 0.9, bass: 0.8, energyRaw: 0.26 }])
