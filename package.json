@@ -32,6 +32,7 @@
     "check:idle": "node scripts/check-idle.mjs",
     "check:palette": "node scripts/check-palette.mjs",
     "check:soundcheck": "node scripts/check-soundcheck.mjs",
+    "check:obs": "node scripts/check-obs.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:buttons": "node scripts/check-button-classes.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
