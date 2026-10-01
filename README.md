@@ -120,6 +120,7 @@ npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit 
 yarn check:output   # release gate: is the projector really showing an image?
 yarn check:ui       # photograph the control window (check:ui simple 0.34)
 yarn check:dryrun   # analyse a synthetic 128 BPM track and assert the app follows it
+yarn check:phases mix.mp3 --genre hard-tekno --cues mix.cues   # replay a recording of the rig through the Auto VJ's phase detector, in silence: where it heard breaks and drops
 yarn check:momentary # tap versus hold
 yarn check:intensity # the macro at zero gives the scene back untouched
 yarn package:mac   # .dmg (also package:win / package:linux)

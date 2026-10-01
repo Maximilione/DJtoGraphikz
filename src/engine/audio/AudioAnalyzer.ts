@@ -1,4 +1,5 @@
 import { createRealtimeBpmAnalyzer } from 'realtime-bpm-analyzer'
+import { BandHits } from './BandHits'
 import { BeatTracker } from './BeatTracker'
 import { MidiClock } from './MidiClock'
 
@@ -9,6 +10,10 @@ export interface AudioData {
   high: number
   presence: number
   energy: number
+  /** bass and energy BEFORE the adaptive gain: byte/255 of the dB spectrum, never clipped.
+   *  The gain pins `bass` at 1.0 on any loud track; the phase detector needs the unclipped level. */
+  bassRaw: number
+  energyRaw: number
   /** Per-band onset pulses (1 on transient, decaying) — kick / snare-synth / hats */
   bassHit: number
   midHit: number
@@ -59,7 +64,6 @@ export class AudioAnalyzer {
   // log-flux onsets, median+MAD threshold, PLL phase, own ACF tempo
   private tracker = new BeatTracker()
   private specBuf: Float32Array = new Float32Array(0)
-  private readonly FLUX_HISTORY_SIZE = 80     // ~1.3s at 60fps (per-band hits)
   private sensitivity = 1.4
 
   // BPM from library
@@ -91,15 +95,14 @@ export class AudioAnalyzer {
 
   private data: AudioData = {
     sub: 0, bass: 0, mid: 0, high: 0, presence: 0,
-    energy: 0, bassHit: 0, midHit: 0, highHit: 0,
+    energy: 0, bassRaw: 0, energyRaw: 0, bassHit: 0, midHit: 0, highHit: 0,
     bpm: 128, beatDetected: false, beatPhase: 0, barPhase: 0,
     spectrum: EMPTY_SPECTRUM, waveform: EMPTY_WAVEFORM, binHz: 21.5
   }
 
   // Per-band onset detection — same spectral-flux idea as the beat detector,
   // one rolling history per band so hats don't need kick-sized transients
-  private bandFluxHistory: [number[], number[], number[]] = [[], [], []]
-  private bandPulse = [0, 0, 0]
+  private bandHits = new BandHits()
 
   get isRunning() { return this.running }
   /** Device the graph is actually on — a caller cannot tell from isRunning alone. */
@@ -299,7 +302,7 @@ export class AudioAnalyzer {
 
     // Reset detection state
     this.tracker.reset()
-    this.bandFluxHistory = [[], [], []]
+    this.bandHits.reset()
     this.libraryBpm = 0
     this.libraryConfidence = 0
     this.libraryStable = false
@@ -424,6 +427,7 @@ export class AudioAnalyzer {
     // value 0..1 → multiplier 1.05..2.0 (higher sensitivity = lower multiplier)
     this.sensitivity = 1.05 + (1.0 - value) * 0.95
     this.tracker.sensitivity = this.sensitivity
+    this.bandHits.sensitivity = this.sensitivity
   }
 
   getSensitivity(): number {
@@ -497,6 +501,8 @@ export class AudioAnalyzer {
     // Noise gate — below this the signal is room noise, not music
     const gated = rawEnergy < this.NOISE_GATE ? 0 : 1
 
+    this.data.bassRaw = gated * this.data.bass
+    this.data.energyRaw = gated * rawEnergy
     const norm = (v: number) => gated * Math.min(1, v * gain)
     this.data.sub = norm(this.data.sub)
     this.data.bass = norm(this.data.bass)
@@ -524,23 +530,10 @@ export class AudioAnalyzer {
     this.data.bpm = this.getEffectiveBpm()
 
     // Per-band hit pulses: adaptive threshold per band, decaying envelope
-    for (let b = 0; b < 3; b++) {
-      const f = bandFlux[b] / binCount
-      const hist = this.bandFluxHistory[b]
-      hist.push(f)
-      if (hist.length > this.FLUX_HISTORY_SIZE) hist.shift()
-      if (hist.length >= 10) {
-        const mean = hist.reduce((a, v) => a + v, 0) / hist.length
-        let sq = 0
-        for (const v of hist) sq += (v - mean) ** 2
-        const std = Math.sqrt(sq / hist.length)
-        if (f > mean + std * this.sensitivity && f > 0.0008) this.bandPulse[b] = 1
-      }
-      this.bandPulse[b] *= 0.85
-    }
-    this.data.bassHit = gated * this.bandPulse[0]
-    this.data.midHit = gated * this.bandPulse[1]
-    this.data.highHit = gated * this.bandPulse[2]
+    const hits = this.bandHits.update([bandFlux[0] / binCount, bandFlux[1] / binCount, bandFlux[2] / binCount], gated)
+    this.data.bassHit = hits[0]
+    this.data.midHit = hits[1]
+    this.data.highHit = hits[2]
 
     this.data.spectrum = this.freqData
     this.data.waveform = this.waveData
