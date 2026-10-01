@@ -24,7 +24,15 @@ const load = async (entry) => {
   const out = await build({ entryPoints: [join(REPO, entry)], bundle: true, format: 'esm', write: false, platform: 'neutral' })
   return import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 }
-const { TrackChangeDetector } = await load('src/engine/audio/TrackChange.ts')
+const { TrackChangeDetector, TRACK_CHANGE } = await load('src/engine/audio/TrackChange.ts')
+
+// The shipped hold times are 20 s (tuned on a tekno mix: 8 s let the tempo
+// estimator's hunting through as "changes"). The mechanism is checked here at
+// the shorter timings the scenarios were written for; the table is mutable
+// for exactly this (check-phases sweeps it the same way).
+assert.ok(TRACK_CHANGE.bpmHoldMs >= 20000 && TRACK_CHANGE.keyHoldMs >= 20000, 'le soglie di tenuta spedite sono 20 s')
+TRACK_CHANGE.bpmHoldMs = 8000
+TRACK_CHANGE.keyHoldMs = 10000
 
 let checks = 0
 const check = (name, fn) => { fn(); checks++; console.log('  ok', name) }
