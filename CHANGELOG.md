@@ -2,6 +2,20 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.53.0-beta] — 2026-10-01
+
+**Sorgente chiuso, e tre cose per la serata: beat-roll, idle sul silenzio, palette dal flyer.**
+
+### Changed
+- **Il pacchetto non espone piu' il sorgente.** Il main compila in **bytecode V8** (`bytecodePlugin` di electron-vite: `.jsc`, non JavaScript leggibile); il preload no, perche' i renderer sono sandboxed e un preload sandboxed non puo' caricare il bytecode (provato: `module not found: ./bytecode-loader.cjs`, finestre mute) — e' il ponte IPC, quaranta righe di nomi di canale. Il renderer, che non puo' essere bytecode senza node integration, passa da `scripts/obfuscate.mjs` dopo la build: identificatori rinominati, stringhe (GLSL compreso) in un array codificato; **niente control-flow flattening ne' dead code**, costano frame time e il motore va a 60 fps. Solo i nostri chunk: `three` e `vendor` (React) sono in chunk propri e restano com'erano. `scripts/afterPack.cjs` gira i **fuse di Electron** sul binario impacchettato: `RunAsNode` spento (niente `ELECTRON_RUN_AS_NODE=1` per usare l'app come Node con il nostro asar), `--inspect` e `NODE_OPTIONS` spenti, `OnlyLoadAppFromAsar`, e su macOS la validazione d'integrita' dell'asar (su Windows e Linux electron-builder 25 non scrive l'hash, e il fuse rifiuterebbe il nostro stesso asar). `package.json`: `private`, `license: UNLICENSED`; README: proprietario dalla 0.53, le release precedenti restano MIT
+- `yarn build` include l'offuscamento; `DJG_GATE_PREVIEW=1 yarn check:output` fa il gate sull'output **costruito** (bytecode + offuscato) e `DJG_GATE_CMD=<binario> yarn check:output` sull'**app impacchettata** (fuse e integrita' dell'asar compresi). Il gate ha trovato subito che un `await import('fs')` nel main non gira in bytecode (`ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING`): ora e' un import statico, e nel main non ce ne sono altri
+- Il tasto `I` e gli altri momentanei non cambiano; la cheat sheet elenca i tasti del beat-roll
+
+### Added
+- **S2 — beat-roll.** `,` `.` `/` = un quarto, un ottavo, un sedicesimo di battuta: `Engine.setBeatRoll` fa girare in loop `effectTime` e `beatClock` dal frame che era a schermo. Tenuto e' momentaneo, toccato si blocca, lo stesso tasto lo sblocca. Nessun buffer di frame: gli shader sono funzioni del tempo, le simulazioni (reaction, smoke, swarm) continuano a correre. La finestra di uscita lo riceve con i clock gia' sincronizzati via IPC
+- **S5 — idle sul silenzio.** `idle.ts` (puro, `check:idle`): con l'Auto VJ spento, dopo N secondi sotto il noise gate (default 12) l'uscita sfuma in 3 s su un effetto calmo (default Caustics), e quando la musica torna per piu' di 0.6 s rientra in 1.5 s sul look di prima — solo se nessuno l'ha cambiato nel frattempo. Impostazioni nel pannello audio (attivo, secondi, effetto). Con l'Auto VJ acceso non interviene: li' il silenzio e' gia' una pausa
+- **Q2 — palette da un'immagine.** `paletteFromImage.ts` (puro, `check:palette`): k-means++ su una miniatura 64×64, sei cluster, il dominante poi i due piu' lontani, scartando neri e bianchi quando c'e' tinta. `palettes.ts`: le tue palette dopo le sedici di fabbrica, **un solo spazio di indici** per griglia, ciclo e telefono (prima il campione "custom" del pannello Effetti occupava l'indice 16: ora e' −1). L'ultimo slot della griglia prende il drop o apre il file; tasto destro rimuove
+
 ## [0.52.0-beta] — 2026-10-01
 
 **Il resto della roadmap dello studio: Q5, P4, I6.** I8 verificato e parcheggiato.

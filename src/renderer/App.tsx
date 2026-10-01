@@ -24,9 +24,11 @@ import { QuickGuide } from './components/Help/QuickGuide'
 import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
-import { ALL_EFFECTS, COLOR_PRESETS, POST_CATEGORIES } from './catalog'
+import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
+import { allPalettes } from './palettes'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
+import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
@@ -284,15 +286,39 @@ export function App() {
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
     vj.onPhaseChange = (phase) => setVjStatus(prev => ({ ...prev, phase }))
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
-    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) =>
-      vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key }))
+    // Idle on silence (S5): with the Auto VJ off, N seconds of nothing fade
+    // the wall to a calm look and the music brings the old one back. The Auto
+    // VJ handles silence itself (it is a break there), so it is left alone.
+    let idleSettings = loadIdleSettings()
+    const idle = new IdleWatch(idleSettings.seconds)
+    const unIdle = onIdleSettings(s => { idleSettings = s; idle.setSeconds(s.seconds); if (!s.enabled) idle.reset() })
+    let idleBefore: EffectId | null = null
+    const fadeTo = (effect: EffectId, seconds: number) => {
+      const prevType = eng.getTransitionType(), prevSeconds = eng.getTransitionDuration()
+      eng.setTransitionType('crossfade'); eng.setTransitionDuration(seconds)
+      eng.setEffect(effect)
+      eng.setTransitionType(prevType); eng.setTransitionDuration(prevSeconds)
+    }
+    const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) => {
+      vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
+      if (!idleSettings.enabled || vj.isEnabled()) return
+      const ev = idle.update(energyRaw > 0, performance.now())
+      if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
+        idleBefore = eng.getCurrentEffect()
+        fadeTo(idleSettings.effect, 3)
+      } else if (ev === 'exit' && idleBefore) {
+        // only if nobody changed the picture in the meantime
+        if (eng.getCurrentEffect() === idleSettings.effect) fadeTo(idleBefore, 1.5)
+        idleBefore = null
+      }
+    })
 
     // Push catalogs to the phone remote (served at GET /defs, version added server-side)
     try {
       window.api?.sendRemoteDefs({
         effects: ALL_EFFECTS.map(fx => ({ id: fx.id, label: fx.label, category: fx.category })),
         posts: REMOTE_POSTS,
-        palettes: COLOR_PRESETS,
+        palettes: allPalettes(),
         genres: (Object.keys(GENRE_CONFIGS) as Genre[]).map(id => ({ id, label: GENRE_CONFIGS[id].label })),
         blendModes: BLEND_MODES,
         transitionTypes: Object.keys(TRANSITION_TYPES),
@@ -306,6 +332,7 @@ export function App() {
       disposed = true
       clearInterval(dryRunTimer)
       unsubscribe()
+      unIdle()
       vj.onSceneChange = null
       vj.onPostChange = null
       vj.onPaletteChange = null
@@ -565,6 +592,14 @@ export function App() {
           momentary.press(k, () => { engine.setIntensity(prev); setIntensity(prev) })
           return next
         })
+      } else if (k === ',' || k === '.' || k === '/') {
+        // Beat-roll: the clocks loop over a quarter, an eighth or a sixteenth
+        // of a beat. Held it stutters while you hold; tapped it latches, and
+        // the same key taps it off.
+        const division = k === ',' ? 4 : k === '.' ? 8 : 16
+        const prev = engine.getBeatRoll() as 0 | 4 | 8 | 16
+        engine.setBeatRoll(prev === division ? 0 : division)
+        momentary.press(k, () => engine.setBeatRoll(prev))
       } else if (k === 'p') {
         panic()
       } else if (e.key === '?') {

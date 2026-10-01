@@ -46,7 +46,14 @@ def main() -> int:
             print("effetto richiesto:", arg)
     env.pop("ELECTRON_RUN_AS_NODE", None)   # silently kills Electron
     print("avvio app…")
-    proc = subprocess.run(["yarn", "dev"], cwd=REPO, env=env,
+    # DJG_GATE_PREVIEW=1 runs the BUILT output (bytecode main/preload,
+    # obfuscated renderer) instead of the dev server: the release gate for
+    # what actually ships, run once after `yarn build`.
+    # DJG_GATE_CMD=<path to the packaged binary> gates the installed app itself
+    # (fuses, asar integrity, bytecode, obfuscation, all at once).
+    cmd = (os.environ["DJG_GATE_CMD"].split() if os.environ.get("DJG_GATE_CMD")
+           else ["yarn", "preview"] if os.environ.get("DJG_GATE_PREVIEW") else ["yarn", "dev"])
+    proc = subprocess.run(cmd, cwd=REPO, env=env,
                           capture_output=True, text=True, timeout=180)
 
     if not SHOT.exists() or SHOT.stat().st_size < 1000:
