@@ -32,7 +32,7 @@ import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
-import { sanitizeOutputs, type OutputCfg } from './outputs'
+import { migrateKeystone, type OutputCfg } from './outputs'
 
 type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
@@ -97,6 +97,8 @@ export function App() {
    */
   const [outputs, setOutputs] = useOutputs()
   const primaryOut = outputs[0]
+  /** Which output the Mapping panel is aligning; the preview shows its corners. */
+  const [mappingOut, setMappingOut] = useState(0)
   const outputRes = `${primaryOut.width}x${primaryOut.height}`
   const [brightness, setBrightness] = useState(1)
   const [blackout, setBlackout] = useState(false)
@@ -153,6 +155,12 @@ export function App() {
   // Main comes up with one output on defaults; the saved list is the truth.
   useEffect(() => { try { window.api?.setOutputs?.(outputs) } catch (_) {} }, [])
 
+  // The keystone is per output and travels with the OutputCfg; the control
+  // window previews the one being aligned so a dragged corner is seen here too.
+  useEffect(() => {
+    engine?.setKeystone((outputs[mappingOut] ?? primaryOut).keystone)
+  }, [engine, outputs, mappingOut, primaryOut])
+
   // U1.3 — output window status chip
   const [outputInfo, setOutputInfo] = useState<{ open: boolean; fullscreen: boolean; display: string; count?: number } | null>(null)
   const refreshOutputInfo = useCallback(() => {
@@ -166,8 +174,8 @@ export function App() {
     // Persistence debounced: a synchronous localStorage write per emitted state
     // (~16/s while dragging a remote slider) blocks the render thread
     let persistTimer = 0
-    // The snapshot carries paramDefs, every effect's params, the keystone and
-    // any ISF image inputs as base64. Dragging a slider emits one per frame, so
+    // The snapshot carries paramDefs, every effect's params and any ISF image
+    // inputs as base64. Dragging a slider emits one per frame, so
     // sending each one structured-clones megabytes at 60Hz to main and on to
     // the output window. 30Hz, same rate as the audio push: leading edge so a
     // look change lands at once, trailing flush so the last value is never lost.
@@ -475,29 +483,31 @@ export function App() {
       outputRes,
       displayId: primaryOut.displayId,
       outputs,
-      keystone: engine.getKeystone(),
+      // output 1's corners, kept so a profile still validates as before
+      keystone: primaryOut.keystone,
       brightness,
       audio: readJson(AUDIO_STORE_KEY, null),
       dmx: readJson(DMX_STORE_KEY, null),
     }
-  }, [engine, outputRes, outputs, primaryOut.displayId, brightness])
+  }, [engine, outputRes, outputs, primaryOut, brightness])
 
   const applyVenue = useCallback((v: Venue) => {
     if (!engine) return
     // A profile saved before multi-output has only the projector: rebuild the
     // one-output list from it rather than making the old field a second truth.
+    // One saved between multi-output and per-output keystone has outputs
+    // without corners: the global ones it carries become output 1's.
     const res = parseRes(v.outputRes)
-    const list = sanitizeOutputs(v.outputs ?? [{
+    const list = migrateKeystone(v.outputs ?? [{
       displayId: v.displayId, width: res?.[0] ?? 1920, height: res?.[1] ?? 1080,
       src: [0, 0, 1, 1], gamma: 1, brightness: 1,
-    }])
+    }], v.keystone)
     // A screen that is not plugged in tonight is dropped: sending an output to
     // a display id that is gone puts the show on nothing.
     const missing = list.filter(o => o.displayId !== null && !displays.some(d => d.id === o.displayId))
     setOutputs(list.map(o => missing.includes(o) ? { ...o, displayId: null } : o))
     engine.setRenderSize(list[0].width, list[0].height)
 
-    engine.setKeystone(v.keystone)
     engine.setBrightness(v.brightness); setBrightness(v.brightness)
     if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
     if (v.dmx !== null) writeJson(DMX_STORE_KEY, v.dmx)
@@ -1008,7 +1018,8 @@ export function App() {
             <PresetPanel engine={engine} />
             <ShaderEditor engine={engine} />
             <CameraPanel engine={engine} />
-            <MappingPanel engine={engine} />
+            <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
+              selected={mappingOut} onSelect={setMappingOut} />
             <DmxPanel key={panelEpoch} engine={engine} />
             <OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} />
             <VenuePanel capture={captureVenue} apply={applyVenue} />

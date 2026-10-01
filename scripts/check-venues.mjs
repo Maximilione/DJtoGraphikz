@@ -56,6 +56,18 @@ check('quello che non e\' un posto viene buttato', () => {
   assert.deepEqual(sanitizeVenues(undefined), [])
 })
 
+check('le uscite viaggiano come blob, keystone per uscita compreso', () => {
+  const outputs = [
+    { displayId: 2, width: 1920, height: 1080, src: [0, 0, 1, 1], gamma: 1, brightness: 1, keystone: [0.05, 0, 1, 0, 1, 1, 0, 1] },
+    { displayId: 3, width: 1280, height: 720, src: [0, 0, 1, 1], gamma: 1, brightness: 1, keystone: [0, 0, 1, 0, 1, 1, 0, 1] },
+  ]
+  const v = venue({ outputs })
+  assert.deepEqual(sanitizeVenues(JSON.parse(JSON.stringify([v]))), [v])
+  // profilo salvato fra multi-uscita e keystone per uscita: valido anche senza il campo
+  const noField = outputs.map(({ keystone, ...o }) => o)
+  assert.equal(sanitizeVenues([venue({ outputs: noField })]).length, 1)
+})
+
 check('displayId null e\' legittimo: "dove sta gia\'"', () => {
   assert.equal(sanitizeVenues([venue({ displayId: null })]).length, 1)
 })
