@@ -22,12 +22,25 @@ export interface OutputCfg {
   gamma: number
   /** ceiling for this wall, 0..1 — a LED panel at full white is unwatchable */
   brightness: number
+  /**
+   * Projection mapping of this wall: TL,TR,BR,BL as x,y in 0..1 of the window.
+   * Per output since two skewed projectors are skewed differently.
+   */
+  keystone: number[]
 }
 
 export const OUTPUTS_KEY = 'djtographikz-uscite'
 
+/** No warp: the quad is the window. */
+export const DEFAULT_KEYSTONE = [0, 0, 1, 0, 1, 1, 0, 1]
+
 export const DEFAULT_OUTPUT: OutputCfg = {
   displayId: null, width: 1920, height: 1080, src: [0, 0, 1, 1], gamma: 1, brightness: 1,
+  keystone: DEFAULT_KEYSTONE,
+}
+
+export function keystoneActive(k: number[]): boolean {
+  return k.some((v, i) => Math.abs(v - DEFAULT_KEYSTONE[i]) > 0.0005)
 }
 
 /** Rough pixel budget: every output is a full second render on the same GPU. */
@@ -39,6 +52,17 @@ export function totalPixels(list: OutputCfg[]): number {
 
 const num = (v: unknown, lo: number, hi: number, fallback: number) =>
   typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : fallback
+
+/**
+ * Eight finite numbers or nothing: a short array used to silently do nothing,
+ * a NaN corner is a degenerate homography and a black wall. Corners may sit a
+ * little outside the window for pincushion correction, same range as the engine.
+ */
+export function sanitizeKeystone(raw: unknown): number[] {
+  if (!Array.isArray(raw) || raw.length !== 8 || !raw.every(v => typeof v === 'number' && isFinite(v)))
+    return [...DEFAULT_KEYSTONE]
+  return raw.map(v => Math.max(-0.5, Math.min(1.5, v)))
+}
 
 /**
  * Anything that reaches here drives a projector, so it is checked before it
@@ -55,7 +79,23 @@ export function sanitizeOutput(raw: any): OutputCfg {
     src: [x, y, num(src[2], 0.01, 1 - x, 1 - x), num(src[3], 0.01, 1 - y, 1 - y)],
     gamma: num(raw?.gamma, 0.2, 4, 1),
     brightness: num(raw?.brightness, 0, 1, 1),
+    keystone: sanitizeKeystone(raw?.keystone),
   }
+}
+
+/**
+ * Before I7 the keystone was one for the whole show and lived in the session
+ * snapshot. A list saved by that app has outputs without the field: the old
+ * global corners become output 1's, so nobody loses last night's alignment.
+ * Once by construction — after the first save every output carries the field,
+ * and a list that has it is returned untouched.
+ */
+export function migrateKeystone(rawOutputs: unknown, legacy: unknown): OutputCfg[] {
+  const list = sanitizeOutputs(rawOutputs)
+  const first = Array.isArray(rawOutputs) ? rawOutputs[0] : null
+  const hasField = !!first && typeof first === 'object' && 'keystone' in first
+  if (!hasField && Array.isArray(legacy)) list[0] = { ...list[0], keystone: sanitizeKeystone(legacy) }
+  return list
 }
 
 /** Always at least one: the projector cannot be removed, only reconfigured. */

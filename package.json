@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.53.0-beta",
+  "version": "0.54.0-beta",
   "private": true,
   "license": "UNLICENSED",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
@@ -31,9 +31,13 @@
     "check:pixelmap": "node scripts/check-pixelmap.mjs",
     "check:idle": "node scripts/check-idle.mjs",
     "check:palette": "node scripts/check-palette.mjs",
+    "check:soundcheck": "node scripts/check-soundcheck.mjs",
+    "check:obs": "node scripts/check-obs.mjs",
+    "check:reel": "node scripts/check-reel.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:buttons": "node scripts/check-button-classes.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
+    "check:deckmix": "python3 scripts/check-deckmix.py",
     "shader:preview": "python3 scripts/shader-preview.py"
   },
   "build": {
