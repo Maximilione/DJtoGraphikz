@@ -12,7 +12,7 @@ interface AutoVJPanelProps {
 }
 
 
-const PHASE_LABEL: Record<Phase, string> = { break: 'Pausa', groove: 'Groove', peak: 'Picco' }
+const PHASE_LABEL: Record<Phase, string> = { break: 'Pausa', build: 'Salita', groove: 'Groove', peak: 'Picco' }
 
 export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
   const config = GENRE_CONFIGS[vjGenre]
@@ -31,7 +31,7 @@ export function AutoVJPanel({ vjEnabled, vjGenre, vjStatus, onToggle, onGenre }:
             Configurazione {config.label}
           </summary>
           <div style={{ paddingLeft: '6px', lineHeight: '1.6' }}>
-            {(['break', 'groove', 'peak'] as Phase[]).map(ph => (
+            {(['break', 'build', 'groove', 'peak'] as Phase[]).map(ph => (
               <div key={ph}>
                 <span style={{ color: 'var(--accent)' }}>{PHASE_LABEL[ph]}:</span>{' '}
                 {config.scenes.filter(sc => sc.phase === ph).map(sc => sc.effect).join(', ')}

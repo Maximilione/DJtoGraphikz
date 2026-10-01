@@ -65,6 +65,7 @@ export class BeatTracker {
 
   acfBpm = 0
   acfConfidence = 0
+  private heldBpm = 0
   private tempoCandidates: number[] = []
 
   // Phase-locked loop
@@ -81,9 +82,23 @@ export class BeatTracker {
   // PLL locked on the offbeat (hats) — flip half a period
   private gridEvidence = 0
   private antiEvidence = 0
+  private antiRun = 0
+
+  // Where the kick-band onsets fall in the beat cycle, in eighths of a beat.
+  // The anti-phase flip only knows about half a beat; a grid anchored on a
+  // stab a quarter of a beat off the kick never saw a kick within its
+  // acceptance window again. Every 16 onsets the grid moves to the bin the
+  // kicks actually recur in.
+  private phaseBins = new Float32Array(8)
+  private onsetsSinceRecentre = 0
+  private l1 = 0                       // kick-band flux one frame ago
 
   /** external tempo (library/manual) the PLL free-runs on; 0 = unknown */
   externalBpm = 0
+  /** why each beat was accepted — the replay tool reads it; nothing in the app does */
+  readonly accepted = { anchor: 0, grid: 0, flip: 0, resync: 0, free: 0, recentre: 0 }
+  /** last adaptive threshold — the replay tool reads it */
+  lastThreshold = 0
   sensitivity = 1.4
 
   reset() {
@@ -97,17 +112,28 @@ export class BeatTracker {
     this.gridStartMs = 0
     this.acfBpm = 0
     this.acfConfidence = 0
+    this.heldBpm = 0
     this.tempoCandidates = []
     this.phase = 0
     this.beatIndex = 0
     this.lastBeatAt = 0
+    this.gridEvidence = 0
+    this.antiEvidence = 0
+    this.antiRun = 0
+    this.phaseBins.fill(0)
+    this.onsetsSinceRecentre = 0
+    this.l1 = 0
     this.slotStrength = [0, 0, 0, 0]
   }
 
   /** Best tempo this tracker knows: caller's external BPM wins when the ACF agrees or is unsure */
   bpm(): number {
     if (this.externalBpm > 0) return this.externalBpm
-    return this.acfConfidence > 0.5 ? this.acfBpm : 0
+    if (this.acfConfidence > 0.5) return this.acfBpm
+    // a breakdown takes the confidence away, not the tempo: the PLL keeps the
+    // last tempo it trusted instead of falling back to free onset detection,
+    // which fires on every hat (23% of beats at half a period on a tekno mix)
+    return this.heldBpm
   }
 
   /**
@@ -199,6 +225,7 @@ export class BeatTracker {
       for (let i = 0; i < n; i++) this.medianScratch[i] = Math.abs(this.fluxHistory[i] - med)
       const mad = medianInto(this.medianScratch, n)
       const threshold = med + (mad * 1.4826) * (1.5 * this.sensitivity)
+      this.lastThreshold = threshold
 
       // peak picking one frame late: f1 must be a local max above threshold
       const isPeak = this.f1 > threshold && this.f1 >= this.f2 && this.f1 >= flux && this.f1 > 0.002
@@ -208,11 +235,13 @@ export class BeatTracker {
         const period = bpm > 0 ? 60000 / bpm : 0
         const since = nowMs - this.lastBeatAt
         if (period > 0) {
+          this.recordOnsetPhase()
           // first-ever onset anchors the grid — with an external BPM the PLL
           // otherwise free-runs from an arbitrary phase and never locks
           if (this.lastBeatAt === 0) {
             this.phase = 0
             beat = true
+            this.accepted.anchor++
           }
           // acceptance is anchored to the PLL phase, not to the last accepted
           // beat — a wrong anchor would lock the grid onto the hats forever
@@ -221,29 +250,50 @@ export class BeatTracker {
           if (beat) { /* anchored above */ }
           else if (refractoryOk && d < 0.15) {
             beat = true
-            this.gridEvidence = this.gridEvidence * 0.9 + this.f1
+            this.accepted.grid++
+            // kick-band strength, not full flux: the grid belongs to the kick,
+            // and a stab louder than the kick in the full band flipped it
+            this.gridEvidence = this.gridEvidence * 0.9 + this.l1
+            // the other side forgets at the same rate: a stab every fourth
+            // beat must not pile up against a kick on every beat
+            this.antiEvidence *= 0.9
+            this.antiRun = 0
           } else if (refractoryOk && d > 0.35) {
             // strong onsets consistently on the offbeat → we are anti-phase
-            this.antiEvidence = this.antiEvidence * 0.9 + this.f1
-            if (this.antiEvidence > this.gridEvidence * 1.3) {
+            this.antiEvidence = this.antiEvidence * 0.9 + this.l1
+            this.gridEvidence *= 0.9
+            this.antiRun++
+            // flip only on a run of offbeat hits with nothing on the grid in
+            // between: one loud stab must not turn the grid around
+            if (this.antiEvidence > this.gridEvidence * 1.3 && this.antiRun >= 3) {
+              this.antiRun = 0
               this.phase = (this.phase + 0.5) % 1
               const t = this.gridEvidence
               this.gridEvidence = this.antiEvidence
               this.antiEvidence = t
               beat = true
+              this.accepted.flip++
             }
-          } else if (refractoryOk && this.f1 > threshold * 3) {
-            // a drop/track change: huge onset off the old grid — hard resync
+          } else if (since > period * 4 && this.f1 > threshold * 2) {
+            // the grid is lost — nothing accepted for four beats (a break, a
+            // track change) — so the next strong onset becomes the new
+            // anchor. That is the drop, and it lands on it.
+            // It used to be "any onset above 3x the median, any time": on a
+            // house track with a dotted-eighth stab that fired on every stab,
+            // 341 times in 443 beats, and ran the grid at 4/3 of the tempo.
             this.phase = 0
             beat = true
+            this.accepted.resync++
           }
         } else if (since > 200 || this.lastBeatAt === 0) {
           beat = true // no tempo yet — free detection with a hard 200ms floor
+          this.accepted.free++
         }
       }
     }
     this.f2 = this.f1
     this.f1 = flux
+    this.l1 = lowFlux
 
     // --- phase: free-runs on tempo, gently pulled onto detected beats (PLL) ---
     const bpm = this.bpm()
@@ -276,6 +326,28 @@ export class BeatTracker {
       barPhase: (this.beatIndex + this.phase) / 4,
       acfBpm: this.acfBpm,
       acfConfidence: this.acfConfidence,
+    }
+  }
+
+  /** kick-band onset strength per eighth of the beat cycle; every 16 onsets the
+      grid is moved onto the bin the kicks recur in, if it is clearly not bin 0 */
+  private recordOnsetPhase() {
+    // the peak was one frame ago: its phase is the current one minus a frame,
+    // close enough at an eighth of a beat
+    const bin = Math.round(this.phase * 8) % 8
+    for (let i = 0; i < 8; i++) this.phaseBins[i] *= 0.97
+    this.phaseBins[bin] += this.l1
+    if (++this.onsetsSinceRecentre < 16) return
+    this.onsetsSinceRecentre = 0
+    let best = 0
+    for (let i = 1; i < 8; i++) if (this.phaseBins[i] > this.phaseBins[best]) best = i
+    // bins 7 and 1 are the acceptance window itself, the PLL handles those
+    if (best >= 2 && best <= 6 && this.phaseBins[best] > this.phaseBins[0] * 1.5) {
+      this.phase = (this.phase - best / 8 + 1) % 1
+      const rotated = Array.from(this.phaseBins)
+      for (let i = 0; i < 8; i++) this.phaseBins[i] = rotated[(i + best) % 8]
+      this.gridEvidence = this.antiEvidence = 0
+      this.accepted.recentre++
     }
   }
 
@@ -378,6 +450,7 @@ export class BeatTracker {
       this.acfBpm = medBpm
       this.acfConfidence = spread < 2 ? 0.4 : 0.2
     }
+    if (this.acfConfidence > 0.5) this.heldBpm = this.acfBpm
   }
 
 }

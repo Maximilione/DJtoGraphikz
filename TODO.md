@@ -33,15 +33,15 @@ C4 e C6 in v0.27.3-beta, C7..C20 in v0.28.0-beta. In archivio in fondo.
 
 ## 4. FUNZIONALITÀ — il resto della roadmap
 
-Ordine consigliato dallo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto"): **S6 → S7 → S8** prima della serata, poi I8, Q5, I6, P4.
+Ordine consigliato dallo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto"): S6, S7, S8 fatti (v0.50–0.51); poi **I8, Q5, I6, P4**.
 
 Serata — servono mentre si suona, al buio, sotto pressione:
 
 - [ ] **S2 Beat-roll (stutter a tempo)** — tenendo un tasto l'immagine viene ripetuta ogni 1/4, 1/8, 1/16 di battuta usando la fase del PLL già disponibile: l'equivalente visivo del loop roll del DJ. Un solo buffer in più oltre al freeze esistente · **S/M**
 - [x] **S4 Struttura del pezzo: breakdown / build / drop** — fatto in v0.49.0 dentro l'Auto VJ (`AutoVJ.ts`: fasi pausa/groove/picco dagli inviluppi di basso ed energia, cambio **sul drop** con taglio secco, tenuta nel breakdown). Manca solo la parte visibile: i tre indicatori sopra il BeatTracker e un `onPhaseChange` per I4 · **S**
 - [x] **S6 Taratura delle fasi sull'impianto vero** — fatto in v0.50.0 per quanto si puo' a tavolino: `yarn check:phases` rigioca una registrazione nel rilevatore senza app ne' audio; su un mix hard tekno 3 drop su 3, 2 pause su 3, 1 falso drop. **Da rifare con una registrazione dall'impianto della serata**: 10 minuti dal mixer, cue a mano (`m:ss drop|break`), `yarn check:phases rec.wav --genre hard-tekno --cues rec.cues`, poi ritoccare `PHASE` in `AutoVJ.ts` · **S**
-- [ ] **S7 Spie di fase** — la parte visibile di S4: pausa / groove / picco sopra il BeatTracker, piu' `onPhaseChange` nell'Auto VJ (lo riusa I4 per il reel sul drop) · **S**
-- [ ] **S8 Build-up come quarta fase** — energia in salita e kick assente per piu' di 4 battute = build, oggi trattato come pausa. Scene dedicate (impact lento, eclipse che si allarga, radar che accelera) e il drop che arriva da un build ha piu' peso. DjMirror Pulse lo nomina come sezione, noi no (studio 2026-10-01) · **M**
+- [x] **S7 Spie di fase** — fatto in v0.51.0: pausa / salita / groove / picco sotto lo spettro, `onPhaseChange` nell'Auto VJ · **S**
+- [x] **S8 Build-up come quarta fase** — fatto in v0.51.0: `build` = pausa con energia in salita e niente kick, scene dedicate per genere mappate all'energia; sul mix tekno compare nei 20 s prima di ogni drop · **M**
 - [ ] **S5 Idle sicuro sul silenzio** — se l'audio manca per N secondi, dissolvenza su un look calmo o sul logo invece di lasciare un fermo immagine o un pattern impazzito; rientra da solo. Noise gate e recovery esistono già, manca la politica · **S**
 
 Preparazione — per arrivare pronti alla serata:

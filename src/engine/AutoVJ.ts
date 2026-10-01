@@ -37,8 +37,8 @@ export type Genre =
   | 'tech-house'
   | 'psytrance'
 
-/** The moment of the track a scene is written for */
-export type Phase = 'break' | 'groove' | 'peak'
+/** The moment of the track a scene is written for. `build` is the rise before the drop: no kick yet, energy climbing. */
+export type Phase = 'break' | 'build' | 'groove' | 'peak'
 
 /** Visual family — what the eye sees, so two of a kind never follow each other */
 export type Family =
@@ -136,6 +136,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'radar', ['bloom', 'scanlines'], { sweep: v(0.5), blips: v(6), fade: v(1.5) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.9), swirl: v(1.4), dissipate: v(0.3) }),
       s('break', 'halftone', ['filmgrain'], { dots: v(50), contrast: v(1.8), drift: v(0.4) }),
+      s('build', 'impact', ['bloom'], { speed: v(0.6), rings: v(2), width: v(2.5), fade: v(0.4) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.8, 'energy', 0.6), wobble: v(0.8) }),
+      s('build', 'radar', ['bloom', 'scanlines'], { sweep: a(1.5, 'energy', 0.8), blips: v(16), fade: v(3) }),
+      s('build', 'blinds', ['filmgrain'], { slats: v(12), open: a(0.15, 'energy', 0.9), tilt: v(0.4) }),
       s('groove', 'spiral', ['filmgrain'], { arms: v(2), twist: v(8), pulse: v(0.6) }),
       s('groove', 'tribal', ['filmgrain'], { blades: v(8), spikes: a(0.6, 'high', 0.3), turn: v(1) }),
       s('groove', 'chevrons', [], { lanes: v(5), thickness: v(0.5), drift: v(1.5) }),
@@ -174,6 +178,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'eclipse', ['bloom'], { radius: v(0.32), corona: a(1, 'bass', 0.6), wobble: v(0.6) }),
       s('break', 'warehouse', ['filmgrain'], { pillars: v(1.5), fog: v(1.5), flicker: v(0.9) }),
       s('break', 'halftone', ['filmgrain'], { dots: v(40), contrast: v(2.2), drift: v(0.8) }),
+      s('build', 'impact', ['bloom'], { speed: v(0.7), rings: v(3), width: v(2), fade: v(0.5) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.2), corona: a(2, 'energy', 0.6), wobble: v(1) }),
+      s('build', 'sevenseg', ['bloom', 'scanlines'], { digits: v(4), ghost: v(0.15), jitter: a(0.2, 'energy', 0.8) }),
       s('groove', 'chevrons', [], { lanes: v(7), thickness: v(0.55), drift: v(2) }),
       s('groove', 'barcode', ['scanlines'], { bars: v(80), gap: v(0.5), jitter: v(1.6) }),
       s('groove', 'tribal', ['filmgrain'], { blades: v(12), spikes: v(0.8), turn: v(1) }),
@@ -212,6 +219,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'halftone', ['filmgrain'], { dots: v(60), contrast: v(1.6), drift: v(0.6) }),
       s('break', 'gyroid', ['bloom'], { cells: v(1.8), shell: v(0.35), travel: v(0.6) }),
       s('break', 'radar', ['bloom', 'scanlines'], { sweep: v(1), blips: v(8), fade: v(1.5) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.26), corona: a(1.2, 'energy', 0.7), wobble: v(0.5) }),
+      s('build', 'cracks', ['bloom'], { speed: v(0.5), cells: v(5), width: v(1.5), glow: a(0.6, 'energy', 0.8) }),
+      s('build', 'blinds', ['filmgrain'], { slats: v(10), open: a(0.2, 'energy', 0.8), tilt: v(0.5) }),
+      s('build', 'radar', ['bloom', 'scanlines'], { sweep: a(0.8, 'energy', 0.8), blips: v(12), fade: v(3) }),
       s('groove', 'cracks', ['bloom'], { cells: v(8), width: v(1), glow: a(1, 'bass', 0.6) }),
       s('groove', 'blinds', ['filmgrain'], { slats: v(14), open: a(0.5, 'bass', 0.5), tilt: v(0.2) }),
       s('groove', 'cage', ['bloom', 'chromatic'], { size: v(1), thickness: v(2), spin: v(0.6) }),
@@ -253,6 +264,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'caustics', ['bloom'], { causticscale: v(1.6), sharpness: v(0.7), depthk: v(1) }),
       s('break', 'inkflow', ['filmgrain'], { inkscale: v(2.2), flowspd: a(0.6, 'bass', 0.3), inkcontrast: v(1.3) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(1), swirl: v(1.6), dissipate: v(0.25) }),
+      s('build', 'spiral', ['bloom'], { speed: a(0.4, 'energy', 0.8), arms: v(6), twist: v(12), pulse: v(0.2) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.6, 'energy', 0.6), wobble: v(1) }),
+      s('build', 'quasicrystal', ['bloom', 'chromatic'], { speed: a(0.5, 'energy', 0.8), waves: v(9), qfreq: v(80), contrast: v(0.5) }),
       s('groove', 'spiral', ['filmgrain'], { arms: v(3), twist: a(7, 'lfo-sine', 0.3, 16), pulse: v(0.4) }),
       s('groove', 'quasicrystal', ['bloom', 'chromatic'], { waves: v(5), qfreq: v(60), contrast: a(0.4, 'high', 0.4) }),
       s('groove', 'tunnel', ['bloom'], { speed: v(1.2), twist: a(0.5, 'lfo-sine', 0.5, 8), ringdensity: a(8, 'bass', 0.35) }),
@@ -294,6 +308,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'caustics', ['bloom'], { causticscale: v(1.4), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.1) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.7), swirl: v(1), dissipate: v(0.4) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.3), corona: v(0.6), wobble: v(0.2) }),
+      s('build', 'stringart', ['bloom'], { speed: a(0.5, 'energy', 0.6), nodes: v(120), multiplier: v(2.4), linew: v(0.6) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.3), corona: a(0.8, 'energy', 0.6), wobble: v(0.3) }),
+      s('build', 'blinds', ['filmgrain'], { slats: v(20), open: a(0.15, 'energy', 0.8), tilt: v(0.5) }),
       s('groove', 'stringart', ['bloom'], { nodes: v(84), multiplier: a(2.4, 'lfo-sine', 0.4, 64), linew: v(0.9) }),
       s('groove', 'truchet', ['bloom'], { tiles: v(7), thickness: v(1.2), flip: v(0.25) }),
       s('groove', 'swarm', ['bloom', 'feedback'], { turbulence: v(0.7), drag: v(0.2), burst: v(0.6), dotsize: v(3.2) }),
@@ -334,6 +351,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'ripples', ['bloom'], { spreadv: v(1.6), heightk: a(1.1, 'bass', 0.4), sheen: v(1.4) }),
       s('break', 'plasma', ['bloom'], { speed: v(0.9), zoom: v(1.1), ringfreq: a(14, 'lfo-sine', 0.3, 16) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.26), corona: v(1.4), wobble: v(0.3) }),
+      s('build', 'starfield', ['bloom'], { speed: a(0.6, 'energy', 0.9), tile: v(6), density: v(0.5) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.24), corona: a(1.4, 'energy', 0.7), wobble: v(0.4) }),
+      s('build', 'sacred', ['bloom'], { speed: a(0.5, 'energy', 0.7), zoom: v(1.4), radius: v(0.32), ringfreq: v(9) }),
       s('groove', 'stringart', ['bloom'], { nodes: v(96), multiplier: a(3.2, 'lfo-saw', 0.3, 64), linew: v(0.8) }),
       s('groove', 'kaleidoscope', ['bloom', 'chromatic'], { segments: v(12), zoom: a(1.1, 'lfo-sine', 0.35, 16), detail: v(2.4) }),
       s('groove', 'mandala', ['bloom', 'feedback'], { symmetry: v(12), ringfreq: a(6, 'bass', 0.35) }),
@@ -371,6 +391,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'radar', ['bloom', 'scanlines'], { sweep: v(1), blips: v(10), fade: v(1.5) }),
       s('break', 'static', ['scanlines'], { grain: v(2), roll: v(0.6), bands: v(0.3) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.26), corona: a(1, 'bass', 0.6), wobble: v(0.6) }),
+      s('build', 'spectrum', ['bloom', 'scanlines'], { bars: v(96), mirror: v(1), scope: a(0.5, 'energy', 0.8) }),
+      s('build', 'impact', ['bloom'], { speed: v(0.8), rings: v(3), width: v(2), fade: v(0.5) }),
+      s('build', 'downpour', ['filmgrain'], { density: a(40, 'energy', 0.9), streak: v(0.3), wind: v(0.3) }),
       s('groove', 'swarm', ['bloom', 'feedback'], { turbulence: v(1.8), drag: v(0.5), burst: v(1.5), dotsize: v(2.2) }),
       s('groove', 'particles', ['bloom'], { count: v(32), size: a(0.012, 'bass', 0.5), spread: v(1.2) }),
       s('groove', 'pulsecity', ['bloom'], { columns: v(28), gapw: v(0.14), punch: a(1.4, 'bass', 0.5) }),
@@ -422,6 +445,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'lissajous', ['bloom', 'feedback'], { speed: v(0.5), freqa: v(2), freqb: v(3), size: v(0.5) }),
       s('break', 'eclipse', ['bloom'], { speed: v(0.6), radius: v(0.3), corona: v(0.8), wobble: v(0.2) }),
       s('break', 'downpour', ['filmgrain'], { speed: v(0.7), density: v(40), streak: v(0.3), wind: v(0.1) }),
+      s('build', 'caustics', ['bloom'], { speed: a(0.5, 'energy', 0.6), causticscale: v(1.2), sharpness: v(0.8), depthk: v(1.3) }),
+      s('build', 'eclipse', ['bloom'], { speed: v(0.5), radius: v(0.3), corona: a(0.9, 'energy', 0.6), wobble: v(0.2) }),
+      s('build', 'starfield', ['bloom'], { speed: a(0.4, 'energy', 0.7), tile: v(4), density: v(0.5) }),
       s('groove', 'metaballs', ['bloom'], { count: v(6), size: a(0.1, 'bass', 0.3), threshold: v(1.1) }),
       s('groove', 'sacred', ['bloom'], { speed: v(0.5), zoom: v(1.1), radius: v(0.35), ringfreq: a(6, 'lfo-sine', 0.2, 32) }),
       s('groove', 'mandala', ['bloom', 'feedback'], { speed: v(0.5), symmetry: v(10), ringfreq: a(6, 'lfo-sine', 0.2, 32) }),
@@ -453,6 +479,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'ripples', ['bloom'], { spreadv: v(1.4), heightk: a(1, 'bass', 0.4), sheen: v(1.2) }),
       s('break', 'caustics', ['bloom'], { causticscale: v(1.5), sharpness: v(0.7), depthk: v(1) }),
       s('break', 'blinds', ['filmgrain'], { slats: v(12), open: v(0.6), tilt: v(0.3) }),
+      s('build', 'blinds', ['filmgrain'], { slats: v(16), open: a(0.2, 'energy', 0.8), tilt: v(0.3) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.26), corona: a(1.2, 'energy', 0.6), wobble: v(0.4) }),
+      s('build', 'rings', ['bloom'], { speed: a(0.5, 'energy', 0.8), ringcount: v(6), spacing: v(0.12), gapfreq: v(4) }),
       s('groove', 'truchet', ['bloom'], { tiles: v(10), thickness: a(1, 'bass', 0.4), flip: v(0.5) }),
       s('groove', 'metaballs', ['bloom'], { count: v(7), size: a(0.1, 'bass', 0.4), threshold: v(1) }),
       s('groove', 'voronoi', ['bloom'], { cells: v(9), edgewidth: a(0.05, 'mid', 0.4) }),
@@ -491,6 +520,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'inkflow', ['filmgrain'], { inkscale: v(2.4), flowspd: a(0.6, 'bass', 0.3), inkcontrast: v(1.4) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(1), swirl: v(2), dissipate: v(0.25) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.24), corona: a(1.4, 'bass', 0.5), wobble: v(1) }),
+      s('build', 'spiral', ['bloom'], { speed: a(0.4, 'energy', 0.9), arms: v(7), twist: v(14), pulse: v(0.2) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.8, 'energy', 0.6), wobble: v(1) }),
+      s('build', 'gyroid', ['bloom'], { cells: v(2.4), shell: v(0.3), travel: a(0.3, 'energy', 0.9) }),
       s('groove', 'gyroid', ['bloom'], { cells: v(2.4), shell: a(0.45, 'bass', 0.4), travel: v(1) }),
       s('groove', 'swarm', ['bloom', 'feedback'], { turbulence: a(1.4, 'lfo-sine', 0.35, 32), drag: v(0.3), burst: v(1.2), dotsize: v(2.6) }),
       s('groove', 'fractal', ['bloom', 'chromatic'], { iterations: v(36), zoom: a(1.3, 'bass', 0.5), morph: a(0.25, 'lfo-sine', 0.5, 8) }),
@@ -559,6 +591,8 @@ export const PHASE = {
   peakAbove: 0.03,
   peakRelease: 0.012,
   peakHoldMs: 2500,
+  /** in a break, loudness this far above where the break started = the build (0.02 is 1.6 dB) */
+  buildAbove: 0.02,
 }
 /** a scene keeps its palette for this many groove/peak switches */
 const PALETTE_EVERY = 4
@@ -590,6 +624,7 @@ export class AutoVJ {
   private kickLowSince = -1
   private kickBackSince = -1
   private breakSince = 0
+  private breakLoud = 0
   // loudness against its own long mean
   private loud = 0
   private loudMean = -1
@@ -613,6 +648,8 @@ export class AutoVJ {
   public onSceneChange: ((scene: Scene, cut: SceneCut, phase: Phase) => void) | null = null
   public onPostChange: ((posts: PostId[]) => void) | null = null
   public onPaletteChange: ((colors: [string, string, string]) => void) | null = null
+  /** the phase lamps and the reel (I4) listen here; fires on every change, scene or not */
+  public onPhaseChange: ((phase: Phase) => void) | null = null
 
   setEnabled(enabled: boolean) {
     this.enabled = enabled
@@ -631,8 +668,15 @@ export class AutoVJ {
     this.reset()
   }
 
+  private setPhase(phase: Phase) {
+    if (phase === this.phase) return
+    this.phase = phase
+    this.onPhaseChange?.(phase)
+  }
+
   private reset() {
     this.phase = 'groove'
+    this.breakLoud = 0
     this.beatsSinceSwitch = 0
     this.armed = false
     this.recent = []
@@ -683,8 +727,8 @@ export class AutoVJ {
     }
 
     // --- the drop: the bass comes back sharply after a break. Cut now.
-    if (this.phase === 'break' && t - this.breakSince > 4000 && rise > PHASE.dropRise) {
-      this.phase = 'peak'
+    if ((this.phase === 'break' || this.phase === 'build') && t - this.breakSince > 4000 && rise > PHASE.dropRise) {
+      this.setPhase('peak')
       this.loudHighSince = t
       this.kickLowSince = -1
       this.swing = PHASE.kickBack          // assume the kick is back; the envelope confirms in a beat
@@ -696,9 +740,10 @@ export class AutoVJ {
     // --- the break: no kick for a while. Fade slow, then hold.
     if (kick < PHASE.breakKick) {
       if (this.kickLowSince < 0) this.kickLowSince = t
-      else if (this.phase !== 'break' && t - this.kickLowSince > PHASE.breakHoldMs) {
-        this.phase = 'break'
+      else if (this.phase !== 'break' && this.phase !== 'build' && t - this.kickLowSince > PHASE.breakHoldMs) {
+        this.setPhase('break')
         this.breakSince = t
+        this.breakLoud = this.loud
         this.armed = false
         this.switchTo(config, 'break', BREAK_CUT)
         return
@@ -707,26 +752,34 @@ export class AutoVJ {
       this.kickLowSince = -1
     }
     // a kick that fades back in without a drop: leave the break quietly
-    if (this.phase === 'break' && kick > PHASE.kickBack) {
+    if ((this.phase === 'break' || this.phase === 'build') && kick > PHASE.kickBack) {
       if (this.kickBackSince < 0) this.kickBackSince = t
-      else if (t - this.kickBackSince > 2000) { this.phase = 'groove'; this.armed = true; this.armedAt = t }
+      else if (t - this.kickBackSince > 2000) { this.setPhase('groove'); this.armed = true; this.armedAt = t }
     } else {
       this.kickBackSince = -1
     }
+    // the build: still no kick, but the room is getting louder than the break was
+    if (this.phase === 'break' && t - this.breakSince > 4000 && this.loud - this.breakLoud > PHASE.buildAbove) {
+      this.setPhase('build')
+      this.switchTo(config, 'build', config.cut)
+      return
+    }
+    // a build that sags back to where the break was is a break again
+    if (this.phase === 'build' && this.loud - this.breakLoud < PHASE.buildAbove * 0.25) this.setPhase('break')
 
     // --- peak / groove on loudness, with hysteresis
-    if (this.phase !== 'break' && this.loudMean >= 0) {
+    if (this.phase !== 'break' && this.phase !== 'build' && this.loudMean >= 0) {
       const above = this.loud - this.loudMean
       if (above > PHASE.peakAbove) {
         if (this.loudHighSince < 0) this.loudHighSince = t
         else if (this.phase === 'groove' && t - this.loudHighSince > PHASE.peakHoldMs) {
-          this.phase = 'peak'
+          this.setPhase('peak')
           this.armed = true       // a peak wants its own scene on the next downbeat
           this.armedAt = t
         }
       } else {
         this.loudHighSince = -1
-        if (this.phase === 'peak' && above < PHASE.peakRelease) this.phase = 'groove'
+        if (this.phase === 'peak' && above < PHASE.peakRelease) this.setPhase('groove')
       }
     }
 
@@ -758,7 +811,7 @@ export class AutoVJ {
   /** beats a scene lasts in the current phase */
   private phraseBeats(config: GenreConfig): number {
     const bars = this.phase === 'peak' ? Math.max(2, config.phraseBars / 2)
-      : this.phase === 'break' ? config.phraseBars * 2
+      : this.phase === 'break' || this.phase === 'build' ? config.phraseBars * 2
       : config.phraseBars
     return bars * 4
   }
@@ -772,7 +825,7 @@ export class AutoVJ {
     this.onSceneChange?.(scene, cut, phase)
     this.onPostChange?.(scene.posts)
     // the palette block counts groove and peak scenes; a break keeps its colour
-    if (phase !== 'break') {
+    if (phase !== 'break' && phase !== 'build') {
       this.switchesOnPalette += 1
       if (this.switchesOnPalette >= PALETTE_EVERY) this.nextPalette(config)
     }
@@ -794,7 +847,9 @@ export class AutoVJ {
    */
   private pick(config: GenreConfig, phase: Phase): Scene | null {
     const inPhase = config.scenes.filter(sc => sc.phase === phase)
+    // a genre with no build scenes rides the build on its break scenes
     const pool = inPhase.length ? inPhase
+      : phase === 'build' ? config.scenes.filter(sc => sc.phase === 'break')
       : config.scenes.filter(sc => sc.phase === 'groove')
     if (!pool.length) return null
     const notRecent = (sc: Scene) => !this.recent.includes(sc.effect)
