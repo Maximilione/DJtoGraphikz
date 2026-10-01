@@ -104,6 +104,12 @@ const api = {
     ipcRenderer.on('prolink:devices', handler)
     return () => { ipcRenderer.removeListener('prolink:devices', handler) }
   },
+  // A new track (rekordbox id) on the followed deck — once per change
+  onProLinkTrack: (callback: (track: { device: number; trackId: number; master: boolean }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, track: any) => callback(track)
+    ipcRenderer.on('prolink:track', handler)
+    return () => { ipcRenderer.removeListener('prolink:track', handler) }
+  },
 
   // Output window status (U1.3)
   getOutputInfo: (): Promise<{ open: boolean; fullscreen: boolean; display: string; count?: number }> =>
