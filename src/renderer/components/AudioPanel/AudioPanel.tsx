@@ -4,6 +4,7 @@ import { pushToast } from '../Toasts/Toasts'
 import { listAudioInputs } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
+import type { Phase } from '@engine/AutoVJ'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { Panel } from '../Panel/Panel'
 // one source of truth: a venue profile rewrites this very store (P2)
@@ -11,6 +12,8 @@ import { AUDIO_STORE_KEY } from '../../venues'
 
 interface AudioPanelProps {
   engine: Engine | null
+  /** the Auto VJ's reading of the track; null when it is off */
+  phase?: Phase | null
 }
 
 const BPM_MODES: { id: BpmMode; label: string; hint: string }[] = [
@@ -42,7 +45,11 @@ function loadAudioSettings(): SavedAudioSettings {
   return readJson<SavedAudioSettings | null>(AUDIO_STORE_KEY, null) ?? {}
 }
 
-export function AudioPanel({ engine }: AudioPanelProps) {
+const PHASES: { id: Phase; label: string }[] = [
+  { id: 'break', label: 'pausa' }, { id: 'build', label: 'salita' }, { id: 'groove', label: 'groove' }, { id: 'peak', label: 'picco' },
+]
+
+export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
   // Persisted settings from the previous session — read once per mount
   const savedRef = useRef<SavedAudioSettings>(loadAudioSettings())
   const saved = savedRef.current
@@ -70,6 +77,9 @@ export function AudioPanel({ engine }: AudioPanelProps) {
   const shownBpmRef = useRef(128)
   const shownConfRef = useRef(0)
   const beatFlashRef = useRef(0)
+  // read inside the rAF loop, so a ref and not a closure over a stale prop
+  const phaseRef = useRef<Phase | null>(phase)
+  phaseRef.current = phase
 
   const refreshDevices = async () => {
     try {
@@ -320,6 +330,18 @@ export function AudioPanel({ engine }: AudioPanelProps) {
       ctx.fillText(`Energy: ${(audioData.energy * 100).toFixed(0)}%`, 4, 24)
       ctx.fillText(`Bass: ${(audioData.bass * 100).toFixed(0)}%`, w - 80, 12)
       ctx.fillText(`Beat: ${audioData.beatDetected ? 'YES' : '-'}`, w - 80, 24)
+
+      // the Auto VJ's phase lamps, bottom row: what the machine hears the
+      // track doing — pausa / salita / groove / picco
+      if (phaseRef.current) {
+        let x = 4
+        for (const ph of PHASES) {
+          const on = ph.id === phaseRef.current
+          ctx.fillStyle = on ? '#00ff88' : 'rgba(255,255,255,0.28)'
+          ctx.fillText(on ? `● ${ph.label}` : `○ ${ph.label}`, x, h - 5)
+          x += ctx.measureText(`● ${ph.label}`).width + 10
+        }
+      }
     }
 
     animFrameRef.current = requestAnimationFrame(drawSpectrum)

@@ -282,6 +282,7 @@ export function App() {
       setVjStatus(prev => ({ current: scene.effect, count: prev.count + 1, phase }))
     }
     vj.onPostChange = (posts) => eng.setActivePosts(posts)
+    vj.onPhaseChange = (phase) => setVjStatus(prev => ({ ...prev, phase }))
     vj.onPaletteChange = (colors) => eng.setColors(colors[0], colors[1], colors[2])
     const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw) =>
       vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw }))
@@ -308,6 +309,7 @@ export function App() {
       vj.onSceneChange = null
       vj.onPostChange = null
       vj.onPaletteChange = null
+      vj.onPhaseChange = null
       eng.dispose()
       setEngine(null)
     }
@@ -908,7 +910,7 @@ export function App() {
         {/* Left sidebar */}
         {mode !== 'live' && (
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
-          <AudioPanel key={panelEpoch} engine={engine} />
+          <AudioPanel key={panelEpoch} engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
           {mode === 'simple' ? (
             <>
               <SimplePanel

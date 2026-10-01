@@ -21,7 +21,7 @@ interface AutoVJControlProps {
  * of them. The list of ten became a select that carries the descriptions, so
  * both modes say the same thing and Pro spends one control where it spent ten.
  */
-const PHASE_LABEL: Record<Phase, string> = { break: 'pausa', groove: 'groove', peak: 'picco' }
+const PHASE_LABEL: Record<Phase, string> = { break: 'pausa', build: 'salita', groove: 'groove', peak: 'picco' }
 
 export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, size = 'sm' }: AutoVJControlProps) {
   const lg = size === 'lg'
