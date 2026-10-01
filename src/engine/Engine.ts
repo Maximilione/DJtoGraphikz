@@ -209,7 +209,6 @@ export interface EngineState {
   customParams?: EffectParam[]
   customImageInputs?: string[]
   customImages?: Record<string, string>
-  keystone?: number[]
   effectParams?: Record<string, Record<string, ParamState>>
   /** Param defs of the ACTIVE effect — read-only, for remote UIs */
   paramDefs?: EffectParam[]
@@ -463,7 +462,9 @@ export class Engine {
   /** Ordered post-FX chain — order matters as much as which effects are on */
   private postChain: { id: PostId; amount: number }[] = [{ id: 'bloom', amount: 1 }]
 
-  // Projection mapping: 4 corners (TL,TR,BR,BL) in 0..1 output space
+  // Projection mapping: 4 corners (TL,TR,BR,BL) in 0..1 output space.
+  // Per window, like the slice: it reaches an output with its OutputCfg, never
+  // in the state snapshot — the snapshot is the show, the corners are the wall.
   private keystone: number[] = [0, 0, 1, 0, 1, 1, 0, 1]
 
   // Dynamic resolution: heavy shaders (ISF raymarchers) drop the render-target
@@ -1397,12 +1398,15 @@ export class Engine {
     }
   }
 
-  /** Projection mapping — 8 values (TL,TR,BR,BL as x,y in 0..1). */
+  /**
+   * Projection mapping — 8 values (TL,TR,BR,BL as x,y in 0..1). In the control
+   * window this is the preview of the output being aligned; an output window
+   * gets its own through setSlice. No emit: it is not part of the snapshot.
+   */
   setKeystone(corners: number[]) {
-    if (corners.length !== 8) return
+    if (!Array.isArray(corners) || corners.length !== 8) return
     this.keystone = corners.map(v => Math.max(-0.5, Math.min(1.5, v)))
     this.applyKeystone()
-    this.emitState()
   }
 
   /**
@@ -1414,8 +1418,9 @@ export class Engine {
    *
    * src is x,y,w,h in 0..1 with y measured from the bottom, like uv.
    */
-  setSlice(s: { src?: number[]; gamma?: number; brightness?: number }) {
+  setSlice(s: { src?: number[]; gamma?: number; brightness?: number; keystone?: number[] }) {
     const u = this.masterMaterial.uniforms
+    if (s.keystone) this.setKeystone(s.keystone)
     if (s.src && s.src.length === 4) {
       const [x, y, w, h] = s.src
       // A zero-width slice is a black output that looks exactly like a dead
@@ -1428,8 +1433,6 @@ export class Engine {
     if (typeof s.gamma === 'number') u.uGamma.value = Math.max(0.2, Math.min(4, s.gamma))
     if (typeof s.brightness === 'number') u.uOutBright.value = Math.max(0, Math.min(1, s.brightness))
   }
-
-  getKeystone(): number[] { return [...this.keystone] }
 
   isKeystoneActive(): boolean {
     const def = [0, 0, 1, 0, 1, 1, 0, 1]
@@ -1817,7 +1820,6 @@ export class Engine {
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
-    if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
       this.cycleIntervalMs = state.cycle.intervalMs
@@ -1881,7 +1883,6 @@ export class Engine {
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
-    if (state.keystone) { this.keystone = state.keystone; this.applyKeystone() }
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -2326,7 +2327,6 @@ export class Engine {
       customParams: this.usingCustom ? this.customParamDefs : undefined,
       customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
       customImages: this.usingCustom ? this.customImages : undefined,
-      keystone: this.keystone,
       transitionType: this.transitionType,
       transitionDuration: this.transitionDuration,
       transitionBeatSync: this.transitionBeatSync,
