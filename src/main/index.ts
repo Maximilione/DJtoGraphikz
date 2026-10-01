@@ -42,10 +42,13 @@ interface OutputCfg {
   src: [number, number, number, number]
   gamma: number
   brightness: number
+  /** TL,TR,BR,BL as x,y — this wall's own projection mapping */
+  keystone: number[]
 }
 
 const DEFAULT_CFG: OutputCfg = {
   displayId: null, width: 1920, height: 1080, src: [0, 0, 1, 1], gamma: 1, brightness: 1,
+  keystone: [0, 0, 1, 0, 1, 1, 0, 1],
 }
 
 interface Output {

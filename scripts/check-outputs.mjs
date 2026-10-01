@@ -18,15 +18,58 @@ const out = await build({
   entryPoints: [join(REPO, 'src/renderer/outputs.ts')],
   bundle: true, format: 'esm', write: false, platform: 'neutral',
 })
-const { sanitizeOutput, sanitizeOutputs, totalPixels, DEFAULT_OUTPUT, PIXEL_BUDGET } =
+const {
+  sanitizeOutput, sanitizeOutputs, sanitizeKeystone, keystoneActive, migrateKeystone,
+  totalPixels, DEFAULT_OUTPUT, DEFAULT_KEYSTONE, PIXEL_BUDGET,
+} =
   await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 
 let checks = 0
 const check = (name, fn) => { fn(); checks++; console.log('  ok', name) }
 
+const SKEW = [0.05, 0.02, 0.98, 0, 1, 1, 0.03, 0.97]
+
 check('un\'uscita normale passa intatta', () => {
-  const o = { displayId: 7, width: 1536, height: 256, src: [0, 0.5, 1, 0.5], gamma: 1.8, brightness: 0.7 }
+  const o = { displayId: 7, width: 1536, height: 256, src: [0, 0.5, 1, 0.5], gamma: 1.8, brightness: 0.7, keystone: SKEW }
   assert.deepEqual(sanitizeOutput(o), o)
+})
+
+check('il keystone e\' 8 numeri finiti o niente — mai un quad degenere', () => {
+  assert.deepEqual(sanitizeKeystone(SKEW), SKEW)
+  assert.deepEqual(sanitizeKeystone([0, 0, 1, 0]), DEFAULT_KEYSTONE)
+  assert.deepEqual(sanitizeKeystone([0, 0, 1, 0, 1, 1, 0, NaN]), DEFAULT_KEYSTONE)
+  assert.deepEqual(sanitizeKeystone('storto'), DEFAULT_KEYSTONE)
+  assert.deepEqual(sanitizeKeystone(undefined), DEFAULT_KEYSTONE)
+  // fuori dalla finestra si puo' andare un po' (pincushion), non all'infinito
+  assert.deepEqual(sanitizeKeystone([-9, 0, 1, 0, 1, 1, 0, 9]), [-0.5, 0, 1, 0, 1, 1, 0, 1.5])
+  // ogni chiamata restituisce una copia: il default condiviso non si sporca
+  const k = sanitizeKeystone(null); k[0] = 0.3
+  assert.deepEqual(sanitizeKeystone(null), DEFAULT_KEYSTONE)
+  assert.ok(!keystoneActive(DEFAULT_KEYSTONE))
+  assert.ok(keystoneActive(SKEW))
+})
+
+check('un\'uscita salvata prima di I7 carica senza deformazione', () => {
+  assert.deepEqual(sanitizeOutput({}).keystone, DEFAULT_KEYSTONE)
+  assert.deepEqual(sanitizeOutputs(null)[0].keystone, DEFAULT_KEYSTONE)
+})
+
+check('il keystone globale di prima diventa quello dell\'uscita 1, una volta sola', () => {
+  const old = [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]
+  // lista pre-I7 + taratura della serata precedente: finisce sull'uscita 1
+  const m = migrateKeystone(old, SKEW)
+  assert.deepEqual(m[0].keystone, SKEW)
+  assert.deepEqual(m[1].keystone, DEFAULT_KEYSTONE)
+  assert.equal(m[0].width, 1280)
+  // nessuna lista salvata (primo avvio dopo l'aggiornamento): idem, sul proiettore
+  assert.deepEqual(migrateKeystone(null, SKEW)[0].keystone, SKEW)
+  // lista gia' migrata: il vecchio valore non sovrascrive piu' niente
+  const fresh = [{ keystone: DEFAULT_KEYSTONE }]
+  assert.deepEqual(migrateKeystone(fresh, SKEW)[0].keystone, DEFAULT_KEYSTONE)
+  // niente da migrare: default
+  assert.deepEqual(migrateKeystone(old, undefined)[0].keystone, DEFAULT_KEYSTONE)
+  // un vecchio valore rotto non passa la sanitizzazione
+  assert.deepEqual(migrateKeystone(old, [1, 2, 3])[0].keystone, DEFAULT_KEYSTONE)
 })
 
 check('la risoluzione resta dentro quello che una GPU disegna', () => {

@@ -3,11 +3,22 @@ import { Panel } from '../Panel/Panel'
 import { pushToast } from '../Toasts/Toasts'
 import { readJson, writeJson } from '../../storage'
 import {
-  DEFAULT_OUTPUT, OUTPUTS_KEY, PIXEL_BUDGET, sanitizeOutputs, totalPixels, type OutputCfg,
+  DEFAULT_OUTPUT, OUTPUTS_KEY, PIXEL_BUDGET, migrateKeystone, sanitizeOutputs, totalPixels,
+  type OutputCfg,
 } from '../../outputs'
 
+/** Same key App persists the session snapshot under — read here only for the one-off migration. */
+const SETTINGS_KEY = 'djtographikz-settings'
+
 function loadOutputs(): OutputCfg[] {
-  return sanitizeOutputs(readJson<unknown>(OUTPUTS_KEY, null))
+  const raw = readJson<unknown>(OUTPUTS_KEY, null)
+  // Pre-I7 the keystone was global and rode the session snapshot; the snapshot
+  // is rewritten without it within a second of boot, so the move has to be
+  // saved now or last night's alignment is gone on the next start.
+  const legacy = readJson<any>(SETTINGS_KEY, null)?.keystone
+  const list = migrateKeystone(raw, legacy)
+  if (Array.isArray(legacy)) writeJson(OUTPUTS_KEY, list)
+  return list
 }
 
 /** Saves and tells main in one move — the two must never disagree. */
@@ -171,7 +182,7 @@ export function useOutputs(): [OutputCfg[], (list: OutputCfg[]) => void] {
   const change = (list: OutputCfg[]) => {
     const clean = saveOutputs(list)
     setOutputs(clean)
-    if (clean.length > 1) pushToast(`${clean.length} uscite attive`, 'outputs-count')
+    if (clean.length > 1 && clean.length !== outputs.length) pushToast(`${clean.length} uscite attive`, 'outputs-count')
   }
   return [outputs, change]
 }
