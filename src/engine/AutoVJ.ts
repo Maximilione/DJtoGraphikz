@@ -767,9 +767,12 @@ export class AutoVJ {
     this.lastFrameAt = 0
   }
 
-  /** Call every frame. `t` is a clock in ms, for tests and the replay tool. */
+  /**
+   * Call every frame. `t` is a clock in ms, for tests and the replay tool.
+   * The phase is tracked with the Auto VJ on or off (the track-change
+   * detector reads it); scenes and palettes move only when it is on.
+   */
   update(frame: AudioFrame, t: number = now()) {
-    if (!this.enabled) return
     const config = GENRE_CONFIGS[this.genre]
     if (frame.key !== undefined) this.key = frame.key
     const dt = this.lastFrameAt ? Math.min(100, t - this.lastFrameAt) : 16
@@ -888,6 +891,7 @@ export class AutoVJ {
   }
 
   private switchTo(config: GenreConfig, phase: Phase, cut: SceneCut) {
+    if (!this.enabled) return
     const scene = this.pick(config, phase)
     if (!scene) return
     this.beatsSinceSwitch = 0
@@ -903,6 +907,7 @@ export class AutoVJ {
   }
 
   private nextPalette(config: GenreConfig) {
+    if (!this.enabled) return
     this.switchesOnPalette = 0
     if (config.palettes.length < 2) return
     const byKey = this.key && this.key.confidence >= KEY_CONFIDENCE
