@@ -22,7 +22,7 @@ function mediaBadge(overlay: OverlayItem): string {
   return 'IMG'
 }
 
-const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i
+export const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i
 
 function mimeFor(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() || 'png'
@@ -31,7 +31,19 @@ function mimeFor(name: string): string {
   return `image/${ext}`
 }
 
-interface LibraryItem { name: string; path: string }
+/** A library file → the data URL the Engine's addOverlay wants */
+export async function readLibraryImage(path: string, name: string): Promise<string> {
+  const bytes = await window.api.readFile(path)
+  const blob = new Blob([bytes], { type: mimeFor(name) })
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+export interface LibraryItem { name: string; path: string }
 
 export function OverlayPanel({ engine }: OverlayPanelProps) {
   const [overlays, setOverlays] = useState<OverlayItem[]>([])
@@ -103,15 +115,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     if (!engine) return
     try {
       if (IMAGE_RE.test(item.name)) {
-        const bytes = await window.api.readFile(item.path)
-        const blob = new Blob([bytes], { type: mimeFor(item.name) })
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = () => reject(reader.error)
-          reader.readAsDataURL(blob)
-        })
-        await engine.addOverlay(item.name, dataUrl)
+        await engine.addOverlay(item.name, await readLibraryImage(item.path, item.name))
       } else {
         await engine.addVideoOverlay(item.name, { kind: 'video', path: item.path })
       }
@@ -129,14 +133,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     let dataUrl: string | null = null
     if (IMAGE_RE.test(item.name)) {
       try {
-        const bytes = await window.api.readFile(item.path)
-        const blob = new Blob([bytes], { type: mimeFor(item.name) })
-        dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = () => reject(reader.error)
-          reader.readAsDataURL(blob)
-        })
+        dataUrl = await readLibraryImage(item.path, item.name)
       } catch { /* unreadable — fall through to delete without undo */ }
     }
     // The two cases are not the same thing and must not say the same thing:
