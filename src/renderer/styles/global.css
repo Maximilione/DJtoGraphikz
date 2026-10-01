@@ -1275,6 +1275,24 @@ input[type="color"]:focus {
   background: var(--bg2);
 }
 
+/* Sequence editor: the graphics attached to one step */
+.seq-chips { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }
+.seq-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 120px;
+  padding: 0 2px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  font-size: var(--fs-xs);
+  color: var(--text-primary);
+}
+.seq-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seq-picker { gap: 4px; padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg2); }
+.seq-picker .media-lib-item { padding: 2px var(--s2); }
+
 .media-lib-row {
   display: flex;
   align-items: center;
