@@ -555,8 +555,9 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="xrow"><span class="xl">A</span><input type="range" id="xfade" min="0" max="1" step="0.01" value="0"><span class="xl">B</span></div>
       <div class="sect">Effetto Deck B</div>
       <select id="deckb"></select>
-      <div class="sect">Blend</div>
+      <div class="sect">Blend / maschera</div>
       <div class="seg" id="blend"></div>
+      <div class="prow"><span class="plbl">Bordo</span><input type="range" id="msoft" min="0" max="1" step="0.01" value="0.25"><span class="pval" id="msoft_v">0.25</span></div>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
       <div class="addgrid" id="postadd"></div>
@@ -968,6 +969,8 @@ async function poll(){
   }
   const mb = num(e.motionBlur, 0)
   if (!dragging['mblur']) { setRange($('mblur'), mb); setText($('mblur_v'), fmtV(mb)) }
+  const ms = num(e.maskSoft, 0.25)
+  if (!dragging['msoft']) { setRange($('msoft'), ms); setText($('msoft_v'), fmtV(ms)) }
   const ints = num(e.intensity, 0)
   if (!dragging['intens']) { setRange($('intens'), ints); setText($('intens_v'), fmtV(ints)) }
   const cam = e.camera
@@ -1039,6 +1042,7 @@ function wireStatic(){
   wireRange($('master'), 'master', function(v){ return { type: 'brightness', value: v } })
   wireRange($('xfade'), 'xfade', function(v){ return { type: 'crossfade', value: v } })
   wireRange($('mblur'), 'mblur', function(v){ return { type: 'motionBlur', value: v } }, $('mblur_v'))
+  wireRange($('msoft'), 'msoft', function(v){ return { type: 'maskSoft', value: v } }, $('msoft_v'))
   wireRange($('intens'), 'intens', function(v){ return { type: 'intensity', value: v } }, $('intens_v'))
   wireRange($('camzoom'), 'camzoom', function(v){ return { type: 'camera', value: { zoom: v } } }, $('camzoom_v'))
   wireRange($('camrot'), 'camrot', function(v){ return { type: 'camera', value: { rotation: v } } }, $('camrot_v'))
