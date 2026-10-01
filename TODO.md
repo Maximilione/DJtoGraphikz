@@ -33,19 +33,25 @@ C4 e C6 in v0.27.3-beta, C7..C20 in v0.28.0-beta. In archivio in fondo.
 
 ## 4. FUNZIONALITÀ — il resto della roadmap
 
+Ordine consigliato dallo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto"): **S6 → S7 → S8** prima della serata, poi I8, Q5, I6, P4.
+
 Serata — servono mentre si suona, al buio, sotto pressione:
 
 - [ ] **S2 Beat-roll (stutter a tempo)** — tenendo un tasto l'immagine viene ripetuta ogni 1/4, 1/8, 1/16 di battuta usando la fase del PLL già disponibile: l'equivalente visivo del loop roll del DJ. Un solo buffer in più oltre al freeze esistente · **S/M**
 - [x] **S4 Struttura del pezzo: breakdown / build / drop** — fatto in v0.49.0 dentro l'Auto VJ (`AutoVJ.ts`: fasi pausa/groove/picco dagli inviluppi di basso ed energia, cambio **sul drop** con taglio secco, tenuta nel breakdown). Manca solo la parte visibile: i tre indicatori sopra il BeatTracker e un `onPhaseChange` per I4 · **S**
+- [ ] **S6 Taratura delle fasi sull'impianto vero** — registrare 10 minuti dal mixer, rigiocarli con `check:dryrun` + log delle fasi dell'Auto VJ, spostare `BREAK_BASS` / `DROP_BASS` / `PEAK_ENERGY` finche' il drop scatta sul primo kick e la pausa non scatta sui fill. Oggi le soglie sono tarate solo sul simulatore di `check:autovj`. **Prima della prima serata** · **S**
+- [ ] **S7 Spie di fase** — la parte visibile di S4: pausa / groove / picco sopra il BeatTracker, piu' `onPhaseChange` nell'Auto VJ (lo riusa I4 per il reel sul drop) · **S**
+- [ ] **S8 Build-up come quarta fase** — energia in salita e kick assente per piu' di 4 battute = build, oggi trattato come pausa. Scene dedicate (impact lento, eclipse che si allarga, radar che accelera) e il drop che arriva da un build ha piu' peso. DjMirror Pulse lo nomina come sezione, noi no (studio 2026-10-01) · **M**
 - [ ] **S5 Idle sicuro sul silenzio** — se l'audio manca per N secondi, dissolvenza su un look calmo o sul logo invece di lasciare un fermo immagine o un pattern impazzito; rientra da solo. Noise gate e recovery esistono già, manca la politica · **S**
 
 Preparazione — per arrivare pronti alla serata:
 
 - [ ] **P3 Soundcheck a un tasto** — lista verde/rossa in 15 secondi: livello in ingresso, finestra output presente e che sta davvero disegnando (la logica di `yarn check:output` esiste già, va portata in-app), fps alla risoluzione scelta, pacchetto ArtNet, URL del telefono, spazio disco · **S/M**
-- [ ] **P4 Scene AutoVJ mie** — "aggiungi alle scene AutoVJ" dal look corrente, con genere ed energia: entra nella rotazione insieme alle 136 di fabbrica, con toggle "solo le mie / tutte" · **M**
+- [ ] **P4 Scene AutoVJ mie** — "aggiungi alle scene AutoVJ" dal look corrente, con genere e **fase** (pausa / groove / picco, da v0.49.0): entra nella rotazione insieme alle 288 di fabbrica, con toggle "solo le mie / tutte" · **M**
 
 Qualità visiva:
 
+- [ ] **Q5 Tonalita' → palette** — croma a 12 classi su `uSpectrum` gia' calcolato, tonalita' stimata su 8 battute, palette scelta per tonalita' (calde sulle maggiori, fredde sulle minori) invece che solo per genere e blocco. DjMirror Pulse e rekordbox lo fanno, noi no (studio 2026-10-01) · **M**
 - [ ] **Q2 Palette da un'immagine** — trascini flyer o logo del locale, k-means su una miniatura estrae 5 colori ordinati e li salva come palette · **S**
 - [ ] **Q3 Maschere fra i deck** — oltre ai 5 blend attuali: split con bordo morbido, radiale, luma-key, e maschera guidata dall'audio. Il crossfader diventa la posizione del bordo, non solo la quantità · **M**
 - [ ] **Q4 Loop video come sorgente di deck** — una playlist di clip al posto di un effetto, con velocità agganciata al BPM e cambio sul giro di battuta. *Limite onesto: Chromium legge mp4/webm ma non HAP né ProRes (i formati dei pack VJ commerciali), servirebbe conversione a monte* · **M/L**
@@ -56,6 +62,7 @@ Integrazione:
 - [ ] **I6 Pixel mapping ArtNet/sACN** — pannelli e strip a bassa risoluzione: render target piccolo dedicato, `readRenderTargetPixelsAsync` (c'e' in three 0.170, niente stallo), mappatura pixel → canali. Oltre ~4 universi serve sACN/E1.31: ArtNet in broadcast su venti universi allaga la rete del booth · **M**
 - [ ] **I7 Keystone per uscita** — oggi il mapping e' uno solo e vale per tutte le uscite: con due proiettori storti ne serve uno per finestra, piu' il selettore nel pannello Mapping · **S/M**
 - [ ] **I2 Uscita per OBS / secondo PC** — la stessa pagina di output esposta su una route del server già in piedi, da aprire come Browser Source in OBS anche da un altro computer in rete: è il caso d'uso per cui si voleva NDI, senza SDK. *Limite: è un secondo render, costa GPU; per la sola cattura locale la window-capture di OBS resta gratis* · **M**
+- [ ] **I8 Ableton Link** — battere e fase esatti dalla rete anche nel break, dove il beat dal microfono sbaglia. Libreria aperta, gia' usata da NestDrop, Resolume, VDMX; precede I3 perche' non e' reverse engineering. Serve un binding Node (native addon o processo ponte): verificare prima se esiste un'implementazione JS pura del protocollo · **M/L**
 - [ ] **I3 Pro DJ Link / StagelinQ** — titolo del brano e BPM autorevole direttamente dai lettori Pioneer/Denon (protocolli UDP con implementazioni JS pure). Da tenere opzionale e disattivabile: è reverse engineering e richiede il cavo verso lo switch del booth · **L**
 - [ ] **I4 Reel automatico** — buffer circolare degli ultimi 30 secondi: un tasto (o il rilevamento drop di S4) salva una clip 9:16 già pronta da postare · **M**
 
