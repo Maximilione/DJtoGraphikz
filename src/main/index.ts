@@ -586,6 +586,23 @@ app.whenReady().then(async () => {
 
   ipcMain.on('output:reopen', () => { ensureOutputWindow() })
 
+  // Soundcheck (P3): ask the projector for one frame's statistics and its pace.
+  // The output renderer answers on 'output:probe-result' with the same id; a
+  // renderer that never answers is itself the finding (null = no response).
+  let probeSeq = 0
+  ipcMain.handle('output:probe', () => {
+    const o = primaryOutput()
+    if (!o) return null
+    const id = ++probeSeq
+    return new Promise(resolve => {
+      const done = (result: unknown) => { clearTimeout(timer); ipcMain.removeListener('output:probe-result', onResult); resolve(result) }
+      const onResult = (_e: Electron.IpcMainEvent, rid: number, data: unknown) => { if (rid === id) done(data) }
+      const timer = setTimeout(() => done(null), 5000)
+      ipcMain.on('output:probe-result', onResult)
+      o.win.webContents.send('output:probe', id)
+    })
+  })
+
   // Get available displays
   ipcMain.handle('displays:list', () => {
     return screen.getAllDisplays().map((d, i) => ({
