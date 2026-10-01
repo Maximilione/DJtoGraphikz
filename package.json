@@ -1,11 +1,13 @@
 {
   "name": "djtographikz",
-  "version": "0.52.0-beta",
+  "version": "0.53.0-beta",
+  "private": true,
+  "license": "UNLICENSED",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "npx cross-env NODE_OPTIONS= electron-vite dev",
-    "build": "npx cross-env NODE_OPTIONS= electron-vite build",
+    "build": "npx cross-env NODE_OPTIONS= electron-vite build && node scripts/obfuscate.mjs",
     "preview": "npx cross-env NODE_OPTIONS= electron-vite preview",
     "package": "electron-builder",
     "package:mac": "electron-builder --mac",
@@ -27,6 +29,8 @@
     "check:phases": "node scripts/check-phases.mjs",
     "check:key": "node scripts/check-key.mjs",
     "check:pixelmap": "node scripts/check-pixelmap.mjs",
+    "check:idle": "node scripts/check-idle.mjs",
+    "check:palette": "node scripts/check-palette.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:buttons": "node scripts/check-button-classes.mjs",
     "check:shaders": "python3 scripts/audit-shaders.py",
@@ -38,6 +42,8 @@
     "directories": {
       "output": "dist"
     },
+    "afterPack": "scripts/afterPack.cjs",
+    "asar": true,
     "files": [
       "out/**/*"
     ],
@@ -79,6 +85,7 @@
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "@electron/fuses": "^1.8.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -88,6 +95,7 @@
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "javascript-obfuscator": "^5.8.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
   },

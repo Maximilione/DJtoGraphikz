@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import type { Engine, EffectId } from '@engine/Engine'
 import type { Genre, Phase } from '@engine/AutoVJ'
-import { COLOR_PRESETS } from '../../catalog'
+import { allPalettes } from '../../palettes'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { AutoVJControl } from '../AutoVJ/AutoVJControl'
 import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
@@ -27,7 +27,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
     if (!engine) return
     const sync = (effect: EffectId, colors: [string, string, string]) => {
       setActiveEffect(effect)
-      const idx = COLOR_PRESETS.findIndex(p => p.colors.every((c, i) => c === colors[i]))
+      const idx = allPalettes().findIndex(p => p.colors.every((c, i) => c === colors[i]))
       if (idx >= 0) setActivePalette(idx)
     }
     sync(engine.getCurrentEffect(), engine.getCurrentColors())
@@ -46,7 +46,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
 
   const selectPalette = useCallback((i: number) => {
     if (!engine) return
-    engine.setColors(...COLOR_PRESETS[i].colors)
+    engine.setColors(...allPalettes()[i].colors)
     setActivePalette(i)
   }, [engine])
 

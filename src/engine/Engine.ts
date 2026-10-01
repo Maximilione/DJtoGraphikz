@@ -514,6 +514,14 @@ export class Engine {
   private usingCustom = false
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
+  // Beat-roll (S2): the clocks loop over a fraction of a beat. Procedural
+  // shaders are functions of time, so looping the time IS replaying the
+  // frames — no frame buffer, no second pipeline. Simulations (reaction,
+  // smoke, swarm) keep running: there is no time to rewind in a buffer.
+  private rollDivision = 0   // 0 = off; 4, 8, 16 = quarter, eighth, sixteenth of a beat
+  private rollWallStart = 0
+  private rollEffectBase = 0
+  private rollBeatBase = 0
   private audioScale = 1     // reactivity multiplier applied to audio uniforms
 
   /**
@@ -1750,6 +1758,23 @@ export class Engine {
   }
   isFrozen(): boolean { return this.frozen }
 
+  /** Beat-roll: 4, 8 or 16 loops the effect clock over that fraction of a beat; 0 lets it run. */
+  setBeatRoll(division: 0 | 4 | 8 | 16) {
+    if (division === this.rollDivision) return
+    if (division > 0 && this.rollDivision === 0) {
+      // the loop starts from the frame on screen now, so the roll stutters
+      // on what the room was looking at
+      this.rollWallStart = performance.now()
+      this.rollEffectBase = this.effectTime
+      this.rollBeatBase = this.beatClock
+    } else if (division > 0) {
+      // changing the division mid-roll keeps the same start
+    }
+    this.rollDivision = division
+    this.emitState()
+  }
+  getBeatRoll(): number { return this.rollDivision }
+
   setMotionBlur(v: number) { this.motionBlur = Math.max(0, Math.min(0.95, v)); this.emitState() }
   getMotionBlur(): number { return this.motionBlur }
 
@@ -2588,7 +2613,15 @@ export class Engine {
       else if (def.key === 'reactivity') this.audioScale = this.effParamValue(def)
     }
     this.applyParams(this.mainMaterial)
-    this.effectTime += dt * speed
+    if (this.rollDivision > 0) {
+      // division 4 = a quarter of a beat (a sixteenth note), 8 an eighth, 16 a sixteenth
+      const loopSec = (60 / (bpm || 128)) / this.rollDivision
+      const into = ((performance.now() - this.rollWallStart) / 1000) % loopSec
+      this.effectTime = this.rollEffectBase + into * speed
+      this.beatClock = this.rollBeatBase + into * ((bpm || 128) / 60)
+    } else {
+      this.effectTime += dt * speed
+    }
 
     // Update main effect uniforms
     this.applyEffectUniforms(this.mainMaterial, time)

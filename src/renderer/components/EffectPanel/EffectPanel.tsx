@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { allPalettes } from '../../palettes'
 import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
 import type { EffectParam } from '@engine/EffectParams'
 import { loadISF } from '@engine/IsfLoader'
@@ -27,7 +28,9 @@ function sameChain(a: { id: PostId; amount: number }[], b: { id: PostId; amount:
 
 
 
-const CUSTOM_INDEX = COLOR_PRESETS.length
+// the custom swatch is not in the palette list, so it cannot collide with the
+// user's own palettes that follow the factory ones
+const CUSTOM_INDEX = -1
 
 // Sub-sections as tabs
 type Section = 'fx' | 'post' | 'color'
@@ -59,14 +62,14 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const [cycleBeatSync, setCycleBeatSync] = useState(false)
   const [cycleInterval, setCycleInterval] = useState(8)
   const [cycleBeats, setCycleBeats] = useState(16)
-  const [cycleSelection, setCycleSelection] = useState<Set<number>>(() => new Set(COLOR_PRESETS.map((_, i) => i)))
+  const [cycleSelection, setCycleSelection] = useState<Set<number>>(() => new Set(allPalettes().map((_, i) => i)))
 
   // Sync from engine on mount (boot restore may not emit), then subscribe:
   // state changes come from ANY surface (phone remote, AutoVJ, hotkeys, presets)
   React.useEffect(() => {
     if (!engine) return
     const syncColors = (colors: [string, string, string]) => {
-      const idx = COLOR_PRESETS.findIndex(p => p.colors.every((c, i) => c === colors[i]))
+      const idx = allPalettes().findIndex(p => p.colors.every((c, i) => c === colors[i]))
       if (idx >= 0) {
         setActiveColorPreset(idx)
       } else {
@@ -227,7 +230,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
     if (idx === CUSTOM_INDEX) {
       engine.setColors(...customColors)
     } else {
-      engine.setColors(...COLOR_PRESETS[idx].colors)
+      engine.setColors(...allPalettes()[idx].colors)
     }
     setActiveColorPreset(idx)
   }, [engine, customColors])
@@ -254,7 +257,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
     const next = !cycleEnabled
     setCycleEnabled(next)
     if (next) {
-      const palettes = COLOR_PRESETS
+      const palettes = allPalettes()
         .filter((_, i) => cycleSelection.has(i))
         .map(p => p.colors)
       if (palettes.length < 2) {
@@ -274,7 +277,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       const next = new Set(prev)
       if (next.has(idx)) next.delete(idx); else next.add(idx)
       if (engine && cycleEnabled) {
-        const palettes = COLOR_PRESETS
+        const palettes = allPalettes()
           .filter((_, i) => next.has(i))
           .map(p => p.colors)
         if (palettes.length >= 2) engine.setCyclePalettes(palettes)
