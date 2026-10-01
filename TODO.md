@@ -63,7 +63,7 @@ Integrazione:
 - [x] **I7 Keystone per uscita** — fatto in v0.54.0: angoli per uscita in `outputs.ts`, selettore nel pannello Mapping, migrazione del keystone globale sull'uscita 1 · **S/M**
 - [x] **I2 Uscita per OBS / secondo PC** — fatto in v0.54.0: `/output?token=…` + SSE `/events`, adattatore di trasporto in `output-main.ts`, `check:obs`. Da provare in OBS a mano · **M**
 - [ ] **I8 Ableton Link** — verificato il 2026-10-01: **non esiste un'implementazione JS pura**; `abletonlink` (0.2.0-beta, 2023) e `@ktamas77/abletonlink` (1.2.3, 2025) sono entrambi addon nativi (`node-addon-api`, `gypfile`) che vanno ricompilati per l'ABI di Electron a ogni aggiornamento. Resta parcheggiato con gli altri addon nativi; la resa equivalente c'e' gia' con I1 MIDI Clock. Se mai: processo ponte separato (binario Link → OSC/UDP verso l'app) invece dell'addon dentro Electron · **L**
-- [ ] **I3 Pro DJ Link / StagelinQ** — titolo del brano e BPM autorevole direttamente dai lettori Pioneer/Denon (protocolli UDP con implementazioni JS pure). Da tenere opzionale e disattivabile: è reverse engineering e richiede il cavo verso lo switch del booth · **L**
+- [x] **I3 Pro DJ Link / StagelinQ** — Pioneer fatto in v0.55.0 (`prodjlink.ts`, `ProDjLinkClock.ts`, modo BPM, `check:prodjlink`), **mai provato su CDJ vero**; StagelinQ Denon e titolo del brano (dbserver TCP) restano aperti · **L**
 - [x] **I4 Reel automatico** — fatto in v0.54.0: due MediaRecorder sfalsati, tasto `V` o drop, 9:16 in Download, `check:reel` · **M**
 
 - [ ] **GIF export** — retrocesso: il recording WebM (v0.8.0) copre quasi tutti gli usi · ½g

@@ -108,6 +108,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 - **Idle on silence** — with the Auto VJ off, N seconds without music fade the wall to a calm effect of your choice, and the music brings the old look back on its own.
 - **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
 - **Mapping per output** — 4-corner keystone/quad-warp, one per output window: pick the output in the Mapping panel, drag its corners; saved with the venue profile.
+- **Pro DJ Link** (optional) — tempo, beat and the master deck straight from Pioneer CDJs on the booth LAN (UDP 50000–50002): pick it as BPM mode in the Audio panel; the computer must sit on the same switch as the players. No native dependency; no track title yet.
 - **OBS / second PC output** — the projector page is also served at `http://<ip>:9666/output?token=…` (Remote panel → Copy): open it as an OBS Browser Source or in a browser on another computer on the LAN. A second render, so it costs GPU on the machine that opens it; for local capture OBS window-capture is still free.
 - **Reel** — keeps the last 30 s of the show in 9:16; `V` (or the Auto VJ's drop, opt-in) saves a 15–30 s WebM straight to Downloads, ready to post.
 - **Pixel mapping** — the projected frame sampled at a LED panel's or strip's resolution (any W×H, snake wiring), 170 pixels per universe, over **sACN (E1.31) multicast** or ArtNet; async GPU readback, 1–60 fps, saved with the venue profile.
