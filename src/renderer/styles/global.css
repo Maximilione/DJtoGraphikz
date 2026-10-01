@@ -1597,3 +1597,7 @@ input[type="color"]:focus {
 
 /* U3.4 — toast with undo action */
 .toast.toast-action { pointer-events: auto; }
+
+/* Q2: the palette slot that takes a picture */
+.pal-drop { border-style: dashed; opacity: 0.75; }
+.pal-drop.drag-over, .pal-drop:hover { opacity: 1; border-color: var(--accent); }
