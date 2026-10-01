@@ -38,6 +38,14 @@ let deviceNumber = FIRST_DEVICE
 let iface: Iface | null = null
 const devices = new Map<number, { name: string; ip: string; seen: number }>()
 const masters = new Map<number, boolean>()
+/** rekordbox id loaded on each deck, from its last status (0 = empty). */
+const tracks = new Map<number, number>()
+/** last beat heard from each deck — the stand-in for "master" when no deck claims it. */
+const beatAt = new Map<number, number>()
+let followed = 0
+let sentTrackId = 0
+/** Like the renderer's clock (ProDjLinkClock): the master if any, else the first deck heard beating, kept until it falls silent. */
+const BEAT_SILENCE_MS = 2500
 
 const ipNum = (ip: string) => ip.split('.').reduce((n, o) => ((n << 8) | +o) >>> 0, 0)
 const ipBytes = (ip: string) => ip.split('.').map(Number)
@@ -56,6 +64,14 @@ function broadcastOf(i: Iface): string {
   return `${n >>> 24}.${(n >>> 16) & 255}.${(n >>> 8) & 255}.${n & 255}`
 }
 
+function followedDevice(now: number): number {
+  for (const [n, m] of masters) if (m) return n
+  if (followed && now - (beatAt.get(followed) ?? 0) < BEAT_SILENCE_MS) return followed
+  let best = 0, bestAt = 0
+  for (const [n, t] of beatAt) if (t > bestAt) { best = n; bestAt = t }
+  return best
+}
+
 export function setupProDjLink(controlWindow: BrowserWindow): void {
   ipcMain.on('prolink:enable', (_e, on: boolean) => { if (on) start(controlWindow); else stop() })
   app.on('before-quit', stop)
@@ -67,6 +83,16 @@ function start(win: BrowserWindow): void {
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
   const deviceList = () => [...devices].map(([device, d]) => ({ device, name: d.name }))
+  // 'prolink:track' once per new track on the followed deck: a status packet
+  // comes several times a second, the renderer only wants the change.
+  const checkTrack = () => {
+    followed = followedDevice(Date.now())
+    const trackId = tracks.get(followed) ?? 0
+    if (!trackId || trackId === sentTrackId) return
+    sentTrackId = trackId
+    console.log(`[ProDJLink] nuova traccia sul lettore #${followed}: rekordbox id ${trackId}`)
+    send('prolink:track', { device: followed, trackId, master: masters.get(followed) === true })
+  }
 
   const announce = bind(PORT_ANNOUNCE, (msg, from) => {
     const d = parseKeepAlive(msg)
@@ -86,11 +112,17 @@ function start(win: BrowserWindow): void {
   })
   const beats = bind(PORT_BEAT, msg => {
     const b = parseBeat(msg)
-    if (b) send('prolink:beat', { ...b, master: masters.get(b.device) })
+    if (!b) return
+    send('prolink:beat', { ...b, master: masters.get(b.device) })
+    beatAt.set(b.device, Date.now())
+    checkTrack()
   })
   const status = bind(PORT_STATUS, msg => {
     const s = parseStatus(msg)
-    if (s) masters.set(s.device, s.master)
+    if (!s) return
+    masters.set(s.device, s.master)
+    tracks.set(s.device, s.trackId)
+    checkTrack()
   })
   sockets = [announce, beats, status]
   iface = pickInterface()
@@ -108,7 +140,7 @@ function start(win: BrowserWindow): void {
     const cutoff = Date.now() - DEVICE_TIMEOUT_MS
     let changed = false
     for (const [n, d] of devices) {
-      if (d.seen < cutoff) { devices.delete(n); masters.delete(n); changed = true; console.log(`[ProDJLink] lettore sparito: "${d.name}" #${n}`) }
+      if (d.seen < cutoff) { devices.delete(n); masters.delete(n); tracks.delete(n); beatAt.delete(n); changed = true; console.log(`[ProDJLink] lettore sparito: "${d.name}" #${n}`) }
     }
     if (changed) send('prolink:devices', deviceList())
   }, KEEP_ALIVE_MS)
@@ -125,6 +157,10 @@ function stop(): void {
   sockets = []
   devices.clear()
   masters.clear()
+  tracks.clear()
+  beatAt.clear()
+  followed = 0
+  sentTrackId = 0
   console.log('[ProDJLink] fermato: nessun ascolto UDP')
 }
 
