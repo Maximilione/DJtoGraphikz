@@ -54,6 +54,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 - **Master camera** — zoom, rotation, pan, mirrored tiling and a push-in on the kick, applied to the whole scene **before** the post chain: six sliders acting on all 46 effects and every imported ISF at once, none of which know it is there. Outside the frame it mirrors rather than smearing or going black. From the panel, MIDI, OSC `/djg/cam/*` and the phone.
 - **Intensity macro** — one fader (key **I**, MIDI, OSC, phone, top bar) that raises speed, reactivity, density and the post chain's wet together, with a weight per parameter. **At zero the scene is exactly what you set**: the macro acts when parameters are resolved, it never writes them back.
 - **Hold = momentary** — a quick tap latches, holding and letting go puts it back. Blackout, freeze, the QWER post-FX, effects 1-0, looks on Shift+1-0, MIDI pads (note-on/note-off) and a thumb on the phone. No mode to remember in the dark: the key decides, by how long you hold it.
+- **Beat-roll** — hold `,` `.` `/` and the effect clock loops over a quarter, an eighth or a sixteenth of a beat: the visual loop roll. Tap to latch, tap again to release. No frame buffer: the shaders are functions of time, so looping the time replays the frames.
+- **Palette from a picture** — drop the club's flyer or logo on the last palette slot: k-means on a thumbnail picks the dominant colour and the two farthest from it, and the palette is yours (right-click to remove).
 - **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
 - **Sequences** — an ordered list of looks, each held for its own time: pick them from the Look Bank or grab whatever is on screen, drag to reorder, set every step to its own number of seconds or beats and its own transition. Saved sequences reopen in the editor, run on a loop, and export to JSON.
 - **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
@@ -101,6 +103,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Lights and stage
 
+- **Idle on silence** — with the Auto VJ off, N seconds without music fade the wall to a calm effect of your choice, and the music brings the old look back on its own.
 - **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
 - **Pixel mapping** — the projected frame sampled at a LED panel's or strip's resolution (any W×H, snake wiring), 170 pixels per universe, over **sACN (E1.31) multicast** or ArtNet; async GPU readback, 1–60 fps, saved with the venue profile.
 - **Projection mapping** — drag the 4 corners (keystone/quad-warp) to fit a skewed projector.
@@ -137,4 +140,4 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md) (Keep a Changelo
 
 ## License
 
-MIT
+Proprietary — all rights reserved. Since v0.53.0 the source is closed; earlier releases were published under MIT and stay so.
