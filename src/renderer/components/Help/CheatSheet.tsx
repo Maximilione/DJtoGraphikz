@@ -16,6 +16,7 @@ const KEYBOARD: [string, string][] = [
   [', . /', 'beat-roll 1/4 1/8 1/16 (tieni = momentaneo)'],
   ['Shift+1-0', 'look'],
   ['V', 'reel: salva gli ultimi 15–30 s in 9:16'],
+  ['N / Shift+N', 'scaletta: passo avanti / indietro'],
   ['?', 'aiuto'],
   ['Tieni premuto', 'momentaneo: molli e torna com\'era'],
 ]
