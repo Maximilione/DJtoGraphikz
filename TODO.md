@@ -46,25 +46,25 @@ Serata — servono mentre si suona, al buio, sotto pressione:
 
 Preparazione — per arrivare pronti alla serata:
 
-- [ ] **P3 Soundcheck a un tasto** — lista verde/rossa in 15 secondi: livello in ingresso, finestra output presente e che sta davvero disegnando (la logica di `yarn check:output` esiste già, va portata in-app), fps alla risoluzione scelta, pacchetto ArtNet, URL del telefono, spazio disco · **S/M**
+- [x] **P3 Soundcheck a un tasto** — fatto in v0.54.0: pulsante in toolbar, sonde `output:probe`/`dmx:probe`/`disk:free`, `check:soundcheck` · **S/M**
 - [x] **P4 Scene AutoVJ mie** — fatto in v0.52.0: `userScenes.ts`, "+ Look corrente come scena" con fase, lista e rimozione, "solo le mie (dove ne ho)" · **M**
 
 Qualità visiva:
 
 - [x] **Q5 Tonalita' → palette** — fatto in v0.52.0: `KeyDetector.ts` (croma + Krumhansl, 8 s), palette del genere piu' vicina sul cerchio delle quinte, calde/fredde per modo; `check:key` · **M**
 - [x] **Q2 Palette da un'immagine** — fatto in v0.53.0: k-means++ su miniatura, dominante + due piu' lontani, slot nella griglia, palette tue in un solo spazio di indici; `check:palette` · **S**
-- [ ] **Q3 Maschere fra i deck** — oltre ai 5 blend attuali: split con bordo morbido, radiale, luma-key, e maschera guidata dall'audio. Il crossfader diventa la posizione del bordo, non solo la quantità · **M**
+- [x] **Q3 Maschere fra i deck** — fatto in v0.54.0: split/radiale/luma/audio in `deckmix.frag`, crossfader = bordo, SOFT, `check:deckmix` · **M**
 - [ ] **Q4 Loop video come sorgente di deck** — una playlist di clip al posto di un effetto, con velocità agganciata al BPM e cambio sul giro di battuta. *Limite onesto: Chromium legge mp4/webm ma non HAP né ProRes (i formati dei pack VJ commerciali), servirebbe conversione a monte* · **M/L**
 
 Integrazione:
 
 - [x] **I5 Più uscite (muri LED, due proiettori)** — una finestra per uscita, ognuna con schermo, risoluzione libera, ritaglio della scena, gamma e tetto propri. Il muro LED dietro al processore e' un display come gli altri, quindi non serve niente di LED-specifico · **M** — **fatto in v0.47.0-beta**
 - [x] **I6 Pixel mapping ArtNet/sACN** — fatto in v0.52.0: render target `cols×rows` + `readRenderTargetPixelsAsync`, 170 pixel per universo, sACN E1.31 multicast o ArtNet, nel pannello Luci DMX e nel profilo del posto; `check:pixelmap`. **Non ancora provato su un pannello vero** · **M**
-- [ ] **I7 Keystone per uscita** — oggi il mapping e' uno solo e vale per tutte le uscite: con due proiettori storti ne serve uno per finestra, piu' il selettore nel pannello Mapping · **S/M**
-- [ ] **I2 Uscita per OBS / secondo PC** — la stessa pagina di output esposta su una route del server già in piedi, da aprire come Browser Source in OBS anche da un altro computer in rete: è il caso d'uso per cui si voleva NDI, senza SDK. *Limite: è un secondo render, costa GPU; per la sola cattura locale la window-capture di OBS resta gratis* · **M**
+- [x] **I7 Keystone per uscita** — fatto in v0.54.0: angoli per uscita in `outputs.ts`, selettore nel pannello Mapping, migrazione del keystone globale sull'uscita 1 · **S/M**
+- [x] **I2 Uscita per OBS / secondo PC** — fatto in v0.54.0: `/output?token=…` + SSE `/events`, adattatore di trasporto in `output-main.ts`, `check:obs`. Da provare in OBS a mano · **M**
 - [ ] **I8 Ableton Link** — verificato il 2026-10-01: **non esiste un'implementazione JS pura**; `abletonlink` (0.2.0-beta, 2023) e `@ktamas77/abletonlink` (1.2.3, 2025) sono entrambi addon nativi (`node-addon-api`, `gypfile`) che vanno ricompilati per l'ABI di Electron a ogni aggiornamento. Resta parcheggiato con gli altri addon nativi; la resa equivalente c'e' gia' con I1 MIDI Clock. Se mai: processo ponte separato (binario Link → OSC/UDP verso l'app) invece dell'addon dentro Electron · **L**
 - [ ] **I3 Pro DJ Link / StagelinQ** — titolo del brano e BPM autorevole direttamente dai lettori Pioneer/Denon (protocolli UDP con implementazioni JS pure). Da tenere opzionale e disattivabile: è reverse engineering e richiede il cavo verso lo switch del booth · **L**
-- [ ] **I4 Reel automatico** — buffer circolare degli ultimi 30 secondi: un tasto (o il rilevamento drop di S4) salva una clip 9:16 già pronta da postare · **M**
+- [x] **I4 Reel automatico** — fatto in v0.54.0: due MediaRecorder sfalsati, tasto `V` o drop, 9:16 in Download, `check:reel` · **M**
 
 - [ ] **GIF export** — retrocesso: il recording WebM (v0.8.0) copre quasi tutti gli usi · ½g
 
