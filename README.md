@@ -64,6 +64,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
   - **The drop.** A kick coming back after a break cuts the scene on that first kick, with no fade, to a peak scene and a fresh palette. Everything else waits for a downbeat.
   - **Phrases.** In the groove a scene lasts a phrase (8 bars for techno, 16 for minimal, 4 for drum & bass), half at the peak, twice in a break. The palette changes once per four scenes.
   - **Coherence.** Two scenes of the same visual family (two tunnels, two radial things) never play back to back; an effect does not return for three switches. Silence is a break, not a slot machine.
+  - **Key → colour.** A chroma key detector (Krumhansl profiles, 8 s window) names the key; when a palette changes it is the genre palette nearest the key on the circle of fifths, warm for major, cool for minor, so the same track gets the same colours every night.
+  - **Your own scenes.** Save the current look (effect, parameters, audio mappings, post chain) as a scene of a genre and a phase; it joins the rotation, or replaces it for the phases you have written ("solo le mie").
 
 ### Audio
 
@@ -100,6 +102,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 ### Lights and stage
 
 - **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
+- **Pixel mapping** — the projected frame sampled at a LED panel's or strip's resolution (any W×H, snake wiring), 170 pixels per universe, over **sACN (E1.31) multicast** or ArtNet; async GPU readback, 1–60 fps, saved with the venue profile.
 - **Projection mapping** — drag the 4 corners (keystone/quad-warp) to fit a skewed projector.
 - **Multiple outputs** — one window per wall: pick the screen, type the panel's real resolution (1536×256 is fine), and choose which slice of the scene it shows (all, half, a strip). Per-output gamma and ceiling, because a LED wall crushes blacks and is unwatchable at full white. A LED wall behind its processor is just another display; the panel warns when the pixel total is more than one GPU can draw.
 - **Venue profiles** — save the room by name: output display and resolution, the 4 mapping corners, audio device and gain, ArtNet node and master. The second night in the same club is one click; a display that is not plugged in tonight is skipped and said so.

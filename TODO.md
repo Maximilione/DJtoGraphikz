@@ -33,7 +33,7 @@ C4 e C6 in v0.27.3-beta, C7..C20 in v0.28.0-beta. In archivio in fondo.
 
 ## 4. FUNZIONALITÀ — il resto della roadmap
 
-Ordine consigliato dallo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto"): S6, S7, S8 fatti (v0.50–0.51); poi **I8, Q5, I6, P4**.
+Lo studio di mercato del 2026-10-01 (doc "Auto VJ: studio di mercato e confronto") e' tutto fatto: S6, S7, S8 (v0.50–0.51), Q5, P4, I6 (v0.52); I8 verificato e parcheggiato.
 
 Serata — servono mentre si suona, al buio, sotto pressione:
 
@@ -47,11 +47,11 @@ Serata — servono mentre si suona, al buio, sotto pressione:
 Preparazione — per arrivare pronti alla serata:
 
 - [ ] **P3 Soundcheck a un tasto** — lista verde/rossa in 15 secondi: livello in ingresso, finestra output presente e che sta davvero disegnando (la logica di `yarn check:output` esiste già, va portata in-app), fps alla risoluzione scelta, pacchetto ArtNet, URL del telefono, spazio disco · **S/M**
-- [ ] **P4 Scene AutoVJ mie** — "aggiungi alle scene AutoVJ" dal look corrente, con genere e **fase** (pausa / groove / picco, da v0.49.0): entra nella rotazione insieme alle 288 di fabbrica, con toggle "solo le mie / tutte" · **M**
+- [x] **P4 Scene AutoVJ mie** — fatto in v0.52.0: `userScenes.ts`, "+ Look corrente come scena" con fase, lista e rimozione, "solo le mie (dove ne ho)" · **M**
 
 Qualità visiva:
 
-- [ ] **Q5 Tonalita' → palette** — croma a 12 classi su `uSpectrum` gia' calcolato, tonalita' stimata su 8 battute, palette scelta per tonalita' (calde sulle maggiori, fredde sulle minori) invece che solo per genere e blocco. DjMirror Pulse e rekordbox lo fanno, noi no (studio 2026-10-01) · **M**
+- [x] **Q5 Tonalita' → palette** — fatto in v0.52.0: `KeyDetector.ts` (croma + Krumhansl, 8 s), palette del genere piu' vicina sul cerchio delle quinte, calde/fredde per modo; `check:key` · **M**
 - [ ] **Q2 Palette da un'immagine** — trascini flyer o logo del locale, k-means su una miniatura estrae 5 colori ordinati e li salva come palette · **S**
 - [ ] **Q3 Maschere fra i deck** — oltre ai 5 blend attuali: split con bordo morbido, radiale, luma-key, e maschera guidata dall'audio. Il crossfader diventa la posizione del bordo, non solo la quantità · **M**
 - [ ] **Q4 Loop video come sorgente di deck** — una playlist di clip al posto di un effetto, con velocità agganciata al BPM e cambio sul giro di battuta. *Limite onesto: Chromium legge mp4/webm ma non HAP né ProRes (i formati dei pack VJ commerciali), servirebbe conversione a monte* · **M/L**
@@ -59,10 +59,10 @@ Qualità visiva:
 Integrazione:
 
 - [x] **I5 Più uscite (muri LED, due proiettori)** — una finestra per uscita, ognuna con schermo, risoluzione libera, ritaglio della scena, gamma e tetto propri. Il muro LED dietro al processore e' un display come gli altri, quindi non serve niente di LED-specifico · **M** — **fatto in v0.47.0-beta**
-- [ ] **I6 Pixel mapping ArtNet/sACN** — pannelli e strip a bassa risoluzione: render target piccolo dedicato, `readRenderTargetPixelsAsync` (c'e' in three 0.170, niente stallo), mappatura pixel → canali. Oltre ~4 universi serve sACN/E1.31: ArtNet in broadcast su venti universi allaga la rete del booth · **M**
+- [x] **I6 Pixel mapping ArtNet/sACN** — fatto in v0.52.0: render target `cols×rows` + `readRenderTargetPixelsAsync`, 170 pixel per universo, sACN E1.31 multicast o ArtNet, nel pannello Luci DMX e nel profilo del posto; `check:pixelmap`. **Non ancora provato su un pannello vero** · **M**
 - [ ] **I7 Keystone per uscita** — oggi il mapping e' uno solo e vale per tutte le uscite: con due proiettori storti ne serve uno per finestra, piu' il selettore nel pannello Mapping · **S/M**
 - [ ] **I2 Uscita per OBS / secondo PC** — la stessa pagina di output esposta su una route del server già in piedi, da aprire come Browser Source in OBS anche da un altro computer in rete: è il caso d'uso per cui si voleva NDI, senza SDK. *Limite: è un secondo render, costa GPU; per la sola cattura locale la window-capture di OBS resta gratis* · **M**
-- [ ] **I8 Ableton Link** — battere e fase esatti dalla rete anche nel break, dove il beat dal microfono sbaglia. Libreria aperta, gia' usata da NestDrop, Resolume, VDMX; precede I3 perche' non e' reverse engineering. Serve un binding Node (native addon o processo ponte): verificare prima se esiste un'implementazione JS pura del protocollo · **M/L**
+- [ ] **I8 Ableton Link** — verificato il 2026-10-01: **non esiste un'implementazione JS pura**; `abletonlink` (0.2.0-beta, 2023) e `@ktamas77/abletonlink` (1.2.3, 2025) sono entrambi addon nativi (`node-addon-api`, `gypfile`) che vanno ricompilati per l'ABI di Electron a ogni aggiornamento. Resta parcheggiato con gli altri addon nativi; la resa equivalente c'e' gia' con I1 MIDI Clock. Se mai: processo ponte separato (binario Link → OSC/UDP verso l'app) invece dell'addon dentro Electron · **L**
 - [ ] **I3 Pro DJ Link / StagelinQ** — titolo del brano e BPM autorevole direttamente dai lettori Pioneer/Denon (protocolli UDP con implementazioni JS pure). Da tenere opzionale e disattivabile: è reverse engineering e richiede il cavo verso lo switch del booth · **L**
 - [ ] **I4 Reel automatico** — buffer circolare degli ultimi 30 secondi: un tasto (o il rilevamento drop di S4) salva una clip 9:16 già pronta da postare · **M**
 
