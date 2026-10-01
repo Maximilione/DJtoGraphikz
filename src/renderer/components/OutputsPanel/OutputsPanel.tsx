@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Panel } from '../Panel/Panel'
 import { pushToast } from '../Toasts/Toasts'
 import { readJson, writeJson } from '../../storage'
+import { loadReelSettings, saveReelSettings, type ReelSettings } from '../../reel'
 import {
   DEFAULT_OUTPUT, OUTPUTS_KEY, PIXEL_BUDGET, migrateKeystone, sanitizeOutputs, totalPixels,
   type OutputCfg,
@@ -72,6 +73,10 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
   }
 
   const heavy = totalPixels(outputs) > PIXEL_BUDGET
+
+  // I4: the reel is an output too — the one for the phone
+  const [reel, setReel] = useState<ReelSettings>(loadReelSettings)
+  const setReelCfg = (patch: Partial<ReelSettings>) => setReel(prev => { const next = { ...prev, ...patch }; saveReelSettings(next); return next })
 
   return (
     <Panel id="outputs" title="Uscite" defaultCollapsed group="right" active={outputs.length > 1}>
@@ -171,6 +176,21 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
             </div>
           )
         })()}
+
+        <div className="slider-row" title="Tiene in memoria gli ultimi 30 s della preview ritagliati 9:16. V, il chip Reel in alto o (se attivo) il drop dell'Auto VJ salvano gli ultimi 15–30 s in WebM, pronti da postare">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={reel.enabled} onChange={e => setReelCfg({ enabled: e.target.checked })} />
+            <span className="label">Reel 9:16</span>
+          </label>
+          <select value={reel.height} onChange={e => setReelCfg({ height: +e.target.value === 1920 ? 1920 : 1280 })} aria-label="Risoluzione del reel">
+            <option value={1280}>720×1280</option>
+            <option value={1920}>1080×1920</option>
+          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={reel.onDrop} disabled={!reel.enabled} onChange={e => setReelCfg({ onDrop: e.target.checked })} />
+            <span className="label">anche sul drop</span>
+          </label>
+        </div>
       </div>
     </Panel>
   )

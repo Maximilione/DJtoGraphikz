@@ -512,6 +512,14 @@ app.whenReady().then(async () => {
     return allowed.includes(permission)
   })
 
+  // A reel (I4) saved on the Auto VJ's drop must not pop a save dialog over the
+  // console mid-set: it goes straight to Downloads. Everything else keeps the
+  // default routine.
+  session.defaultSession.on('will-download', (_e, item) => {
+    const name = item.getFilename()
+    if (name.startsWith('djtographikz-reel-')) item.setSavePath(join(app.getPath('downloads'), name))
+  })
+
   controlWindow = createControlWindow()
   // The projector comes up on defaults; the renderer sends the saved list of
   // outputs as soon as it has read it, and reconcile makes the rest.
