@@ -4,6 +4,11 @@ import { BLEND_MODES } from '@engine/Engine'
 import { NumberInput } from '../NumberInput/NumberInput'
 import { ALL_EFFECTS } from '../../catalog'
 
+const MASK_FIRST = BLEND_MODES.indexOf('split-v')
+const MASK_LABELS: Partial<Record<BlendMode, string>> = {
+  'split-v': 'split verticale', 'split-h': 'split orizzontale', radial: 'radiale', luma: 'luma-key', audio: 'audio (basso/beat)',
+}
+
 interface DeckPanelProps {
   engine: Engine | null
 }
@@ -12,6 +17,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
   const [deckB, setDeckB] = useState<EffectId>('plasma')
   const [crossfade, setCrossfade] = useState(0)
   const [blend, setBlend] = useState<BlendMode>('mix')
+  const [maskSoft, setMaskSoft] = useState(0.25)
   const [motionBlur, setMotionBlur] = useState(0)
 
   // Sync from engine on mount (boot restore may not emit), then subscribe:
@@ -21,14 +27,18 @@ export function DeckPanel({ engine }: DeckPanelProps) {
     setDeckB(engine.getDeckBEffect())
     setCrossfade(engine.getCrossfade())
     setBlend(engine.getBlendMode())
+    setMaskSoft(engine.getMaskSoft())
     setMotionBlur(engine.getMotionBlur())
     return engine.onState(state => {
       if (state.deckBEffect) setDeckB(state.deckBEffect)
       if (state.crossfade !== undefined) setCrossfade(state.crossfade)
       if (state.blendMode) setBlend(state.blendMode)
+      if (state.maskSoft !== undefined) setMaskSoft(state.maskSoft)
       if (state.motionBlur !== undefined) setMotionBlur(state.motionBlur)
     })
   }, [engine])
+
+  const isMask = BLEND_MODES.indexOf(blend) >= MASK_FIRST
 
   const changeDeckB = useCallback((id: EffectId) => {
     setDeckB(id)
@@ -62,10 +72,25 @@ export function DeckPanel({ engine }: DeckPanelProps) {
           setBlend(e.target.value as BlendMode)
           engine?.setBlendMode(e.target.value as BlendMode)
         }}
-        title="Modalità di blend tra i due deck"
+        title="Blend o maschera tra i due deck: con una maschera il crossfader è la posizione del bordo"
       >
-        {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+        <optgroup label="Blend">
+          {BLEND_MODES.slice(0, MASK_FIRST).map(m => <option key={m} value={m}>{m}</option>)}
+        </optgroup>
+        <optgroup label="Maschera">
+          {BLEND_MODES.slice(MASK_FIRST).map(m => <option key={m} value={m}>{MASK_LABELS[m] ?? m}</option>)}
+        </optgroup>
       </select>
+      {isMask && <>
+        <span className="deck-label" title="Morbidezza del bordo della maschera">SOFT</span>
+        <input
+          type="range" min={0} max={1} step={0.01}
+          value={maskSoft}
+          title="Morbidezza del bordo (0 netto, 1 sfumato)"
+          onChange={e => { const v = parseFloat(e.target.value); setMaskSoft(v); engine?.setMaskSoft(v) }}
+          style={{ width: '70px' }}
+        />
+      </>}
 
       <span className="deck-label" title="Motion blur temporale">BLUR</span>
       <input

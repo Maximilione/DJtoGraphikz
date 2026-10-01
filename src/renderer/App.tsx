@@ -691,6 +691,7 @@ export function App() {
         case 'camera': engine.setCamera(v); break
         case 'cameraReset': engine.resetCamera(); break
         case 'blendMode': engine.setBlendMode(v); break
+        case 'maskSoft': engine.setMaskSoft(v); break
         case 'param': engine.setParamValue(v.key, v.value); break
         case 'paramMap': engine.setParamMapping(v.key, v.source, v.depth); break
         case 'transitionType': engine.setTransitionType(v); break
