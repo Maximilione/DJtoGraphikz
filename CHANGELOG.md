@@ -2,6 +2,22 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.51.0-beta] — 2026-10-01
+
+**Il beat tracker su musica vera, e le fasi complete.** Chiude S7 e S8 del TODO.
+
+### Fixed
+- **Il beat tracker correva a 4/3 del tempo.** Su una demo house a 128 BPM dichiarava 128 e sparava 158 beat al minuto: il 71% degli intervalli era 3/4 di battuta. Causa: il ramo "hard resync" (`onset > 3× mediana` → fase a zero) scattava su ogni stab in sincope, 341 beat su 443. Ora riancora solo a **griglia persa** (nessun beat accettato da 4 battute: una pausa, un cambio traccia), e il prossimo onset forte e' l'ancora — cioe' il drop
+- **La griglia resta sul kick.** L'evidenza di controfase e' in banda kick, non a banda piena (uno stab piu' forte del kick la girava); il ribaltamento richiede una serie di tre colpi fuori griglia, non uno; e ogni 16 onset un istogramma di fase in ottavi (`phaseBins`, banda kick) sposta la griglia dove i kick ricorrono davvero — l'anti-fase sapeva solo di mezza battuta, una griglia ancorata su uno stab a un quarto di battuta non vedeva piu' un kick nella finestra di accettazione
+- **Il tempo sopravvive alla pausa**: quando la confidenza ACF cala il PLL tiene l'ultimo tempo fidato (`heldBpm`) invece di tornare al rilevamento libero, che sparava su ogni hat (23% dei beat a mezza battuta su un mix tekno)
+- Misurato con `check:phases` (istogramma degli intervalli fra beat, in periodi del tempo stimato, dopo l'aggancio): demo house 128 BPM da 21% a **98%** sulla griglia; mix hard tekno da 48% a **87%**; demo 2 da 55% a 76%
+
+### Added
+- **S8 — la salita** (`build`), quarta fase dell'Auto VJ: in pausa, energia di almeno 1.6 dB sopra quella d'inizio pausa e ancora niente kick. Scene dedicate per ogni genere, parametri mappati all'energia cosi' crescono con il build (eclipse che si allarga, radar che accelera, veneziana che si apre); il drop dalla salita taglia come dalla pausa. Sul mix tekno la salita compare esattamente nei 20 s prima di ogni drop
+- **S7 — spie di fase**: pausa / salita / groove / picco sotto lo spettro del pannello audio, accese dall'`onPhaseChange` dell'Auto VJ (che I4 potra' usare per il reel sul drop)
+- `check:beat` misura dopo l'aggancio del tempo, con lo spettro in scala 0..1 come lo passa l'app (la vecchia scala 0..40 metteva il rumore nel tratto ripido di `log1p` e la soglia inseguiva il rumore), e con un test di **sincope**: stab a ogni 3/16, il 100% dei kick deve avere il suo beat e nessun beat fuori dal kick
+- `check:phases`: istogramma degli intervalli fra beat, log del tempo ACF ogni 10 s, conteggio dei beat per ramo di accettazione (`anchor / grid / flip / resync / free / recentre`), `--bpm` per simulare il tempo esterno, `--debug <s>` per 8 s di kick, beat e fase
+
 ## [0.50.0-beta] — 2026-10-01
 
 **S6 — le fasi tarate su musica vera.** Il rilevatore di v0.49.0 era tarato su una traccia sintetica e su musica vera non funzionava: dieci minuti di mix hard tekno leggevano "picco" dall'inizio alla fine, zero pause, zero drop.
