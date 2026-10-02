@@ -19,7 +19,9 @@ const TOTAL = 80 * 60
 const WARM = [['break', 100, 3], ['groove', 100, 3]]
 const WAVE = [['build', 60, 1], ['groove', 100, 4], ['peak', 90, 3], ['groove', 100, 2], ['break', 90, 1]]
 const CLOSE = [['groove', 100, 2], ['break', 120, 3]]
-const cutFor = (phase, i) => phase === 'peak' ? ['dissolve', 'radial', 'wipe-left'][i % 3] : phase === 'build' ? 'wipe-down' : 'crossfade'
+// transizioni ben visibili e varie: crossfade solo nelle pause, mai due uguali di fila
+const CUTS = { break: ['crossfade', 'dissolve'], build: ['wipe-down', 'wipe-left'], groove: ['wipe-left', 'radial', 'dissolve', 'wipe-down'], peak: ['dissolve', 'radial', 'wipe-left'] }
+const cutFor = (phase, i) => CUTS[phase][i % CUTS[phase].length]
 
 function steps(cfg) {
   const pool = { break: [], build: [], groove: [], peak: [] }

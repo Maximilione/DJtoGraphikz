@@ -72,7 +72,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "03 break · static",
@@ -144,7 +144,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "05 groove · chevrons",
@@ -178,7 +178,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "06 groove · cage",
@@ -215,7 +215,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "07 build · impact",
@@ -297,7 +297,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "09 groove · cracks",
@@ -333,7 +333,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "10 groove · barcode",
@@ -369,7 +369,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "11 groove · moire",
@@ -410,7 +410,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "12 peak · flash",
@@ -558,7 +558,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "16 groove · pulsecity",
@@ -594,7 +594,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "17 break · radar",
@@ -667,7 +667,7 @@
      }
     },
     "hold": 60,
-    "transition": "wipe-down"
+    "transition": "wipe-left"
    },
    {
     "name": "19 groove · spiral",
@@ -703,7 +703,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "20 groove · chevrons",
@@ -737,7 +737,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "21 groove · cage",
@@ -774,7 +774,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "22 groove · tunnel",
@@ -815,7 +815,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "23 peak · lasers",
@@ -961,7 +961,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "27 groove · barcode",
@@ -997,7 +997,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "28 break · smoke",
@@ -1033,7 +1033,7 @@
      }
     },
     "hold": 90,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "29 build · impact",
@@ -1077,44 +1077,7 @@
     "transition": "wipe-down"
    },
    {
-    "name": "30 groove · sevenseg",
-    "preset": {
-     "name": "sevenseg (groove)",
-     "effect": "sevenseg",
-     "post": [
-      "bloom",
-      "scanlines"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "sevenseg": {
-       "digits": {
-        "value": 2,
-        "source": "none",
-        "depth": 0
-       },
-       "ghost": {
-        "value": 0.06,
-        "source": "none",
-        "depth": 0
-       },
-       "jitter": {
-        "value": 0.6,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "crossfade"
-   },
-   {
-    "name": "31 groove · moire",
+    "name": "30 groove · moire",
     "preset": {
      "name": "moire (groove)",
      "effect": "moire",
@@ -1152,10 +1115,10 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
-    "name": "32 groove · raymarch",
+    "name": "31 groove · raymarch",
     "preset": {
      "name": "raymarch (groove)",
      "effect": "raymarch",
@@ -1194,10 +1157,10 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
-    "name": "33 groove · pulsecity",
+    "name": "32 groove · pulsecity",
     "preset": {
      "name": "pulsecity (groove)",
      "effect": "pulsecity",
@@ -1205,9 +1168,9 @@
       "bloom"
      ],
      "colors": [
+      "#ff9500",
       "#ffffff",
-      "#888888",
-      "#ffffff"
+      "#3a1a00"
      ],
      "effectParams": {
       "pulsecity": {
@@ -1230,16 +1193,15 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
-    "name": "34 peak · vortex",
+    "name": "33 groove · spiral",
     "preset": {
-     "name": "vortex (peak)",
-     "effect": "vortex",
+     "name": "spiral (groove)",
+     "effect": "spiral",
      "post": [
-      "bloom",
-      "feedback"
+      "filmgrain"
      ],
      "colors": [
       "#ffffff",
@@ -1247,35 +1209,30 @@
       "#ffffff"
      ],
      "effectParams": {
-      "vortex": {
-       "speed": {
-        "value": 1.4,
-        "source": "none",
-        "depth": 0
-       },
+      "spiral": {
        "arms": {
-        "value": 5,
-        "source": "none",
-        "depth": 0
-       },
-       "twist": {
         "value": 2,
         "source": "none",
         "depth": 0
        },
-       "pull": {
-        "value": 1.2,
-        "source": "bass",
-        "depth": 0.5
+       "twist": {
+        "value": 8,
+        "source": "none",
+        "depth": 0
+       },
+       "pulse": {
+        "value": 0.6,
+        "source": "none",
+        "depth": 0
        }
       }
      }
     },
-    "hold": 90,
-    "transition": "dissolve"
+    "hold": 100,
+    "transition": "wipe-left"
    },
    {
-    "name": "35 peak · fire",
+    "name": "34 peak · fire",
     "preset": {
      "name": "fire (peak)",
      "effect": "fire",
@@ -1308,10 +1265,10 @@
      }
     },
     "hold": 90,
-    "transition": "radial"
+    "transition": "dissolve"
    },
    {
-    "name": "36 peak · rings",
+    "name": "35 peak · rings",
     "preset": {
      "name": "rings (peak)",
      "effect": "rings",
@@ -1349,49 +1306,54 @@
      }
     },
     "hold": 90,
-    "transition": "wipe-left"
+    "transition": "radial"
    },
    {
-    "name": "37 groove · blinds",
+    "name": "36 peak · neonpoly",
     "preset": {
-     "name": "blinds (groove)",
-     "effect": "blinds",
+     "name": "neonpoly (peak)",
+     "effect": "neonpoly",
      "post": [
-      "filmgrain"
+      "bloom"
      ],
      "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
+      "#ffffff",
+      "#888888",
+      "#ffffff"
      ],
      "effectParams": {
-      "blinds": {
-       "slats": {
-        "value": 14,
+      "neonpoly": {
+       "speed": {
+        "value": 1.4,
         "source": "none",
         "depth": 0
        },
-       "open": {
-        "value": 0.5,
+       "sides": {
+        "value": 3,
+        "source": "none",
+        "depth": 0
+       },
+       "layers": {
+        "value": 7,
+        "source": "none",
+        "depth": 0
+       },
+       "thickness": {
+        "value": 1.5,
         "source": "bass",
-        "depth": 0.5
-       },
-       "tilt": {
-        "value": 0.2,
-        "source": "none",
-        "depth": 0
+        "depth": 0.6
        }
       }
      }
     },
-    "hold": 100,
-    "transition": "crossfade"
+    "hold": 90,
+    "transition": "wipe-left"
    },
    {
-    "name": "38 groove · spiral",
+    "name": "37 groove · tribal",
     "preset": {
-     "name": "spiral (groove)",
-     "effect": "spiral",
+     "name": "tribal (groove)",
+     "effect": "tribal",
      "post": [
       "filmgrain"
      ],
@@ -1401,19 +1363,19 @@
       "#ff4444"
      ],
      "effectParams": {
-      "spiral": {
-       "arms": {
-        "value": 2,
-        "source": "none",
-        "depth": 0
-       },
-       "twist": {
+      "tribal": {
+       "blades": {
         "value": 8,
         "source": "none",
         "depth": 0
        },
-       "pulse": {
+       "spikes": {
         "value": 0.6,
+        "source": "high",
+        "depth": 0.3
+       },
+       "turn": {
+        "value": 1,
         "source": "none",
         "depth": 0
        }
@@ -1421,7 +1383,41 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
+   },
+   {
+    "name": "38 groove · chevrons",
+    "preset": {
+     "name": "chevrons (groove)",
+     "effect": "chevrons",
+     "post": [],
+     "colors": [
+      "#ff0000",
+      "#880000",
+      "#ff4444"
+     ],
+     "effectParams": {
+      "chevrons": {
+       "lanes": {
+        "value": 5,
+        "source": "none",
+        "depth": 0
+       },
+       "thickness": {
+        "value": 0.5,
+        "source": "none",
+        "depth": 0
+       },
+       "drift": {
+        "value": 1.5,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "radial"
    },
    {
     "name": "39 break · halftone",
@@ -1460,77 +1456,7 @@
     "transition": "crossfade"
    },
    {
-    "name": "40 groove · tribal",
-    "preset": {
-     "name": "tribal (groove)",
-     "effect": "tribal",
-     "post": [
-      "filmgrain"
-     ],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "tribal": {
-       "blades": {
-        "value": 8,
-        "source": "none",
-        "depth": 0
-       },
-       "spikes": {
-        "value": 0.6,
-        "source": "high",
-        "depth": 0.3
-       },
-       "turn": {
-        "value": 1,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "crossfade"
-   },
-   {
-    "name": "41 groove · chevrons",
-    "preset": {
-     "name": "chevrons (groove)",
-     "effect": "chevrons",
-     "post": [],
-     "colors": [
-      "#ff2020",
-      "#ffffff",
-      "#400000"
-     ],
-     "effectParams": {
-      "chevrons": {
-       "lanes": {
-        "value": 5,
-        "source": "none",
-        "depth": 0
-       },
-       "thickness": {
-        "value": 0.5,
-        "source": "none",
-        "depth": 0
-       },
-       "drift": {
-        "value": 1.5,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "crossfade"
-   },
-   {
-    "name": "42 groove · cage",
+    "name": "40 groove · cage",
     "preset": {
      "name": "cage (groove)",
      "effect": "cage",
@@ -1539,9 +1465,9 @@
       "chromatic"
      ],
      "colors": [
-      "#ff2020",
-      "#ffffff",
-      "#400000"
+      "#ff0000",
+      "#880000",
+      "#ff4444"
      ],
      "effectParams": {
       "cage": {
@@ -1564,10 +1490,10 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
-    "name": "43 groove · tunnel",
+    "name": "41 groove · tunnel",
     "preset": {
      "name": "tunnel (groove)",
      "effect": "tunnel",
@@ -1605,10 +1531,10 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
-    "name": "44 groove · cracks",
+    "name": "42 groove · cracks",
     "preset": {
      "name": "cracks (groove)",
      "effect": "cracks",
@@ -1641,10 +1567,10 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
-    "name": "45 groove · barcode",
+    "name": "43 groove · barcode",
     "preset": {
      "name": "barcode (groove)",
      "effect": "barcode",
@@ -1652,9 +1578,9 @@
       "scanlines"
      ],
      "colors": [
-      "#ff9500",
+      "#ff2020",
       "#ffffff",
-      "#3a1a00"
+      "#400000"
      ],
      "effectParams": {
       "barcode": {
@@ -1677,10 +1603,10 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
-    "name": "46 groove · moire",
+    "name": "44 groove · moire",
     "preset": {
      "name": "moire (groove)",
      "effect": "moire",
@@ -1688,9 +1614,9 @@
       "chromatic"
      ],
      "colors": [
-      "#ff9500",
+      "#ff2020",
       "#ffffff",
-      "#3a1a00"
+      "#400000"
      ],
      "effectParams": {
       "moire": {
@@ -1718,7 +1644,85 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
+   },
+   {
+    "name": "45 groove · raymarch",
+    "preset": {
+     "name": "raymarch (groove)",
+     "effect": "raymarch",
+     "post": [
+      "bloom",
+      "chromatic"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "raymarch": {
+       "speed": {
+        "value": 1.4,
+        "source": "none",
+        "depth": 0
+       },
+       "repscale": {
+        "value": 2.8,
+        "source": "none",
+        "depth": 0
+       },
+       "glowk": {
+        "value": 1.3,
+        "source": "none",
+        "depth": 0
+       },
+       "camfov": {
+        "value": 1,
+        "source": "bass",
+        "depth": -0.3
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "46 groove · pulsecity",
+    "preset": {
+     "name": "pulsecity (groove)",
+     "effect": "pulsecity",
+     "post": [
+      "bloom"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "pulsecity": {
+       "columns": {
+        "value": 18,
+        "source": "none",
+        "depth": 0
+       },
+       "gapw": {
+        "value": 0.12,
+        "source": "none",
+        "depth": 0
+       },
+       "punch": {
+        "value": 1.5,
+        "source": "bass",
+        "depth": 0.4
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "radial"
    },
    {
     "name": "47 break · eclipse",
@@ -1790,7 +1794,7 @@
      }
     },
     "hold": 120,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "49 break · static",
@@ -1906,7 +1910,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "03 break · radar",
@@ -1977,7 +1981,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "05 groove · pump",
@@ -2013,7 +2017,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "06 groove · bounceball",
@@ -2049,7 +2053,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "07 build · eclipse",
@@ -2126,7 +2130,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "09 groove · spiral",
@@ -2162,7 +2166,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "10 groove · chevrons",
@@ -2196,7 +2200,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "11 groove · cage",
@@ -2233,7 +2237,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "12 peak · flash",
@@ -2380,7 +2384,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "16 groove · cracks",
@@ -2416,7 +2420,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "17 break · smoke",
@@ -2488,7 +2492,7 @@
      }
     },
     "hold": 60,
-    "transition": "wipe-down"
+    "transition": "wipe-left"
    },
    {
     "name": "19 groove · barcode",
@@ -2524,7 +2528,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "20 groove · raymarch",
@@ -2566,7 +2570,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "21 groove · pulsecity",
@@ -2602,7 +2606,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "22 groove · pump",
@@ -2638,7 +2642,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "23 peak · lasers",
@@ -2789,7 +2793,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "27 groove · tunnel",
@@ -2830,7 +2834,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "28 break · static",
@@ -2866,7 +2870,7 @@
      }
     },
     "hold": 90,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "29 build · blinds",
@@ -2938,7 +2942,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "31 groove · chevrons",
@@ -2972,7 +2976,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "32 groove · cage",
@@ -3009,7 +3013,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "33 groove · rings",
@@ -3050,7 +3054,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "34 peak · glitch",
@@ -3200,7 +3204,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "38 groove · barcode",
@@ -3236,7 +3240,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "39 break · eclipse",
@@ -3314,7 +3318,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "41 groove · pulsecity",
@@ -3350,7 +3354,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "42 groove · pump",
@@ -3386,7 +3390,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "43 groove · bounceball",
@@ -3422,7 +3426,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "44 groove · tunnel",
@@ -3463,7 +3467,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "45 groove · spiral",
@@ -3499,7 +3503,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "46 groove · chevrons",
@@ -3533,7 +3537,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "47 break · warehouse",
@@ -3606,7 +3610,7 @@
      }
     },
     "hold": 120,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "49 break · smoke",
@@ -3722,7 +3726,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "03 break · static",
@@ -3794,7 +3798,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "05 groove · cage",
@@ -3831,7 +3835,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "06 groove · pulsar",
@@ -3867,7 +3871,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "07 build · eclipse",
@@ -3940,7 +3944,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "09 groove · grid",
@@ -3977,7 +3981,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "10 groove · moire",
@@ -4018,7 +4022,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "11 groove · voronoi",
@@ -4049,7 +4053,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "12 peak · glitch",
@@ -4190,7 +4194,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "16 groove · tunnel",
@@ -4231,7 +4235,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "17 break · eclipse",
@@ -4308,7 +4312,7 @@
      }
     },
     "hold": 60,
-    "transition": "wipe-down"
+    "transition": "wipe-left"
    },
    {
     "name": "19 groove · barcode",
@@ -4344,7 +4348,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "20 groove · chevrons",
@@ -4380,7 +4384,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "21 groove · cage",
@@ -4417,7 +4421,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "22 groove · pulsar",
@@ -4453,7 +4457,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "23 peak · pulsecity",
@@ -4599,7 +4603,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "27 groove · grid",
@@ -4636,7 +4640,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "28 break · downpour",
@@ -4673,7 +4677,7 @@
      }
     },
     "hold": 90,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "29 build · blinds",
@@ -4751,7 +4755,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "31 groove · moire",
@@ -4792,7 +4796,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "32 groove · voronoi",
@@ -4823,7 +4827,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "33 groove · tunnel",
@@ -4864,7 +4868,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "34 peak · vortex",
@@ -5014,7 +5018,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "38 groove · chevrons",
@@ -5050,7 +5054,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "39 break · halftone",
@@ -5122,7 +5126,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "41 groove · cage",
@@ -5159,7 +5163,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "42 groove · pulsar",
@@ -5195,7 +5199,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "43 groove · matrix",
@@ -5232,7 +5236,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "44 groove · grid",
@@ -5269,7 +5273,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-down"
    },
    {
     "name": "45 groove · moire",
@@ -5310,7 +5314,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "wipe-left"
    },
    {
     "name": "46 groove · voronoi",
@@ -5341,7 +5345,7 @@
      }
     },
     "hold": 100,
-    "transition": "crossfade"
+    "transition": "radial"
    },
    {
     "name": "47 break · gyroid",
@@ -5414,7 +5418,7 @@
      }
     },
     "hold": 120,
-    "transition": "crossfade"
+    "transition": "dissolve"
    },
    {
     "name": "49 break · warehouse",
