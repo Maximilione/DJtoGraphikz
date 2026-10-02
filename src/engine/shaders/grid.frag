@@ -47,12 +47,17 @@ void main() {
     float x = p.x * depth;
     float z = depth + t * (2.0 + uBass * 4.0);
 
-    // Grid lines
-    float gridX = abs(fract(x * 0.5 * density) - 0.5);
-    float gridZ = abs(fract(z * 0.3 * density) - 0.5);
+    // Grid lines. The old spacing (2 units in x, 3.3 in z) put ONE vertical
+    // line on screen at the bottom of the frame: the ground plane was empty.
+    float gridX = abs(fract(x * 2.0 * density) - 0.5);
+    float gridZ = abs(fract(z * 1.0 * density) - 0.5);
 
     float lineX = smoothstep(max(0.02, fwidth(gridX) * 1.5), 0.0, gridX);
     float lineZ = smoothstep(max(0.02, fwidth(gridZ) * 1.5), 0.0, gridZ);
+    // near the horizon the lines are denser than pixels: fade them out there
+    // instead of letting them fuse into a solid bright band
+    lineZ *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridZ));
+    lineX *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridX));
     float grid = max(lineX, lineZ);
 
     // Distance fog

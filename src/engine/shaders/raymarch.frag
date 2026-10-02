@@ -39,7 +39,9 @@ float sdBox(vec3 p, vec3 b) {
 float map(vec3 p) {
   float rep = 2.2 / max(repscale, 0.3);
   vec3 q = mod(p, rep) - rep * 0.5;
-  float s = 0.28 + uBass * 0.10;
+  // box size follows the cell: a fixed 0.28 in a 4.4 cell (density at min)
+  // left a near-black frame with a few dice floating in it
+  float s = rep * (0.255 + uBass * 0.09);
   float box = sdBox(q, vec3(s)) - 0.04;
   // carve a cross so it reads as a lattice, not solid walls
   float cross1 = sdBox(q, vec3(rep, s * 0.42, s * 0.42));

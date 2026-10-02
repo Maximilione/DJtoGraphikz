@@ -40,6 +40,10 @@ void main() {
   float env = 1.0 - pump * exp(-ph * 6.0);
   // offbeat swell
   env += pump * 0.25 * exp(-abs(ph - 0.5) * 8.0) * (0.5 + uBass);
+  // pump=1 ducked to a point: keep a stub so the rings never vanish
+  env = max(env, 0.15);
+  // portrait: shrink so the outer rings stay inside the narrow side
+  env *= min(1.0, aspect);
 
   p = rot(uBeatClock * 0.1 * spin + uTime * 0.05) * p;
   float n = clamp(floor(rings), 2.0, 12.0);
@@ -47,7 +51,9 @@ void main() {
   for (int i = 0; i < 12; i++) {
     if (float(i) >= n) break;
     float fi = float(i);
-    float size = (0.06 + fi * 0.055) * env;
+    // outer ring at the same radius whatever the count: two rings used to be
+    // a stamp in the middle, twelve ran off the frame
+    float size = (0.06 + fi * 0.33 / max(n - 1.0, 1.0)) * env;
     float r = 0.02 + 0.01 * fi;
     float d = abs(roundedBox(rot(fi * 0.12 * spin) * p, size, r));
     float w = 0.006 + 0.004 * uEnergy;
