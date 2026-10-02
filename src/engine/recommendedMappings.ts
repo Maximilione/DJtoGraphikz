@@ -304,11 +304,6 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     drift: { source: 'energy', depth: 0.4, value: 0.8 },
     lanes: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
   },
-  sevenseg: {
-    jitter: { source: 'energy', depth: 0.6, value: 0.2 },
-    ghost: { source: 'bass', depth: 0.4, value: 0.05 },
-    digits: { source: 'lfo-square', depth: 0.4, lfoRate: 32, value: 2 },
-  },
   eclipse: {
     corona: { source: 'bass', depth: 0.5, value: 1 },
     radius: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 0.25 },

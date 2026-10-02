@@ -72,7 +72,6 @@ import downpourFrag from './shaders/downpour.frag?raw'
 import cracksFrag from './shaders/cracks.frag?raw'
 import tribalFrag from './shaders/tribal.frag?raw'
 import chevronsFrag from './shaders/chevrons.frag?raw'
-import sevensegFrag from './shaders/sevenseg.frag?raw'
 import eclipseFrag from './shaders/eclipse.frag?raw'
 import blindsFrag from './shaders/blinds.frag?raw'
 import bounceballFrag from './shaders/bounceball.frag?raw'
@@ -183,7 +182,7 @@ export type EffectId =
   | 'stringart' | 'ascii' | 'smoke'
   | 'flash' | 'halftone' | 'spiral' | 'warehouse' | 'impact' | 'barcode'
   | 'static' | 'cage' | 'radar' | 'downpour' | 'cracks' | 'tribal'
-  | 'chevrons' | 'sevenseg' | 'eclipse' | 'blinds'
+  | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
   | 'spaceghost'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
@@ -438,7 +437,6 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   cracks: cracksFrag,
   tribal: tribalFrag,
   chevrons: chevronsFrag,
-  sevenseg: sevensegFrag,
   eclipse: eclipseFrag,
   blinds: blindsFrag,
   bounceball: bounceballFrag,

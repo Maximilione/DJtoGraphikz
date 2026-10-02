@@ -307,11 +307,6 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'thickness', label: 'Spessore', min: 0.1, max: 0.95, default: 0.5 },
     { key: 'drift', label: 'Deriva', min: 0, max: 3, default: 1 },
   ],
-  sevenseg: [
-    { key: 'digits', label: 'Cifre', min: 1, max: 4, default: 2 },
-    { key: 'ghost', label: 'Fantasma', min: 0, max: 0.3, default: 0.06 },
-    { key: 'jitter', label: 'Strappo', min: 0, max: 1, default: 0.4 },
-  ],
   eclipse: [
     { key: 'radius', label: 'Raggio', min: 0.1, max: 0.5, default: 0.28 },
     { key: 'corona', label: 'Corona', min: 0.2, max: 2, default: 1 },

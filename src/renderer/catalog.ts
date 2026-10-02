@@ -94,7 +94,6 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'halftone', label: 'Xerox', icon: '⁙' },
       { id: 'barcode', label: 'Barcode', icon: '▥' },
       { id: 'chevrons', label: 'Hazard', icon: '⋀' },
-      { id: 'sevenseg', label: 'Counter', icon: '▯' },
       { id: 'static', label: 'Static', icon: '▩' },
       { id: 'radar', label: 'Radar', icon: '◔' },
       { id: 'cage', label: 'Cage', icon: '▣' },
