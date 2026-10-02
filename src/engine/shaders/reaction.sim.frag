@@ -68,7 +68,9 @@ void main() {
   // the music nudges the chemistry: mids and highs walk the feed/kill point
   // around, which is what turns coral into worms into spots
   float f = clamp(feed + uHigh * 0.004 - uMid * 0.001, 0.005, 0.09);
-  float k = clamp(kill + uMid * 0.0022, 0.03, 0.075);
+  // small: the live band is kill 0.060–0.064 at this feed, the old 0.0022
+  // walked a top-of-range kill past 0.065 and the pattern died on loud mids
+  float k = clamp(kill + uMid * 0.0008, 0.03, 0.075);
 
   float abb = a * b * b;
   a += (1.00 * lap.x - abb + f * (1.0 - a));

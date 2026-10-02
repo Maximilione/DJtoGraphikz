@@ -67,7 +67,9 @@ void main() {
 
   // Flame envelope: roaring at the bottom, dying with height.
   // Bass feeds the vigor, a kick makes the whole flame leap.
-  float vigor = 1.0 + uBass * 0.8 + uBassHit * 1.1 + uBeat * 0.25;
+  // kept small: at the old gains a loud track lifted the envelope to 0.7 at
+  // the top edge and the flame became a wall of white filling the frame
+  float vigor = 1.0 + uBass * 0.15 + uBassHit * 0.3 + uBeat * 0.05;
   float env = 1.0 - uv.y / max(vigor * (1.9 - falloff), 0.15);
   env = clamp(env, 0.0, 1.0);
   env *= 0.72 + 0.38 * (1.0 - min(abs(p.x) * 0.6, 1.0)); // hotter in the middle

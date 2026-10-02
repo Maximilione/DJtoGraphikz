@@ -64,6 +64,8 @@ void main() {
   // gentle beat bloom, never a strobe — this is the deep effect
   color *= 1.0 + uBeat * 0.12;
 
-  color *= smoothstep(1.5, 0.5, length(uv));
+  // vignette in frame space: bounded on any aspect (on a 6:1 strip uv.x
+  // reaches 3 and the old length(uv) left the outer thirds black)
+  color *= smoothstep(1.5, 0.5, length((vUv - 0.5) * vec2(1.78, 1.0)));
   gl_FragColor = vec4(min(color, vec3(2.0)), 1.0);
 }
