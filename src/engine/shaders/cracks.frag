@@ -64,7 +64,7 @@ void main() {
   float lit = crack * (0.25 + pulse * glow);
 
   // slabs: near black, a little grain, slightly lighter toward the crack
-  float slab = 0.012 + 0.02 * hash2(cell).x + exp(-edge * 10.0) * 0.02;
+  float slab = 0.012 + 0.02 * hash2(cell + n1).x + exp(-edge * 10.0) * 0.02;
   vec3 col = vec3(slab) * (1.0 + 0.5 * uBassHit);
   col += mix(uColor1, vec3(1.0), pulse * 0.5) * lit;
   col += uColor2 * crack * exp(-edge * 40.0) * 0.1;
