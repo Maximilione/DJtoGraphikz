@@ -21,7 +21,9 @@ varying vec2 vUv;
 mat2 rot(float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+  // short side: on a portrait output the set stays in frame instead of being
+  // cropped to its middle
+  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
 
   // Julia set with audio-reactive constant
   float t = uTime * 0.15;
@@ -30,7 +32,7 @@ void main() {
     0.27015 + cos(t * 0.7) * 0.1 + uMid * 0.05
   );
 
-  float zm = zoom - uBeat * 0.3;
+  float zm = zoom - uBeat * 0.15;
   vec2 z = uv * zm;
   z *= rot(t * 0.2);
 
@@ -73,10 +75,10 @@ void main() {
     float g = exp(-trapR * 2.2);
     color = mix(uColor3 * 0.06, uColor1 * 0.7, g);
     color += uColor2 * exp(-trapX * 9.0) * 0.35;
-    color *= 0.6 + uBass * 0.5;
+    color *= 0.6 + uBass * 0.3;
   }
 
-  color *= 1.0 + uBeat * 0.5;
+  color *= 1.0 + uBeat * 0.25;
 
   gl_FragColor = vec4(color, 1.0);
 }
