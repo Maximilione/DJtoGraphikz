@@ -4,6 +4,7 @@ import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
 import type { Phase } from './AutoVJ'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
+import { recommendedFor } from './recommendedMappings'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
 import { type VideoDeck, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
@@ -1755,6 +1756,37 @@ export class Engine {
     st.depth = Math.max(-1, Math.min(1, depth))
     if (typeof lfoRate === 'number') st.lfoRate = Math.max(0.25, Math.min(64, lfoRate))
     this.emitState()
+  }
+
+  /**
+   * Il mapping consigliato di `effect` (recommendedMappings.ts), sui suoi
+   * parametri. Scrive nel bucket di quell'effetto e non in quello attivo: con
+   * la transizione a tempo l'effetto scelto diventa attivo solo al prossimo
+   * beat, e il mapping deve gia' esserci quando arriva.
+   *
+   * `onlyUnmapped` (il cambio effetto a mano): tocca solo i parametri con
+   * sorgente `none`. Un parametro che l'utente, una scena o un look hanno gia'
+   * mappato in sessione resta com'e' — il consiglio riempie i vuoti, non
+   * sovrascrive. Il pulsante Auto passa `false` e riapplica tutto.
+   * Ritorna quanti parametri ha toccato.
+   */
+  applyRecommendedMapping(effect: string, onlyUnmapped = true): number {
+    const defs = [...COMMON_PARAMS, ...(EFFECT_PARAMS[effect] ?? [])]
+    const bucket = (this.paramState[effect] ??= {})
+    let n = 0
+    for (const [key, rec] of Object.entries(recommendedFor(effect))) {
+      const def = defs.find(d => d.key === key)
+      if (!def) continue
+      const st = (bucket[key] ??= { value: def.default, source: 'none', depth: 0.5 })
+      if (onlyUnmapped && st.source !== 'none') continue
+      st.source = rec.source
+      st.depth = rec.depth
+      if (rec.lfoRate) st.lfoRate = rec.lfoRate
+      if (typeof rec.value === 'number') st.value = Math.max(def.min, Math.min(def.max, rec.value))
+      n++
+    }
+    if (n) this.emitState()
+    return n
   }
 
   /** Live param value: slider base + Intensity macro + audio/LFO modulation */

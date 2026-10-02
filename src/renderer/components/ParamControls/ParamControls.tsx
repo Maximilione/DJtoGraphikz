@@ -3,6 +3,7 @@ import type { Engine } from '@engine/Engine'
 import { AUDIO_SOURCES, type AudioSource } from '@engine/EffectParams'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { smartMap } from '../../smartMap'
+import { autoMappingEnabled, setAutoMappingEnabled } from '../../autoMapping'
 import { pushToast } from '../Toasts/Toasts'
 
 interface ParamControlsProps {
@@ -31,6 +32,7 @@ const LFO_RATES = [0.25, 0.5, 1, 2, 4, 8, 16, 32]
 export function ParamControls({ engine }: ParamControlsProps) {
   const [, force] = useReducer((x: number) => x + 1, 0)
   const [openKey, setOpenKey] = useState<string | null>(null)
+  const [autoOnPick, setAutoOnPick] = useState(autoMappingEnabled)
   // While a pointer is down on this panel a slider may be mid-drag — skip
   // re-renders from engine emits so the drag isn't clobbered, catch up on release
   const draggingRef = useRef(false)
@@ -54,18 +56,43 @@ export function ParamControls({ engine }: ParamControlsProps) {
     <div onPointerDown={onPointerDown} className="sub-card" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="cat-label" style={{ margin: 0 }}>Parametri</div>
-        <button
-          className="btn"
-          style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
-          title="Collega i parametri all'audio, e abbassa quelli gia' al massimo per lasciare spazio al movimento — Annulla dal toast"
-          onClick={() => {
-            const r = smartMap(engine)
-            force()
-            pushToast(`Collegati ${r.count} parametri all'audio`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
-          }}
-        >
-          ⚡ Collega all'audio
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label className="micro" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            title="Quando scegli un effetto a mano (griglia, tasti 1-0, telefono) arriva gia' col suo mapping consigliato. Non tocca i parametri che hai gia' mappato tu, ne' le scene dell'Auto VJ, le scalette e i look">
+            <input type="checkbox" checked={autoOnPick}
+              onChange={e => { setAutoMappingEnabled(e.target.checked); setAutoOnPick(e.target.checked) }} />
+            al cambio
+          </label>
+          <button
+            className="btn"
+            style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            title="Mapping consigliato per questo effetto — Annulla dal toast"
+            onClick={() => {
+              const prev = defs.map(d => ({ key: d.key, ...engine.getParamState(d.key) }))
+              const n = engine.applyRecommendedMapping(engine.getCurrentEffect(), false)
+              force()
+              if (!n) { pushToast('Nessun mapping consigliato per questo effetto', 'automap'); return }
+              pushToast(`Mapping consigliato: ${n} parametri`, 'automap', { label: 'Annulla', fn: () => {
+                for (const p of prev) { engine.setParamValue(p.key, p.value); engine.setParamMapping(p.key, p.source, p.depth, p.lfoRate) }
+                force()
+              } })
+            }}
+          >
+            Auto
+          </button>
+          <button
+            className="btn"
+            style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            title="Collega i parametri all'audio, e abbassa quelli gia' al massimo per lasciare spazio al movimento — Annulla dal toast"
+            onClick={() => {
+              const r = smartMap(engine)
+              force()
+              pushToast(`Collegati ${r.count} parametri all'audio`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
+            }}
+          >
+            ⚡ Collega all'audio
+          </button>
+        </div>
       </div>
       {defs.map(def => {
         const st = engine.getParamState(def.key)
