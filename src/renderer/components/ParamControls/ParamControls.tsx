@@ -54,9 +54,9 @@ export function ParamControls({ engine }: ParamControlsProps) {
 
   return (
     <div onPointerDown={onPointerDown} className="sub-card" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
         <div className="cat-label" style={{ margin: 0 }}>Parametri</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <label className="micro" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
             title="Quando scegli un effetto a mano (griglia, tasti 1-0, telefono) arriva gia' col suo mapping consigliato. Non tocca i parametri che hai gia' mappato tu, ne' le scene dell'Auto VJ, le scalette e i look">
             <input type="checkbox" checked={autoOnPick}

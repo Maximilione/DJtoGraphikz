@@ -392,16 +392,17 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         {error && !file.name && <div className="u-error">{error}</div>}
 
         {/* S5: what the wall does when the music stops and the Auto VJ is off */}
-        <div className="slider-row" title="Con l'Auto VJ spento: dopo questi secondi senza musica l'uscita sfuma su questo effetto, e torna da sola quando la musica riparte">
+        {/* not a .slider-row: its labels are a fixed 74px each, and four of them
+            plus a number field and a select do not fit a 260px column */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s2)', minWidth: 0 }} title="Con l'Auto VJ spento: dopo questi secondi senza musica l'uscita sfuma su questo effetto, e torna da sola quando la musica riparte">
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
             <input type="checkbox" checked={idle.enabled} onChange={e => setIdleCfg({ enabled: e.target.checked })} />
-            <span className="label">Silenzio</span>
+            <span className="label">Silenzio dopo</span>
           </label>
-          <span className="label">dopo</span>
           <input type="number" min={3} max={120} value={idle.seconds} style={{ width: 48 }}
             onChange={e => setIdleCfg({ seconds: Math.max(3, Math.min(120, +e.target.value | 0)) })} aria-label="Secondi di silenzio" />
           <span className="label">s →</span>
-          <select value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto in idle">
+          <select style={{ flex: '1 1 90px', minWidth: 0 }} value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto in idle">
             {ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>)}
           </select>
         </div>
