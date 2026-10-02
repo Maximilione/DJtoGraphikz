@@ -2,6 +2,17 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.61.0-beta] — 2026-10-02
+
+**Tre scalette per i live: 4 ore in tutto.** Senza tag.
+
+### Added
+- `docs/scalette/live-4h.json`: tre scalette da ~80 minuti (Hard Tekno, Bounce Techno, Techno), da importare da Scalette > Importa. 49 passi a tempo ciascuna, composti con le scene dell'Auto VJ del genere: apertura calma, tre ondate build > groove > picco > pausa, chiusura. Mai lo stesso effetto ne' la stessa famiglia due volte di fila, palette che cambia ogni quattro passi, transizioni dissolve/radiale sui picchi
+- `scripts/gen-scalette.mjs`: rigenera il file (durate, genere e arco sono in testa allo script)
+
+### Noto
+- Il tempo scorre da solo e non segue la musica: se un brano si allunga, `N` / `Shift+N` avanza o torna indietro di un passo. Senza CDJ il cambio brano non e' esatto, per questo i passi sono a tempo
+
 ## [0.60.0-beta] — 2026-10-02
 
 **Niente schermo bianco o nero, e una revisione di tutti gli effetti.** Sweep in-app, pavimenti di luce, quattro riscritture chieste a voce, mapping consigliato per ogni effetto. Senza tag.
