@@ -2150,9 +2150,11 @@ export class Engine {
       this.cycleLastSwitch = performance.now()
       this.cycleBeatCount = 0
     }
+    this.emitState()   // the phone reads the cycle from the snapshot
   }
 
   isCycleEnabled(): boolean { return this.cycleEnabled }
+  getCyclePalettes(): [string, string, string][] { return this.cyclePalettes }
 
   setCyclePalettes(palettes: [string, string, string][]) {
     this.cyclePalettes = palettes
@@ -2161,6 +2163,7 @@ export class Engine {
 
   setCycleInterval(ms: number) {
     this.cycleIntervalMs = Math.max(1000, ms)
+    this.emitState()
   }
 
   getCycleInterval(): number { return this.cycleIntervalMs }
@@ -2168,12 +2171,14 @@ export class Engine {
   setCycleBeatSync(enabled: boolean) {
     this.cycleBeatSync = enabled
     this.cycleBeatCount = 0
+    this.emitState()
   }
 
   isCycleBeatSync(): boolean { return this.cycleBeatSync }
 
   setCycleBeatsPerSwitch(beats: number) {
     this.cycleBeatsPerSwitch = Math.max(1, beats)
+    this.emitState()
   }
 
   getCycleBeatsPerSwitch(): number { return this.cycleBeatsPerSwitch }
