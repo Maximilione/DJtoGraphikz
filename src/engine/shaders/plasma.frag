@@ -18,7 +18,10 @@ varying vec2 vUv;
 #define PI 3.14159265359
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+  // normalised by the short side: on a portrait output the rings stay the
+  // same size they are on a landscape one instead of blowing up past the frame
+  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
+  vec2 uv0 = uv;                 // unzoomed: the centre glow stays a spot
   uv *= zoom;
   float t = uTime;
 
@@ -51,14 +54,16 @@ void main() {
   vec3 color = c1 + c2 * rings + c3 * (v * 0.5 + 0.5);
   color *= 0.7;
 
-  // Energy-reactive brightness
-  color *= 0.6 + uEnergy * 0.8;
+  // Energy-reactive brightness. The gains compound (0.7 × energy × beat ×
+  // tone map): the old 2.5× beat strobe drove the whole frame to pastel white
+  color *= 0.6 + uEnergy * 0.5;
 
-  // Beat strobe
-  color *= 1.0 + beat * 1.5;
+  // Beat pulse
+  color *= 1.0 + beat * 0.5;
 
-  // Pulsing center
-  float glow = exp(-length(uv) * 2.5) * (0.3 + beat * 1.0);
+  // Pulsing center — measured on uv0: at zoom 0.3 the zoomed radius never
+  // left the glow and the whole frame was a flat pastel wash
+  float glow = exp(-length(uv0) * 2.5) * (0.3 + beat * 0.6);
   color += (uColor1 + uColor2) * glow;
 
   gl_FragColor = vec4(color, 1.0);

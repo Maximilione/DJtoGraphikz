@@ -21,7 +21,14 @@ varying vec2 vUv;
 float hash1(float n) { return fract(sin(n) * 43758.5453); }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+  // short-side normalisation: balls keep their size on a portrait output.
+  // ext = half extent of the visible frame in these units; the orbits are
+  // stretched to it so a 6:1 strip is not a cluster in the middle of black
+  // and a portrait wall does not lose half the balls past the edges
+  float aspect = uResolution.x / uResolution.y;
+  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
+  vec2 ext = vec2(max(aspect, 1.0), max(1.0 / aspect, 1.0)) * 0.5;
+  vec2 spread = ext / vec2(0.89, 0.5);   // = 1 on 16:9, the reference look
   float t = uTime;
 
   float field = 0.0;
@@ -45,7 +52,7 @@ void main() {
     );
 
     // Beat: balls expand outward
-    pos *= 1.0 + uBeat * 0.3;
+    pos *= (1.0 + uBeat * 0.3) * spread;
 
     // Ball radius varies with audio
     float radius = size + hash1(fi * 23.0) * 0.04 + uEnergy * 0.03;
@@ -77,8 +84,9 @@ void main() {
     // Neon glow around the edge
     float glow = exp(-abs(field - threshold) * 5.0);
 
-    // Interior pattern
-    float interior = sin(field * 10.0 - t * 2.0) * 0.5 + 0.5;
+    // Interior pattern on log(field): the field grows as 1/d², a linear phase
+    // in it packs rings ever tighter towards the centre and shimmers (aliasing)
+    float interior = sin(log(1.0 + field) * 6.0 - t * 2.0) * 0.5 + 0.5;
 
     color = baseColor * edge * (0.5 + interior * 0.5);
     color += baseColor * glow * 1.5;

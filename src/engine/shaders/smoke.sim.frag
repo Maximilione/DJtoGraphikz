@@ -76,18 +76,25 @@ void main() {
   float loss = 0.986 - dissipate * 0.05 - smoothstep(0.75, 1.0, uv.y) * 0.05;
   float next = moved * loss;
 
-  // injection: three vents along the floor, each fed by its own spectrum band
+  // injection: three vents along the floor, each fed by its own spectrum band.
+  // Vent spacing and size follow the aspect (= 16:9 reference on landscape):
+  // on a portrait buffer the frame is 0.56 wide in these units, the outer
+  // vents sat past its edge and the one left filled the column solid
+  float vs = clamp(aspect / 1.78, 0.55, 1.0);
   for (int i = 0; i < 3; i++) {
     float fi = float(i);
     float band = 0.12 + fi * 0.3;
     float spec = texture2D(uSpectrum, vec2(band, 0.5)).r;
-    float x = (fi - 1.0) * 0.42 + sin(uTime * 0.31 + fi * 2.1) * 0.12;
+    float x = (fi - 1.0) * 0.24 * aspect + sin(uTime * 0.31 + fi * 2.1) * 0.12 * vs;
     vec2 c = vec2(x, -0.42);
     vec2 q = p - c;
-    float vent = exp(-dot(q, q) / 0.0075);
+    float vent = exp(-dot(q, q) / (0.0075 * vs * vs));
     // the audio ADDS to a floor: a room with no music must still have smoke,
-    // or the effect is a black rectangle until the kick lands
-    next += vent * (0.55 + 0.6 * spec + 1.1 * uBassHit) * 0.16;
+    // or the effect is a black rectangle until the kick lands.
+    // Dose vs loss sets the steady density: the old 0.16 settled around 3 at
+    // the vents, clamped to 1 over most of the plume — a flat silhouette
+    // with no gradient left for the shading
+    next += vent * (0.45 + 0.5 * spec + 0.9 * uBassHit) * 0.06;
   }
 
   gl_FragColor = vec4(clamp(next, 0.0, 1.0), 0.0, 0.0, 1.0);

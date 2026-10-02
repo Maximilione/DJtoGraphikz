@@ -339,8 +339,10 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'drift', label: 'Scorrimento', min: 0, max: 3, default: 1 },
   ],
   reaction: [
-    { key: 'feed', label: 'Nutrimento', min: 0.014, max: 0.07, default: 0.0545 },
-    { key: 'kill', label: 'Consumo', min: 0.045, max: 0.07, default: 0.062 },
+    // measured on the projector: below feed 0.034 or above kill 0.064 the
+    // chemistry dies to a black frame, below kill 0.060 it fills solid
+    { key: 'feed', label: 'Nutrimento', min: 0.036, max: 0.07, default: 0.0545 },
+    { key: 'kill', label: 'Consumo', min: 0.06, max: 0.0635, default: 0.062 },
     { key: 'inject', label: 'Inietta', min: 0, max: 2, default: 1 },
   ],
   swarm: [
