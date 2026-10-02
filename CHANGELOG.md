@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.61.1-beta] — 2026-10-02
+
+### Changed
+- **Counter (sevenseg) rimosso** dall'app, dall'Auto VJ (scene e famiglie) e dal mapping consigliato: 65 effetti. Gabber riprende una scena di build con Blinds. I preset salvati che lo citano restano caricabili: l'engine ignora l'id
+- **Scalette dei live**: transizioni varie e ben visibili (wipe, radiale, dissolve) invece di quasi tutte dissolvenze; senza Counter
+
 ## [0.61.0-beta] — 2026-10-02
 
 **Tre scalette per i live: 4 ore in tutto.** Senza tag.
