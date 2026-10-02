@@ -60,6 +60,8 @@ void main() {
 
       float rd = abs(r - ringR);
       float ring = smoothstep(max(thickness, fwidth(rd) * 1.5), 0.0, rd) * gapMask;
+      // idle floor: a soft halo around each ring, so the systems read in silence
+      ring += exp(-rd * 30.0) * gapMask * 0.4 * (1.0 - 0.8 * uEnergy);
 
       // Fade with expansion
       float fade = 1.0 - ringR;
@@ -92,7 +94,7 @@ void main() {
   // Connecting lines between ring systems
   float linePattern = sin(uv.x * 50.0 + t * 2.0) * sin(uv.y * 50.0 - t * 1.5);
   linePattern = smoothstep(0.95, 1.0, linePattern);
-  color += uColor3 * linePattern * 0.2 * uEnergy;
+  color += uColor3 * linePattern * 0.2 * (0.3 + 0.7 * uEnergy);
 
   color *= 1.0 + uBeat * 0.3;
   color = min(color, vec3(2.0));
