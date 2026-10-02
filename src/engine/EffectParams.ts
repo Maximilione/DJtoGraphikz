@@ -282,11 +282,6 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'thickness', label: 'Spessore', min: 0.5, max: 4, default: 1.5 },
     { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.8 },
   ],
-  radar: [
-    { key: 'sweep', label: 'Giro', min: 0.2, max: 3, default: 1 },
-    { key: 'blips', label: 'Contatti', min: 1, max: 24, default: 8 },
-    { key: 'fade', label: 'Dissolvenza', min: 0.5, max: 4, default: 1.5 },
-  ],
   downpour: [
     { key: 'density', label: 'Densità', min: 10, max: 120, default: 60 },
     { key: 'streak', label: 'Scia', min: 0.05, max: 0.5, default: 0.2 },

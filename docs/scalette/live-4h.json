@@ -597,13 +597,12 @@
     "transition": "wipe-down"
    },
    {
-    "name": "17 break · radar",
+    "name": "17 break · smoke",
     "preset": {
-     "name": "radar (break)",
-     "effect": "radar",
+     "name": "smoke (break)",
+     "effect": "smoke",
      "post": [
-      "bloom",
-      "scanlines"
+      "filmgrain"
      ],
      "colors": [
       "#ffffff",
@@ -611,19 +610,19 @@
       "#ffffff"
      ],
      "effectParams": {
-      "radar": {
-       "sweep": {
-        "value": 0.5,
+      "smoke": {
+       "rise": {
+        "value": 0.9,
         "source": "none",
         "depth": 0
        },
-       "blips": {
-        "value": 6,
+       "swirl": {
+        "value": 1.4,
         "source": "none",
         "depth": 0
        },
-       "fade": {
-        "value": 1.5,
+       "dissipate": {
+        "value": 0.3,
         "source": "none",
         "depth": 0
        }
@@ -634,9 +633,45 @@
     "transition": "crossfade"
    },
    {
-    "name": "18 build · blinds",
+    "name": "18 build · eclipse",
     "preset": {
-     "name": "blinds (build)",
+     "name": "eclipse (build)",
+     "effect": "eclipse",
+     "post": [
+      "bloom"
+     ],
+     "colors": [
+      "#ffffff",
+      "#888888",
+      "#ffffff"
+     ],
+     "effectParams": {
+      "eclipse": {
+       "radius": {
+        "value": 0.22,
+        "source": "none",
+        "depth": 0
+       },
+       "corona": {
+        "value": 1.8,
+        "source": "energy",
+        "depth": 0.6
+       },
+       "wobble": {
+        "value": 0.8,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 60,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "19 groove · blinds",
+    "preset": {
+     "name": "blinds (groove)",
      "effect": "blinds",
      "post": [
       "filmgrain"
@@ -649,28 +684,28 @@
      "effectParams": {
       "blinds": {
        "slats": {
-        "value": 12,
+        "value": 14,
         "source": "none",
         "depth": 0
        },
        "open": {
-        "value": 0.15,
-        "source": "energy",
-        "depth": 0.9
+        "value": 0.5,
+        "source": "bass",
+        "depth": 0.5
        },
        "tilt": {
-        "value": 0.4,
+        "value": 0.2,
         "source": "none",
         "depth": 0
        }
       }
      }
     },
-    "hold": 60,
-    "transition": "wipe-left"
+    "hold": 100,
+    "transition": "dissolve"
    },
    {
-    "name": "19 groove · spiral",
+    "name": "20 groove · spiral",
     "preset": {
      "name": "spiral (groove)",
      "effect": "spiral",
@@ -703,18 +738,18 @@
      }
     },
     "hold": 100,
-    "transition": "dissolve"
+    "transition": "wipe-down"
    },
    {
-    "name": "20 groove · chevrons",
+    "name": "21 groove · chevrons",
     "preset": {
      "name": "chevrons (groove)",
      "effect": "chevrons",
      "post": [],
      "colors": [
-      "#ffffff",
-      "#888888",
-      "#ffffff"
+      "#ff0000",
+      "#880000",
+      "#ff4444"
      ],
      "effectParams": {
       "chevrons": {
@@ -737,10 +772,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-down"
+    "transition": "wipe-left"
    },
    {
-    "name": "21 groove · cage",
+    "name": "22 groove · cage",
     "preset": {
      "name": "cage (groove)",
      "effect": "cage",
@@ -767,47 +802,6 @@
        },
        "spin": {
         "value": 1.2,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "wipe-left"
-   },
-   {
-    "name": "22 groove · tunnel",
-    "preset": {
-     "name": "tunnel (groove)",
-     "effect": "tunnel",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "tunnel": {
-       "speed": {
-        "value": 1.6,
-        "source": "none",
-        "depth": 0
-       },
-       "sides": {
-        "value": 6,
-        "source": "none",
-        "depth": 0
-       },
-       "twist": {
-        "value": 0.8,
-        "source": "bass",
-        "depth": 0.5
-       },
-       "ringdensity": {
-        "value": 10,
         "source": "none",
         "depth": 0
        }
@@ -928,572 +922,7 @@
     "transition": "dissolve"
    },
    {
-    "name": "26 groove · cracks",
-    "preset": {
-     "name": "cracks (groove)",
-     "effect": "cracks",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ff2020",
-      "#ffffff",
-      "#400000"
-     ],
-     "effectParams": {
-      "cracks": {
-       "cells": {
-        "value": 8,
-        "source": "none",
-        "depth": 0
-       },
-       "width": {
-        "value": 1,
-        "source": "none",
-        "depth": 0
-       },
-       "glow": {
-        "value": 1,
-        "source": "bass",
-        "depth": 0.6
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "radial"
-   },
-   {
-    "name": "27 groove · barcode",
-    "preset": {
-     "name": "barcode (groove)",
-     "effect": "barcode",
-     "post": [
-      "scanlines"
-     ],
-     "colors": [
-      "#ff2020",
-      "#ffffff",
-      "#400000"
-     ],
-     "effectParams": {
-      "barcode": {
-       "bars": {
-        "value": 56,
-        "source": "none",
-        "depth": 0
-       },
-       "gap": {
-        "value": 0.4,
-        "source": "none",
-        "depth": 0
-       },
-       "jitter": {
-        "value": 1,
-        "source": "high",
-        "depth": 0.6
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "dissolve"
-   },
-   {
-    "name": "28 break · smoke",
-    "preset": {
-     "name": "smoke (break)",
-     "effect": "smoke",
-     "post": [
-      "filmgrain"
-     ],
-     "colors": [
-      "#ff2020",
-      "#ffffff",
-      "#400000"
-     ],
-     "effectParams": {
-      "smoke": {
-       "rise": {
-        "value": 0.9,
-        "source": "none",
-        "depth": 0
-       },
-       "swirl": {
-        "value": 1.4,
-        "source": "none",
-        "depth": 0
-       },
-       "dissipate": {
-        "value": 0.3,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 90,
-    "transition": "dissolve"
-   },
-   {
-    "name": "29 build · impact",
-    "preset": {
-     "name": "impact (build)",
-     "effect": "impact",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "impact": {
-       "speed": {
-        "value": 0.6,
-        "source": "none",
-        "depth": 0
-       },
-       "rings": {
-        "value": 2,
-        "source": "none",
-        "depth": 0
-       },
-       "width": {
-        "value": 2.5,
-        "source": "none",
-        "depth": 0
-       },
-       "fade": {
-        "value": 0.4,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 60,
-    "transition": "wipe-down"
-   },
-   {
-    "name": "30 groove · moire",
-    "preset": {
-     "name": "moire (groove)",
-     "effect": "moire",
-     "post": [
-      "chromatic"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "moire": {
-       "speed": {
-        "value": 1.3,
-        "source": "none",
-        "depth": 0
-       },
-       "density": {
-        "value": 75,
-        "source": "none",
-        "depth": 0
-       },
-       "moireoff": {
-        "value": 0.18,
-        "source": "bass",
-        "depth": 0.4
-       },
-       "rotspeed": {
-        "value": 0.9,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "radial"
-   },
-   {
-    "name": "31 groove · raymarch",
-    "preset": {
-     "name": "raymarch (groove)",
-     "effect": "raymarch",
-     "post": [
-      "bloom",
-      "chromatic"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "raymarch": {
-       "speed": {
-        "value": 1.4,
-        "source": "none",
-        "depth": 0
-       },
-       "repscale": {
-        "value": 2.8,
-        "source": "none",
-        "depth": 0
-       },
-       "glowk": {
-        "value": 1.3,
-        "source": "none",
-        "depth": 0
-       },
-       "camfov": {
-        "value": 1,
-        "source": "bass",
-        "depth": -0.3
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "dissolve"
-   },
-   {
-    "name": "32 groove · pulsecity",
-    "preset": {
-     "name": "pulsecity (groove)",
-     "effect": "pulsecity",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "pulsecity": {
-       "columns": {
-        "value": 18,
-        "source": "none",
-        "depth": 0
-       },
-       "gapw": {
-        "value": 0.12,
-        "source": "none",
-        "depth": 0
-       },
-       "punch": {
-        "value": 1.5,
-        "source": "bass",
-        "depth": 0.4
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "wipe-down"
-   },
-   {
-    "name": "33 groove · spiral",
-    "preset": {
-     "name": "spiral (groove)",
-     "effect": "spiral",
-     "post": [
-      "filmgrain"
-     ],
-     "colors": [
-      "#ffffff",
-      "#888888",
-      "#ffffff"
-     ],
-     "effectParams": {
-      "spiral": {
-       "arms": {
-        "value": 2,
-        "source": "none",
-        "depth": 0
-       },
-       "twist": {
-        "value": 8,
-        "source": "none",
-        "depth": 0
-       },
-       "pulse": {
-        "value": 0.6,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "wipe-left"
-   },
-   {
-    "name": "34 peak · fire",
-    "preset": {
-     "name": "fire (peak)",
-     "effect": "fire",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ffffff",
-      "#888888",
-      "#ffffff"
-     ],
-     "effectParams": {
-      "fire": {
-       "falloff": {
-        "value": 0.7,
-        "source": "none",
-        "depth": 0
-       },
-       "turbulence": {
-        "value": 0.7,
-        "source": "mid",
-        "depth": 0.5
-       },
-       "sparks": {
-        "value": 12,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 90,
-    "transition": "dissolve"
-   },
-   {
-    "name": "35 peak · rings",
-    "preset": {
-     "name": "rings (peak)",
-     "effect": "rings",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ffffff",
-      "#888888",
-      "#ffffff"
-     ],
-     "effectParams": {
-      "rings": {
-       "speed": {
-        "value": 1.6,
-        "source": "none",
-        "depth": 0
-       },
-       "ringcount": {
-        "value": 14,
-        "source": "none",
-        "depth": 0
-       },
-       "spacing": {
-        "value": 0.06,
-        "source": "bass",
-        "depth": 0.5
-       },
-       "gapfreq": {
-        "value": 8,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 90,
-    "transition": "radial"
-   },
-   {
-    "name": "36 peak · neonpoly",
-    "preset": {
-     "name": "neonpoly (peak)",
-     "effect": "neonpoly",
-     "post": [
-      "bloom"
-     ],
-     "colors": [
-      "#ffffff",
-      "#888888",
-      "#ffffff"
-     ],
-     "effectParams": {
-      "neonpoly": {
-       "speed": {
-        "value": 1.4,
-        "source": "none",
-        "depth": 0
-       },
-       "sides": {
-        "value": 3,
-        "source": "none",
-        "depth": 0
-       },
-       "layers": {
-        "value": 7,
-        "source": "none",
-        "depth": 0
-       },
-       "thickness": {
-        "value": 1.5,
-        "source": "bass",
-        "depth": 0.6
-       }
-      }
-     }
-    },
-    "hold": 90,
-    "transition": "wipe-left"
-   },
-   {
-    "name": "37 groove · tribal",
-    "preset": {
-     "name": "tribal (groove)",
-     "effect": "tribal",
-     "post": [
-      "filmgrain"
-     ],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "tribal": {
-       "blades": {
-        "value": 8,
-        "source": "none",
-        "depth": 0
-       },
-       "spikes": {
-        "value": 0.6,
-        "source": "high",
-        "depth": 0.3
-       },
-       "turn": {
-        "value": 1,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "wipe-left"
-   },
-   {
-    "name": "38 groove · chevrons",
-    "preset": {
-     "name": "chevrons (groove)",
-     "effect": "chevrons",
-     "post": [],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "chevrons": {
-       "lanes": {
-        "value": 5,
-        "source": "none",
-        "depth": 0
-       },
-       "thickness": {
-        "value": 0.5,
-        "source": "none",
-        "depth": 0
-       },
-       "drift": {
-        "value": 1.5,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "radial"
-   },
-   {
-    "name": "39 break · halftone",
-    "preset": {
-     "name": "halftone (break)",
-     "effect": "halftone",
-     "post": [
-      "filmgrain"
-     ],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "halftone": {
-       "dots": {
-        "value": 50,
-        "source": "none",
-        "depth": 0
-       },
-       "contrast": {
-        "value": 1.8,
-        "source": "none",
-        "depth": 0
-       },
-       "drift": {
-        "value": 0.4,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 90,
-    "transition": "crossfade"
-   },
-   {
-    "name": "40 groove · cage",
-    "preset": {
-     "name": "cage (groove)",
-     "effect": "cage",
-     "post": [
-      "bloom",
-      "chromatic"
-     ],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "cage": {
-       "size": {
-        "value": 1.1,
-        "source": "none",
-        "depth": 0
-       },
-       "thickness": {
-        "value": 1.8,
-        "source": "none",
-        "depth": 0
-       },
-       "spin": {
-        "value": 1.2,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "wipe-down"
-   },
-   {
-    "name": "41 groove · tunnel",
+    "name": "26 groove · tunnel",
     "preset": {
      "name": "tunnel (groove)",
      "effect": "tunnel",
@@ -1531,10 +960,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-left"
+    "transition": "radial"
    },
    {
-    "name": "42 groove · cracks",
+    "name": "27 groove · cracks",
     "preset": {
      "name": "cracks (groove)",
      "effect": "cracks",
@@ -1567,10 +996,82 @@
      }
     },
     "hold": 100,
-    "transition": "radial"
+    "transition": "dissolve"
    },
    {
-    "name": "43 groove · barcode",
+    "name": "28 break · halftone",
+    "preset": {
+     "name": "halftone (break)",
+     "effect": "halftone",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ff2020",
+      "#ffffff",
+      "#400000"
+     ],
+     "effectParams": {
+      "halftone": {
+       "dots": {
+        "value": 50,
+        "source": "none",
+        "depth": 0
+       },
+       "contrast": {
+        "value": 1.8,
+        "source": "none",
+        "depth": 0
+       },
+       "drift": {
+        "value": 0.4,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 90,
+    "transition": "dissolve"
+   },
+   {
+    "name": "29 build · blinds",
+    "preset": {
+     "name": "blinds (build)",
+     "effect": "blinds",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "blinds": {
+       "slats": {
+        "value": 12,
+        "source": "none",
+        "depth": 0
+       },
+       "open": {
+        "value": 0.15,
+        "source": "energy",
+        "depth": 0.9
+       },
+       "tilt": {
+        "value": 0.4,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 60,
+    "transition": "wipe-down"
+   },
+   {
+    "name": "30 groove · barcode",
     "preset": {
      "name": "barcode (groove)",
      "effect": "barcode",
@@ -1578,9 +1079,9 @@
       "scanlines"
      ],
      "colors": [
-      "#ff2020",
+      "#ff9500",
       "#ffffff",
-      "#400000"
+      "#3a1a00"
      ],
      "effectParams": {
       "barcode": {
@@ -1603,10 +1104,10 @@
      }
     },
     "hold": 100,
-    "transition": "dissolve"
+    "transition": "radial"
    },
    {
-    "name": "44 groove · moire",
+    "name": "31 groove · moire",
     "preset": {
      "name": "moire (groove)",
      "effect": "moire",
@@ -1614,9 +1115,9 @@
       "chromatic"
      ],
      "colors": [
-      "#ff2020",
+      "#ff9500",
       "#ffffff",
-      "#400000"
+      "#3a1a00"
      ],
      "effectParams": {
       "moire": {
@@ -1644,10 +1145,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-down"
+    "transition": "dissolve"
    },
    {
-    "name": "45 groove · raymarch",
+    "name": "32 groove · raymarch",
     "preset": {
      "name": "raymarch (groove)",
      "effect": "raymarch",
@@ -1686,10 +1187,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-left"
+    "transition": "wipe-down"
    },
    {
-    "name": "46 groove · pulsecity",
+    "name": "33 groove · pulsecity",
     "preset": {
      "name": "pulsecity (groove)",
      "effect": "pulsecity",
@@ -1697,9 +1198,9 @@
       "bloom"
      ],
      "colors": [
-      "#ff9500",
       "#ffffff",
-      "#3a1a00"
+      "#888888",
+      "#ffffff"
      ],
      "effectParams": {
       "pulsecity": {
@@ -1722,46 +1223,201 @@
      }
     },
     "hold": 100,
-    "transition": "radial"
+    "transition": "wipe-left"
    },
    {
-    "name": "47 break · eclipse",
+    "name": "34 peak · vortex",
     "preset": {
-     "name": "eclipse (break)",
-     "effect": "eclipse",
+     "name": "vortex (peak)",
+     "effect": "vortex",
+     "post": [
+      "bloom",
+      "feedback"
+     ],
+     "colors": [
+      "#ffffff",
+      "#888888",
+      "#ffffff"
+     ],
+     "effectParams": {
+      "vortex": {
+       "speed": {
+        "value": 1.4,
+        "source": "none",
+        "depth": 0
+       },
+       "arms": {
+        "value": 5,
+        "source": "none",
+        "depth": 0
+       },
+       "twist": {
+        "value": 2,
+        "source": "none",
+        "depth": 0
+       },
+       "pull": {
+        "value": 1.2,
+        "source": "bass",
+        "depth": 0.5
+       }
+      }
+     }
+    },
+    "hold": 90,
+    "transition": "dissolve"
+   },
+   {
+    "name": "35 peak · fire",
+    "preset": {
+     "name": "fire (peak)",
+     "effect": "fire",
      "post": [
       "bloom"
      ],
      "colors": [
-      "#ff9500",
       "#ffffff",
-      "#3a1a00"
+      "#888888",
+      "#ffffff"
      ],
      "effectParams": {
-      "eclipse": {
-       "radius": {
-        "value": 0.3,
+      "fire": {
+       "falloff": {
+        "value": 0.7,
         "source": "none",
         "depth": 0
        },
-       "corona": {
-        "value": 0.8,
-        "source": "bass",
+       "turbulence": {
+        "value": 0.7,
+        "source": "mid",
         "depth": 0.5
        },
-       "wobble": {
-        "value": 0.4,
+       "sparks": {
+        "value": 12,
         "source": "none",
         "depth": 0
        }
       }
      }
     },
-    "hold": 120,
-    "transition": "crossfade"
+    "hold": 90,
+    "transition": "radial"
    },
    {
-    "name": "48 break · warehouse",
+    "name": "36 peak · rings",
+    "preset": {
+     "name": "rings (peak)",
+     "effect": "rings",
+     "post": [
+      "bloom"
+     ],
+     "colors": [
+      "#ffffff",
+      "#888888",
+      "#ffffff"
+     ],
+     "effectParams": {
+      "rings": {
+       "speed": {
+        "value": 1.6,
+        "source": "none",
+        "depth": 0
+       },
+       "ringcount": {
+        "value": 14,
+        "source": "none",
+        "depth": 0
+       },
+       "spacing": {
+        "value": 0.06,
+        "source": "bass",
+        "depth": 0.5
+       },
+       "gapfreq": {
+        "value": 8,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 90,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "37 groove · blinds",
+    "preset": {
+     "name": "blinds (groove)",
+     "effect": "blinds",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ff0000",
+      "#880000",
+      "#ff4444"
+     ],
+     "effectParams": {
+      "blinds": {
+       "slats": {
+        "value": 14,
+        "source": "none",
+        "depth": 0
+       },
+       "open": {
+        "value": 0.5,
+        "source": "bass",
+        "depth": 0.5
+       },
+       "tilt": {
+        "value": 0.2,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "38 groove · spiral",
+    "preset": {
+     "name": "spiral (groove)",
+     "effect": "spiral",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ff0000",
+      "#880000",
+      "#ff4444"
+     ],
+     "effectParams": {
+      "spiral": {
+       "arms": {
+        "value": 2,
+        "source": "none",
+        "depth": 0
+       },
+       "twist": {
+        "value": 8,
+        "source": "none",
+        "depth": 0
+       },
+       "pulse": {
+        "value": 0.6,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "radial"
+   },
+   {
+    "name": "39 break · warehouse",
     "preset": {
      "name": "warehouse (break)",
      "effect": "warehouse",
@@ -1769,9 +1425,9 @@
       "filmgrain"
      ],
      "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
+      "#ff0000",
+      "#880000",
+      "#ff4444"
      ],
      "effectParams": {
       "warehouse": {
@@ -1793,11 +1449,272 @@
       }
      }
     },
-    "hold": 120,
+    "hold": 90,
+    "transition": "crossfade"
+   },
+   {
+    "name": "40 groove · tribal",
+    "preset": {
+     "name": "tribal (groove)",
+     "effect": "tribal",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ff0000",
+      "#880000",
+      "#ff4444"
+     ],
+     "effectParams": {
+      "tribal": {
+       "blades": {
+        "value": 8,
+        "source": "none",
+        "depth": 0
+       },
+       "spikes": {
+        "value": 0.6,
+        "source": "high",
+        "depth": 0.3
+       },
+       "turn": {
+        "value": 1,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "wipe-down"
+   },
+   {
+    "name": "41 groove · chevrons",
+    "preset": {
+     "name": "chevrons (groove)",
+     "effect": "chevrons",
+     "post": [],
+     "colors": [
+      "#ff2020",
+      "#ffffff",
+      "#400000"
+     ],
+     "effectParams": {
+      "chevrons": {
+       "lanes": {
+        "value": 5,
+        "source": "none",
+        "depth": 0
+       },
+       "thickness": {
+        "value": 0.5,
+        "source": "none",
+        "depth": 0
+       },
+       "drift": {
+        "value": 1.5,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "42 groove · cage",
+    "preset": {
+     "name": "cage (groove)",
+     "effect": "cage",
+     "post": [
+      "bloom",
+      "chromatic"
+     ],
+     "colors": [
+      "#ff2020",
+      "#ffffff",
+      "#400000"
+     ],
+     "effectParams": {
+      "cage": {
+       "size": {
+        "value": 1.1,
+        "source": "none",
+        "depth": 0
+       },
+       "thickness": {
+        "value": 1.8,
+        "source": "none",
+        "depth": 0
+       },
+       "spin": {
+        "value": 1.2,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "radial"
+   },
+   {
+    "name": "43 groove · tunnel",
+    "preset": {
+     "name": "tunnel (groove)",
+     "effect": "tunnel",
+     "post": [
+      "bloom"
+     ],
+     "colors": [
+      "#ff2020",
+      "#ffffff",
+      "#400000"
+     ],
+     "effectParams": {
+      "tunnel": {
+       "speed": {
+        "value": 1.6,
+        "source": "none",
+        "depth": 0
+       },
+       "sides": {
+        "value": 6,
+        "source": "none",
+        "depth": 0
+       },
+       "twist": {
+        "value": 0.8,
+        "source": "bass",
+        "depth": 0.5
+       },
+       "ringdensity": {
+        "value": 10,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
     "transition": "dissolve"
    },
    {
-    "name": "49 break · static",
+    "name": "44 groove · cracks",
+    "preset": {
+     "name": "cracks (groove)",
+     "effect": "cracks",
+     "post": [
+      "bloom"
+     ],
+     "colors": [
+      "#ff2020",
+      "#ffffff",
+      "#400000"
+     ],
+     "effectParams": {
+      "cracks": {
+       "cells": {
+        "value": 8,
+        "source": "none",
+        "depth": 0
+       },
+       "width": {
+        "value": 1,
+        "source": "none",
+        "depth": 0
+       },
+       "glow": {
+        "value": 1,
+        "source": "bass",
+        "depth": 0.6
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "wipe-down"
+   },
+   {
+    "name": "45 groove · barcode",
+    "preset": {
+     "name": "barcode (groove)",
+     "effect": "barcode",
+     "post": [
+      "scanlines"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "barcode": {
+       "bars": {
+        "value": 56,
+        "source": "none",
+        "depth": 0
+       },
+       "gap": {
+        "value": 0.4,
+        "source": "none",
+        "depth": 0
+       },
+       "jitter": {
+        "value": 1,
+        "source": "high",
+        "depth": 0.6
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "46 groove · moire",
+    "preset": {
+     "name": "moire (groove)",
+     "effect": "moire",
+     "post": [
+      "chromatic"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "moire": {
+       "speed": {
+        "value": 1.3,
+        "source": "none",
+        "depth": 0
+       },
+       "density": {
+        "value": 75,
+        "source": "none",
+        "depth": 0
+       },
+       "moireoff": {
+        "value": 0.18,
+        "source": "bass",
+        "depth": 0.4
+       },
+       "rotspeed": {
+        "value": 0.9,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
+    "transition": "radial"
+   },
+   {
+    "name": "47 break · static",
     "preset": {
      "name": "static (break)",
      "effect": "static",
@@ -1805,9 +1722,9 @@
       "scanlines"
      ],
      "colors": [
+      "#ff9500",
       "#ffffff",
-      "#888888",
-      "#ffffff"
+      "#3a1a00"
      ],
      "effectParams": {
       "static": {
@@ -1823,6 +1740,78 @@
        },
        "bands": {
         "value": 0.6,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 120,
+    "transition": "crossfade"
+   },
+   {
+    "name": "48 break · smoke",
+    "preset": {
+     "name": "smoke (break)",
+     "effect": "smoke",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "smoke": {
+       "rise": {
+        "value": 0.9,
+        "source": "none",
+        "depth": 0
+       },
+       "swirl": {
+        "value": 1.4,
+        "source": "none",
+        "depth": 0
+       },
+       "dissipate": {
+        "value": 0.3,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 120,
+    "transition": "dissolve"
+   },
+   {
+    "name": "49 break · halftone",
+    "preset": {
+     "name": "halftone (break)",
+     "effect": "halftone",
+     "post": [
+      "filmgrain"
+     ],
+     "colors": [
+      "#ffffff",
+      "#888888",
+      "#ffffff"
+     ],
+     "effectParams": {
+      "halftone": {
+       "dots": {
+        "value": 50,
+        "source": "none",
+        "depth": 0
+       },
+       "contrast": {
+        "value": 1.8,
+        "source": "none",
+        "depth": 0
+       },
+       "drift": {
+        "value": 0.4,
         "source": "none",
         "depth": 0
        }
@@ -1913,13 +1902,12 @@
     "transition": "dissolve"
    },
    {
-    "name": "03 break · radar",
+    "name": "03 break · smoke",
     "preset": {
-     "name": "radar (break)",
-     "effect": "radar",
+     "name": "smoke (break)",
+     "effect": "smoke",
      "post": [
-      "bloom",
-      "scanlines"
+      "filmgrain"
      ],
      "colors": [
       "#ffffff",
@@ -1927,19 +1915,19 @@
       "#ffffff"
      ],
      "effectParams": {
-      "radar": {
-       "sweep": {
-        "value": 0.5,
+      "smoke": {
+       "rise": {
+        "value": 0.9,
         "source": "none",
         "depth": 0
        },
-       "blips": {
-        "value": 6,
+       "swirl": {
+        "value": 1.4,
         "source": "none",
         "depth": 0
        },
-       "fade": {
-        "value": 1.5,
+       "dissipate": {
+        "value": 0.3,
         "source": "none",
         "depth": 0
        }
@@ -2423,12 +2411,12 @@
     "transition": "wipe-down"
    },
    {
-    "name": "17 break · smoke",
+    "name": "17 break · static",
     "preset": {
-     "name": "smoke (break)",
-     "effect": "smoke",
+     "name": "static (break)",
+     "effect": "static",
      "post": [
-      "filmgrain"
+      "scanlines"
      ],
      "colors": [
       "#ffffff",
@@ -2436,19 +2424,19 @@
       "#ffffff"
      ],
      "effectParams": {
-      "smoke": {
-       "rise": {
-        "value": 0.9,
+      "static": {
+       "grain": {
+        "value": 3,
         "source": "none",
         "depth": 0
        },
-       "swirl": {
-        "value": 1.4,
-        "source": "none",
-        "depth": 0
+       "roll": {
+        "value": 0.6,
+        "source": "bass",
+        "depth": 0.5
        },
-       "dissipate": {
-        "value": 0.3,
+       "bands": {
+        "value": 0.5,
         "source": "none",
         "depth": 0
        }
@@ -2837,12 +2825,12 @@
     "transition": "dissolve"
    },
    {
-    "name": "28 break · static",
+    "name": "28 break · eclipse",
     "preset": {
-     "name": "static (break)",
-     "effect": "static",
+     "name": "eclipse (break)",
+     "effect": "eclipse",
      "post": [
-      "scanlines"
+      "bloom"
      ],
      "colors": [
       "#9fb4c7",
@@ -2850,19 +2838,19 @@
       "#ffffff"
      ],
      "effectParams": {
-      "static": {
-       "grain": {
-        "value": 3,
+      "eclipse": {
+       "radius": {
+        "value": 0.28,
         "source": "none",
         "depth": 0
        },
-       "roll": {
-        "value": 0.6,
+       "corona": {
+        "value": 0.9,
         "source": "bass",
         "depth": 0.5
        },
-       "bands": {
-        "value": 0.5,
+       "wobble": {
+        "value": 0.4,
         "source": "none",
         "depth": 0
        }
@@ -3243,12 +3231,12 @@
     "transition": "radial"
    },
    {
-    "name": "39 break · eclipse",
+    "name": "39 break · warehouse",
     "preset": {
-     "name": "eclipse (break)",
-     "effect": "eclipse",
+     "name": "warehouse (break)",
+     "effect": "warehouse",
      "post": [
-      "bloom"
+      "filmgrain"
      ],
      "colors": [
       "#ff0000",
@@ -3256,19 +3244,19 @@
       "#ff4444"
      ],
      "effectParams": {
-      "eclipse": {
-       "radius": {
-        "value": 0.28,
+      "warehouse": {
+       "pillars": {
+        "value": 2,
         "source": "none",
         "depth": 0
        },
-       "corona": {
-        "value": 0.9,
-        "source": "bass",
-        "depth": 0.5
+       "fog": {
+        "value": 1.3,
+        "source": "none",
+        "depth": 0
        },
-       "wobble": {
-        "value": 0.4,
+       "flicker": {
+        "value": 0.6,
         "source": "none",
         "depth": 0
        }
@@ -3279,49 +3267,7 @@
     "transition": "crossfade"
    },
    {
-    "name": "40 groove · raymarch",
-    "preset": {
-     "name": "raymarch (groove)",
-     "effect": "raymarch",
-     "post": [
-      "bloom",
-      "chromatic"
-     ],
-     "colors": [
-      "#ff0000",
-      "#880000",
-      "#ff4444"
-     ],
-     "effectParams": {
-      "raymarch": {
-       "speed": {
-        "value": 1.2,
-        "source": "none",
-        "depth": 0
-       },
-       "repscale": {
-        "value": 2.6,
-        "source": "none",
-        "depth": 0
-       },
-       "glowk": {
-        "value": 1.2,
-        "source": "none",
-        "depth": 0
-       },
-       "camfov": {
-        "value": 1,
-        "source": "bass",
-        "depth": -0.3
-       }
-      }
-     }
-    },
-    "hold": 100,
-    "transition": "wipe-down"
-   },
-   {
-    "name": "41 groove · pulsecity",
+    "name": "40 groove · pulsecity",
     "preset": {
      "name": "pulsecity (groove)",
      "effect": "pulsecity",
@@ -3329,9 +3275,9 @@
       "bloom"
      ],
      "colors": [
-      "#9fb4c7",
-      "#3b4a5a",
-      "#ffffff"
+      "#ff0000",
+      "#880000",
+      "#ff4444"
      ],
      "effectParams": {
       "pulsecity": {
@@ -3354,10 +3300,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-left"
+    "transition": "wipe-down"
    },
    {
-    "name": "42 groove · pump",
+    "name": "41 groove · pump",
     "preset": {
      "name": "pump (groove)",
      "effect": "pump",
@@ -3390,10 +3336,10 @@
      }
     },
     "hold": 100,
-    "transition": "radial"
+    "transition": "wipe-left"
    },
    {
-    "name": "43 groove · bounceball",
+    "name": "42 groove · bounceball",
     "preset": {
      "name": "bounceball (groove)",
      "effect": "bounceball",
@@ -3426,10 +3372,10 @@
      }
     },
     "hold": 100,
-    "transition": "dissolve"
+    "transition": "radial"
    },
    {
-    "name": "44 groove · tunnel",
+    "name": "43 groove · tunnel",
     "preset": {
      "name": "tunnel (groove)",
      "effect": "tunnel",
@@ -3467,10 +3413,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-down"
+    "transition": "dissolve"
    },
    {
-    "name": "45 groove · spiral",
+    "name": "44 groove · spiral",
     "preset": {
      "name": "spiral (groove)",
      "effect": "spiral",
@@ -3478,9 +3424,9 @@
       "filmgrain"
      ],
      "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
+      "#9fb4c7",
+      "#3b4a5a",
+      "#ffffff"
      ],
      "effectParams": {
       "spiral": {
@@ -3503,10 +3449,10 @@
      }
     },
     "hold": 100,
-    "transition": "wipe-left"
+    "transition": "wipe-down"
    },
    {
-    "name": "46 groove · chevrons",
+    "name": "45 groove · chevrons",
     "preset": {
      "name": "chevrons (groove)",
      "effect": "chevrons",
@@ -3537,83 +3483,47 @@
      }
     },
     "hold": 100,
+    "transition": "wipe-left"
+   },
+   {
+    "name": "46 groove · cage",
+    "preset": {
+     "name": "cage (groove)",
+     "effect": "cage",
+     "post": [
+      "bloom",
+      "chromatic"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "cage": {
+       "size": {
+        "value": 1.1,
+        "source": "none",
+        "depth": 0
+       },
+       "thickness": {
+        "value": 1.8,
+        "source": "none",
+        "depth": 0
+       },
+       "spin": {
+        "value": 1,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 100,
     "transition": "radial"
    },
    {
-    "name": "47 break · warehouse",
-    "preset": {
-     "name": "warehouse (break)",
-     "effect": "warehouse",
-     "post": [
-      "filmgrain"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "warehouse": {
-       "pillars": {
-        "value": 2,
-        "source": "none",
-        "depth": 0
-       },
-       "fog": {
-        "value": 1.3,
-        "source": "none",
-        "depth": 0
-       },
-       "flicker": {
-        "value": 0.6,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 120,
-    "transition": "crossfade"
-   },
-   {
-    "name": "48 break · radar",
-    "preset": {
-     "name": "radar (break)",
-     "effect": "radar",
-     "post": [
-      "bloom",
-      "scanlines"
-     ],
-     "colors": [
-      "#ff9500",
-      "#ffffff",
-      "#3a1a00"
-     ],
-     "effectParams": {
-      "radar": {
-       "sweep": {
-        "value": 0.5,
-        "source": "none",
-        "depth": 0
-       },
-       "blips": {
-        "value": 6,
-        "source": "none",
-        "depth": 0
-       },
-       "fade": {
-        "value": 1.5,
-        "source": "none",
-        "depth": 0
-       }
-      }
-     }
-    },
-    "hold": 120,
-    "transition": "dissolve"
-   },
-   {
-    "name": "49 break · smoke",
+    "name": "47 break · smoke",
     "preset": {
      "name": "smoke (break)",
      "effect": "smoke",
@@ -3621,9 +3531,9 @@
       "filmgrain"
      ],
      "colors": [
+      "#ff9500",
       "#ffffff",
-      "#888888",
-      "#ffffff"
+      "#3a1a00"
      ],
      "effectParams": {
       "smoke": {
@@ -3639,6 +3549,78 @@
        },
        "dissipate": {
         "value": 0.3,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 120,
+    "transition": "crossfade"
+   },
+   {
+    "name": "48 break · static",
+    "preset": {
+     "name": "static (break)",
+     "effect": "static",
+     "post": [
+      "scanlines"
+     ],
+     "colors": [
+      "#ff9500",
+      "#ffffff",
+      "#3a1a00"
+     ],
+     "effectParams": {
+      "static": {
+       "grain": {
+        "value": 3,
+        "source": "none",
+        "depth": 0
+       },
+       "roll": {
+        "value": 0.6,
+        "source": "bass",
+        "depth": 0.5
+       },
+       "bands": {
+        "value": 0.5,
+        "source": "none",
+        "depth": 0
+       }
+      }
+     }
+    },
+    "hold": 120,
+    "transition": "dissolve"
+   },
+   {
+    "name": "49 break · eclipse",
+    "preset": {
+     "name": "eclipse (break)",
+     "effect": "eclipse",
+     "post": [
+      "bloom"
+     ],
+     "colors": [
+      "#ffffff",
+      "#888888",
+      "#ffffff"
+     ],
+     "effectParams": {
+      "eclipse": {
+       "radius": {
+        "value": 0.28,
+        "source": "none",
+        "depth": 0
+       },
+       "corona": {
+        "value": 0.9,
+        "source": "bass",
+        "depth": 0.5
+       },
+       "wobble": {
+        "value": 0.4,
         "source": "none",
         "depth": 0
        }
@@ -5384,13 +5366,12 @@
     "transition": "crossfade"
    },
    {
-    "name": "48 break · radar",
+    "name": "48 break · smoke",
     "preset": {
-     "name": "radar (break)",
-     "effect": "radar",
+     "name": "smoke (break)",
+     "effect": "smoke",
      "post": [
-      "bloom",
-      "scanlines"
+      "filmgrain"
      ],
      "colors": [
       "#9fb4c7",
@@ -5398,19 +5379,19 @@
       "#ffffff"
      ],
      "effectParams": {
-      "radar": {
-       "sweep": {
-        "value": 1,
+      "smoke": {
+       "rise": {
+        "value": 1.3,
         "source": "none",
         "depth": 0
        },
-       "blips": {
-        "value": 8,
+       "swirl": {
+        "value": 1.8,
         "source": "none",
         "depth": 0
        },
-       "fade": {
-        "value": 1.5,
+       "dissipate": {
+        "value": 0.2,
         "source": "none",
         "depth": 0
        }
@@ -5421,12 +5402,12 @@
     "transition": "dissolve"
    },
    {
-    "name": "49 break · warehouse",
+    "name": "49 break · static",
     "preset": {
-     "name": "warehouse (break)",
-     "effect": "warehouse",
+     "name": "static (break)",
+     "effect": "static",
      "post": [
-      "filmgrain"
+      "scanlines"
      ],
      "colors": [
       "#ff0000",
@@ -5434,19 +5415,19 @@
       "#ff4444"
      ],
      "effectParams": {
-      "warehouse": {
-       "pillars": {
-        "value": 2,
+      "static": {
+       "grain": {
+        "value": 3,
         "source": "none",
         "depth": 0
        },
-       "fog": {
-        "value": 1.2,
-        "source": "none",
-        "depth": 0
+       "roll": {
+        "value": 0.8,
+        "source": "bass",
+        "depth": 0.5
        },
-       "flicker": {
-        "value": 0.7,
+       "bands": {
+        "value": 0.6,
         "source": "none",
         "depth": 0
        }
