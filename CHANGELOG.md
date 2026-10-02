@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.64.1-beta] — 2026-10-02
+
+### Fixed
+- **L'audio arrivava dal microfono invece che dalla scheda esterna della console**: l'app sceglieva il primo dispositivo della lista, cioe' il predefinito di sistema (il microfono del portatile), e all'avvio ripartiva dal dispositivo salvato, che dopo le prove era il microfono. Ora la scheda esterna ha la precedenza sul microfono integrato (all'avvio, nell'onboarding, e quando la scheda viene collegata ad app aperta, anche mentre l'audio gira); una scelta salvata che non c'e' piu' ricade sul migliore disponibile. `check:audiodevice`
+
 ## [0.64.0-beta] — 2026-10-02
 
 ### Changed
