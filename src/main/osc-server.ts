@@ -112,6 +112,9 @@ function toCmd(addr: string, args: OscArg[]): Record<string, unknown> | null {
     case '/djg/blackout': return f === null ? null : { type: 'blackout', value: on }
     case '/djg/freeze': return f === null ? null : { type: 'freeze', value: on }
     case '/djg/autovj': return f === null ? null : { type: 'autovj', value: on }
+    case '/djg/seq/next': return on ? { type: 'seqNext' } : null
+    case '/djg/seq/prev': return on ? { type: 'seqPrev' } : null
+    case '/djg/seq/stop': return on ? { type: 'seqStop' } : null
     case '/djg/tap': return { type: 'tap' }
     case '/djg/effect': return s === null ? null : { type: 'effect', value: s }
     case '/djg/post': return s === null ? null : { type: 'post', value: s }
@@ -123,6 +126,9 @@ function toCmd(addr: string, args: OscArg[]): Record<string, unknown> | null {
     const id = effectIdByIndex(parseInt(m[1], 10))
     return id === null ? null : { type: 'effect', value: id }
   }
+
+  m = addr.match(/^\/djg\/seq\/start\/([1-9]\d*)$/)
+  if (m) return on ? { type: 'seqStart', value: parseInt(m[1], 10) - 1 } : null
 
   m = addr.match(/^\/djg\/look\/([1-9]\d*)$/)
   if (m) return on ? { type: 'look', value: parseInt(m[1], 10) - 1 } : null

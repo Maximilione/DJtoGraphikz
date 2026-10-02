@@ -129,6 +129,25 @@ export function prevIndex(i: number, length: number, loop: boolean): number {
   return loop ? length - 1 : 0
 }
 
+/**
+ * Index a remote surface (phone, OSC) asked for, or -1. Anything that is not a
+ * whole number inside the list is refused: the phone must not be able to start
+ * "sequence 7" of 3, or "NaN", or "1.5".
+ */
+export function validSeqIndex(v: unknown, length: number): number {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
+  return typeof n === 'number' && Number.isInteger(n) && n >= 0 && n < length ? n : -1
+}
+
+/**
+ * Manual step (N / Shift+N, phone): next always wraps, prev wraps only on a
+ * looping sequence. Returns the same index when there is nowhere to go.
+ */
+export function manualStep(i: number, length: number, loop: boolean, dir: 1 | -1): number {
+  const n = dir > 0 ? nextIndex(i, length, true) : prevIndex(i, length, loop)
+  return n < 0 ? i : n
+}
+
 /** Move a step, returning a new array — used by the drag&drop reorder */
 export function moveStep(steps: SequenceStep[], from: number, to: number): SequenceStep[] {
   if (from === to || from < 0 || to < 0 || from >= steps.length || to >= steps.length) return steps
