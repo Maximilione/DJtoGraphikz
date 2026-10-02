@@ -44,6 +44,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'smoke', label: 'Smoke', icon: '♨' },
       { id: 'ripples', label: 'Ripples', icon: '≈' },
       { id: 'vortex', label: 'Vortex', icon: '❂' },
+      { id: 'spaceghost', label: 'Ghost', icon: '☁' },
     ],
   },
   {

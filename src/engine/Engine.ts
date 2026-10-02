@@ -77,6 +77,7 @@ import blindsFrag from './shaders/blinds.frag?raw'
 import bounceballFrag from './shaders/bounceball.frag?raw'
 import pumpFrag from './shaders/pump.frag?raw'
 import rollFrag from './shaders/roll.frag?raw'
+import spaceghostFrag from './shaders/spaceghost.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -183,6 +184,7 @@ export type EffectId =
   | 'static' | 'cage' | 'radar' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'sevenseg' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
+  | 'spaceghost'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
 
@@ -441,6 +443,7 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   bounceball: bounceballFrag,
   pump: pumpFrag,
   roll: rollFrag,
+  spaceghost: spaceghostFrag,
   swarm: {
     // 192x192 texels = 36,864 particles on a fixed grid: the count must not
     // change with the projector's aspect ratio. 65k turned the frame into even
