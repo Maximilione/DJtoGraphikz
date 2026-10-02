@@ -4,150 +4,112 @@
 
 **English** · [Italiano](README.it.md)
 
-Real-time audio-reactive visual generator for tekno nights. It listens to the mixer (or any audio input) and projects animated graphics in sync with the music on a second screen or projector. Electron desktop app, offline, macOS/Windows/Linux.
+Real-time generative visuals for techno nights: it listens to the mixer and follows the music on its own, on a second screen or a projector. Electron desktop app, offline, macOS/Windows/Linux.
 
 <!-- screenshot -->
 
 ## Download
 
-**[⬇ Download the latest version](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installers are built automatically on every release. Download only the file for your system (the `.blockmap` and `.yml` files are used by auto-update, ignore them):
+**[⬇ Download the latest version](https://github.com/Maximilione/DJtoGraphikz/releases/latest)** — installers are built automatically on every release. Take only the file for your system (`.blockmap` and `.yml` are for auto-update, ignore them).
 
 | System | File | Install |
-| --------- | ------ | --------------- |
-| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` | Open the `.dmg` and drag the app into **Applications** |
-| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` | Double-click the installer and follow the steps |
-| Linux | `DJtoGraphikz-X.Y.Z.AppImage` | `chmod +x` the file and run it directly (no install) |
+| --- | --- | --- |
+| macOS (Apple Silicon) | `DJtoGraphikz-X.Y.Z-arm64.dmg` | Open the `.dmg`, drag the app into **Applications** |
+| Windows | `DJtoGraphikz-Setup-X.Y.Z.exe` | Run the installer |
+| Linux | `DJtoGraphikz-X.Y.Z.AppImage` | `chmod +x` and run it, no install |
 
-Builds are not signed/notarized, so the OS shows a warning on first launch:
+Builds are not signed, so the OS warns on first launch:
 
-- **macOS** — if you see "app is damaged" or "unidentified developer": right-click the app → **Open** → **Open** again in the popup. If that's not enough: `xattr -cr /Applications/DJtoGraphikz.app` in Terminal, then reopen.
-- **Windows** — SmartScreen blocks the installer: **More info** → **Run anyway**.
-- **Linux** — no warning; if double-click doesn't work, run from a terminal: `./DJtoGraphikz-X.Y.Z.AppImage`.
+- **macOS** — "damaged" or "unidentified developer": right-click the app → **Open** → **Open** again. If that is not enough: `xattr -cr /Applications/DJtoGraphikz.app` in Terminal.
+- **Windows** — SmartScreen: **More info** → **Run anyway**.
+- **Linux** — if double-click does nothing, run it from a terminal.
 
-On first launch the app asks for **microphone/audio input** access (needed to listen to the mixer) and, only if you use the webcam as a source, for the **camera**.
+On first launch the app asks for **microphone/audio input** access (to listen to the mixer) and, only if you use the webcam as a source, for the **camera**.
 
-## Quick start (first night, no help needed)
+## First night in 5 steps
 
-1. Install from the `.dmg` (drag the app into Applications) and open it.
-2. On first launch the onboarding starts: pick the **audio input** (line-in from the mixer or microphone) and the music **genre**.
-3. Done: **AutoVJ** starts on its own and switches effects, post-FX and palettes in time with the music.
-4. Keys to know right away: **B** blackout · **F** freeze · **Space** tap BPM · **Shift+1-0** recalls saved looks.
-5. Connect your phone: **📱** button in the top bar → scan the **QR** → enter the 6-digit **code**. The phone (same wifi) controls everything.
-6. Send the output to the projector: pick the display from the **monitor selector** and press **Fullscreen**.
-7. If something's off, the **?** button relaunches the setup.
+1. **Audio in** — the onboarding asks for the input: line-in from the mixer, or the microphone. No cable? Drop an mp3 on the Audio panel and rehearse on that.
+2. **Output** — pick the projector in the monitor selector and press **Fullscreen**. Save the room as a **venue**: next time it is one click.
+3. **Genre** — choose the Auto VJ genre. From here the app runs the night on its own.
+4. **Soundcheck** — one button in the top bar: a green/red list in a few seconds (audio in, output really drawing, fps, ArtNet, phone, disk).
+5. **Emergency keys** — **B** blackout, **F** freeze, **P** panic. Hold any of them for a momentary, tap to latch. **?** opens the cheat sheet.
 
-## Features
+Optional: **📱** in the top bar → scan the QR → 6-digit code, and the phone on the same wifi controls everything.
 
-### Interface
-
-- Three modes — **Simple**, **Pro**, **Live** — that are three views of one app: the same effect grid, the same palettes, the same Auto VJ, with more or fewer panels around them.
-- Every panel remembers whether it was open, and the right-hand column behaves as an accordion: opening one closes the others.
-- The whole app is keyboard-driven, with focus always visible.
+## What it does
 
 ### Visual engine
 
-- **65 GLSL effects** in 7 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding — Tekno and Bounce), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
-  - **Bounce** — for bounce techno: **Balls** (one bounce per beat each, squash on the floor), **Pump** (nested squares ducking on the kick and swelling on the offbeat, the sidechain drawn) and **Roll** (lanes of grey blocks rolling past each other, swelling on the offbeat where the bass sits, one accent lane walking down a lane per beat). Plus the **Bounce Techno** Auto VJ genre: dark palettes (mono, blood, steel, amber), pump and roll in the groove, strobes at the peak.
-  - **Tekno** — 16 dark, kick-driven visuals for a black room: **Flash** (blackout strobe), **Impact** (beat shockwaves), **Spiral** and **Tribal** (black-and-white hypno, ratcheting one notch per beat), **Xerox** halftone, **Barcode**, **Hazard** chevrons, **Counter** (a seven-segment bar counter), **Static**, **Radar**, **Cage** (nested wireframe cubes), **Cracks**, **Bunker** (a raymarched concrete corridor with a flickering lamp), **Rain**, **Eclipse**, **Blinds**. All in the Auto VJ rotation for Hard Tekno, Dark Industrial, Acid Techno and Gabber.
-  - **Spectrum** — the analyser's own picture: log-spaced bars with peak caps, mirrored, oscilloscope over the top. **Smoke** — a semi-Lagrangian advection plume, three vents each fed by its own band. **Caustics**, **Gyroid** (raymarched minimal surface), **Truchet**, **Quasicrystal**, **String art**, **ASCII** terminal readout.
-  - **Pulsar** — the *Unknown Pleasures* ridge plot rendered as a perspective linescape: one continuous terrain sliced front to back with hidden-line removal, sides kept dead flat like the sleeve. The field scrolls toward the camera locked to the beat clock, and every downbeat raises a ridge band that rides in with it.
-- **~85 curated parameters** — 2-3 real sliders per effect (segments, density, zoom, twist…), each **mappable to audio** (bass/mid/high/energy/beat, depth ±100%) or to a tempo-synced **LFO** (sine/saw/square, rate 1/4…32 beats).
-- **Master camera** — zoom, rotation, pan, mirrored tiling and a push-in on the kick, applied to the whole scene **before** the post chain: six sliders acting on all 46 effects and every imported ISF at once, none of which know it is there. Outside the frame it mirrors rather than smearing or going black. From the panel, MIDI, OSC `/djg/cam/*` and the phone.
-- **Intensity macro** — one fader (key **I**, MIDI, OSC, phone, top bar) that raises speed, reactivity, density and the post chain's wet together, with a weight per parameter. **At zero the scene is exactly what you set**: the macro acts when parameters are resolved, it never writes them back.
-- **Hold = momentary** — a quick tap latches, holding and letting go puts it back. Blackout, freeze, the QWER post-FX, effects 1-0, looks on Shift+1-0, MIDI pads (note-on/note-off) and a thumb on the phone. No mode to remember in the dark: the key decides, by how long you hold it.
-- **Soundcheck** — one button: a green/red checklist in a few seconds — audio input, output window really drawing (frame read off the projector, as the release gate does), fps at the chosen resolution for both windows, ArtNet packet, phone URL, free disk space.
-- **Video deck** — deck B can be a playlist of mp4 (H.264)/webm clips: speed locked to the BPM (rate = live BPM / the clip's native BPM), clip change on the bar every N bars, same blends and masks as an effect; the output window follows through the shared state. HAP/ProRes packs need converting first.
-- **Deck masks** — besides the 5 blend modes: vertical/horizontal split, radial, luma-key and an audio-driven mask (edge follows bass and beat); with a mask the crossfader is the edge position, with a softness control.
-- **Beat-roll** — hold `,` `.` `/` and the effect clock loops over a quarter, an eighth or a sixteenth of a beat: the visual loop roll. Tap to latch, tap again to release. No frame buffer: the shaders are functions of time, so looping the time replays the frames.
-- **Palette from a picture** — drop the club's flyer or logo on the last palette slot: k-means on a thumbnail picks the dominant colour and the two farthest from it, and the palette is yours (right-click to remove).
-- **Setlists with graphics** — each step of a setlist carries its own images, GIFs and text (from the media library, a file, or typed) that appear with the step and leave with the next; steps advance by seconds, beats, **per song** or by hand (`N` / `Shift+N`); a Try button previews a step without starting the list.
-- **Track-change detection** — from Pro DJ Link (the master deck's track id) or, with no CDJ, from the audio itself (tempo that moves and stays, key that changes and stays, a long break ending in a drop; one-minute cooldown); the Audio panel shows the last change and why.
-- **Frame posts** — Feedback now warps (zoom, rotation, drift, decay from the amount: a trail at low, MilkDrop at full), plus **RGB Delay** (channels from different frames), **Displace** (waves and noise moving the pixels on the bass), **Frame Glitch** (row shifts, tear and bleed on hits) and **Outline** (neon Sobel edges in colour 1); **Mirror** steps through horizontal / vertical / quad / kaleido 6 / kaleido 8 with its amount.
-- **Look Bank** — 4×4 grid with real thumbnails: click an empty slot to save the full look, click to apply with a transition, hotkeys Shift+1-0.
-- **Sequences** — an ordered list of looks, each held for its own time: pick them from the Look Bank or grab whatever is on screen, drag to reorder, set every step to its own number of seconds or beats and its own transition. Saved sequences reopen in the editor, run on a loop, and export to JSON.
-- **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
-- **Post-FX chain** — 9 reorderable effects with per-effect wet/dry (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + master color grade (exposure/contrast/saturation/lift/vignette), ACES tone mapping, temporal motion blur.
-- **16 palettes** + custom editor, smooth color transitions, timer- or beat-based cycling.
-- **Auto VJ** — 11 genres, ~28 **curated scenes** each (effect + tuned params + audio mappings + the post-FX that fit it), and it follows the track instead of a timer:
-  - **Phases.** The swing of the raw bass says whether there is a kick, the loudness against its own long mean how hard the room is going: **break / build / groove / peak**. Every scene is written for one phase, so a breakdown gets a dark, slow scene, the build-up gets a scene that grows with the energy, and the peak gets the strobes. Four lamps under the spectrum show which phase the machine hears.
-  - **The drop.** A kick coming back after a break cuts the scene on that first kick, with no fade, to a peak scene and a fresh palette. Everything else waits for a downbeat.
-  - **Phrases.** In the groove a scene lasts a phrase (8 bars for techno, 16 for minimal, 4 for drum & bass), half at the peak, twice in a break. The palette changes once per four scenes.
-  - **Coherence.** Two scenes of the same visual family (two tunnels, two radial things) never play back to back; an effect does not return for three switches. Silence is a break, not a slot machine.
-  - **Key → colour.** A chroma key detector (Krumhansl profiles, 8 s window) names the key; when a palette changes it is the genre palette nearest the key on the circle of fifths, warm for major, cool for minor, so the same track gets the same colours every night.
-  - **Your own scenes.** Save the current look (effect, parameters, audio mappings, post chain) as a scene of a genre and a phase; it joins the rotation, or replaces it for the phases you have written ("solo le mie").
+**65 effects in 7 categories** — Geometric (Tunnel, Kaleido, Truchet), Organic (Fluid, Smoke, React), Motion (Swarm, Pulsar, Shatter), Digital (Matrix, Lasers, Spectrum), Videogame (PS2 towers, 1080° snowboarding), Tekno (16 dark kick-driven visuals: Flash, Spiral, Bunker…) and Bounce (Balls, Pump, Roll). Each has 2-3 real parameters, mappable to audio (bass/mid/high/energy/beat) or to a tempo-synced LFO; **Smart map** does the mapping for you in one click. A **master camera** (zoom, rotation, pan, mirrored tiling, push-in on the kick) and an **Intensity** macro act on the whole scene.
 
-### Audio
+**Post on the frame** — 13 reorderable post-FX with per-effect wet/dry: Bloom, Chromatic, RGB Split, RGB Delay, Invert, Feedback (trail at low, MilkDrop at full), Mirror (horizontal → kaleido), Pixelate, Displace, Film Grain, Scanlines, Frame Glitch, Outline. Plus master color grade, ACES tone mapping and motion blur. **16 palettes**, a custom editor, and a palette from any picture: drop the club's flyer on the last slot.
 
-- **Dry run on a file** — drop an mp3 or a wav on the audio panel (or pick one with "Prova a secco con un file…") and the app analyses that instead of the input, with play/pause, scrubbing and looping. All the beat, BPM and envelope work used to be testable only at a gig; now it is testable at a desk.
-- **MIDI Clock input** — tempo and bar position taken off the cable instead of guessed from the air: 24 ticks per beat, plus start/stop and song-position pointer, from the mixer, the CDJ or Traktor. **MIDI** mode in the audio panel; works with **no line-in at all**, on the MIDI cable alone.
-- Log-scale spectral-flux beat tracking with median+MAD threshold, phase-locked loop and its own BPM estimator (100Hz timestamp grid, kick+full-band voting, genre-aware prior); auto BPM (dual estimator), tap, manual, ×½/×2.
-- Envelope follower, auto-gain, noise gate, input gain; auto-recovery if the audio device drops.
-- Extended vocabulary for shaders: per-band hits (kick/synth/hats), gated clocks, sub/presence, beat/bar phase, a continuous beat clock.
-- **`uSpectrum`** — the whole spectrum as a texture, not five numbers: 512 log-spaced bins (20Hz–20kHz) plus the oscilloscope trace, same data on the projector. See `docs/ARCHITECTURE.md`.
+**Shaders** — live GLSL editor with validation and multi-pass buffers; import from **Shadertoy** (paste the code, or the API JSON with Buffer A-D) and **ISF** (local files or ~3,700 generators browsed online with thumbnails). Imported shaders get audio-mappable sliders and image inputs like any other effect.
 
-### Media
+### Auto VJ
 
-- **Unified Media panel**: images/GIFs, video, **webcam** and **text** as overlays — same controls (opacity, scale, position, displacement) and all post-FX for free.
-- GIFs synced to beat/BPM; persistent library in `~/.djtographikz/assets` (re-add with one tap after restart).
+**11 genres** — Acid Techno, Hard Tekno, Dark Industrial, Minimal, Trance, Drum & Bass, Ambient, Gabber, Tech House, Psytrance, Bounce Techno — about **350 curated scenes** in all (effect, tuned parameters, audio mappings and the post-FX that fit). It follows the track, not a timer: it hears **break / build / groove / peak**, cuts to a peak scene on the first kick of a **drop**, and in the groove holds a scene for a phrase. The track's **key picks the palette** (warm for major, cool for minor), so the same track gets the same colours every night. Save your own looks as scenes of a genre and a phase: they join the rotation, or replace it.
 
-### Remote control
+### Tempo and audio
 
-- **Phone** — built-in HTTP server, pairing via QR + 6-digit code, up to 4 devices: the mobile page controls everything (Look Bank, parameters, post chain, grade, deck B, AutoVJ) and always stays aligned with the app version.
-- **OSC** — UDP server on `:9700`, `/djg/*` addresses (`/djg/effect`, `/djg/look/N`, `/djg/param/<key>`, `/djg/crossfade`, blackout/freeze/autovj/tap…). TouchOSC-ready.
-- **MIDI learn** — MIDI panel (Pro): arm Learn, move a control on your controller, binding made and persisted. CC = fader, notes = triggers.
+A beat tracker built for club music (spectral flux, phase-locked loop, genre-aware tempo prior) with tap, manual, ×½/×2, **MIDI Clock** and **Pro DJ Link** (tempo, beat and master deck from Pioneer CDJs on the booth LAN) as alternatives. Auto-gain, noise gate, recovery if the audio device drops. **Track-change detection** from the CDJ or from the audio itself drives setlists. With the Auto VJ off, **silence** fades the wall to a calm effect and the music brings the look back.
 
-### Shaders and ISF
+### Live control
 
-- **Geometry effects** — an effect can draw real geometry instead of a fullscreen quad: point clouds, instanced meshes, models. First one shipped: **Swarm**, 36,864 particles whose positions live in a simulation buffer and are read by the *vertex* shader, so the CPU never touches a vertex.
-- **Multi-pass effects with persistent buffers** — an effect can run simulation passes that read what they wrote last frame, which is what reaction-diffusion, fluids and any cellular simulation need and what a single fullscreen pass cannot do. First one shipped: **React**, a Gray-Scott reaction-diffusion the kick injects into. See `docs/ARCHITECTURE.md`.
-- Live GLSL editor with validation (broken shaders are rejected with the exact error), **multi-pass**: mark a section `//!DJG_BUFFER A` and it gets a persistent buffer of its own.
-- **Shadertoy import** — paste the GLSL for a single-pass shader, or hand it the JSON from the Shadertoy API to get **Buffer A–D** as well; `iChannelN` is wired up, texture channels become picture inputs.
-- **ISF multi-pass** imports: each `PASSES` entry becomes a persistent buffer.
-- **Online ISF library** — browse ~3,700 generators from [editor.isf.video](https://editor.isf.video) with thumbnails and search, one-click import; "Import file…" also accepts the `.zip` downloaded from the site.
-- Shaders in `~/.djtographikz/isf` show up as a category in the Effects panel, with automatic audio-mappable sliders.
-- **⚡ Smart map** (at the top of the Parameters panel, for any effect): one button maps every parameter to the audio by analyzing its name and its actual use in the shader code (geometry→bass, colors→slow LFO, thresholds→beat), with a role budget so everything doesn't strobe together and Undo in the toast.
-- Shaders with **image inputs**: pick a picture for each input and it feeds the shader (on the output window too).
+Everything is on the keyboard (table below) and **hold = momentary**: a tap latches, holding and releasing puts it back — blackout, freeze, post-FX, effects, looks, MIDI pads, a thumb on the phone. **Beat-roll** (`,` `.` `/`) loops the visual over a quarter, an eighth or a sixteenth of a beat. **Look Bank**: 4×4 slots with thumbnails, Shift+1-0 to recall. **MIDI learn** for any controller, **phone** (up to 4 devices, QR pairing), **OSC** on UDP `:9700` (`/djg/*`, TouchOSC-ready).
 
-### Lights and stage
+### Setlists and media
 
-- **Idle on silence** — with the Auto VJ off, N seconds without music fade the wall to a calm effect of your choice, and the music brings the old look back on its own.
-- **ArtNet DMX** — RGB PARs follow the palette and pulse with energy/bass/beat (optional beat flash); plain UDP, universe/base channel/fixture count configurable.
-- **Mapping per output** — 4-corner keystone/quad-warp, one per output window: pick the output in the Mapping panel, drag its corners; saved with the venue profile.
-- **Pro DJ Link** (optional) — tempo, beat and the master deck straight from Pioneer CDJs on the booth LAN (UDP 50000–50002): pick it as BPM mode in the Audio panel; the computer must sit on the same switch as the players. No native dependency; no track title yet.
-- **OBS / second PC output** — the projector page is also served at `http://<ip>:9666/output?token=…` (Remote panel → Copy): open it as an OBS Browser Source or in a browser on another computer on the LAN. A second render, so it costs GPU on the machine that opens it; for local capture OBS window-capture is still free.
-- **Reel** — keeps the last 30 s of the show in 9:16; `V` (or the Auto VJ's drop, opt-in) saves a 15–30 s WebM straight to Downloads, ready to post.
-- **Pixel mapping** — the projected frame sampled at a LED panel's or strip's resolution (any W×H, snake wiring), 170 pixels per universe, over **sACN (E1.31) multicast** or ArtNet; async GPU readback, 1–60 fps, saved with the venue profile.
-- **Projection mapping** — drag the 4 corners (keystone/quad-warp) to fit a skewed projector.
-- **Multiple outputs** — one window per wall: pick the screen, type the panel's real resolution (1536×256 is fine), and choose which slice of the scene it shows (all, half, a strip). Per-output gamma and ceiling, because a LED wall crushes blacks and is unwatchable at full white. A LED wall behind its processor is just another display; the panel warns when the pixel total is more than one GPU can draw.
-- **Venue profiles** — save the room by name: output display and resolution, the 4 mapping corners, audio device and gain, ArtNet node and master. The second night in the same club is one click; a display that is not plugged in tonight is skipped and said so.
+**Setlists**: an ordered list of looks, each with its own duration (seconds, beats, per song, or by hand with `N` / `Shift+N`) and transition, and its own graphics per step: images, GIFs and text that appear with the step and leave with the next. **Media** panel: images/GIFs (beat-synced), video, webcam and text as overlays with the full post chain. **Deck B** with crossfader: a second effect (5 blend modes, split/radial/luma/audio **masks**) or a **video deck**, a playlist of mp4/webm clips locked to the BPM.
 
-### Output and recording
+### Outputs
 
-- Dual window: control + fullscreen output on any display, 720p-4K resolution; the preview can shrink to a strip to give panels more room.
-- **WebM recording** (🔴 in the top bar, VP9 12Mbps) and **PNG screenshots** (📷).
-- **Update notifications** — the app checks GitHub releases and links you to the newest installer.
-- **Session log** — every run writes to `~/.djtographikz/logs/` (app, control window and projector window, plus display topology); open it from **?** -> "Apri log della sessione" and attach it to a bug report.
+Control window + fullscreen output on any display, 720p-4K. **Multiple outputs**, one window per wall, each with its own resolution, slice of the scene, gamma/ceiling and 4-corner **keystone**. The output page is also served to **OBS** or a second PC over the LAN (`:9666/output`). **Recording** to WebM, PNG screenshots, and a **reel**: `V` saves the last 15-30 s in 9:16, ready to post.
+
+### Lights
+
+**ArtNet DMX**: RGB PARs follow the palette and pulse with energy/bass/beat. **Pixel mapping**: the frame sampled at a LED panel's or strip's resolution (any W×H, snake wiring) over sACN (E1.31) or ArtNet, 1-60 fps.
+
+### Venues and soundcheck
+
+A **venue profile** saves the room by name: output displays and resolutions, keystone corners, pixel mapping, audio device and gain, ArtNet node. The **soundcheck** checks in a few seconds that everything is really working — including a frame read back from the projector. Every run writes a **session log** (`?` → open log) to attach to a bug report, and the app tells you when a newer release is out.
+
+## Keys
+
+| Key | Does |
+| --- | --- |
+| `B` / `F` / `P` | blackout / freeze / panic |
+| `[` `]` | master down / up |
+| `Space` | tap BPM |
+| `1-0` | effects |
+| `Q` `W` `E` `R` | post-FX |
+| `I` | intensity macro |
+| `,` `.` `/` | beat-roll 1/4 · 1/8 · 1/16 |
+| `Shift+1-0` | looks (Shift+click a slot overwrites it) |
+| `V` | reel: save the last 15-30 s |
+| `N` / `Shift+N` | setlist: next / previous step |
+| `?` | cheat sheet |
+
+Hold any of them = momentary: release and it goes back as it was.
 
 ## Development
 
 ```bash
-yarn            # dependencies
-yarn dev        # development (Electron + Vite)
-npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build   # minimal check
-yarn check:output   # release gate: is the projector really showing an image?
-yarn check:ui       # photograph the control window (check:ui simple 0.34)
-yarn check:dryrun   # analyse a synthetic 128 BPM track and assert the app follows it
-yarn check:phases mix.mp3 --genre hard-tekno --cues mix.cues   # replay a recording of the rig through the Auto VJ's phase detector, in silence: where it heard breaks and drops
-yarn check:momentary # tap versus hold
-yarn check:intensity # the macro at zero gives the scene back untouched
-yarn package:mac   # .dmg (also package:win / package:linux)
+yarn                 # dependencies
+yarn dev             # Electron + Vite
+yarn build           # production build
+yarn check:output    # release gate: is the projector really drawing? (launches the app)
+yarn check:dryrun    # the beat tracker follows a synthetic 128 BPM track
+yarn check:phases    # replay a recording through the Auto VJ phase detector
+yarn check:ui        # photograph the control window
+yarn package:mac     # .dmg (also package:win / package:linux)
 ```
 
-Project rules (versioning, git flow): [CLAUDE.md](CLAUDE.md).
+Minimal check before a commit: `npx tsc -p tsconfig.web.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && yarn build`. Project rules (versioning, git flow, release gate): [CLAUDE.md](CLAUDE.md). Engine internals: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Changelog
 
-What changed in each version is in [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format) and in the notes of each [release](https://github.com/Maximilione/DJtoGraphikz/releases).
+[CHANGELOG.md](CHANGELOG.md) (Keep a Changelog) and the notes of each [release](https://github.com/Maximilione/DJtoGraphikz/releases).
 
 ## License
 
