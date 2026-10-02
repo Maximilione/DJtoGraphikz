@@ -34,6 +34,7 @@ import { runSweep } from './sweep'
 import { ReelBuffer, cropRect, reelFileName, loadReelSettings, onReelSettings, CHUNK_MS, DROP_DELAY_MS, REEL_FPS, type ReelLap, type ReelSettings } from './reel'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
+import { pickEffect } from './autoMapping'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
 import { migrateKeystone, type OutputCfg } from './outputs'
 
@@ -727,7 +728,7 @@ export function App() {
         if (effect) {
           const before = engine.getCurrentEffect()
           toggleVJ(false)
-          engine.setEffect(effect)
+          pickEffect(engine, effect)
           momentary.press(k, () => engine.setEffect(before))
         }
       } else if (k in HOTKEY_POSTS) {
@@ -784,7 +785,7 @@ export function App() {
 
     switch (cmd.type) {
         case 'panic': panic(); break
-        case 'effect': toggleVJ(false); engine.setEffect(v); break
+        case 'effect': toggleVJ(false); pickEffect(engine, v); break
         case 'post': engine.togglePost(v); break
         case 'palette': engine.setColors(v[0], v[1], v[2]); break
         case 'crossfade': engine.setCrossfade(v); break
