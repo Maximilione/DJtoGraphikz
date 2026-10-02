@@ -12,6 +12,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](ht
 - **OSC**: `/djg/panic`, `/djg/bpm/half|double|set`, `/djg/palette/next|prev`, `/djg/cycle`
 - **Validazione dei comandi esterni** (`phoneCmd.ts`) per telefono, OSC e MIDI: numeri clampati, NaN e id ignoti scartati (prima un master NaN dal telefono poteva dare proiettore nero); `check:phone`
 
+### Fixed
+- **Pannello sinistro che usciva dal riquadro** (modalita' Pro): la riga "Silenzio dopo N s", l'intestazione Parametri (al cambio / Auto / Collega all'audio) e la riga delle transizioni ora vanno a capo
+
 ### Noto
 - Resta sul computer cio' che richiede file o hardware: caricare immagini/GIF/video, editor di scalette e shader, import ISF/Shadertoy, MIDI learn, DMX, uscite, audio device. Non provato con un telefono vero
 
