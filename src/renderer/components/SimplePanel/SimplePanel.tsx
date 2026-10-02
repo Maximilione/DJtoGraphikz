@@ -6,6 +6,7 @@ import { EffectGrid } from '../EffectGrid/EffectGrid'
 import { AutoVJControl } from '../AutoVJ/AutoVJControl'
 import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
+import { pickEffect } from '../../autoMapping'
 
 interface SimplePanelProps {
   engine: Engine | null
@@ -39,7 +40,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
-    engine.setEffect(id)
+    pickEffect(engine, id)
     setActiveEffect(id)
     onVJToggle(false) // manual pick takes over from Auto VJ
   }, [engine, onVJToggle])

@@ -21,6 +21,7 @@
     "check:dryrun": "python3 scripts/check-dryrun.py",
     "check:momentary": "node scripts/check-momentary.mjs",
     "check:intensity": "node scripts/check-intensity.mjs",
+    "check:mappings": "node scripts/check-mappings.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
     "check:loaders": "node scripts/check-loaders.mjs",
     "check:storage": "node scripts/check-storage.mjs",
