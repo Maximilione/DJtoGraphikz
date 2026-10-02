@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { readJson, writeJson } from '../../storage'
 import { pushToast } from '../Toasts/Toasts'
-import { listAudioInputs } from '../../audioDevices'
+import { listAudioInputs, pickInput, isBuiltIn } from '../../audioDevices'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import type { Phase } from '@engine/AutoVJ'
@@ -112,9 +112,8 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     try {
       const audioInputs = await listAudioInputs()
       setDevices(audioInputs)
-      if (audioInputs.length > 0 && !selectedDevice) {
-        setSelectedDevice(audioInputs[0].deviceId)
-      }
+      // the saved input, unless it is the room mic and a sound card is plugged in
+      if (audioInputs.length > 0) setSelectedDevice(prev => pickInput(audioInputs, prev))
       setError(null)
     } catch (err: any) {
       console.error('Failed to enumerate devices:', err)
@@ -124,7 +123,22 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
 
   useEffect(() => {
     refreshDevices()
+    // a card plugged in after the app is open
+    const md = navigator.mediaDevices
+    md.addEventListener?.('devicechange', refreshDevices)
+    return () => md.removeEventListener?.('devicechange', refreshDevices)
   }, [])
+
+  // Running on the room mic while a sound card is there: move to the card
+  useEffect(() => {
+    if (!engine || !audioActive || engine.audioAnalyzer.getSourceKind() === 'file') return
+    const cur = devices.find(d => d.deviceId === engine.audioAnalyzer.currentDeviceId)
+    const best = devices.find(d => d.deviceId === selectedDevice)
+    if (cur && best && cur.deviceId !== best.deviceId && isBuiltIn(cur) && !isBuiltIn(best)) {
+      engine.audioAnalyzer.start(best.deviceId).then(applyAnalyzerSettings).catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devices, selectedDevice, audioActive])
 
   // Push panel settings into the analyzer — needed on restore and after every
   // (re)start, since start() rebuilds the audio graph
@@ -153,10 +167,15 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     // A file under analysis is not a room's sound card: switching to the
     // profile's input there would yank the track being tested.
     const onFile = engine.audioAnalyzer.getSourceKind() === 'file'
-    if (s.running && s.deviceId && !onFile && engine.audioAnalyzer.currentDeviceId !== s.deviceId) {
-      engine.audioAnalyzer.start(s.deviceId)
-        .then(applyAnalyzerSettings)
-        .catch((err: any) => console.warn('[AudioPanel] auto-start failed:', err))
+    if (s.running && s.deviceId && !onFile) {
+      // The saved id can be the built-in mic from a rehearsal: choose again
+      // from what is plugged in now, before starting on it.
+      listAudioInputs().catch(() => [] as MediaDeviceInfo[]).then(inputs => {
+        const id = inputs.length ? pickInput(inputs, s.deviceId) : (s.deviceId ?? '')
+        setSelectedDevice(id)
+        if (engine.audioAnalyzer.currentDeviceId === id) return
+        return engine.audioAnalyzer.start(id).then(applyAnalyzerSettings)
+      }).catch((err: any) => console.warn('[AudioPanel] auto-start failed:', err))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])
