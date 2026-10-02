@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.64.0-beta] — 2026-10-02
+
+### Changed
+- **Scalette dei live piu' pesanti**: 100 passi da 30-60 secondi per live (80 minuti), piu' picchi, catene di post pesanti per fase (`livePostSets.ts`, misurate anche da `check:sweep`), velocita' e reattivita' alzate nei picchi, 36 effetti, palette ogni due passi
+- **Sette effetti potenziati** (erano "tristini"), ognuno riscritto a piu' livelli, con parametri invariati: **Impact** (onde d'urto spesse con fronte luminoso e scintille), **Flash** (raggi di luce e griglia di led, resta scuro tra i colpi), **Spiral** (piu' strati di spirali con parallasse e inversione ogni 4 battute), **Static** (segnale perso con immagine fantasma sul kick, aberrazione cromatica, colori dalle palette), **Rain** (tempesta su una citta' con riflessi, pioggia su 4 profondita', raffiche a battuta, cerchi sul kick), **Pump** (anelli e geometrie in controtempo) e **Roll** (corsie in prospettiva con blocchi di luce sull'offbeat). Mai bianco o nero, reattivi all'audio, a posto su striscia LED e verticale
+
 ## [0.63.0-beta] — 2026-10-02
 
 **Il telefono conduce la serata.** Senza tag.
