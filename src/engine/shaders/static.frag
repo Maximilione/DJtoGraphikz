@@ -31,7 +31,7 @@ void main() {
   float g = max(1.0, grain);
   // horizontal tear on the hats, per row
   float row = floor(gl_FragCoord.y / g);
-  float tearAmt = (hash(vec2(row, floor(uTime * 20.0))) - 0.5) * uHighHit * 0.12;
+  float tearAmt = (hash(vec2(row, mod(floor(uTime * 20.0), 1024.0))) - 0.5) * uHighHit * 0.12;
   vec2 c = floor((gl_FragCoord.xy + vec2(tearAmt * uResolution.x, 0.0)) / g);
 
   float n = hash(c + vec2(fract(uTime * 7.31) * 100.0, fract(uTime * 3.7) * 50.0));

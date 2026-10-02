@@ -34,9 +34,12 @@ float layer(vec2 uv, float cols, float speed, float len) {
   float y = fract(uv.y * 1.2 + seed * 7.0 + speed * (0.7 + 0.6 * seed));
   float drop = smoothstep(0.0, len, y) * smoothstep(len * 1.15, len * 0.98, y);
   // thin: only the middle of the column, with a soft halo so the streaks read
-  // in silence (idle floor) instead of vanishing into black
-  float thin = smoothstep(0.35, 0.5, f) * smoothstep(0.65, 0.5, f)
-             + smoothstep(0.1, 0.5, f) * smoothstep(0.9, 0.5, f) * 0.35;
+  // in silence (idle floor) instead of vanishing into black. The core width is
+  // bounded on screen: never a fat blob on a sparse sheet, never under a pixel
+  // (shimmer) on a dense one
+  float hw = clamp(0.15 / cols, 1.0 / uResolution.x, 0.006) * cols;
+  float ax = abs(f - 0.5);
+  float thin = smoothstep(hw, 0.0, ax) + smoothstep(hw * 2.67, 0.0, ax) * 0.35;
   // not every column rains at once
   float on = step(0.35, hash(vec2(col, floor(y + seed) + floor(cols))));
   return drop * thin * on;

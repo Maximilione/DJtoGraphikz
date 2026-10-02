@@ -30,7 +30,8 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   float aspect = uResolution.x / uResolution.y;
-  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+  // scaled to the short side: a portrait wall gets a whole disc, not a slice
+  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5) / min(aspect, 1.0);
   float r = length(p);
   float a = atan(p.y, p.x);
 
@@ -54,7 +55,8 @@ void main() {
   col += uColor1 * exp(-behind * 90.0) * scope;
 
   // contacts
-  float bar = floor(turn);
+  // wrapped so the hash never sees a huge sin argument after hours of show
+  float bar = mod(floor(turn), 1024.0);
   float n = clamp(floor(blips), 1.0, 24.0);
   for (int i = 0; i < 24; i++) {
     if (float(i) >= n) break;
