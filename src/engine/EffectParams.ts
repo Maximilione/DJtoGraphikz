@@ -254,7 +254,7 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
   ],
   spiral: [
     { key: 'arms', label: 'Bracci', min: 1, max: 8, default: 2 },
-    { key: 'twist', label: 'Torsione', min: 1, max: 14, default: 8 },
+    { key: 'twist', label: 'Torsione', min: 3, max: 14, default: 8 },
     { key: 'pulse', label: 'Pulsazione', min: 0, max: 1, default: 0.5 },
   ],
   warehouse: [
@@ -298,9 +298,9 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
   tribal: [
-    { key: 'blades', label: 'Lame', min: 3, max: 16, default: 8 },
+    { key: 'blades', label: 'Tomoe', min: 3, max: 16, default: 3 },
     { key: 'spikes', label: 'Punte', min: 0, max: 1, default: 0.6 },
-    { key: 'turn', label: 'Scatto', min: 0, max: 2, default: 0.5 },
+    { key: 'turn', label: 'Velocità', min: 0, max: 2, default: 0.5 },
   ],
   chevrons: [
     { key: 'lanes', label: 'Corsie', min: 1, max: 12, default: 5 },

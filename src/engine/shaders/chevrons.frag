@@ -37,17 +37,23 @@ void main() {
   // beat snap: one stripe per beat, with a short glide
   float beat = floor(uBeatClock);
   float glide = smoothstep(0.0, 0.2, uBeatClock - beat);
-  float travel = (beat + glide) * 0.5 + uTime * 0.2 * drift;
+  // folded to one period: an hour in, fract() of a big float crawls
+  float travel = mod((beat + glide) * 0.5 + uTime * 0.2 * drift, 1.0);
   float y = uv.y * 4.0 + v + travel * dir;
 
-  float stripe = step(1.0 - clamp(thickness, 0.1, 0.95), fract(y));
+  // stripe edges one pixel soft: the diagonals are what the eye reads
+  float th = clamp(thickness, 0.1, 0.95);
+  float fy = fract(y);
+  float ay = fwidth(y);
+  float stripe = smoothstep(1.0 - th - ay, 1.0 - th, fy) * (1.0 - smoothstep(1.0 - ay, 1.0, fy));
   // lane gutters
-  float gutter = step(0.03, fx) * step(fx, 0.97);
+  float ax = n / uResolution.x;
+  float gutter = smoothstep(0.03 - ax, 0.03, fx) * (1.0 - smoothstep(0.97, 0.97 + ax, fx));
   // tinted lanes: every other one
   float tinted = mod(lane, 2.0);
   vec3 ink = mix(vec3(1.0), uColor1, tinted);
   // one random lane flashes on the kick
-  float hot = step(0.999, hash(vec2(lane, beat)) + uBassHit * 0.1);
+  float hot = step(0.999, hash(vec2(lane, mod(beat, 512.0))) + uBassHit * 0.1);
   float bright = 0.55 + 0.4 * uBass + hot * 0.6;
   // dim the lanes away from the centre so the wall has a middle
   bright *= 1.0 - 0.5 * abs(uv.x - 0.5) * 2.0 * (1.0 - uEnergy);
