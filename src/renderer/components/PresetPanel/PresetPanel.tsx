@@ -4,24 +4,23 @@ import { TRANSITIONS } from '../../catalog'
 import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/Engine'
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
 import {
-  migrateAll, migrate, clampHold, nextIndex, manualStep, validSeqIndex, moveStep, totalHold, indexAfterRemoval,
+  migrateAll, migrate, clampHold, moveStep, totalHold, indexAfterRemoval,
   usesHold, HOLD_LIMITS, MODE_LABELS, type Sequence, type SequenceStep, type SequenceMode, type StepOverlay,
 } from './sequences'
-import { registerSeqHandlers, pushSeqStatus } from './seqRemote'
+import type { SequencePlayer } from './useSequencePlayer'
 import { enterStep, clearStepOverlays, paramsFromScreen } from './sequencePlayer'
 import { readLibraryImage, IMAGE_RE, type LibraryItem } from '../OverlayPanel/OverlayPanel'
-import { shouldIgnoreHotkey } from '../../hotkeys'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
 import { SliderRow } from '../SliderRow/SliderRow'
 
 interface PresetPanelProps {
   engine: Engine | null
+  player: SequencePlayer
 }
 
 
 const STORAGE_KEY_PRESETS = 'djtographikz-presets'
-const STORAGE_KEY_PLAYLISTS = 'djtographikz-playlists'
 
 function loadPresets(): Preset[] {
   return readJson<Preset[]>(STORAGE_KEY_PRESETS, [])
@@ -36,16 +35,8 @@ function savePresetsToStorage(presets: Preset[]): boolean {
   return writeJson(STORAGE_KEY_PRESETS, presets)
 }
 
-function loadSequences(): Sequence[] {
-  // migrate(): playlists saved before per-step holds existed still load
-  return migrateAll(readJson<unknown[]>(STORAGE_KEY_PLAYLISTS, []))
-}
-
-function saveSequencesToStorage(playlists: Sequence[]): boolean {
-  return writeJson(STORAGE_KEY_PLAYLISTS, playlists)
-}
-
-export function PresetPanel({ engine }: PresetPanelProps) {
+export function PresetPanel({ engine, player }: PresetPanelProps) {
+  const { sequences, persist, playingSeq, stepIndex, playing, step, stop: stopSequence, next: seqNext, prev: seqPrev } = player
   const [tab, setTab] = useState<'presets' | 'playlist'>('presets')
 
   // Presets
@@ -53,18 +44,12 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   const [presetName, setPresetName] = useState('')
 
   // Sequences (saved) + the one open in the editor
-  const [sequences, setSequences] = useState<Sequence[]>(loadSequences)
   const [draft, setDraft] = useState<Sequence>(() => ({
     name: '', steps: [], loop: true, mode: 'timer', defaultHold: 8,
   }))
   // index into `sequences` when the draft came from a saved one — that is what
   // makes Salva overwrite instead of piling up a new copy every time
   const [editingIndex, setEditingIndex] = useState(-1)
-
-  // Playback
-  const [playingSeq, setPlayingSeq] = useState<Sequence | null>(null)
-  const [stepIndex, setStepIndex] = useState(0)
-  const [playing, setPlaying] = useState(false)
 
   // Looks available as sources for new steps
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
@@ -78,85 +63,8 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   const [stepTextColor, setStepTextColor] = useState('#ffffff')
   const [trialStep, setTrialStep] = useState(-1)
 
-  const timerRef = useRef<number>(0)
-  const beatCountRef = useRef(0)
   const dragFrom = useRef(-1)
   const [dragOver, setDragOver] = useState(-1)
-
-  const step: SequenceStep | undefined = playingSeq?.steps[stepIndex]
-
-  const advance = useCallback(() => {
-    // The next index is computed here, not inside the state updater: React may
-    // run an updater more than once, and stopping playback from inside one made
-    // the end of a sequence depend on how many times that happened
-    setStepIndex(prev => {
-      const next = nextIndex(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false)
-      if (next < 0) {
-        queueMicrotask(() => setPlaying(false))   // end of a non-looping run
-        return prev
-      }
-      return next
-    })
-  }, [playingSeq])
-
-  const seqPrev = useCallback(() => {
-    setStepIndex(prev => manualStep(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false, -1))
-  }, [playingSeq])
-
-  const seqNext = useCallback(() => {
-    setStepIndex(prev => manualStep(prev, playingSeq?.steps.length ?? 0, true, 1))  // manual skip always wraps
-  }, [playingSeq])
-
-  // Timer advance — the hold belongs to the CURRENT step, so the interval is
-  // re-armed on every step instead of running at one fixed rate
-  useEffect(() => {
-    if (!playing || !playingSeq || playingSeq.mode !== 'timer' || !step) return
-    timerRef.current = window.setTimeout(advance, step.hold * 1000)
-    return () => clearTimeout(timerRef.current)
-  }, [playing, playingSeq, step, advance])
-
-  // Beat advance — counts beats up to this step's hold
-  useEffect(() => {
-    if (!playing || !playingSeq || playingSeq.mode !== 'beats' || !step || !engine) return
-    beatCountRef.current = 0
-    // Subscribe to the render loop — polling misses beats (the flag lives one frame)
-    return engine.onAudioFrame(beatDetected => {
-      if (!beatDetected) return
-      beatCountRef.current++
-      if (beatCountRef.current < step.hold) return
-      beatCountRef.current = 0
-      advance()
-    })
-  }, [playing, playingSeq, step, engine, advance])
-
-  // Track advance — one step per song, on Engine.onTrackChange (Pro DJ Link
-  // track id, or the audio heuristic when there are no CDJs)
-  useEffect(() => {
-    if (!playing || !playingSeq || playingSeq.mode !== 'track' || !engine) return
-    return engine.onTrackChange(() => advance())
-  }, [playing, playingSeq, engine, advance])
-
-  // Apply the step's look (and its transition, when it names one) and put its
-  // graphics up; leaving the step — or stopping — takes them down again
-  useEffect(() => {
-    if (!playing || !engine || !step) return
-    if (step.transition) engine.setTransitionType(step.transition)
-    engine.applyPreset(step.preset)
-    let alive = true
-    enterStep(engine, step, readLibraryImage, () => alive)
-    return () => { alive = false; clearStepOverlays(engine) }
-  }, [step, playing, engine])
-
-  // N / Shift+N step the running sequence — the only way to move in 'manual'
-  useEffect(() => {
-    if (!playing) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.repeat || e.key.toLowerCase() !== 'n' || shouldIgnoreHotkey(e)) return
-      if (e.shiftKey) seqPrev(); else seqNext()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [playing, seqPrev, seqNext])
 
   // Save preset
   const savePreset = useCallback(() => {
@@ -227,13 +135,6 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   }, [presets])
 
   // ---- Sequence editor ----
-
-  /** disk first, then the screen — false means nothing was written */
-  const persist = useCallback((next: Sequence[]): boolean => {
-    if (!saveSequencesToStorage(next)) return false
-    setSequences(next)
-    return true
-  }, [])
 
   const addStep = useCallback((name: string, preset: Preset, thumb?: string) => {
     setDraft(d => ({
@@ -369,47 +270,9 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   // ---- Playback ----
 
   const startSequence = useCallback((seq: Sequence) => {
-    if (seq.steps.length === 0) return
-    setPlayingSeq(seq)
-    setStepIndex(0)
-    setPlaying(true)
+    player.start(seq)
     setTrialStep(-1)   // the first step's enter replaces whatever was on trial
-  }, [])
-
-  const stopSequence = useCallback(() => {
-    setPlaying(false)
-    setPlayingSeq(null)
-  }, [])
-
-  // Remote surfaces (phone, OSC) drive the same functions the buttons and N do.
-  // A ref keeps the registered handlers current without re-registering each render.
-  const remoteRef = useRef({ sequences, playingSeq, playing, startSequence, stopSequence, seqNext, seqPrev })
-  remoteRef.current = { sequences, playingSeq, playing, startSequence, stopSequence, seqNext, seqPrev }
-  useEffect(() => registerSeqHandlers({
-    start: v => {
-      const r = remoteRef.current
-      const i = validSeqIndex(v, r.sequences.length)
-      if (i < 0 || r.sequences[i].steps.length === 0) return
-      if (r.playing && r.playingSeq === r.sequences[i]) return   // no double start
-      r.startSequence(r.sequences[i])
-    },
-    next: () => { if (remoteRef.current.playing) remoteRef.current.seqNext() },
-    prev: () => { if (remoteRef.current.playing) remoteRef.current.seqPrev() },
-    stop: () => { if (remoteRef.current.playing) remoteRef.current.stopSequence() },
-  }), [])
-
-  // Status for the phone: list + what is playing, pushed on every change
-  useEffect(() => {
-    pushSeqStatus({
-      available: true,
-      list: sequences.map(s => ({ name: s.name, steps: s.steps.length })),
-      playing: playing && !!playingSeq,
-      index: stepIndex,
-      total: playingSeq?.steps.length ?? 0,
-      name: playingSeq?.name ?? '',
-      stepName: playing ? (step?.name ?? '') : '',
-    })
-  }, [sequences, playing, playingSeq, stepIndex, step])
+  }, [player.start])
 
   const deleteSequence = useCallback((i: number) => {
     const removed = sequences[i]

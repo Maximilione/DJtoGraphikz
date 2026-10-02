@@ -7,6 +7,7 @@ import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
 import { PresetPanel } from './components/PresetPanel/PresetPanel'
 import { seqCommand } from './components/PresetPanel/seqRemote'
+import { useSequencePlayer } from './components/PresetPanel/useSequencePlayer'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
@@ -93,6 +94,7 @@ function loadSettings(): Partial<EngineState> | null {
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [engine, setEngine] = useState<Engine | null>(null)
+  const seqPlayer = useSequencePlayer(engine)
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
   const [fps, setFps] = useState(0)
@@ -1144,7 +1146,7 @@ export function App() {
           <div className="sidebar-right">
             {engine && <LookBank engine={engine} />}
             <OverlayPanel engine={engine} />
-            <PresetPanel engine={engine} />
+            <PresetPanel engine={engine} player={seqPlayer} />
             <ShaderEditor engine={engine} />
             <CameraPanel engine={engine} />
             <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}

@@ -1,5 +1,5 @@
-// Bridge between the sequence player (PresetPanel) and remote surfaces.
-// PresetPanel owns the playback state and registers handlers while mounted;
+// Bridge between the sequence player (useSequencePlayer, App level) and remote surfaces.
+// The hook owns the playback state and registers handlers while App is mounted;
 // App's dispatchCmd routes seq* commands here; the status goes to the phone
 // the same way the AutoVJ status does (remote:vj).
 
@@ -11,7 +11,7 @@ export interface SeqHandlers {
 }
 
 export interface SeqStatus {
-  /** false when the panel is not mounted (live mode): the phone says so */
+  /** false only before the player has registered */
   available: boolean
   list: { name: string; steps: number }[]
   playing: boolean
