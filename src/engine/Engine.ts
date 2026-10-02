@@ -80,12 +80,16 @@ import rollFrag from './shaders/roll.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
+import rgbdelayFrag from './shaders/rgbdelay.frag?raw'
 import chromaticFrag from './shaders/chromatic.frag?raw'
 import filmgrainFrag from './shaders/filmgrain.frag?raw'
 import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
 import mirrorFrag from './shaders/mirror.frag?raw'
 import invertFrag from './shaders/invert.frag?raw'
+import displaceFrag from './shaders/displace.frag?raw'
+import frameglitchFrag from './shaders/frameglitch.frag?raw'
+import outlineFrag from './shaders/outline.frag?raw'
 import transitionFrag from './shaders/transition.frag?raw'
 import overlayFrag from './shaders/overlay.frag?raw'
 import bloomPrefilterFrag from './shaders/bloomPrefilter.frag?raw'
@@ -180,6 +184,7 @@ export type EffectId =
   | 'chevrons' | 'sevenseg' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
+  | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
 const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
@@ -464,6 +469,11 @@ export class Engine {
   private rtAccum2: THREE.WebGLRenderTarget     // motion blur history (pong)
   private rtBloomA: THREE.WebGLRenderTarget     // half-res bloom buffers
   private rtBloomB: THREE.WebGLRenderTarget
+  // rgb-delay history: three half-res slots advanced every `stride` frames
+  private rtDelay: THREE.WebGLRenderTarget[] = []
+  private rgbDelayHead = 0
+  private rgbDelayTick = 0
+  private rgbDelayLastFrame = -2
 
   // Post processing
   private postScene: THREE.Scene
@@ -764,6 +774,7 @@ export class Engine {
     this.rtAccum2 = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtBloomA = new THREE.WebGLRenderTarget(960, 540, opts)
     this.rtBloomB = new THREE.WebGLRenderTarget(960, 540, opts)
+    this.rtDelay = [0, 1, 2].map(() => new THREE.WebGLRenderTarget(960, 540, opts))
 
     // Deck crossfader
     this.deckMixMaterial = new THREE.ShaderMaterial({
@@ -933,6 +944,7 @@ export class Engine {
     }
     this.rtBloomA.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
     this.rtBloomB.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
+    for (const rt of this.rtDelay) rt.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1))
     this.bloomResolution.set(bw >> 1, bh >> 1)
 
     // Simulation buffers follow the render size. Resizing discards them, so a
@@ -1193,12 +1205,20 @@ export class Engine {
         tDiffuse: { value: null },
         uWet: { value: 1 },
         tPrevFrame: { value: this.rtPrev.texture },
-        uDecay: { value: 0.9 },
-        uZoom: { value: 0.003 },
-        uRotation: { value: 0.2 },
         uBass: { value: 0 },
+        uBeat: { value: 0 },
         uTime: { value: 0 },
-        uWarp: { value: 0.6 },
+      }
+    }))
+
+    this.postMaterials.set('rgb-delay', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: rgbdelayFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        tDelay1: { value: null },
+        tDelay2: { value: null },
+        uWet: { value: 1 },
       }
     }))
 
@@ -1242,7 +1262,8 @@ export class Engine {
       fragmentShader: mirrorFrag,
       uniforms: {
         tDiffuse: { value: null },
-        uWet: { value: 1 },
+        uLevel: { value: 1 },
+        uResolution: { value: this.resolution },
       }
     }))
 
@@ -1252,6 +1273,42 @@ export class Engine {
       uniforms: {
         tDiffuse: { value: null },
         uWet: { value: 1 },
+      }
+    }))
+
+    this.postMaterials.set('displace', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: displaceFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBass: { value: 0 },
+        uTime: { value: 0 },
+        uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('frame-glitch', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: frameglitchFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uHighHit: { value: 0 },
+        uTime: { value: 0 },
+      }
+    }))
+
+    this.postMaterials.set('outline', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: outlineFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+        uResolution: { value: this.resolution },
       }
     }))
   }
@@ -2950,7 +3007,12 @@ export class Engine {
         if (pu.uHigh) pu.uHigh.value = this.smoothHigh
         if (pu.uEnergy) pu.uEnergy.value = this.smoothEnergy
         if (pu.uBeat) pu.uBeat.value = this.beatPulse
+        if (pu.uHighHit) pu.uHighHit.value = this.highHit
         if (pu.uTime) pu.uTime.value = time
+        if (entry.id === 'rgb-delay') this.feedRgbDelay(read, wet)
+        // amount grezzo, senza la macro intensita': chi lo legge sceglie un
+        // modo a scaglioni (mirror), e il fader non deve cambiargli modo
+        if (pu.uLevel) pu.uLevel.value = entry.amount
         this.renderPass(mat, write)
       }
 
@@ -3044,6 +3106,31 @@ export class Engine {
       this.renderer.render(this.scene, this.camera)
       this.quad.material = this.mainMaterial
     }
+  }
+
+  /**
+   * rgb-delay history. Three half-res slots advanced every `stride` frames:
+   * G reads the slot one step back, B two steps back, so at 60 fps G lags
+   * `stride` frames and B `2*stride` (stride 1..4 from amount, B up to 8).
+   * ponytail: a slot held for `stride` frames steps instead of sliding; a
+   * ring of 2*stride+1 slots advanced every frame would slide.
+   */
+  private feedRgbDelay(read: THREE.WebGLRenderTarget, amount: number) {
+    const stride = 1 + Math.round(amount * 3)
+    // Not fed last frame (just switched on, or a dry pass): the slots hold
+    // whatever was on screen when it went off — prime all three with now.
+    const stale = this.frameCounter - this.rgbDelayLastFrame > 1
+    this.rgbDelayLastFrame = this.frameCounter
+    if (stale || ++this.rgbDelayTick >= stride) {
+      this.rgbDelayTick = 0
+      this.rgbDelayHead = (this.rgbDelayHead + 1) % 3
+      for (const [i, rt] of this.rtDelay.entries()) {
+        if (stale || i === this.rgbDelayHead) this.blit(read.texture, rt)
+      }
+    }
+    const u = this.postMaterials.get('rgb-delay')!.uniforms
+    u.tDelay1.value = this.rtDelay[(this.rgbDelayHead + 2) % 3].texture
+    u.tDelay2.value = this.rtDelay[(this.rgbDelayHead + 1) % 3].texture
   }
 
   /** Render a fullscreen material into a target (null = screen) */
@@ -3219,7 +3306,7 @@ export class Engine {
     this.overlays.forEach(o => this.teardownOverlay(o))
     this.overlays = []
     this.postMaterials.forEach(m => m.dispose())
-    for (const rt of [this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2, this.rtBloomA, this.rtBloomB]) rt.dispose()
+    for (const rt of [this.rtDeckB, this.rtFreeze, this.rtAccum, this.rtAccum2, this.rtBloomA, this.rtBloomB, ...this.rtDelay]) rt.dispose()
     this.disposeEffectMaterial(this.deckBMaterial)
     this.deckMixMaterial.dispose()
     if (this.deckVideo) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideo = null }
