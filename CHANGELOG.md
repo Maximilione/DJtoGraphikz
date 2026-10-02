@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.62.0-beta] — 2026-10-02
+
+### Added
+- **Scalette dal telefono**: tab LIVE > Scalette. Elenco, avvio, passo corrente (N/TOT e nome), AVANTI / INDIETRO a bottoni grandi, STOP a doppio tocco; comandi OSC `/djg/seq/next|prev|stop|start/N`. Anti doppio avvio e indici validati. Per ora solo con il pannello Scalette montato (modalita' Pro)
+
+### Fixed
+- **Colori diversi tra anteprima e output**: lo snapshot di stato mandava i colori a meta' lerp invece della palette di destinazione, quindi dopo un cambio palette (preset, ciclo, Auto VJ) l'output restava sulla palette vecchia fino al prossimo evento. Ora manda la destinazione; `check:colorsync`
+
 ## [0.61.2-beta] — 2026-10-02
 
 ### Changed
