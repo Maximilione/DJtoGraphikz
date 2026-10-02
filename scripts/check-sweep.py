@@ -56,14 +56,22 @@ def main() -> int:
                 print("   ", line[-160:])
         return 1
     bad = []
+    dark = []
     for kind, ident, mean, std, bright, fps in rows:
         mean, std, bright = float(mean), float(std), float(bright)
-        flag = ("BIANCO" if mean > WHITE_MEAN else "NERO" if mean < BLACK_MEAN else "PIATTO" if std < FLAT_STD else "")
+        # black = dark AND no structure; a thin-line effect at rest is dark
+        # with structure (std 0.05 on a 0.01 mean) and reads fine on a wall
+        flag = ("BIANCO" if mean > WHITE_MEAN else "NERO" if mean < BLACK_MEAN and std < 0.02
+                else "PIATTO" if std < FLAT_STD else "")
         if flag:
             bad.append((flag, kind, ident, mean, std))
+        elif mean < BLACK_MEAN:
+            dark.append((kind, ident, mean, std))
     print(f"{len(rows)} misure, sweep {'completo' if done else 'INTERROTTO'}, {len(noprobe)} senza risposta")
     for flag, kind, ident, mean, std in bad:
         print(f"  {flag:7} {kind:6} {ident:40} media={mean:.3f} std={std:.3f}")
+    for kind, ident, mean, std in dark:
+        print(f"  scuro   {kind:6} {ident:40} media={mean:.3f} std={std:.3f}  (struttura visibile, non fallisce)")
     worst = max(rows, key=lambda r: float(r[2]))
     print(f"  piu' chiaro: {worst[0]} {worst[1]} media={worst[2]}  ·  piu' scuro: " +
           "{0} {1} media={2}".format(*min(rows, key=lambda r: float(r[2]))))

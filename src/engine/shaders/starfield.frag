@@ -59,7 +59,8 @@ void main() {
           float brightness = z * z; // stars get brighter as they approach
 
           // Star glow
-          float star = 0.02 / (d * d + 0.005) * brightness;
+          // a floor on the point size: a still room keeps a sky, not a black screen
+          float star = (0.035 + 0.02 * uEnergy) / (d * d + 0.005) * brightness;
           star = min(star, 3.0);
 
           // Twinkle
@@ -83,7 +84,7 @@ void main() {
   // Nebula background
   float nebula = sin(uv.x * 3.0 + uTime * 0.1) * sin(uv.y * 2.0 - uTime * 0.15);
   nebula = nebula * 0.5 + 0.5;
-  color += mix(uColor1, uColor3, nebula) * 0.02 * uEnergy;
+  color += mix(uColor1, uColor3, nebula) * (0.02 + 0.03 * uEnergy);
 
   // Beat flash
   color *= 1.0 + uBeat * 0.5;
