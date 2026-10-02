@@ -11,6 +11,7 @@ uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
 uniform float uHighTime;
+uniform float uBassTime;
 uniform float tile;
 uniform float density;
 
@@ -27,19 +28,22 @@ void main() {
   vec3 color = vec3(0.0);
 
   float speed = 1.0 + uBass * 3.0 + uBeat * 2.0;
+  // the warp clock: bass through uBassTime, never t * uBass — after half an
+  // hour that product jumps whole cycles on every bass change and the whole
+  // field teleports each frame
+  float zClock = uTime * 0.1 + uBassTime * 0.3;
 
   // Multiple star layers at different depths
   for (int layer = 0; layer < 3; layer++) {
     float fl = float(layer);
     float depth = 1.0 + fl * 0.8;
-    float layerSpeed = speed * (1.0 + fl * 0.5);
 
     // Tile the space
     float scale = tile + fl * 8.0;
     vec2 st = uv * scale;
 
     // Scroll forward (warp speed)
-    float z = fract(uTime * layerSpeed * 0.1 + fl * 0.25);
+    float z = fract(zClock * (1.0 + fl * 0.5) + fl * 0.25);
     float zScale = mix(3.0, 0.1, z);
 
     st *= zScale;
@@ -56,7 +60,7 @@ void main() {
           vec2 starPos = neighbor + vec2(hash(vec3(id + 1.0, fl)), hash(vec3(id + 2.0, fl))) - 0.5 - cellUv;
 
           float d = length(starPos);
-          float brightness = z * z; // stars get brighter as they approach
+          float brightness = 0.12 + 0.88 * z * z; // stars get brighter as they approach
 
           // Star glow
           float star = 0.02 / (d * d + 0.005) * brightness;
@@ -83,7 +87,7 @@ void main() {
   // Nebula background
   float nebula = sin(uv.x * 3.0 + uTime * 0.1) * sin(uv.y * 2.0 - uTime * 0.15);
   nebula = nebula * 0.5 + 0.5;
-  color += mix(uColor1, uColor3, nebula) * 0.02 * uEnergy;
+  color += mix(uColor1, uColor3, nebula) * (0.015 + 0.03 * uEnergy);
 
   // Beat flash
   color *= 1.0 + uBeat * 0.5;

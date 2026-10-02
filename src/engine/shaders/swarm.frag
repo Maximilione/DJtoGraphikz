@@ -8,6 +8,7 @@ uniform float uHigh;
 
 varying float vSpeed;
 varying float vSeed;
+varying float vGain;
 
 // Additive round sprite. Colour runs from color1 to color2 with speed, with a
 // minority of particles in color3 so the swarm does not read as one flat mass.
@@ -25,7 +26,7 @@ void main() {
   // a sprite covers a few pixels and its falloff averages about a quarter of
   // its peak, so the peak has to be well above 1 for the swarm to read on a
   // projector at all — the master stage tone maps whatever is too bright
-  col *= 1.9 + 1.1 * uEnergy + 0.7 * uHigh * vSeed;
+  col *= (1.9 + 1.1 * uEnergy + 0.7 * uHigh * vSeed) * vGain;
 
   gl_FragColor = vec4(col * fall, 1.0);
 }

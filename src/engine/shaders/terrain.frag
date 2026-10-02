@@ -60,12 +60,16 @@ void main() {
   if (uv.y < horizon) {
     float depth01 = (horizon - uv.y) / horizon;    // 0 = horizon, 1 = bottom
     float z = 1.0 / max(depth01, 0.03);            // perspective row density
-    float scroll = t * (1.2 + uBass) + uBassTime * 0.4;
-    float row = floor(z * ridges * 0.12 + scroll);
-    float rowF = fract(z * ridges * 0.12 + scroll);
+    // bass only through the gated clock: t * uBass teleports the rows on
+    // every bass change once t is large
+    float scroll = t * 1.2 + uBassTime * 1.4;
+    // 0.3 rows per world unit: at 0.12 the lower half of the frame held one
+    // line and everything else piled up at the horizon
+    float row = floor(z * ridges * 0.3 + scroll);
+    float rowF = fract(z * ridges * 0.3 + scroll);
     float h = ridgeH(x * (0.6 + depth01 * 1.6), row, row * 0.618);
     // line where the fractional row crosses the ridge height baseline
-    float lineD = abs(rowF - 0.5 - h * 0.35 * depth01);
+    float lineD = abs(rowF - 0.5 - h * 0.6 * depth01);
     float w = max(0.03, fwidth(z) * ridges * 0.02);
     float line = smoothstep(w, 0.0, lineD);
     float fade = depth01;                          // nearer = brighter
@@ -73,6 +77,8 @@ void main() {
     color += lc * line * fade * (0.7 + glowamt * 0.5);
     // glow under the lines
     color += lc * smoothstep(0.35, 0.0, lineD) * 0.12 * glowamt * fade;
+    // ground haze so a silent room is not black below the horizon
+    color += uColor2 * 0.07 * depth01 * (0.5 + 0.5 * glowamt);
     // grid verticals
     float vx = abs(fract(x * (2.0 + depth01 * 6.0) + sin(row) * 0.3) - 0.5);
     color += uColor3 * smoothstep(0.02, 0.0, vx) * 0.12 * fade;
