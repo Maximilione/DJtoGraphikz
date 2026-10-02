@@ -438,7 +438,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'spaceghost', ['bloom'], { speed: v(0.5), folds: v(4), glow: v(45), drift: v(0.4) }),
       s('break', 'caustics', ['bloom'], { causticscale: v(1.3), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.2) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.7), swirl: v(1), dissipate: v(0.4) }),
-      s('break', 'reaction', ['bloom'], { feed: v(0.038), kill: v(0.059), inject: v(0.5) }),
+      s('break', 'reaction', ['bloom'], { feed: v(0.038), kill: v(0.061), inject: v(0.5) }),
       s('break', 'pulsar', ['bloom'], { lines: v(64), peaks: a(0.7, 'lfo-sine', 0.3, 32), flow: v(0.15) }),
       s('break', 'inkflow', ['filmgrain'], { speed: v(0.6), inkscale: v(2), flowspd: v(0.4), inkcontrast: a(1.1, 'bass', 0.3) }),
       s('break', 'ripples', ['bloom'], { spreadv: v(1), heightk: a(0.8, 'bass', 0.4), sheen: v(1.3) }),
