@@ -356,7 +356,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             <div className="sub-card">
               <div className="cat-label">Transizione</div>
               {/* Type selector */}
-              <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', gap: '2px', marginBottom: '4px', flexWrap: 'wrap' }}>
                 {TRANSITIONS.map(t => (
                   <button
                     key={t.id}
