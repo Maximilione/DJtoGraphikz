@@ -49,9 +49,9 @@ void main() {
 
   float cellHash = hash(id);
 
-  // Hex edge distance
-  float hexDist = max(abs(gv.x), abs(gv.y * 0.577 + gv.x * 0.5));
-  hexDist = max(hexDist, abs(gv.y * 0.577 - gv.x * 0.5));
+  // Hex edge distance: 0.5 on every edge of the cell. The old coefficients
+  // (0.577) did not match the lattice, so the outline showed as loose dashes.
+  float hexDist = max(abs(gv.x), abs(gv.x) * 0.5 + abs(gv.y) * 0.866);
 
   // Animated fill — wave propagates outward
   float distFromCenter = length(id) / zm;
@@ -63,8 +63,8 @@ void main() {
   float edge = smoothstep(0.48 - hw, 0.48, hexDist);
   float innerEdge = smoothstep(0.40 - hw, 0.40, hexDist);
 
-  // Beat: random cells flash
-  float beatFlash = step(0.7 - uBeat * 0.5, cellHash) * uBeat;
+  // Beat: random cells flash — a third of them at most, or it is a strobe
+  float beatFlash = step(0.9 - uBeat * 0.25, cellHash) * uBeat;
 
   // Color per cell
   float colorIndex = mod(cellHash * 3.0, 3.0);
@@ -90,14 +90,15 @@ void main() {
   color += cellColor * fill * innerPattern * (1.0 - edge) * 0.3;
 
   // Beat flash
-  color += cellColor * beatFlash * (1.0 - edge) * 1.5;
+  color += cellColor * beatFlash * (1.0 - edge) * 1.0;
 
   // Center dot per hex
   float centerDot = 0.01 / (length(gv) + 0.01);
   color += cellColor * centerDot * 0.1 * fill;
 
-  // Vignette
-  float vig = 1.0 - length(uv) * 0.7;
+  // Vignette, relaxed along a LED strip
+  float aspect = uResolution.x / uResolution.y;
+  float vig = 1.0 - length(uv / vec2(max(aspect / 1.78, 1.0), 1.0)) * 0.7;
   color *= max(vig, 0.1);
 
   color *= 1.0 + uBeat * 0.2;

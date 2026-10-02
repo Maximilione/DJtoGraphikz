@@ -12,6 +12,7 @@ uniform vec3 uColor3;
 uniform vec2 uResolution;
 uniform float uBeatPhase;
 uniform float uBarPhase;
+uniform float uBassTime;
 uniform float ringcount;
 uniform float spacing;
 uniform float gapfreq;
@@ -42,17 +43,19 @@ void main() {
     float r = length(p);
     float a = atan(p.y, p.x);
 
-    // Expanding rings from center
-    float ringSpeed = 1.5 + uBass * 2.0;
+    // Expanding rings from center. Travelled distance is accumulated time:
+    // t * (speed from bass) would make every ring jump on each bass change
+    // once t is in the thousands.
+    float travel = t * 0.15 + uBassTime * 0.2;
     float ringSpacing = spacing + uMid * 0.04;
 
     // Constant loop bound (= param max), dynamic break on the actual count
     for (float i = 0.0; i < 16.0; i++) {
       if (i >= ringcount) break;
-      float ringR = mod(i * ringSpacing + t * ringSpeed * 0.1, 1.0);
+      float ringR = mod(i * ringSpacing + travel, 1.0);
 
       // Ring thickness varies with angle
-      float thickness = 0.004 + sin(a * 4.0 + t + i * 2.0) * 0.002;
+      float thickness = 0.006 + sin(a * 4.0 + t + i * 2.0) * 0.002;
 
       // Broken ring — gaps
       float gap = sin(a * (gapfreq + fs * 2.0) + t * (0.5 + i * 0.1) + i);
@@ -61,7 +64,7 @@ void main() {
       float rd = abs(r - ringR);
       float ring = smoothstep(max(thickness, fwidth(rd) * 1.5), 0.0, rd) * gapMask;
       // idle floor: a soft halo around each ring, so the systems read in silence
-      ring += exp(-rd * 30.0) * gapMask * 0.4 * (1.0 - 0.8 * uEnergy);
+      ring += exp(-rd * 30.0) * gapMask * 0.7 * (1.0 - 0.5 * uEnergy);
 
       // Fade with expansion
       float fade = 1.0 - ringR;
@@ -88,7 +91,7 @@ void main() {
   if (uBeat > 0.1) {
     float burstR = uBeat * 0.8;
     float burst = smoothstep(0.01, 0.0, abs(length(uv) - burstR));
-    color += mix(uColor1, uColor2, 0.5) * burst * 3.0 * uBeat;
+    color += mix(uColor1, uColor2, 0.5) * burst * 1.5 * uBeat;
   }
 
   // Connecting lines between ring systems
