@@ -55,12 +55,12 @@ Qualità visiva:
 
 Post-effetti sul frame — dallo studio "Effetti VJ: i preset migliori altrove" (2026-10-02): sulle scene generative siamo pari con Resolume/Synesthesia/MilkDrop, sulla manipolazione del frame no (9 post contro 100+). Tutti un pass nella `postChain`, verificabili con `shader-preview.py` su texture sintetica; poi nei `postSets` delle scene Auto VJ (warp nel groove ipnotico, glitch e outline al picco):
 
-- [ ] **F1 Feedback warp** — il post Feedback impara zoom, rotazione, offset per frame e decay: zoom 1.02 + 0.3° è MilkDrop. L'effetto che da solo cambia di più l'impressione "generativo" · **M**
-- [ ] **F2 Displace procedurale** — noise/onde/griglia che spostano i pixel del frame, ampiezza sul basso: il "Displace" di Resolume senza mappa (oggi c'è solo l'overlay-come-mappa) · **S**
-- [ ] **F3 Frame glitch** — block shift a righe, tear, color bleed, hold su `uHighHit`/beat: glitch su QUALUNQUE effetto, non solo quello generativo · **S**
-- [ ] **F4 Outline neon** — Sobel sul frame, contorno colorato, originale attenuabile: strobo + outline dei pack rave · **S**
-- [ ] **F5 Mirror esteso** — verticale, quad, kaleido-post (N spicchi sul frame), slide/tile, dentro il post Mirror · **S**
-- [ ] **F6 RGB delay** — i tre canali da frame diversi (ring di 3 target piccoli): la scia a colori temporale, oltre allo split spaziale · **S**
+- [ ] **F1 Feedback warp** — il post Feedback impara zoom, rotazione, offset per frame e decay: zoom 1.02 + 0.3° è MilkDrop. L'effetto che da solo cambia di più l'impressione "generativo". Parametri: zoom, rotazione, decay, mix. ~1 giorno · **M**
+- [ ] **F2 Displace procedurale** — noise/onde/griglia che spostano i pixel del frame, ampiezza sul basso: il "Displace" di Resolume senza mappa (oggi c'è solo l'overlay-come-mappa). Parametri: tipo (noise/onde/griglia), scala, ampiezza, velocità. ~mezza giornata · **S**
+- [ ] **F3 Frame glitch** — block shift a righe, tear, color bleed, hold su `uHighHit`/beat: glitch su QUALUNQUE effetto, non solo quello generativo. Parametri: blocchi, intensità, tenuta. ~mezza giornata · **S**
+- [ ] **F4 Outline neon** — Sobel sul frame, contorno colorato, originale attenuabile: strobo + outline dei pack rave. Parametri: spessore, soglia, mix originale. ~mezza giornata · **S**
+- [ ] **F5 Mirror esteso** — verticale, quad, kaleido-post (N spicchi sul frame), slide/tile, dentro il post Mirror. ~2 ore · **S**
+- [ ] **F6 RGB delay** — i tre canali da frame diversi (ring di 3 target piccoli): la scia a colori temporale dei video anni 2000, oltre allo split spaziale. ~2 ore · **S**
 - Pixel sorting: rimandato, costoso e di nicchia. F1 e F2 toccano lo stesso post Feedback: non in parallelo fra loro; il resto è indipendente (subagent).
 
 
