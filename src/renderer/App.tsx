@@ -6,6 +6,7 @@ import { EffectPanel } from './components/EffectPanel/EffectPanel'
 import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
 import { PresetPanel } from './components/PresetPanel/PresetPanel'
+import { seqCommand } from './components/PresetPanel/seqRemote'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
@@ -72,6 +73,10 @@ function cmdToastLabel(type: string, v: any): string {
     case 'genre': return `Genere ${v}`
     case 'motionBlur': return `Motion blur ${Math.round(v * 100)}%`
     case 'look': return `Look ${Number(v) + 1}`
+    case 'seqStart': return `Scaletta ${Number(v) + 1}`
+    case 'seqNext': return 'Scaletta avanti'
+    case 'seqPrev': return 'Scaletta indietro'
+    case 'seqStop': return 'Scaletta stop'
     case 'tap': return 'Tap BPM'
     case 'panic': return 'PANIC'
     default: return type
@@ -816,6 +821,7 @@ export function App() {
           if (slot?.preset) { toggleVJ(false); engine.applyPreset(slot.preset) }
           break
         }
+        case 'seqStart': case 'seqNext': case 'seqPrev': case 'seqStop': seqCommand(cmd.type, v); break
         case 'tap':
           engine.audioAnalyzer.setBpmMode('tap')
           engine.audioAnalyzer.tap()

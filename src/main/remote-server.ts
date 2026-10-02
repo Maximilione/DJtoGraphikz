@@ -30,6 +30,7 @@ let port = BASE_PORT
 let lastEngineState: unknown = null
 let lastAudio: { bpm: number; energy: number; beatPulse: number } | null = null
 let lastVj: { enabled: boolean; genre: string } | null = null
+let lastSeq: unknown = null
 let remoteDefs: Record<string, unknown> | null = null
 let remoteLooks: unknown[] = []
 // Bumped on every looks push; the page re-fetches thumbs only when it changes
@@ -216,7 +217,7 @@ export function setupRemoteServer(
     if (req.method === 'GET' && url === '/state') {
       if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
       res.setHeader('Cache-Control', 'no-store')
-      json(res, 200, { engine: lastEngineState, looksRev, audio: lastAudio, vj: lastVj })
+      json(res, 200, { engine: lastEngineState, looksRev, audio: lastAudio, vj: lastVj, seq: lastSeq })
       return
     }
 
@@ -294,6 +295,9 @@ export function setupRemoteServer(
       lastVj = { enabled: vj.enabled, genre: typeof vj.genre === 'string' ? vj.genre : '' }
     }
   })
+
+  // Sequence status pushed by PresetPanel on every change
+  ipcMain.on('remote:seq', (_e, seq) => { lastSeq = seq && typeof seq === 'object' ? seq : null })
 
   // Catalogs pushed once by the renderer at engine init
   ipcMain.on('remote:defs', (_e, defs) => { remoteDefs = defs })
@@ -417,6 +421,14 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   #tabs button.on { color:var(--acc); background:rgba(0,255,136,.08); box-shadow:none; border:0; }
 
   /* ---- LIVE ---- */
+  .seqstep { font-size:20px; font-weight:700; line-height:1.25; margin:4px 0 12px; word-break:break-word; }
+  .seqnav { display:flex; gap:var(--s2); margin-bottom:var(--s2); }
+  .seqnav button { flex:1; min-height:76px; font-size:17px; font-weight:700; letter-spacing:1px; }
+  #seqnext { border-color:var(--acc); color:var(--acc); }
+  #seqstop { width:100%; min-height:56px; font-weight:700; letter-spacing:1px; }
+  #seqstop.armed { border-color:var(--danger); color:var(--danger); background:rgba(255,68,85,.14); }
+  #seqlist button { display:flex; width:100%; min-height:60px; align-items:center; justify-content:space-between;
+    gap:var(--s3); padding:0 var(--s4); margin-bottom:var(--s2); font-size:15px; text-align:left; }
   .lookgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s2); }
   .look { position:relative; aspect-ratio:16/11; border:1px solid var(--line);
     border-radius:10px; overflow:hidden; background:var(--panel);
@@ -542,6 +554,18 @@ const REMOTE_PAGE = `<!DOCTYPE html>
         <button id="autovj">AUTO VJ</button>
         <select id="genre" aria-label="Genere"></select>
       </div>
+      <div class="sect">Scalette</div>
+      <div id="seqnow" hidden>
+        <div class="micro" id="seqname"></div>
+        <div class="seqstep mono" id="seqstep"></div>
+        <div class="seqnav">
+          <button id="seqprev">&laquo; INDIETRO</button>
+          <button id="seqnext">AVANTI &raquo;</button>
+        </div>
+        <button id="seqstop">STOP SCALETTA</button>
+      </div>
+      <div id="seqlist"></div>
+      <div class="hint" id="seqhint" hidden></div>
     </section>
 
     <section id="tab-fx" hidden>
@@ -896,6 +920,59 @@ function postLabel(id){
   return id
 }
 
+// ---- scalette: the app is the source of truth, the phone only mirrors it ----
+let seqBusy = false, seqArm = 0
+// One command at a time: a double tap must not skip two steps or start twice
+function seqSend(c){
+  if (seqBusy) return
+  seqBusy = true
+  setTimeout(function(){ seqBusy = false }, 350)
+  cmd(c).then(poll)
+}
+function renderSeq(s){
+  const hint = $('seqhint'), now = $('seqnow'), list = $('seqlist')
+  if (!s || !s.available) {
+    now.hidden = true; list.textContent = ''; prev.seqsig = ''
+    hint.hidden = false
+    hint.textContent = s ? 'Scalette disponibili solo in modalità Pro sul computer.' : 'Nessuna informazione dalle scalette.'
+    return
+  }
+  const playing = !!s.playing
+  now.hidden = !playing
+  if (playing) {
+    setText($('seqname'), s.name)
+    setText($('seqstep'), (s.index + 1) + '/' + s.total + '  ' + s.stepName)
+  } else { seqArm = 0; $('seqstop').classList.remove('armed') }
+  const sig = JSON.stringify(s.list) + (playing ? '|p' : '')
+  if (prev.seqsig !== sig) {
+    prev.seqsig = sig
+    list.textContent = ''
+    // while one runs the list is hidden: starting another needs a deliberate Stop first
+    if (!playing) s.list.forEach(function(q, i){
+      const b = el('button', '')
+      b.appendChild(el('span', '', q.name || ('Scaletta ' + (i + 1))))
+      b.appendChild(el('span', 'micro', q.steps + ' passi'))
+      b.disabled = q.steps === 0
+      b.addEventListener('click', function(){ seqSend({ type: 'seqStart', value: i }) })
+      list.appendChild(b)
+    })
+  }
+  hint.hidden = playing || s.list.length > 0
+  if (!hint.hidden) hint.textContent = 'Nessuna scaletta salvata.'
+}
+function wireSeq(){
+  $('seqnext').addEventListener('click', function(){ seqSend({ type: 'seqNext' }) })
+  $('seqprev').addEventListener('click', function(){ seqSend({ type: 'seqPrev' }) })
+  // Stop mid-show is expensive: first tap arms it, second within 2.5s fires it
+  $('seqstop').addEventListener('click', function(){
+    const b = $('seqstop')
+    if (Date.now() - seqArm < 2500) { seqArm = 0; b.classList.remove('armed'); b.textContent = 'STOP SCALETTA'; seqSend({ type: 'seqStop' }); return }
+    seqArm = Date.now(); b.classList.add('armed'); b.textContent = 'TOCCA ANCORA PER FERMARE'
+    setTimeout(function(){ if (Date.now() - seqArm >= 2400) { b.classList.remove('armed'); b.textContent = 'STOP SCALETTA' } }, 2600)
+  })
+}
+wireSeq()
+
 // ---- polling: surgical DOM updates, structural rebuilds only on change ----
 async function poll(){
   let j
@@ -928,6 +1005,8 @@ async function poll(){
     const gsel = $('genre')
     if (j.vj.genre && document.activeElement !== gsel && gsel.value !== j.vj.genre) gsel.value = j.vj.genre
   }
+
+  renderSeq(j.seq)
 
   // FX: active effect highlight + params
   if (prev.fx !== e.activeEffect) {
