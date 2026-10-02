@@ -7,6 +7,7 @@ import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
 import { PresetPanel } from './components/PresetPanel/PresetPanel'
 import { seqCommand } from './components/PresetPanel/seqRemote'
+import { useSequencePlayer } from './components/PresetPanel/useSequencePlayer'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
@@ -28,6 +29,9 @@ import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
 import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
 import { allPalettes } from './palettes'
+import { sanitizeCmd, stepPalette, type Known } from './phoneCmd'
+import { AUDIO_SOURCES } from '@engine/EffectParams'
+import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, ONLY_MINE_KEY, USER_SCENES_EVENT } from './userScenes'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
@@ -58,6 +62,16 @@ const TRANSITION_TYPES: Record<TransitionType, true> = {
   crossfade: true, 'wipe-left': true, 'wipe-down': true, radial: true, dissolve: true,
 }
 
+// What a remote command may name; anything else is dropped before the engine
+const KNOWN: Known = {
+  effects: new Set(ALL_EFFECTS.map(fx => fx.id)),
+  posts: new Set(REMOTE_POSTS.map(p => p.id)),
+  transitions: new Set(Object.keys(TRANSITION_TYPES)),
+  blendModes: new Set(BLEND_MODES),
+  genres: new Set(Object.keys(GENRE_CONFIGS)),
+  sources: new Set(AUDIO_SOURCES),
+}
+
 // Short Italian verb for external-command toasts (U1.4)
 function cmdToastLabel(type: string, v: any): string {
   switch (type) {
@@ -79,6 +93,15 @@ function cmdToastLabel(type: string, v: any): string {
     case 'seqStop': return 'Scaletta stop'
     case 'tap': return 'Tap BPM'
     case 'panic': return 'PANIC'
+    case 'paletteStep': return 'Palette ' + (v > 0 ? 'avanti' : 'indietro')
+    case 'bpmMode': return `BPM ${v}`
+    case 'bpmScale': return v < 1 ? 'BPM x1/2' : 'BPM x2'
+    case 'bpmSet': return `BPM ${Math.round(v)}`
+    case 'videoDeck': return 'Video deck'
+    case 'cycle': return 'Cicla palette'
+    case 'overlay': return 'Overlay'
+    case 'onlyMine': return v ? 'Solo mie scene ON' : 'Solo mie scene OFF'
+    case 'saveScene': return 'Scena salvata'
     default: return type
   }
 }
@@ -93,6 +116,7 @@ function loadSettings(): Partial<EngineState> | null {
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [engine, setEngine] = useState<Engine | null>(null)
+  const seqPlayer = useSequencePlayer(engine)
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
   const [fps, setFps] = useState(0)
@@ -765,10 +789,41 @@ export function App() {
     }
   }, [engine, toggleVJ, panic])
 
+  // What the phone shows beyond the engine snapshot: BPM mode, Auto VJ scenes,
+  // loaded overlays. Pushed on change (1s tick + after every command).
+  const phoneExtSig = useRef('')
+  const pushPhoneExt = useCallback(() => {
+    if (!engine) return
+    const vj = vjRef.current
+    const genre = vj.getGenre()
+    const ext = {
+      bpmMode: engine.audioAnalyzer.getBpmMode(),
+      manualBpm: engine.audioAnalyzer.getManualBpm(),
+      phase: vj.getPhase(),
+      onlyMine: readJson<boolean>(ONLY_MINE_KEY, false),
+      scenes: loadUserScenes().filter(sc => sc.genre === genre).length,
+      overlays: engine.getOverlays().filter(o => !o.id.startsWith('seq:')).slice(0, 24)
+        .map(o => ({ id: o.id, name: o.name.slice(0, 40), visible: o.visible, opacity: Math.round(o.opacity * 100) / 100 })),
+    }
+    const sig = JSON.stringify(ext)
+    if (sig === phoneExtSig.current) return
+    phoneExtSig.current = sig
+    try { window.api?.sendRemoteExt(ext) } catch (_) {}
+  }, [engine])
+  useEffect(() => {
+    if (!engine) return
+    pushPhoneExt()
+    const t = window.setInterval(pushPhoneExt, 1000)
+    return () => clearInterval(t)
+  }, [engine, pushPhoneExt])
+
   // Shared command dispatch — phone remote, OSC (via remote:cmd) and MIDI all
   // land here so every surface drives the engine identically
-  const dispatchCmd = useCallback((cmd: { type: string; value?: unknown; source?: string; hold?: string }) => {
+  const dispatchCmd = useCallback((raw: { type: string; value?: unknown; source?: string; hold?: string }) => {
     if (!engine) return
+    // phone, OSC and MIDI can send anything: nothing unvalidated reaches the engine
+    const cmd = sanitizeCmd(raw, KNOWN)
+    if (!cmd) return
     const v = cmd.value as any
 
     // The phone sends a press and a release, so a look or a post-FX held with
@@ -822,6 +877,54 @@ export function App() {
           break
         }
         case 'seqStart': case 'seqNext': case 'seqPrev': case 'seqStop': seqCommand(cmd.type, v); break
+        case 'paletteStep': {
+          const p = stepPalette(allPalettes(), engine.createPreset('').colors, v)
+          if (p) engine.setColors(p.colors[0], p.colors[1], p.colors[2])
+          break
+        }
+        case 'bpmMode': engine.audioAnalyzer.setBpmMode(v); break
+        case 'bpmScale': {
+          // a detector locked on half/double tempo: same snap as the audio panel
+          const a = engine.audioAnalyzer
+          const next = Math.round(Math.max(60, Math.min(300, a.getEffectiveBpm() * v)))
+          a.setBpmMode('manual'); a.setManualBpm(next)
+          break
+        }
+        case 'bpmSet': engine.audioAnalyzer.setBpmMode('manual'); engine.audioAnalyzer.setManualBpm(v); break
+        case 'videoDeck': {
+          const patch = { ...v }
+          if (patch.clip !== undefined && patch.clip >= engine.getVideoDeck().clips.length) delete patch.clip
+          engine.setVideoDeck(patch)
+          break
+        }
+        case 'cycle': {
+          // the cycle needs two palettes at least: with none chosen it walks them all
+          if (v.enabled && engine.getCyclePalettes().length < 2) engine.setCyclePalettes(allPalettes().map(p => p.colors))
+          if (v.intervalMs !== undefined) engine.setCycleInterval(v.intervalMs)
+          if (v.beatSync !== undefined) engine.setCycleBeatSync(v.beatSync)
+          if (v.beatsPerSwitch !== undefined) engine.setCycleBeatsPerSwitch(v.beatsPerSwitch)
+          if (v.enabled !== undefined) engine.setCycleEnabled(v.enabled)
+          break
+        }
+        case 'overlay': {
+          if (!engine.getOverlays().some(o => o.id === v.id)) break   // gone since the last poll
+          engine.updateOverlay(v.id, { ...(v.visible !== undefined ? { visible: v.visible } : {}), ...(v.opacity !== undefined ? { opacity: v.opacity } : {}) })
+          break
+        }
+        case 'onlyMine': {
+          writeJson(ONLY_MINE_KEY, !!v)
+          vjRef.current.setUserScenes(userScenesByGenre(loadUserScenes()), !!v)
+          window.dispatchEvent(new Event(USER_SCENES_EVENT))
+          break
+        }
+        case 'saveScene': {
+          const vj = vjRef.current
+          const list = [...loadUserScenes(), sceneFromLook(engine, vj.getGenre(), vj.getPhase())]
+          saveUserScenes(list)
+          vj.setUserScenes(userScenesByGenre(list), readJson<boolean>(ONLY_MINE_KEY, false))
+          window.dispatchEvent(new Event(USER_SCENES_EVENT))
+          break
+        }
         case 'tap':
           engine.audioAnalyzer.setBpmMode('tap')
           engine.audioAnalyzer.tap()
@@ -831,7 +934,8 @@ export function App() {
     // source and stay silent: MIDI is the operator's own hands.
     // Keyed on cmd.type so a slider stream collapses into one updating toast.
     if (cmd.source) pushToast(`${cmdToastLabel(cmd.type, v)} · ${cmd.source}`, cmd.type)
-  }, [engine, toggleVJ, changeVJGenre, panic])
+    pushPhoneExt()
+  }, [engine, pushPhoneExt, toggleVJ, changeVJGenre, panic])
 
   // Phone remote / OSC → engine (commands arrive from the main process)
   useEffect(() => {
@@ -1144,7 +1248,7 @@ export function App() {
           <div className="sidebar-right">
             {engine && <LookBank engine={engine} />}
             <OverlayPanel engine={engine} />
-            <PresetPanel engine={engine} />
+            <PresetPanel engine={engine} player={seqPlayer} />
             <ShaderEditor engine={engine} />
             <CameraPanel engine={engine} />
             <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}

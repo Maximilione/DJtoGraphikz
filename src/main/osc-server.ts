@@ -116,6 +116,13 @@ function toCmd(addr: string, args: OscArg[]): Record<string, unknown> | null {
     case '/djg/seq/prev': return on ? { type: 'seqPrev' } : null
     case '/djg/seq/stop': return on ? { type: 'seqStop' } : null
     case '/djg/tap': return { type: 'tap' }
+    case '/djg/panic': return on ? { type: 'panic' } : null
+    case '/djg/bpm/half': return on ? { type: 'bpmScale', value: 0.5 } : null
+    case '/djg/bpm/double': return on ? { type: 'bpmScale', value: 2 } : null
+    case '/djg/bpm/set': return f === null ? null : { type: 'bpmSet', value: f }
+    case '/djg/palette/next': return on ? { type: 'paletteStep', value: 1 } : null
+    case '/djg/palette/prev': return on ? { type: 'paletteStep', value: -1 } : null
+    case '/djg/cycle': return f === null ? null : { type: 'cycle', value: { enabled: on } }
     case '/djg/effect': return s === null ? null : { type: 'effect', value: s }
     case '/djg/post': return s === null ? null : { type: 'post', value: s }
   }
