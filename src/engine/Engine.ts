@@ -2533,7 +2533,11 @@ export class Engine {
       activeEffect: this.currentEffect,
       activePost: this.postChain.map(p => p.id),
       postAmounts: amounts,
-      colors: this.getCurrentColors(),
+      // TARGET palette, not the mid-lerp colours: the snapshot is event-driven
+      // (emitted at setColors/advanceCycle time, before any lerp ran), so the
+      // current colours were the OLD palette and the output window, which lerps
+      // on its own, stayed on it until the next unrelated emit.
+      colors: this.targetColors.map(c => '#' + c.getHexString()) as [string, string, string],
       beatPulse: this.beatPulse,
       energy: this.smoothEnergy,
       bpm: this.audioAnalyzer.getData().bpm,
