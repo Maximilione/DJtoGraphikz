@@ -190,13 +190,17 @@ check('le scene mie entrano in rotazione, e con "solo le mie" sono la rotazione'
     vj.setGenre('hard-tekno'); vj.setEnabled(true)
     vj.setUserScenes({ 'hard-tekno': [mineScene] }, onlyMine)
     const beatMs = 60000 / 155
-    for (let t = 0; t < 240000; t += 1000 / 60) {
+    // the pick is random among ~14 groove scenes: run until it shows, up to
+    // twenty minutes, instead of betting on four (that flaked one run in four)
+    for (let t = 0; t < 1200000; t += 1000 / 60) {
       vj.update({ beat: t % beatMs < 17, energy: 0.5, bass: 0.6, barPhase: ((t / beatMs) % 4) / 4, bassRaw: 0.5 + 0.28 * Math.exp(-(t % beatMs) / 120), energyRaw: 0.2 }, t)
+      if (!onlyMine && seen.includes('glitch') && seen.length > 3) break
+      if (onlyMine && seen.length >= 6) break
     }
     return seen
   }
   const mixed = mk(false)
-  assert.ok(mixed.includes('glitch'), 'la scena mia non e\' mai uscita in quattro minuti')
+  assert.ok(mixed.includes('glitch'), 'la scena mia non e\' mai uscita in venti minuti')
   assert.ok(mixed.some(e => e !== 'glitch'), 'con "tutte" uscivano solo le mie')
   const only = mk(true)
   assert.ok(only.length >= 5 && only.every(e => e === 'glitch'), `con "solo le mie": ${only.join(',')}`)

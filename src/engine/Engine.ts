@@ -74,6 +74,9 @@ import chevronsFrag from './shaders/chevrons.frag?raw'
 import sevensegFrag from './shaders/sevenseg.frag?raw'
 import eclipseFrag from './shaders/eclipse.frag?raw'
 import blindsFrag from './shaders/blinds.frag?raw'
+import bounceballFrag from './shaders/bounceball.frag?raw'
+import pumpFrag from './shaders/pump.frag?raw'
+import confettiFrag from './shaders/confetti.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -175,6 +178,7 @@ export type EffectId =
   | 'flash' | 'halftone' | 'spiral' | 'warehouse' | 'impact' | 'barcode'
   | 'static' | 'cage' | 'radar' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'sevenseg' | 'eclipse' | 'blinds'
+  | 'bounceball' | 'pump' | 'confetti'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
@@ -429,6 +433,9 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   sevenseg: sevensegFrag,
   eclipse: eclipseFrag,
   blinds: blindsFrag,
+  bounceball: bounceballFrag,
+  pump: pumpFrag,
+  confetti: confettiFrag,
   swarm: {
     // 192x192 texels = 36,864 particles on a fixed grid: the count must not
     // change with the projector's aspect ratio. 65k turned the frame into even
