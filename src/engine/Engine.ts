@@ -67,7 +67,6 @@ import impactFrag from './shaders/impact.frag?raw'
 import barcodeFrag from './shaders/barcode.frag?raw'
 import staticFrag from './shaders/static.frag?raw'
 import cageFrag from './shaders/cage.frag?raw'
-import radarFrag from './shaders/radar.frag?raw'
 import downpourFrag from './shaders/downpour.frag?raw'
 import cracksFrag from './shaders/cracks.frag?raw'
 import tribalFrag from './shaders/tribal.frag?raw'
@@ -181,7 +180,7 @@ export type EffectId =
   | 'spectrum' | 'truchet' | 'caustics' | 'quasicrystal' | 'gyroid'
   | 'stringart' | 'ascii' | 'smoke'
   | 'flash' | 'halftone' | 'spiral' | 'warehouse' | 'impact' | 'barcode'
-  | 'static' | 'cage' | 'radar' | 'downpour' | 'cracks' | 'tribal'
+  | 'static' | 'cage' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
   | 'spaceghost'
@@ -432,7 +431,6 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   barcode: barcodeFrag,
   static: staticFrag,
   cage: cageFrag,
-  radar: radarFrag,
   downpour: downpourFrag,
   cracks: cracksFrag,
   tribal: tribalFrag,

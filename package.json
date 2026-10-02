@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.61.1-beta",
+  "version": "0.61.2-beta",
   "private": true,
   "license": "UNLICENSED",
   "description": "Real-time audio-reactive visual generator for tekno club nights",

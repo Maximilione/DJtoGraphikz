@@ -279,11 +279,6 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     thickness: { source: 'energy', depth: 0.3, value: 1.3 },
     spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.6 },
   },
-  radar: {
-    sweep: { source: 'energy', depth: 0.6, value: 0.8 },
-    blips: { source: 'bass', depth: 0.3, value: 6 },
-    fade: { source: 'lfo-sine', depth: 0.25, lfoRate: 32, value: 1.3 },
-  },
   downpour: {
     density: { source: 'energy', depth: 0.6, value: 40 },
     streak: { source: 'bass', depth: 0.4, value: 0.15 },
