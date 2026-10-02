@@ -46,13 +46,18 @@ void main() {
     float ring = exp(-d * d / (w * w)) * life;
     // a thin white core inside a coloured halo
     col += mix(uColor1, vec3(1.0), ring * 0.6) * ring;
-    col += uColor2 * exp(-d * 14.0) * life * 0.12;
+    col += uColor2 * exp(-d * 14.0) * life * 0.2;
   }
+  // idle floor: dim concentric guide rings and a faint centre glow, so the
+  // scope keeps its structure between kicks and in silence; they step back
+  // as the music comes in
+  float guide = exp(-abs(fract(r * 6.0) - 0.5) * 24.0) * 0.1;
+  col += uColor1 * (guide + exp(-r * 4.0) * 0.08) * (1.0 - 0.5 * uEnergy);
   // the kick point, and the room going dark around it
   float core = exp(-r * 60.0) * uBassHit * 2.0;
   col += vec3(1.0) * core;
   col *= 1.0 - smoothstep(0.45, 0.8, r);
-  col *= 0.85 + 0.4 * uBeat;
+  col *= 1.0 + 0.3 * uBeat;
   col += vec3(hash(gl_FragCoord.xy + fract(uTime) * 11.0)) * 0.01;
   gl_FragColor = vec4(col, 1.0);
 }

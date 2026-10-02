@@ -43,12 +43,14 @@ void main() {
 
   vec3 col = vec3(0.0);
   float scope = 1.0 - smoothstep(0.44, 0.46, r);
-  // rings and cross-hairs, dim
-  float rings = exp(-abs(fract(r * 8.0) - 0.5) * 30.0) * 0.08;
-  float cross = (exp(-abs(p.x) * 300.0) + exp(-abs(p.y) * 300.0)) * 0.06;
-  col += uColor1 * (rings + cross) * scope;
-  // the beam itself and its afterglow
-  col += uColor1 * trail * 0.35 * scope;
+  // rings and cross-hairs, dim; the scope glass itself has an idle floor so the
+  // disc reads in silence instead of vanishing between passes
+  float floorK = 1.0 - 0.7 * uEnergy;
+  float rings = exp(-abs(fract(r * 8.0) - 0.5) * 30.0) * 0.14;
+  float cross = (exp(-abs(p.x) * 300.0) + exp(-abs(p.y) * 300.0)) * 0.1;
+  col += uColor1 * (0.05 + rings + cross) * floorK * scope;
+  // the beam itself and its afterglow, plus a long faint tail
+  col += uColor1 * (trail * 0.35 + exp(-behind * 2.0) * 0.08 * floorK) * scope;
   col += uColor1 * exp(-behind * 90.0) * scope;
 
   // contacts
@@ -67,7 +69,7 @@ void main() {
     float dot_ = exp(-d * d / (sz * sz));
     col += mix(uColor2, vec3(1.0), 0.5) * dot_ * lit * 1.4;
   }
-  col *= 0.85 + 0.3 * uBeat;
+  col *= 1.0 + 0.25 * uBeat;
   col += vec3(1.0) * uBassHit * 0.03 * scope;
   gl_FragColor = vec4(col, 1.0);
 }

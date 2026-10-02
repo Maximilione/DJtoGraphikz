@@ -57,18 +57,21 @@ void main() {
 
   float t = 0.0;
   float gOuter = 0.0, gInner = 0.0;
+  // sharp edge glow plus a wide soft haze: the haze is the idle floor that
+  // keeps the cubes readable in silence, and it steps back as the music comes in
+  float haze = 0.012 * (1.0 - 0.7 * uEnergy);
   for (int i = 0; i < 72; i++) {
     vec3 pos = ro + rd * t;
     vec2 d = map(pos);
     float m = min(d.x, d.y);
-    gOuter += exp(-d.x * 38.0) * 0.06;
-    gInner += exp(-d.y * 38.0) * 0.06;
+    gOuter += exp(-d.x * 38.0) * 0.06 + exp(-d.x * 9.0) * haze;
+    gInner += exp(-d.y * 38.0) * 0.06 + exp(-d.y * 9.0) * haze;
     if (m < 0.001 || t > 8.0) break;
     t += max(m * 0.8, 0.01);
   }
   vec3 col = uColor1 * gOuter + uColor2 * gInner;
   // the hit whitens the edges
   col += vec3(1.0) * (gOuter + gInner) * uBassHit * 0.5;
-  col *= 0.8 + 0.4 * uBeat;
+  col *= 1.0 + 0.3 * uBeat;
   gl_FragColor = vec4(col, 1.0);
 }

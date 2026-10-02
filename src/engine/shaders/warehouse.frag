@@ -83,7 +83,8 @@ void main() {
     // concrete: grey, grainy, slightly darker in the seams
     float grain = 0.75 + 0.25 * hash3(floor(pos * 12.0));
     vec3 albedo = vec3(0.55) * grain;
-    float kick = 0.5 + 1.2 * uBass;
+    // idle floor: the lamp is on even in silence, the bass only pushes it
+    float kick = 0.9 + 0.8 * uBass;
     col = albedo * diff * fl * kick * mix(vec3(1.0), uColor1, 0.35);
     // the kick reaches the far end for an instant
     col += albedo * 0.08 * uBassHit;
