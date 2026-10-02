@@ -38,21 +38,28 @@ void main() {
 
   for (int e = 0; e < 2; e++) {
     float fe = float(e);
-    // emitters at the top corners
-    vec2 origin = vec2(fe * 2.0 - 1.0, 0.62) * vec2(0.85, 1.0);
+    // emitters at the top corners of THIS frame (a 6:1 strip used to have
+    // them in the middle, a portrait frame outside it)
+    float halfW = uResolution.x / uResolution.y * 0.5 - 0.04;
+    vec2 origin = vec2((fe * 2.0 - 1.0) * halfW, 0.62);
     vec2 p = uv - origin;
     float baseA = atan(p.y, p.x);
     float d = length(p);
 
     float fan = (0.35 + spread * 0.5);
-    float sweepA = sin(t * (0.7 + sweep) + fe * PI + uBassTime * 0.5) * fan;
-    // aim roughly down-inward
-    float aim = (fe == 0.0 ? -0.45 : PI + 0.45) + sweepA * (1.0 - fe * 2.0);
+    float halfFan = fan * 0.5 * (1.0 + uMid * 0.4);
+    // the fan sweeps inside the down-inward quadrant only: the old sweep
+    // pointed one emitter above the horizon half the time and it vanished
+    float lo = -1.45 + halfFan, hi = -0.10 - halfFan;
+    float mid = (lo + hi) * 0.5, amp = max(hi - lo, 0.0) * 0.5;
+    float sweepA = sin(t * (0.7 + sweep) + fe * PI + uBassTime * 0.5) * amp;
+    float aim0 = mid + sweepA;
+    float aim = fe == 0.0 ? aim0 : PI - aim0;   // mirror for the right emitter
 
     for (float i = 0.0; i < 12.0; i++) {
       if (i >= beams) break;
       float k = i / max(beams - 1.0, 1.0) - 0.5;
-      float beamA = aim + k * fan * (1.0 + uMid * 0.4);
+      float beamA = aim + k * 2.0 * halfFan * (1.0 - fe * 2.0);
       // angular distance from the beam
       float da = abs(mod(baseA - beamA + PI, TAU) - PI);
       float w = 0.0016 + uHigh * 0.002;
@@ -60,7 +67,8 @@ void main() {
       float haze = 0.02 / (da * 12.0 + 0.25) / (d * 2.0 + 0.4);
       vec3 c = mix(uColor1, uColor2, fract(i * 0.37 + fe * 0.5 + uBarPhase));
       float strobe = 0.55 + 0.45 * step(0.5, fract(i * 0.5 + uHighTime * 2.0));
-      color += c * (core * 0.9 + haze) * strobe;
+      // more beams, each a little dimmer: twelve at full haze washed the frame
+      color += c * (core * 0.9 + haze) * strobe * sqrt(6.0 / max(beams, 6.0));
     }
   }
 

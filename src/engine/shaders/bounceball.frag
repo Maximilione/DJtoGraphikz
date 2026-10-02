@@ -43,15 +43,20 @@ void main() {
     float phase = fract(uBeatClock + fi / n);
     // parabola: 0 on the floor, 1 at the top, back to 0 — one bounce a beat
     float h = 1.0 - (2.0 * phase - 1.0) * (2.0 * phase - 1.0);
-    float height = h * 0.5 * bounce * (0.8 + 0.4 * uBass);
+    // apex clamped inside the frame: at full bounce the balls left the screen
+    float height = h * min(0.5 * bounce * (0.8 + 0.4 * uBass), 0.5 - floorY - 0.26);
     float x = (fi + 0.5) / n - 0.5;
     x *= aspect * 0.9;
     x += 0.04 * sin(uTime * 0.7 + fi);
-    float r = 0.09 + 0.03 * uEnergy;
-    // squash on the floor, stretch in the air
+    // radius capped by the lane width, so eight balls (or a portrait frame)
+    // do not overlap into one blob
+    float r = min(0.09 + 0.03 * uEnergy, 0.38 * aspect * 0.9 / n);
+    // squash on the floor, stretch where it moves fastest (not at the apex:
+    // a ball at the top of its arc is round, a stretched one there reads as an egg)
     float onFloor = exp(-height * 30.0);
-    float sx = 1.0 + squash * (0.5 * onFloor - 0.2 * h);
-    float sy = 1.0 - squash * (0.4 * onFloor - 0.25 * h);
+    float vel = abs(2.0 * phase - 1.0) * (1.0 - onFloor);
+    float sx = 1.0 + squash * (0.5 * onFloor - 0.15 * vel);
+    float sy = 1.0 - squash * (0.4 * onFloor - 0.25 * vel);
     vec2 c = vec2(x, floorY + r * sy + height);
     vec2 d = (p - c) / vec2(sx, sy);
     float dist = length(d);
