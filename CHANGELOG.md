@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.58.1-beta] — 2026-10-02
+
+**Bounce e' techno.** La 0.58.0 l'aveva letta come Melbourne bounce: coriandoli e palette da festa. Corretto prima della serata; questo e' il tag che va in sala.
+
+### Changed
+- Genere **Bounce Techno**: groove rotolante e scuro, basso che pompa sull'offbeat. Scene riscritte: pausa eclipse/bunker/radar/smoke/static, salita eclipse/pump/blinds/impact, groove **Roll**, **Pump**, Balls, tunnel, spiral, tribal, chevrons, cage, rings, cracks, barcode, lattice, city; picco flash, impact, strobo, lasers, shatter, vortex, glitch, pump a tutta, neon. Palette mono / sangue / acciaio / ambra, crossfade 0.25 s, 145 BPM
+- **Roll** al posto di Confetti (rimosso): corsie di blocchi grigi che rotolano una contro l'altra, ogni blocco gonfia sull'offbeat e si ritira sul kick (il sidechain al contrario), una corsia d'accento scende di una corsia per battuta, un blocco caldo per corsia cambia ogni 4 battute. Grigio su nero, un colore solo di palette
+- Balls nel groove va con la grana, non col bloom: palle bianche su nero, non neon
+
 ## [0.58.0-beta] — 2026-10-02
 
 **Bounce, per la serata di stasera.** Tag di release: comprende 0.57 e 0.58.
