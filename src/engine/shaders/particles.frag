@@ -79,13 +79,13 @@ void main() {
 
   // Central glow
   float centerDist = length(uv);
-  color += mix(uColor1, uColor2, 0.5) * exp(-centerDist * 5.0) * (0.2 + uBeat * 0.8);
+  color += mix(uColor1, uColor2, 0.5) * exp(-centerDist * 5.0) * (0.4 + uBeat * 0.6);
 
-  // Subtle radial streaks
+  // Subtle radial streaks — idle floor so the hub keeps turning in silence
   float angle = atan(uv.y, uv.x);
   float streaks = abs(sin(angle * 8.0 + t));
   streaks = pow(streaks, 8.0);
-  color += uColor3 * streaks * exp(-centerDist * 3.0) * uEnergy * 0.3;
+  color += uColor3 * streaks * exp(-centerDist * 3.0) * (0.4 + 0.6 * uEnergy) * 0.3;
 
   color = min(color, vec3(1.5));
   color = pow(color, vec3(0.9));
