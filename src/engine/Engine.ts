@@ -87,6 +87,9 @@ import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
 import mirrorFrag from './shaders/mirror.frag?raw'
 import invertFrag from './shaders/invert.frag?raw'
+import displaceFrag from './shaders/displace.frag?raw'
+import frameglitchFrag from './shaders/frameglitch.frag?raw'
+import outlineFrag from './shaders/outline.frag?raw'
 import transitionFrag from './shaders/transition.frag?raw'
 import overlayFrag from './shaders/overlay.frag?raw'
 import bloomPrefilterFrag from './shaders/bloomPrefilter.frag?raw'
@@ -180,7 +183,8 @@ export type EffectId =
   | 'static' | 'cage' | 'radar' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'sevenseg' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
-export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert' | 'rgb-delay'
+export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
+  | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
 const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
@@ -1258,7 +1262,8 @@ export class Engine {
       fragmentShader: mirrorFrag,
       uniforms: {
         tDiffuse: { value: null },
-        uWet: { value: 1 },
+        uLevel: { value: 1 },
+        uResolution: { value: this.resolution },
       }
     }))
 
@@ -1268,6 +1273,42 @@ export class Engine {
       uniforms: {
         tDiffuse: { value: null },
         uWet: { value: 1 },
+      }
+    }))
+
+    this.postMaterials.set('displace', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: displaceFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBass: { value: 0 },
+        uTime: { value: 0 },
+        uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('frame-glitch', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: frameglitchFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uHighHit: { value: 0 },
+        uTime: { value: 0 },
+      }
+    }))
+
+    this.postMaterials.set('outline', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: outlineFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+        uResolution: { value: this.resolution },
       }
     }))
   }
@@ -2966,8 +3007,12 @@ export class Engine {
         if (pu.uHigh) pu.uHigh.value = this.smoothHigh
         if (pu.uEnergy) pu.uEnergy.value = this.smoothEnergy
         if (pu.uBeat) pu.uBeat.value = this.beatPulse
+        if (pu.uHighHit) pu.uHighHit.value = this.highHit
         if (pu.uTime) pu.uTime.value = time
         if (entry.id === 'rgb-delay') this.feedRgbDelay(read, wet)
+        // amount grezzo, senza la macro intensita': chi lo legge sceglie un
+        // modo a scaglioni (mirror), e il fader non deve cambiargli modo
+        if (pu.uLevel) pu.uLevel.value = entry.amount
         this.renderPass(mat, write)
       }
 
