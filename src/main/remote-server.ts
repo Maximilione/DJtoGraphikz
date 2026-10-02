@@ -403,6 +403,10 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     padding:calc(8px + env(safe-area-inset-top)) var(--s3) var(--s2); }
   .srow { display:flex; gap:var(--s2); align-items:stretch; }
   .srow button { flex:1; font-weight:700; font-size:12px; letter-spacing:1px; min-height:48px; }
+  #panic { border-color:var(--danger); color:var(--danger); }
+  #panic:active { background:rgba(255,68,85,.25); }
+  .bigrow button { min-height:56px; font-size:15px; font-weight:700; }
+  .gap { margin-top:var(--s2); }
   #blackout.on { border-color:var(--danger); color:var(--danger);
     background:rgba(255,68,85,.14); box-shadow:0 0 12px rgba(255,68,85,.25); }
   .bpmbox { width:64px; flex:none; display:flex; flex-direction:column; align-items:center;
@@ -540,6 +544,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <button id="blackout">BLACK</button>
       <button id="freeze">FREEZE</button>
       <button id="tap">TAP</button>
+      <button id="panic">PANIC</button>
       <div class="bpmbox"><span id="bpm" class="mono">--</span><span class="micro">BPM</span></div>
     </div>
     <div class="srow2">
@@ -558,6 +563,11 @@ const REMOTE_PAGE = `<!DOCTYPE html>
         <button id="autovj">AUTO VJ</button>
         <select id="genre" aria-label="Genere"></select>
       </div>
+      <div class="row gap"><button id="scenesave">+ SCENA (look attuale)</button><button id="onlymine">SOLO LE MIE</button></div>
+      <div class="hint" id="vjinfo"></div>
+      <div class="sect">BPM</div>
+      <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
+      <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
       <div class="sect">Scalette</div>
       <div id="seqnow" hidden>
         <div class="micro" id="seqname"></div>
@@ -586,6 +596,16 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Blend / maschera</div>
       <div class="seg" id="blend"></div>
       <div class="prow"><span class="plbl">Bordo</span><input type="range" id="msoft" min="0" max="1" step="0.01" value="0.25"><span class="pval" id="msoft_v">0.25</span></div>
+      <div id="vdeck" hidden>
+        <div class="sect">Deck B video</div>
+        <div class="seg" id="vdmode"><button data-e="0">EFFETTO</button><button data-e="1">VIDEO</button></div>
+        <div class="grid3 gap" id="vdclips"></div>
+        <div class="prow gap"><span class="plbl">Barre/clip</span><select id="vdbars"></select></div>
+      </div>
+      <div id="ovwrap" hidden>
+        <div class="sect">Overlay</div>
+        <div id="ovlist"></div>
+      </div>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
       <div class="addgrid" id="postadd"></div>
@@ -606,7 +626,11 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 
     <section id="tab-color" hidden>
       <div class="sect">Palette</div>
-      <div class="palgrid" id="palgrid"></div>
+      <div class="row bigrow"><button id="palprev">&laquo; PRECEDENTE</button><button id="palnext">SUCCESSIVA &raquo;</button></div>
+      <div class="palgrid gap" id="palgrid"></div>
+      <div class="sect">Cicla palette</div>
+      <div class="row bigrow"><button id="cycon">CICLA</button><button id="cycbeat">A TEMPO</button></div>
+      <div class="prow gap"><span class="plbl" id="cyclbl">Ogni (s)</span><input type="range" id="cycval" min="1" max="60" step="1" value="10"><span class="pval" id="cycval_v">10</span></div>
       <div class="sect">Grade</div>
       <div class="prow"><span class="plbl">Exposure</span><input type="range" id="g_exposure" min="0.2" max="2" step="0.05" value="1.1"><span class="pval" id="gv_exposure"></span></div>
       <div class="prow"><span class="plbl">Contrast</span><input type="range" id="g_contrast" min="0.5" max="2" step="0.05" value="1.05"><span class="pval" id="gv_contrast"></span></div>
@@ -938,7 +962,7 @@ function renderSeq(s){
   if (!s || !s.available) {
     now.hidden = true; list.textContent = ''; prev.seqsig = ''
     hint.hidden = false
-    hint.textContent = s ? 'Scalette disponibili solo in modalità Pro sul computer.' : 'Nessuna informazione dalle scalette.'
+    hint.textContent = s ? 'Scalette non ancora pronte: riprovo tra un attimo.' : 'Nessuna informazione dalle scalette.'
     return
   }
   const playing = !!s.playing
@@ -977,6 +1001,76 @@ function wireSeq(){
 }
 wireSeq()
 
+// ---- BPM mode, Auto VJ scenes, video deck, cycle, overlays ----
+function renderExt(x, e, bpm){
+  if (x) {
+    document.querySelectorAll('#bpmmode button').forEach(function(b){ setOn(b, b.dataset.m === x.bpmMode) })
+    local.bpm = x.bpmMode === 'manual' ? x.manualBpm : bpm
+    setOn($('onlymine'), !!x.onlyMine)
+    setText($('vjinfo'), 'Fase ' + x.phase + ' - ' + x.scenes + ' scene mie per questo genere')
+    renderOverlays(x.overlays || [])
+  }
+  const c = e.cycle
+  if (c) {
+    setOn($('cycon'), !!c.enabled)
+    setOn($('cycbeat'), !!c.beatSync)
+    setText($('cyclbl'), c.beatSync ? 'Ogni (battiti)' : 'Ogni (s)')
+    const val = c.beatSync ? c.beatsPerSwitch : Math.round(c.intervalMs / 1000)
+    if (!dragging['cycval']) { setRange($('cycval'), val); setText($('cycval_v'), String(val)) }
+  }
+  const d = e.videoDeck
+  const wrap = $('vdeck')
+  if (!d || !d.clips || !d.clips.length) { wrap.hidden = true; return }
+  wrap.hidden = false
+  document.querySelectorAll('#vdmode button').forEach(function(b){ setOn(b, (b.dataset.e === '1') === !!d.enabled) })
+  const sig = d.clips.map(function(k){ return k.name }).join('|')
+  const box = $('vdclips')
+  if (prev.vdsig !== sig) {
+    prev.vdsig = sig
+    box.textContent = ''
+    d.clips.forEach(function(k, i){
+      const b = el('button', '', k.name)
+      b.addEventListener('click', function(){ cmd({ type: 'videoDeck', value: { clip: i, enabled: true } }) })
+      box.appendChild(b)
+    })
+  }
+  for (let i = 0; i < box.children.length; i++) setOn(box.children[i], !!d.enabled && i === d.clip)
+  const bs = $('vdbars')
+  if (document.activeElement !== bs && bs.value !== String(d.barsPerClip)) bs.value = String(d.barsPerClip)
+}
+
+const ovEls = {}
+function renderOverlays(list){
+  const wrap = $('ovwrap'), box = $('ovlist')
+  wrap.hidden = list.length === 0
+  const sig = list.map(function(o){ return o.id }).join('|')
+  if (prev.ovsig !== sig) {
+    prev.ovsig = sig
+    box.textContent = ''
+    for (const k in ovEls) delete ovEls[k]
+    list.forEach(function(o){
+      const row = el('div', 'chainrow')
+      row.appendChild(el('span', 'nm', o.name))
+      const r = document.createElement('input')
+      r.type = 'range'; r.min = 0; r.max = 1; r.step = 0.01
+      wireRange(r, 'ov_' + o.id, function(v){ return { type: 'overlay', value: { id: o.id, opacity: v } } })
+      row.appendChild(r)
+      const t = el('button', '', 'ON')
+      t.addEventListener('click', function(){ cmd({ type: 'overlay', value: { id: o.id, visible: !t.classList.contains('on') } }).then(poll) })
+      row.appendChild(t)
+      box.appendChild(row)
+      ovEls[o.id] = { range: r, tog: t }
+    })
+  }
+  list.forEach(function(o){
+    const x = ovEls[o.id]
+    if (!x) return
+    setRange(x.range, o.opacity)
+    setOn(x.tog, !!o.visible)
+    setText(x.tog, o.visible ? 'ON' : 'OFF')
+  })
+}
+
 // ---- polling: surgical DOM updates, structural rebuilds only on change ----
 async function poll(){
   let j
@@ -1011,6 +1105,7 @@ async function poll(){
   }
 
   renderSeq(j.seq)
+  renderExt(j.ext, e, bpm)
 
   // FX: active effect highlight + params
   if (prev.fx !== e.activeEffect) {
@@ -1112,6 +1207,34 @@ function wireStatic(){
     cmd({ type: 'freeze', value: on })
   })
   $('tap').addEventListener('click', function(){ cmd({ type: 'tap' }) })
+  $('panic').addEventListener('click', function(){ buzz(40); cmd({ type: 'panic' }).then(poll) })
+
+  document.querySelectorAll('#bpmmode button').forEach(function(b){
+    b.addEventListener('click', function(){ cmd({ type: 'bpmMode', value: b.dataset.m }).then(poll) })
+  })
+  $('bpmhalf').addEventListener('click', function(){ cmd({ type: 'bpmScale', value: 0.5 }).then(poll) })
+  $('bpmdouble').addEventListener('click', function(){ cmd({ type: 'bpmScale', value: 2 }).then(poll) })
+  const nudge = function(d){ if (local.bpm) cmd({ type: 'bpmSet', value: Math.round(local.bpm) + d }).then(poll) }
+  $('bpmminus').addEventListener('click', function(){ nudge(-1) })
+  $('bpmplus').addEventListener('click', function(){ nudge(1) })
+
+  $('scenesave').addEventListener('click', function(){ buzz(25); cmd({ type: 'saveScene' }).then(poll) })
+  $('onlymine').addEventListener('click', function(){ cmd({ type: 'onlyMine', value: !this.classList.contains('on') }).then(poll) })
+
+  $('palprev').addEventListener('click', function(){ cmd({ type: 'paletteStep', value: -1 }) })
+  $('palnext').addEventListener('click', function(){ cmd({ type: 'paletteStep', value: 1 }) })
+  $('cycon').addEventListener('click', function(){ cmd({ type: 'cycle', value: { enabled: !this.classList.contains('on') } }).then(poll) })
+  $('cycbeat').addEventListener('click', function(){ cmd({ type: 'cycle', value: { beatSync: !this.classList.contains('on') } }).then(poll) })
+  wireRange($('cycval'), 'cycval', function(v){
+    return { type: 'cycle', value: $('cycbeat').classList.contains('on') ? { beatsPerSwitch: v } : { intervalMs: v * 1000 } }
+  }, $('cycval_v'))
+
+  document.querySelectorAll('#vdmode button').forEach(function(b){
+    b.addEventListener('click', function(){ cmd({ type: 'videoDeck', value: { enabled: b.dataset.e === '1' } }).then(poll) })
+  })
+  const vb = $('vdbars')
+  ;[1, 2, 4, 8, 16].forEach(function(n){ vb.appendChild(new Option(String(n), String(n))) })
+  vb.addEventListener('change', function(){ cmd({ type: 'videoDeck', value: { barsPerClip: parseInt(vb.value, 10) } }) })
 
   // autovj: optimistic toggle, next poll confirms from state.vj
   $('autovj').addEventListener('click', function(){
