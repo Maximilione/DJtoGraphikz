@@ -86,8 +86,10 @@ void main() {
   color += (uColor1 + uColor2) * 0.3 * exp(-r * 3.0) * (1.0 + uBeat * 3.0);
 
   // Audio energy bloom
-  color *= 0.8 + uEnergy * 0.6;
-  color *= 1.0 + uBeat * 0.8;
+  color *= 0.8 + uEnergy * 0.3;
+  color *= 1.0 + uBeat * 0.4;
+  // soft shoulder: full audio compresses instead of clipping to white
+  color = color / (1.0 + 0.6 * color);
 
   // Vignette
   color *= smoothstep(2.0, 0.3, r);
