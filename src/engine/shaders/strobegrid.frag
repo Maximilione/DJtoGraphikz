@@ -40,7 +40,9 @@ void main() {
 
   // seed advances with the gated bass clock: pattern changes on musical activity
   // (plus a slow free-running drift so it does not freeze in silence)
-  float seed = floor(uBassTime * 2.0 + uTime * 0.2);
+  // wrapped: after half an hour seed*13.7 is ~3e4, sin() in hash() loses
+  // precision and every cell went dark
+  float seed = mod(floor(uBassTime * 2.0 + uTime * 0.2), 256.0);
   float h = hash(cell + seed * 13.7);
 
   // kick: subset of cells at full white-hot, envelope from uBassHit.
