@@ -2,6 +2,22 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.59.0-beta] — 2026-10-02
+
+**F1–F6: la manipolazione del frame che mancava** (dallo studio sui preset altrui). Due branch in parallelo. Senza tag.
+
+### Added
+- **Feedback warp** (F1): il frame precedente campionato zoomato (1.003–1.02 per frame, piu' basso e beat), ruotato (0.11–0.3°), traslato in orbita lenta, con decay 0.80–0.97 e curl noise, tutto derivato dall'amount; sotto 0.25 e' la scia di prima, a 1 e' MilkDrop. I post non hanno sotto-parametri: l'amount e' la manopola
+- **RGB Delay** (F6, Luce & Colore): rosso dal frame corrente, verde e blu da un ring di tre target a meta' risoluzione, ritardo 1–8 frame dall'amount; all'accensione i tre slot si riempiono col frame corrente, niente flash di scene vecchie
+- **Displace** (F2, Distorsione): onde morbide a amount basso, value-noise a due assi sopra 0.8, ampiezza = amount × (0.5 + basso) × 6 % del frame, bordi ripiegati
+- **Frame Glitch** (F3, riga "Frame"): block shift su 24 righe a 15 fps, tear sopra una linea mobile, color bleed proporzionale, righe tenute solo sui colpi alti; identita' esatta ad amount 0 senza colpi
+- **Outline** (F4, "Frame"): Sobel sul frame, contorni nel colore 1 con glow sul beat, originale × (1 − amount)
+- **Mirror esteso** (F5): l'amount sceglie il modo a scaglioni — (0.8,1] orizzontale (default, com'era), (0.6,0.8] verticale, (0.4,0.6] quad, (0.2,0.4] kaleido 6, [0,0.2] kaleido 8 — tramite `uLevel`, l'amount grezzo senza la macro Intensita', cosi' il fader non cambia modo
+- I quattro post nuovi sono nelle liste del MIDI learn (`wet:<id>`) e dei post del telefono
+
+### Noto
+- Mirror non ha piu' il mix parziale: sotto 0.01 viene saltato, sopra e' pieno nel modo scelto. Frame Glitch ad amount 1 su un colpo alto forte e' molto aggressivo: e' un picco, si dosa. Nessuno dei sei e' ancora nei `postSets` delle scene Auto VJ: prima una serata a mano
+
 ## [0.58.1-beta] — 2026-10-02
 
 **Bounce e' techno.** La 0.58.0 l'aveva letta come Melbourne bounce: coriandoli e palette da festa. Corretto prima della serata; questo e' il tag che va in sala.

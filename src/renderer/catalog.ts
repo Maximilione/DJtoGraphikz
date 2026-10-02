@@ -121,6 +121,7 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
       { id: 'bloom', label: 'Bloom', icon: '✦', desc: 'Diffusione del glow' },
       { id: 'chromatic', label: 'Chromatic', icon: '◐', desc: 'Aberrazione prismatica' },
       { id: 'rgb-split', label: 'RGB Split', icon: '▥', desc: 'Offset canali colore' },
+      { id: 'rgb-delay', label: 'RGB Delay', icon: '▤', desc: 'Canali colore da frame diversi' },
       { id: 'invert', label: 'Invert', icon: '◑', desc: 'Colori in negativo' },
     ],
   },
@@ -128,8 +129,9 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
     name: 'Distorsione',
     effects: [
       { id: 'feedback', label: 'Feedback', icon: '↻', desc: 'Scia in feedback' },
-      { id: 'mirror', label: 'Mirror', icon: '⎸', desc: 'Simmetria orizzontale' },
+      { id: 'mirror', label: 'Mirror', icon: '⎸', desc: 'Simmetria: giù con l\'amount passa a verticale, quad, kaleido 6 e 8' },
       { id: 'pixelate', label: 'Pixelate', icon: '▦', desc: 'Pixel retrò' },
+      { id: 'displace', label: 'Displace', icon: '≈', desc: 'Onde e noise spostano i pixel sul basso' },
     ],
   },
   {
@@ -137,6 +139,13 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
     effects: [
       { id: 'filmgrain', label: 'Film Grain', icon: '⁘', desc: 'Grana analogica' },
       { id: 'scanlines', label: 'Scanlines', icon: '≡', desc: 'Righe CRT' },
+    ],
+  },
+  {
+    name: 'Frame',
+    effects: [
+      { id: 'frame-glitch', label: 'Frame Glitch', icon: '▤', desc: 'Righe che saltano, tear e bleed sui colpi' },
+      { id: 'outline', label: 'Outline', icon: '◇', desc: 'Contorni neon nel colore 1, originale attenuato' },
     ],
   },
 ]
