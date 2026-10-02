@@ -4,9 +4,10 @@ import { TRANSITIONS } from '../../catalog'
 import type { Engine, Preset, EffectId, PostId, TransitionType } from '@engine/Engine'
 import { loadLooks, makeThumb, type SavedLook } from '../../looks'
 import {
-  migrateAll, migrate, clampHold, nextIndex, prevIndex, moveStep, totalHold, indexAfterRemoval,
+  migrateAll, migrate, clampHold, nextIndex, manualStep, validSeqIndex, moveStep, totalHold, indexAfterRemoval,
   usesHold, HOLD_LIMITS, MODE_LABELS, type Sequence, type SequenceStep, type SequenceMode, type StepOverlay,
 } from './sequences'
+import { registerSeqHandlers, pushSeqStatus } from './seqRemote'
 import { enterStep, clearStepOverlays, paramsFromScreen } from './sequencePlayer'
 import { readLibraryImage, IMAGE_RE, type LibraryItem } from '../OverlayPanel/OverlayPanel'
 import { shouldIgnoreHotkey } from '../../hotkeys'
@@ -99,17 +100,11 @@ export function PresetPanel({ engine }: PresetPanelProps) {
   }, [playingSeq])
 
   const seqPrev = useCallback(() => {
-    setStepIndex(prev => {
-      const p = prevIndex(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false)
-      return p < 0 ? prev : p
-    })
+    setStepIndex(prev => manualStep(prev, playingSeq?.steps.length ?? 0, playingSeq?.loop ?? false, -1))
   }, [playingSeq])
 
   const seqNext = useCallback(() => {
-    setStepIndex(prev => {
-      const n = nextIndex(prev, playingSeq?.steps.length ?? 0, true)  // manual skip always wraps
-      return n < 0 ? prev : n
-    })
+    setStepIndex(prev => manualStep(prev, playingSeq?.steps.length ?? 0, true, 1))  // manual skip always wraps
   }, [playingSeq])
 
   // Timer advance — the hold belongs to the CURRENT step, so the interval is
@@ -385,6 +380,36 @@ export function PresetPanel({ engine }: PresetPanelProps) {
     setPlaying(false)
     setPlayingSeq(null)
   }, [])
+
+  // Remote surfaces (phone, OSC) drive the same functions the buttons and N do.
+  // A ref keeps the registered handlers current without re-registering each render.
+  const remoteRef = useRef({ sequences, playingSeq, playing, startSequence, stopSequence, seqNext, seqPrev })
+  remoteRef.current = { sequences, playingSeq, playing, startSequence, stopSequence, seqNext, seqPrev }
+  useEffect(() => registerSeqHandlers({
+    start: v => {
+      const r = remoteRef.current
+      const i = validSeqIndex(v, r.sequences.length)
+      if (i < 0 || r.sequences[i].steps.length === 0) return
+      if (r.playing && r.playingSeq === r.sequences[i]) return   // no double start
+      r.startSequence(r.sequences[i])
+    },
+    next: () => { if (remoteRef.current.playing) remoteRef.current.seqNext() },
+    prev: () => { if (remoteRef.current.playing) remoteRef.current.seqPrev() },
+    stop: () => { if (remoteRef.current.playing) remoteRef.current.stopSequence() },
+  }), [])
+
+  // Status for the phone: list + what is playing, pushed on every change
+  useEffect(() => {
+    pushSeqStatus({
+      available: true,
+      list: sequences.map(s => ({ name: s.name, steps: s.steps.length })),
+      playing: playing && !!playingSeq,
+      index: stepIndex,
+      total: playingSeq?.steps.length ?? 0,
+      name: playingSeq?.name ?? '',
+      stepName: playing ? (step?.name ?? '') : '',
+    })
+  }, [sequences, playing, playingSeq, stepIndex, step])
 
   const deleteSequence = useCallback((i: number) => {
     const removed = sequences[i]

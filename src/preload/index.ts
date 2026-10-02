@@ -93,6 +93,8 @@ const api = {
     ipcRenderer.send('remote:looks', looks),
   // AutoVJ status pushed by the renderer so the phone stays in sync
   sendRemoteVj: (vj: { enabled: boolean; genre: string }) => ipcRenderer.send('remote:vj', vj),
+  // Sequence (scaletta) status for the phone: list + what is playing
+  sendRemoteSeq: (seq: unknown) => ipcRenderer.send('remote:seq', seq),
 
   // Pro DJ Link (CDJ tempo over the booth LAN) — off until the renderer asks
   setProLink: (on: boolean) => ipcRenderer.send('prolink:enable', on),
