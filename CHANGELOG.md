@@ -16,11 +16,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](ht
 - **Spiral riscritta**: tunnel a spirale logaritmica con bracci sottili antialias, direzione senza salti; `twist` minimo 3
 - **Tribal e' ora un occhio stile Sharingan**: pupilla, iride, tomoe orbitanti, contrazione sul calcio
 - **Counter (sevenseg) riscritto**: segmenti a 45°, cifre grandi, bagliore, scorrimento sui colpi di hat
-- Revisione di tutti gli effetti tranne i Geometrici: orologi del basso senza teletrasporto a t grande, vignette in unita' del quadro (striscia LED e verticale), niente guadagni che portano al bianco, antialiasing, valori che crescono senza limite avvolti. Reaction: range feed/kill ristretti alla zona viva
+- Revisione di tutti gli effetti, Geometrici compresi (kaleidoscope non va piu' al bianco, rings e hexagons con pavimento di luce): orologi del basso senza teletrasporto a t grande, vignette in unita' del quadro (striscia LED e verticale), niente guadagni che portano al bianco, antialiasing, valori che crescono senza limite avvolti. Reaction: range feed/kill ristretti alla zona viva
 - Pavimento di luce in silenzio su undici effetti, static e starfield; Outline non e' piu' nero a amount 1
 
 ### Noto
-- Geometrici non rivisti (revisore fermato). Waves, grid e radar restano scuri in silenzio ma con struttura visibile
+- Radar, particles e stringart sulla striscia LED restano scuri in silenzio ma con struttura visibile. Sweep e anteprime usano audio sintetico: non ancora provato con musica vera in sala
 
 ## [0.59.0-beta] — 2026-10-02
 
