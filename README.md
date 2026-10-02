@@ -46,7 +46,8 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 
 ### Visual engine
 
-- **62 GLSL effects** in 6 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding — and Tekno), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+- **65 GLSL effects** in 7 categories (Geometric, Organic, Motion, Digital, Videogame — PS2 boot towers, 1080°-style snowboarding — Tekno and Bounce), with crossfade/wipe/radial/dissolve transitions, optionally beat-synced.
+  - **Bounce** — **Balls** (one bounce per beat each, squash on the floor), **Pump** (nested squares ducking on the beat like a sidechained pad) and **Confetti** (a cannon every two beats, gravity in beats). Plus the **Bounce** Auto VJ genre: colourful palettes, confetti at the peak.
   - **Tekno** — 16 dark, kick-driven visuals for a black room: **Flash** (blackout strobe), **Impact** (beat shockwaves), **Spiral** and **Tribal** (black-and-white hypno, ratcheting one notch per beat), **Xerox** halftone, **Barcode**, **Hazard** chevrons, **Counter** (a seven-segment bar counter), **Static**, **Radar**, **Cage** (nested wireframe cubes), **Cracks**, **Bunker** (a raymarched concrete corridor with a flickering lamp), **Rain**, **Eclipse**, **Blinds**. All in the Auto VJ rotation for Hard Tekno, Dark Industrial, Acid Techno and Gabber.
   - **Spectrum** — the analyser's own picture: log-spaced bars with peak caps, mirrored, oscilloscope over the top. **Smoke** — a semi-Lagrangian advection plume, three vents each fed by its own band. **Caustics**, **Gyroid** (raymarched minimal surface), **Truchet**, **Quasicrystal**, **String art**, **ASCII** terminal readout.
   - **Pulsar** — the *Unknown Pleasures* ridge plot rendered as a perspective linescape: one continuous terrain sliced front to back with hidden-line removal, sides kept dead flat like the sleeve. The field scrolls toward the camera locked to the beat clock, and every downbeat raises a ridge band that rides in with it.
@@ -66,7 +67,7 @@ On first launch the app asks for **microphone/audio input** access (needed to li
 - **Deck A/B + crossfader** — second deck with 5 blend modes (mix, add, screen, multiply, difference); deck B doubles as blind mode.
 - **Post-FX chain** — 9 reorderable effects with per-effect wet/dry (Bloom, RGB Split, Chromatic, Feedback, Grain, Scanlines, Pixelate, Mirror, Invert) + master color grade (exposure/contrast/saturation/lift/vignette), ACES tone mapping, temporal motion blur.
 - **16 palettes** + custom editor, smooth color transitions, timer- or beat-based cycling.
-- **Auto VJ** — 10 genres, ~28 **curated scenes** each (effect + tuned params + audio mappings + the post-FX that fit it), and it follows the track instead of a timer:
+- **Auto VJ** — 11 genres, ~28 **curated scenes** each (effect + tuned params + audio mappings + the post-FX that fit it), and it follows the track instead of a timer:
   - **Phases.** The swing of the raw bass says whether there is a kick, the loudness against its own long mean how hard the room is going: **break / build / groove / peak**. Every scene is written for one phase, so a breakdown gets a dark, slow scene, the build-up gets a scene that grows with the energy, and the peak gets the strobes. Four lamps under the spectrum show which phase the machine hears.
   - **The drop.** A kick coming back after a break cuts the scene on that first kick, with no fade, to a peak scene and a fresh palette. Everything else waits for a downbeat.
   - **Phrases.** In the groove a scene lasts a phrase (8 bars for techno, 16 for minimal, 4 for drum & bass), half at the peak, twice in a break. The palette changes once per four scenes.

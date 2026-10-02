@@ -37,6 +37,7 @@ export type Genre =
   | 'gabber'
   | 'tech-house'
   | 'psytrance'
+  | 'bounce'
 
 /** The moment of the track a scene is written for. `build` is the rise before the drop: no kick yet, energy climbing. */
 export type Phase = 'break' | 'build' | 'groove' | 'peak'
@@ -95,6 +96,7 @@ export const FAMILY: Record<EffectId, Family> = {
   barcode: 'glyph', chevrons: 'grid', sevenseg: 'glyph', static: 'glyph', radar: 'radial',
   cage: 'object', cracks: 'grid', warehouse: 'tunnel', downpour: 'particles', eclipse: 'radial',
   blinds: 'grid',
+  bounceball: 'object', pump: 'radial', confetti: 'particles',
 }
 
 // shorthand builders keep the tables readable
@@ -553,6 +555,50 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     phraseBars: 8,
     cut: { type: 'crossfade', seconds: 0.5 },
     preferredBpm: 145,
+  },
+
+  // Melbourne bounce and friends: offbeat bass, big silly drops, colour. The
+  // groove is the bouncing ball and the pump; the peak is confetti.
+  'bounce': {
+    label: 'Bounce',
+    scenes: [
+      s('break', 'caustics', ['bloom'], { causticscale: v(1.6), sharpness: v(0.7), depthk: v(1) }),
+      s('break', 'orbits', ['bloom', 'feedback'], { bodies: v(8), orbitr: v(0.55), trail: v(0.7) }),
+      s('break', 'fluid', ['bloom'], { zoom: v(1.2), swirl: a(1.3, 'lfo-sine', 0.3, 16) }),
+      s('break', 'eclipse', ['bloom'], { radius: v(0.26), corona: a(1.2, 'bass', 0.5), wobble: v(0.5) }),
+      s('break', 'radar', ['bloom', 'scanlines'], { sweep: v(1), blips: v(10), fade: v(1.5) }),
+      s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.8, 'energy', 0.6), wobble: v(0.8) }),
+      s('build', 'spiral', ['bloom'], { speed: a(0.4, 'energy', 0.8), arms: v(4), twist: v(8), pulse: v(0.3) }),
+      s('build', 'blinds', ['filmgrain'], { slats: v(12), open: a(0.15, 'energy', 0.9), tilt: v(0.3) }),
+      s('build', 'pump', ['bloom'], { rings: v(10), pump: a(0.3, 'energy', 0.8), spin: v(0.3) }),
+      s('groove', 'bounceball', ['bloom'], { balls: v(3), bounce: a(1, 'bass', 0.4), squash: v(0.6) }),
+      s('groove', 'pump', ['bloom'], { rings: v(6), pump: v(0.7), spin: v(0.5) }),
+      s('groove', 'kaleidoscope', ['bloom', 'chromatic'], { segments: v(8), zoom: a(1.2, 'bass', 0.4), detail: v(2.2) }),
+      s('groove', 'neonpoly', ['bloom'], { sides: v(5), layers: v(6), thickness: a(1.2, 'bass', 0.5) }),
+      s('groove', 'hexagons', ['bloom'], { zoom: v(5), wavefreq: a(2.5, 'bass', 0.5) }),
+      s('groove', 'rings', ['bloom'], { speed: v(1.2), ringcount: v(10), spacing: a(0.08, 'bass', 0.5), gapfreq: v(6) }),
+      s('groove', 'truchet', ['bloom'], { tiles: v(9), thickness: a(1.2, 'bass', 0.4), flip: v(1) }),
+      s('groove', 'metaballs', ['bloom'], { count: v(7), size: a(0.11, 'bass', 0.5), threshold: v(1) }),
+      s('groove', 'chevrons', [], { lanes: v(6), thickness: v(0.5), drift: v(1.5) }),
+      s('groove', 'cage', ['bloom', 'chromatic'], { size: v(1), thickness: v(1.6), spin: v(1.2) }),
+      s('groove', 'tribal', ['filmgrain'], { blades: v(8), spikes: v(0.5), turn: v(1) }),
+      s('groove', 'pulsecity', ['bloom'], { columns: v(20), gapw: v(0.14), punch: a(1.4, 'bass', 0.5) }),
+      s('groove', 'bounceball', ['bloom', 'feedback'], { balls: v(6), bounce: v(1.2), squash: v(0.9) }),
+      s('peak', 'confetti', ['bloom'], { count: v(100), burst: v(1.6), gravity: v(1) }),
+      s('peak', 'impact', ['bloom'], { rings: v(4), width: v(1.5), fade: v(1) }),
+      s('peak', 'strobegrid', ['bloom'], { cells: v(12), litratio: a(0.3, 'energy', 0.4), chaos: v(0.7) }),
+      s('peak', 'lasers', ['bloom'], { beams: v(8), spread: v(1), sweep: a(1.3, 'energy', 0.5) }),
+      s('peak', 'tunnel', ['bloom'], { speed: v(1.4), sides: v(6), twist: a(0.6, 'bass', 0.5), ringdensity: v(10) }),
+      s('peak', 'shatter', ['bloom', 'chromatic'], { shards: v(14), burst: a(1.4, 'bass', 0.5), edgeglow: v(1) }),
+      s('peak', 'vortex', ['bloom', 'feedback'], { speed: v(1.3), arms: v(4), twist: v(1.8), pull: a(1, 'bass', 0.5) }),
+      s('peak', 'starfield', ['bloom'], { speed: v(1.6), tile: v(8), density: v(0.6) }),
+      s('peak', 'flash', ['bloom'], { decay: v(3), scan: v(0.4), tint: v(1) }),
+      s('peak', 'confetti', ['bloom', 'chromatic'], { count: v(160), burst: v(2.4), gravity: v(0.6) }),
+    ],
+    palettes: [NEON, CYBER, FIRE, AURORA, VAPOR],
+    phraseBars: 8,
+    cut: { type: 'dissolve', seconds: 0.3 },
+    preferredBpm: 140,
   },
 }
 
