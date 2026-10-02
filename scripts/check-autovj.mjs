@@ -26,7 +26,7 @@ const load = async (entry) => {
 const { AutoVJ, GENRE_CONFIGS, FAMILY, BREAK_CUT, DROP_CUT } = await load('src/engine/AutoVJ.ts')
 const { EFFECT_PARAMS, COMMON_PARAMS } = await load('src/engine/EffectParams.ts')
 
-const POSTS = new Set(['bloom', 'rgb-split', 'chromatic', 'feedback', 'filmgrain', 'scanlines', 'pixelate', 'mirror', 'invert'])
+const POSTS = new Set(['bloom', 'rgb-split', 'chromatic', 'feedback', 'filmgrain', 'scanlines', 'pixelate', 'mirror', 'invert', 'rgb-delay'])
 const COMMON = new Set(COMMON_PARAMS.map(p => p.key))
 
 let checks = 0
