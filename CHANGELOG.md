@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.58.0-beta] — 2026-10-02
+
+**Bounce, per la serata di stasera.** Tag di release: comprende 0.57 e 0.58.
+
+### Added
+- Categoria **Bounce** con tre effetti: **Balls** (fino a 8 palle, una parabola per beat sul beat clock sfalsata per palla, squash a terra e stretch in aria, ombra e pavimento che lampeggia sul kick), **Pump** (quadrati arrotondati annidati con l'inviluppo sidechain: si abbassano sul beat e gonfiano sull'offbeat, dove la bounce ha il basso), **Confetti** (cannone ogni due battute, pezzi con velocita' e rotazione proprie, gravita' misurata in battute cosi' l'arco e' uguale a ogni tempo, due spari in aria insieme). Tre parametri ciascuno
+- Genere Auto VJ **Bounce**: 32 scene nelle quattro fasi (pausa caustics/orbits/fluid/eclipse/radar, salita eclipse/spiral/blinds/pump, groove palle/pump/kaleido/neon/hex/rings/truchet/meta/chevron/cage/tribal/city, picco confetti/impact/strobe/lasers/tunnel/shatter/vortex/stars/flash), palette Neon/Cyber/Fuoco/Aurora/Vapore, frase 8 battute, dissolvenza 0.3 s, 140 BPM
+
 ## [0.57.0-beta] — 2026-10-01
 
 **La playlist completa: scalette con grafica per passo, che avanzano al cambio canzone.** Due branch in parallelo (`feat/scaletta-grafica`, `feat/track-change`), interfaccia fissata prima: `Engine.onTrackChange`.
