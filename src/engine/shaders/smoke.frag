@@ -29,12 +29,14 @@ void main() {
   vec3 n = normalize(vec3(-dx * 9.0, -dy * 9.0, 1.0));
   float lit = max(0.0, dot(n, normalize(vec3(0.6, 0.7, 0.45))));
 
-  float t = clamp(d * 2.4, 0.0, 1.0);
-  vec3 c = mix(uColor3 * 0.06, uColor1, smoothstep(0.02, 0.30, t));
-  c = mix(c, uColor2, smoothstep(0.35, 0.85, t));
+  // soft saturation: the old clamp(d*2.4) hit 1 over most of the plume and
+  // painted it a flat slab of color2
+  float t = 1.0 - exp(-d * 2.2);
+  vec3 c = mix(uColor3 * 0.06, uColor1, smoothstep(0.02, 0.35, t));
+  c = mix(c, uColor2, smoothstep(0.45, 0.95, t));
   c *= 0.35 + 1.0 * lit;
-  c += uColor2 * pow(t, 3.0) * (0.4 + 1.1 * uBeat);
-  c *= 1.7 + 0.5 * uEnergy;
+  c += uColor2 * pow(t, 3.0) * (0.3 + 0.8 * uBeat);
+  c *= 1.4 + 0.4 * uEnergy;
 
   float vig = smoothstep(1.4, 0.3, length((uv - 0.5) * vec2(1.5, 1.0)));
   gl_FragColor = vec4(c * vig, 1.0);
