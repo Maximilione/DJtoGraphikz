@@ -66,7 +66,9 @@ void main() {
   vec2 dir = normalize(uv + 1e-4);
 
   vec2 cellId; float edgeD;
-  vec2 p = (uv - dir * blast) * shards * 0.45;
+  // the shove fades to zero at the centre: a constant radial offset flips
+  // the inner shards across the origin and draws a bullseye on every kick
+  vec2 p = (uv - dir * blast * smoothstep(0.0, 0.4, length(uv))) * shards * 0.45;
   voro(p, cellId, edgeD);
 
   float h = hash(cellId);
@@ -83,7 +85,10 @@ void main() {
   color += mix(uColor3, vec3(1.0), 0.3) * crack * (0.35 + edgeglow * 0.6 + uHighHit * 0.8);
 
   // vignette to keep the frame
-  color *= smoothstep(1.3, 0.5, length(uv));
+  // measured in frame-normalised units: in height units a 6:1 LED strip
+  // was black outside the middle third
+  vec2 vq = (gl_FragCoord.xy / uResolution - 0.5) * 1.44;
+  color *= smoothstep(1.3, 0.5, length(vq));
   color = min(color, vec3(2.0));
   gl_FragColor = vec4(color, 1.0);
 }

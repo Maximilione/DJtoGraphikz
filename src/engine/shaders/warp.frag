@@ -31,7 +31,6 @@ float noise(vec2 p) {
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
-  vec2 origUv = uv;
   uv *= zoom;
 
   float t = uTime * 0.4;
@@ -73,17 +72,19 @@ void main() {
   vec3 c3 = uColor3 * (sin(cr + 4.189) * 0.5 + 0.5);
 
   vec3 color = c1 * f + c2 * (1.0 - f) * lines + c3 * n * 0.5;
-  color *= 1.5;
+  color *= 1.2;
 
   // Hot spots
   float hot = pow(n, 3.0) * 3.0;
   color += (uColor1 + uColor3) * hot * 0.5;
 
-  // Beat flash
-  color *= 1.0 + uBeat * 1.2;
+  // Beat flash: additive-ish gain, the old 2.2× pushed the frame to pastel
+  color *= 1.0 + uBeat * 0.4;
 
-  // Subtle vignette
-  float vig = 1.0 - dot(origUv, origUv) * 0.8;
+  // Subtle vignette in frame space — bounded on any aspect, so it never goes
+  // negative (on a 6:1 strip origUv.x reaches 3 and the frame edges went white)
+  vec2 fc = (vUv - 0.5) * vec2(1.78, 1.0);
+  float vig = 1.0 - dot(fc, fc) * 0.8;
   color *= vig;
 
   gl_FragColor = vec4(color, 1.0);

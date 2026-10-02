@@ -6,6 +6,7 @@ uniform float uMid;
 uniform float uHigh;
 uniform float uEnergy;
 uniform float uBeat;
+uniform float uBassTime;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
@@ -30,9 +31,9 @@ void main() {
     // Two strands of the helix
     for (int strand = 0; strand < 2; strand++) {
       float phase = float(strand) * PI;
-      float speed = 2.0 + uBass * 3.0;
-
-      float scrollY = uv.y * coils + t * speed;
+      // bass through the gated clock: t * uBass teleports the helix on every
+      // bass change once t is large
+      float scrollY = uv.y * coils + t * 2.0 + uBassTime * 3.0;
       float amplitude = amp + uMid * 0.05;
 
       // Helix curve
@@ -46,32 +47,31 @@ void main() {
       vec3 strandColor = strand == 0 ? uColor1 : uColor2;
       strandColor = mix(strandColor, uColor3, fh * 0.2);
 
-      color += strandColor * glow * 0.3;
+      color += strandColor * glow * 0.45 * (1.0 + uBass * 0.6);
 
       // Rungs connecting the two strands
       if (strand == 0) {
         float otherHelixX = sin(scrollY + PI + fh * PI * 0.66) * amplitude + offsetX;
 
-        // Rungs at regular intervals
-        float rungY = mod(scrollY, 1.0);
-        float rungMask = smoothstep(0.02, 0.0, abs(rungY - 0.5));
-
-        if (rungMask > 0.01) {
+        // Rungs at regular intervals. Distance to the nearest rung measured in
+        // the scrolled frame, divided back to screen units: the old version
+        // placed the rung at floor(scroll)/coils without the scroll offset, so
+        // it only lined up with its own mask once per cycle and the helix had
+        // no rungs at all.
+        float rungDist = abs(fract(scrollY) - 0.5) / coils;
+        if (rungDist < 0.03) {
           float minX = min(helixX, otherHelixX);
           float maxX = max(helixX, otherHelixX);
-
           float rungInside = step(minX, uv.x) * step(uv.x, maxX);
-          float rungDist = abs(uv.y - (floor(uv.y * coils + t * speed) + 0.5) / coils);
-
-          float rung = smoothstep(0.003, 0.0, rungDist) * rungInside;
+          float rung = smoothstep(0.005, 0.0, rungDist) * rungInside;
 
           // Base pair dots at ends
-          float dot1 = 0.003 / (length(vec2(uv.x - helixX, rungDist)) + 0.003);
-          float dot2 = 0.003 / (length(vec2(uv.x - otherHelixX, rungDist)) + 0.003);
+          float dot1 = 0.004 / (length(vec2(uv.x - helixX, rungDist)) + 0.004);
+          float dot2 = 0.004 / (length(vec2(uv.x - otherHelixX, rungDist)) + 0.004);
 
           vec3 rungColor = mix(uColor1, uColor2, 0.5);
-          color += rungColor * rung * rungMask * 0.5;
-          color += uColor3 * (dot1 + dot2) * rungMask * 0.1;
+          color += rungColor * rung * 0.5;
+          color += uColor3 * (dot1 + dot2) * 0.15;
         }
       }
     }

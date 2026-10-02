@@ -49,8 +49,9 @@ void main() {
   float aspect = uResolution.x / uResolution.y;
   float t = uTime;
 
-  float speed = 8.0 + uBass * 7.0;
-  float travel = t * speed + uBassTime * 2.0;
+  // bass = speed, but through the gated clock: t * uBass makes the whole
+  // course jump on every bass change once t is large
+  float travel = t * 8.0 + uBassTime * 9.0;
 
   // camera BANK: lean into the turn (derivative of the course curve)
   float bank = (curveAt(travel + 2.0) - curveAt(travel)) * 0.35;
@@ -73,7 +74,9 @@ void main() {
 
     // snow with fine corduroy + soft blue mogul shading
     float mogul = sin(wx * 3.0 + zw * 0.9) * sin(wx * 1.7 - zw * 0.6);
-    vec3 snow = mix(vec3(0.86, 0.90, 0.99), vec3(0.66, 0.74, 0.92), mogul * 0.5 + 0.5);
+    // night-ride snow: at 0.9 the whole frame averaged 0.73 and washed the
+    // room out — a projector in a club is not a daylight monitor
+    vec3 snow = mix(vec3(0.44, 0.50, 0.68), vec3(0.28, 0.34, 0.56), mogul * 0.5 + 0.5);
     snow += sin(wx * 160.0) * 0.02;                                  // corduroy
     snow += step(0.985, hash(floor(vec2(wx * 50.0, zw * 8.0)))) * 0.2 * (0.4 + uHigh); // sparkle
 
@@ -85,20 +88,22 @@ void main() {
     float trackX = curveAt(zw - 0.5) - curveAt(travel);
     snow = mix(snow, snow * vec3(0.72, 0.78, 0.94), smoothstep(0.12, 0.02, abs(wx - trackX)) * inP);
     // piste edge dye
-    snow = mix(snow, uColor2 * 0.8 + 0.2, smoothstep(0.07, 0.015, abs(abs(wx) - half_w)) * 0.6);
+    snow = mix(snow, uColor2 * 0.8 + 0.2, smoothstep(0.07, 0.015, abs(abs(wx) - half_w)) * (0.5 + 0.5 * uBeat));
+    // the kick tints the piste for a moment
+    snow = mix(snow, uColor1 * 0.8 + 0.2, uBassHit * 0.3 * inP);
 
-    color = mix(snow, vec3(0.78, 0.83, 0.96), smoothstep(0.22, 0.02, depth01) * 0.7); // haze
+    color = mix(snow, vec3(0.40, 0.46, 0.64), smoothstep(0.22, 0.02, depth01) * 0.7); // haze
   } else {
     // ---- sky + peaks ----
     float sy = (y - hy) / max(1.0 - hy, 0.2);
-    color = mix(vec3(0.55, 0.68, 0.95), vec3(0.18, 0.30, 0.62), sy);
+    color = mix(vec3(0.32, 0.44, 0.78), vec3(0.08, 0.15, 0.40), sy);
     color = mix(color, uColor3 * 0.6 + 0.3, 0.2);
     float sd = length(vec2(x - 0.5, y - hy - 0.24));
     color += vec3(1.0, 0.95, 0.85) * (0.010 / (sd + 0.04));
     float ridge = hy + 0.045 + sin(x * 2.6 + 0.4) * 0.05 + sin(x * 6.3) * 0.022;
     float ridge2 = hy + 0.02 + sin(x * 3.9 + 2.2) * 0.03;
-    color = mix(color, vec3(0.60, 0.68, 0.88), smoothstep(ridge2, ridge2 - 0.006, y) * 0.7);
-    color = mix(color, vec3(0.88, 0.93, 1.0), smoothstep(ridge, ridge - 0.008, y));
+    color = mix(color, vec3(0.30, 0.37, 0.58), smoothstep(ridge2, ridge2 - 0.006, y) * 0.7);
+    color = mix(color, vec3(0.50, 0.56, 0.74), smoothstep(ridge, ridge - 0.008, y));
   }
 
   // ---- projected sprites: slalom gates + pine trees (near→far occlusion) ----

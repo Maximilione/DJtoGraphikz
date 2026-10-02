@@ -41,16 +41,18 @@ void main() {
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
   float t = uTime * drift;
 
-  // 45° screen, the way a real halftone is angled
-  vec2 s = rot(0.785398) * p * dots;
+  // 45° screen, the way a real halftone is angled. A dot is never under six
+  // pixels: on a low LED strip the screen would turn to grey mush.
+  float dd = min(dots, uResolution.y / 6.0);
+  vec2 s = rot(0.785398) * p * dd;
   vec2 cell = floor(s);
   vec2 f = fract(s) - 0.5;
-  vec2 centre = rot(-0.785398) * ((cell + 0.5) / dots);
+  vec2 centre = rot(-0.785398) * ((cell + 0.5) / dd);
 
   float v = field(centre, t);
   v = pow(v, contrast);
   float r = v * 0.62;
-  float aa = 1.5 * dots / uResolution.y;
+  float aa = 1.5 * dd / uResolution.y;
   float ink = 1.0 - smoothstep(r, r + aa, length(f));
 
   // ink is white with a breath of the palette; paper is black

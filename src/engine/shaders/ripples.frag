@@ -40,7 +40,9 @@ float ripple(vec2 uv, vec2 c, float birth, float now, float speed) {
 }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+  // short side: rings keep their size on a portrait output instead of being
+  // cropped to a slice of one ring
+  vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
   float t = uTime;
   float speed = spreadv * 0.4;
 
@@ -77,9 +79,13 @@ void main() {
   vec3 color = mix(deep, uColor1, clamp(hgt * 2.0 + 0.35, 0.0, 1.0));
   color = mix(color, uColor2, clamp(-hgt * 2.5, 0.0, 1.0) * 0.8);
   color *= 0.5 + diff * 0.7;
-  color += vec3(1.0) * spec * sheen * 0.7;
+  // the kick flashes the sheen: the rings alone read nearly the same in a
+  // quiet room and on a loud track
+  color += vec3(1.0) * spec * sheen * (0.7 + uBeat * 0.5);
 
-  color *= smoothstep(1.5, 0.6, length(uv));
+  // vignette in frame space, bounded on any aspect (a 6:1 strip was black
+  // past |uv.x| > 1.5)
+  color *= smoothstep(1.5, 0.6, length((vUv - 0.5) * vec2(1.78, 1.0)));
   color = min(color, vec3(2.0));
   gl_FragColor = vec4(color, 1.0);
 }

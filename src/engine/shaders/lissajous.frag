@@ -35,6 +35,8 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
   vec3 color = vec3(0.0);
+  // portrait output: shrink the figure so it stays inside the frame
+  float fit = min(1.0, uResolution.x / uResolution.y * 0.85);
 
   // Multiple Lissajous curves with audio-reactive parameters
   for (int curve = 0; curve < 3; curve++) {
@@ -42,14 +44,18 @@ void main() {
     float freqA = freqa + fc + uBass * 2.0;
     float freqB = freqb + fc * 0.7 + uMid;
     float phase = t * (0.3 + fc * 0.1) + uHigh * fc;
-    float amplitude = size + fc * 0.02 + uBeat * 0.05;
+    float amplitude = (size + fc * 0.02 + uBeat * 0.05) * fit;
 
     // Walk the curve as a polyline and measure the distance to each segment
     float minDist = 100.0;
     float closestT = 0.0;
+    // segments follow the frequency: a fixed 72 showed its corners at the
+    // high end, and burned them on the slow default curves for nothing
+    float segs = clamp(ceil(max(freqA, freqB) * 20.0), 48.0, 160.0);
     vec2 prev = lissa(0.0, freqA, freqB, phase, amplitude);
-    for (int i = 1; i <= 72; i++) {
-      float s = float(i) / 72.0 * TAU;
+    for (int i = 1; i <= 160; i++) {
+      if (float(i) > segs) break;
+      float s = float(i) / segs * TAU;
       vec2 cur = lissa(s, freqA, freqB, phase, amplitude);
       float d = segDist(uv, prev, cur);
       if (d < minDist) {

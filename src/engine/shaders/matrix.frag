@@ -33,7 +33,9 @@ void main() {
   vec2 pixel = gl_FragCoord.xy;
   float t = uTime;
 
-  float columns = max(cols + uMid * 12.0, 4.0);
+  float aspect = uResolution.x / uResolution.y;
+  // wide strips get more columns so the rain still has rows to fall through
+  float columns = max(cols + uMid * 12.0, 4.0) * max(1.0, aspect / 1.78);
   float cellW = uResolution.x / columns;
   float cellH = cellW * 1.4;
   float rows = max(uResolution.y / cellH, 2.0);
@@ -68,12 +70,12 @@ void main() {
 
   vec3 color = vec3(0.0);
   color += uColor1 * g * fade * inTrail * 0.9;                 // body of the trail
-  color += mix(uColor2, vec3(1.0), 0.6) * g * headMask * 1.7;  // bright head
+  color += mix(uColor2, vec3(1.0), 0.6) * g * headMask * (1.7 + uBeat * 1.2);  // bright head, pulses
   color += uColor3 * g * inTrail * pow(fade, 4.0) * 0.35;      // accent near the head
 
-  // kick: a few columns light up whole
-  float flashCol = step(0.93, hash(cell.x * 3.33 + floor(uTime * 2.0)));
-  color += uColor1 * flashCol * uBassHit * g * 1.2;
+  // kick: a few columns light up whole — more of them the harder the kick
+  float flashCol = step(0.96 - uBassHit * 0.12, hash(cell.x * 3.33 + floor(uTime * 2.0)));
+  color += mix(uColor1, vec3(1.0), 0.3) * flashCol * uBassHit * g * 1.6;
 
   color *= 0.92 + 0.08 * sin(pixel.y * 3.0);                    // scanlines
   color *= 0.75 + uEnergy * 0.45;

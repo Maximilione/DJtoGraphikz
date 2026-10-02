@@ -30,9 +30,11 @@ import { allPalettes } from './palettes'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
+import { runSweep } from './sweep'
 import { ReelBuffer, cropRect, reelFileName, loadReelSettings, onReelSettings, CHUNK_MS, DROP_DELAY_MS, REEL_FPS, type ReelLap, type ReelSettings } from './reel'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
+import { pickEffect } from './autoMapping'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
 import { migrateKeystone, type OutputCfg } from './outputs'
 
@@ -223,6 +225,9 @@ export function App() {
     if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
     else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
 
+    // Release sweep: every effect, post and Auto VJ post chain, probed on the projector
+    if (window.api?.selfTestSweep) setTimeout(() => { void runSweep(eng) }, 4000)
+
     // Gate: frame the scene, so a screenshot can prove the camera pass runs.
     if (window.api?.selfTestCamera) {
       try { eng.setCamera(JSON.parse(window.api.selfTestCamera)) }
@@ -315,8 +320,10 @@ export function App() {
     const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) => {
       vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
       eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
-      if (!idleSettings.enabled || vj.isEnabled()) return
+      // the release sweep sets effects itself and measures them: idle must not move the picture under it
+      if (!idleSettings.enabled || vj.isEnabled() || window.api?.selfTestSweep) return
       const ev = idle.update(energyRaw > 0, performance.now())
+      if (ev) window.api?.logToFile?.('idle', `[Idle] ${ev} effect=${eng.getCurrentEffect()}`)
       if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
         idleBefore = eng.getCurrentEffect()
         fadeTo(idleSettings.effect, 3)
@@ -721,7 +728,7 @@ export function App() {
         if (effect) {
           const before = engine.getCurrentEffect()
           toggleVJ(false)
-          engine.setEffect(effect)
+          pickEffect(engine, effect)
           momentary.press(k, () => engine.setEffect(before))
         }
       } else if (k in HOTKEY_POSTS) {
@@ -778,7 +785,7 @@ export function App() {
 
     switch (cmd.type) {
         case 'panic': panic(); break
-        case 'effect': toggleVJ(false); engine.setEffect(v); break
+        case 'effect': toggleVJ(false); pickEffect(engine, v); break
         case 'post': engine.togglePost(v); break
         case 'palette': engine.setColors(v[0], v[1], v[2]); break
         case 'crossfade': engine.setCrossfade(v); break

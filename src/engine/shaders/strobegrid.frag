@@ -39,19 +39,23 @@ void main() {
   vec2 f = fract(g);
 
   // seed advances with the gated bass clock: pattern changes on musical activity
-  float seed = floor(uBassTime * 2.0);
+  // (plus a slow free-running drift so it does not freeze in silence)
+  // wrapped: after half an hour seed*13.7 is ~3e4, sin() in hash() loses
+  // precision and every cell went dark
+  float seed = mod(floor(uBassTime * 2.0 + uTime * 0.2), 256.0);
   float h = hash(cell + seed * 13.7);
 
-  // kick: subset of cells at full white-hot, envelope from uBassHit
+  // kick: subset of cells at full white-hot, envelope from uBassHit.
+  // idle floor: the lit subset stays visible dim, so the pattern reads in silence
   float lit = step(1.0 - litratio, h);
-  float kick = lit * uBassHit;
+  float kick = lit * (0.15 + 0.85 * uBassHit);
 
   // hats: sparse fast sparkles on their own clock
   float h2 = hash(cell * 1.7 + floor(uHighTime * 6.0) * 7.3);
   float spark = step(0.985 - chaos * 0.05, h2) * uHighHit;
 
   // idle glow so the grid never dies: slow breathing per cell
-  float idle = 0.06 + 0.05 * sin(uTime * (0.5 + h * 1.5) + h * TAU) + uEnergy * 0.08;
+  float idle = 0.08 + 0.05 * sin(uTime * (0.5 + h * 1.5) + h * TAU) + uEnergy * 0.08;
 
   // cell shape with a gap and soft edge
   vec2 e = smoothstep(0.0, 0.06, f) * smoothstep(1.0, 0.94, f);

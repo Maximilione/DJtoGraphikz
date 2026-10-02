@@ -254,7 +254,7 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
   ],
   spiral: [
     { key: 'arms', label: 'Bracci', min: 1, max: 8, default: 2 },
-    { key: 'twist', label: 'Torsione', min: 1, max: 14, default: 8 },
+    { key: 'twist', label: 'Torsione', min: 3, max: 14, default: 8 },
     { key: 'pulse', label: 'Pulsazione', min: 0, max: 1, default: 0.5 },
   ],
   warehouse: [
@@ -298,9 +298,9 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
   tribal: [
-    { key: 'blades', label: 'Lame', min: 3, max: 16, default: 8 },
+    { key: 'blades', label: 'Tomoe', min: 3, max: 16, default: 3 },
     { key: 'spikes', label: 'Punte', min: 0, max: 1, default: 0.6 },
-    { key: 'turn', label: 'Scatto', min: 0, max: 2, default: 0.5 },
+    { key: 'turn', label: 'Velocità', min: 0, max: 2, default: 0.5 },
   ],
   chevrons: [
     { key: 'lanes', label: 'Corsie', min: 1, max: 12, default: 5 },
@@ -338,9 +338,16 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'pump', label: 'Pompa', min: 0, max: 1, default: 0.7 },
     { key: 'drift', label: 'Scorrimento', min: 0, max: 3, default: 1 },
   ],
+  spaceghost: [
+    { key: 'folds', label: 'Pieghe', min: 2, max: 6, default: 4 },
+    { key: 'glow', label: 'Bagliore', min: 20, max: 60, default: 34 },
+    { key: 'drift', label: 'Deriva', min: 0, max: 2, default: 1 },
+  ],
   reaction: [
-    { key: 'feed', label: 'Nutrimento', min: 0.014, max: 0.07, default: 0.0545 },
-    { key: 'kill', label: 'Consumo', min: 0.045, max: 0.07, default: 0.062 },
+    // measured on the projector: below feed 0.034 or above kill 0.064 the
+    // chemistry dies to a black frame, below kill 0.060 it fills solid
+    { key: 'feed', label: 'Nutrimento', min: 0.036, max: 0.07, default: 0.0545 },
+    { key: 'kill', label: 'Consumo', min: 0.06, max: 0.0635, default: 0.062 },
     { key: 'inject', label: 'Inietta', min: 0, max: 2, default: 1 },
   ],
   swarm: [

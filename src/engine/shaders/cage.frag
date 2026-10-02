@@ -37,7 +37,9 @@ float sdBoxFrame(vec3 p, vec3 b, float e) {
 vec2 map(vec3 p) {
   float s = size * (1.0 + 0.15 * uBass);
   float e = 0.012 * thickness;
-  float t = uBeatClock * 0.25 * spin + uTime * 0.2;
+  // every rotation rate below is a multiple of 1/20 turn, so wrapping on
+  // 20 turns is seamless and keeps the angle small after hours
+  float t = mod(uBeatClock * 0.25 * spin + uTime * 0.2, 125.6637);
   vec3 a = p;
   a.xz = rot(t) * a.xz;
   a.xy = rot(t * 0.7) * a.xy;
@@ -51,24 +53,37 @@ vec2 map(vec3 p) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
-  vec2 p = (uv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
+  float aspect = uResolution.x / uResolution.y;
+  vec2 p = (uv - 0.5) * vec2(aspect, 1.0) / min(aspect, 1.0);
   vec3 ro = vec3(0.0, 0.0, -3.6);
   vec3 rd = normalize(vec3(p, 1.6));
 
   float t = 0.0;
   float gOuter = 0.0, gInner = 0.0;
+  // sharp edge glow plus a wide soft haze: the haze is the idle floor that
+  // keeps the cubes readable in silence, and it steps back as the music comes in
+  float haze = 0.012 * (1.0 - 0.7 * uEnergy);
   for (int i = 0; i < 72; i++) {
     vec3 pos = ro + rd * t;
     vec2 d = map(pos);
     float m = min(d.x, d.y);
-    gOuter += exp(-d.x * 38.0) * 0.06;
-    gInner += exp(-d.y * 38.0) * 0.06;
-    if (m < 0.001 || t > 8.0) break;
-    t += max(m * 0.8, 0.01);
+    // weighted by the step so the glow is an integral along the ray, not a
+    // count of how many tiny steps a grazing ray happened to take
+    float dt = max(m * 0.8, 0.01);
+    gOuter += (exp(-d.x * 38.0) * 2.5 + exp(-d.x * 9.0) * haze * 14.0) * dt;
+    gInner += (exp(-d.y * 38.0) * 2.5 + exp(-d.y * 9.0) * haze * 14.0) * dt;
+    if (m < 0.001) {
+      // on the bar itself: a solid core under the halo
+      gOuter += step(d.x, 0.001) * 0.3;
+      gInner += step(d.y, 0.001) * 0.3;
+      break;
+    }
+    if (t > 8.0) break;
+    t += dt;
   }
   vec3 col = uColor1 * gOuter + uColor2 * gInner;
   // the hit whitens the edges
   col += vec3(1.0) * (gOuter + gInner) * uBassHit * 0.5;
-  col *= 0.8 + 0.4 * uBeat;
+  col *= 1.0 + 0.3 * uBeat;
   gl_FragColor = vec4(col, 1.0);
 }

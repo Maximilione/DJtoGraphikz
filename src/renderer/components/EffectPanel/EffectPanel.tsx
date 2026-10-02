@@ -5,6 +5,7 @@ import type { EffectParam } from '@engine/EffectParams'
 import { loadISF } from '@engine/IsfLoader'
 import { NumberInput } from '../NumberInput/NumberInput'
 import { ParamControls } from '../ParamControls/ParamControls'
+import { pickEffect } from '../../autoMapping'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
@@ -186,7 +187,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
-    engine.setEffect(id)
+    pickEffect(engine, id)
     setActiveEffect(id)
   }, [engine])
 

@@ -44,6 +44,7 @@ void main() {
   // An analyser with no signal is an honest black screen and a useless visual:
   // idle at a low sweep so the bars are alive between tracks.
   h = max(h, 0.10 + 0.055 * sin(u * 9.0 + uTime * 1.3) + 0.04 * sin(u * 23.0 - uTime * 0.7));
+  h = min(h, 0.96);   // a loud track must not push the bar (and its cap) out of frame
 
   // baseline: centred when mirrored, on the floor when not
   float base = mix(0.06, 0.5, mirror);

@@ -34,7 +34,7 @@ float map(vec3 p, float k, float th) {
   // Carve a tube along the camera path. The gyroid fills all of space, so a
   // free-flying camera spends most of its time INSIDE the wall and the frame
   // washes out to one flat colour — the same trap the lattice effect had.
-  float tube = 0.34 - length(p.xy - path(p.z));
+  float tube = 0.5 - length(p.xy - path(p.z));
   return max(shell, tube);
 }
 
@@ -43,9 +43,10 @@ void main() {
   vec2 uv = (uvp - 0.5) * vec2(uResolution.x / uResolution.y, 1.0) * 2.0;
 
   float k = 1.0 + cells * 1.6;
-  // The gyroid function spans about ±1.5, so a thick shell leaves the camera
-  // permanently INSIDE the solid and the frame washes out. Thin wall only.
-  float th = 0.04 + shell * 0.30 + uBass * 0.12;
+  // The gyroid function spans about ±1.5. The carved tube keeps the camera
+  // out of the solid, so the wall can get properly thick: with the old 0.30
+  // the slider did nothing visible (walls 0.01–0.13 in cells of 1.4).
+  float th = 0.04 + shell * 0.55 + uBass * 0.12;
 
   float z = uTime * (0.35 + travel * 0.9) + uBassTime * 0.6;
   vec3 ro = vec3(path(z), z);

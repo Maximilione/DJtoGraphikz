@@ -32,10 +32,14 @@ float segDist(vec2 p, vec2 a, vec2 b) {
 
 void main() {
   vec2 uvp = gl_FragCoord.xy / uResolution;
-  vec2 p = (uvp - 0.5) * vec2(uResolution.x / uResolution.y, 1.0) * 1.95;
+  float aspect = uResolution.x / uResolution.y;
+  // on a vertical frame the circle must fit the width, not the height
+  vec2 p = (uvp - 0.5) * vec2(aspect, 1.0) * 1.95 * max(1.0, 1.0 / aspect);
 
   float n = clamp(floor(nodes), 8.0, 120.0);
-  float m = multiplier + uBeatClock * 0.035 + uBass * 0.6;
+  // m and m + n draw the same chords, so the drift wraps at n: exact, and the
+  // product fi * m never grows past float precision over a long night
+  float m = multiplier + mod(uBeatClock * 0.035, n) + uBass * 0.6;
   float r = 0.85 + 0.08 * uBeat;
 
   float w = linew * 0.0016 * (1.0 + 1.5 * uBass);
@@ -60,8 +64,8 @@ void main() {
   // line art is mostly black by construction, so the ink and the accumulated
   // chord glow both have to carry more than they would in a filled effect
   vec3 c = tint * line * (1.6 + 0.9 * uBeat);
-  c += mix(uColor1, uColor3, 0.5) * acc * (0.03 + 0.06 * uEnergy);
-  c += uColor3 * 0.02;
+  c += mix(uColor1, uColor3, 0.5) * acc * (0.09 + 0.06 * uEnergy);
+  c += uColor3 * 0.03;
 
   gl_FragColor = vec4(c, 1.0);
 }

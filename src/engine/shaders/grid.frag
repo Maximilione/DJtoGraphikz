@@ -47,12 +47,17 @@ void main() {
     float x = p.x * depth;
     float z = depth + t * (2.0 + uBass * 4.0);
 
-    // Grid lines
-    float gridX = abs(fract(x * 0.5 * density) - 0.5);
-    float gridZ = abs(fract(z * 0.3 * density) - 0.5);
+    // Grid lines. The old spacing (2 units in x, 3.3 in z) put ONE vertical
+    // line on screen at the bottom of the frame: the ground plane was empty.
+    float gridX = abs(fract(x * 2.0 * density) - 0.5);
+    float gridZ = abs(fract(z * 1.0 * density) - 0.5);
 
     float lineX = smoothstep(max(0.02, fwidth(gridX) * 1.5), 0.0, gridX);
     float lineZ = smoothstep(max(0.02, fwidth(gridZ) * 1.5), 0.0, gridZ);
+    // near the horizon the lines are denser than pixels: fade them out there
+    // instead of letting them fuse into a solid bright band
+    lineZ *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridZ));
+    lineX *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridX));
     float grid = max(lineX, lineZ);
 
     // Distance fog
@@ -62,8 +67,10 @@ void main() {
     float wave = sin(z * wavefreq - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
     wave = pow(wave, 4.0);
 
-    color += uColor1 * grid * fog * (0.8 + uBeat * 0.5);
+    color += uColor1 * grid * fog * (1.0 + uBeat * 0.4);
     color += uColor3 * wave * fog * 0.3 * lineX;
+    // idle floor: a dim glow on the ground plane, so the horizon reads in silence
+    color += uColor1 * fog * 0.2 * (1.0 - 0.7 * uEnergy);
 
     // Grid intersection highlights
     float intersect = lineX * lineZ;
@@ -73,7 +80,7 @@ void main() {
   // Sky — subtle gradient
   if (p.y >= -0.1) {
     float skyGrad = smoothstep(-0.1, 0.5, p.y);
-    color += mix(uColor1, vec3(0.0), skyGrad) * 0.05;
+    color += mix(uColor1, vec3(0.0), skyGrad) * 0.16;
 
     // Sun/moon
     float sunDist = length(p - vec2(0.0, 0.15));

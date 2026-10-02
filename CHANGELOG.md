@@ -2,6 +2,26 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.60.0-beta] — 2026-10-02
+
+**Niente schermo bianco o nero, e una revisione di tutti gli effetti.** Sweep in-app, pavimenti di luce, quattro riscritture chieste a voce, mapping consigliato per ogni effetto. Senza tag.
+
+### Added
+- **Space Ghost** (Organici): nebulosa frattale raymarch scritta da zero (kali-fold, parametri Pieghe/Bagliore/Deriva)
+- **Mapping consigliato** per ognuno dei 66 effetti (`recommendedMappings.ts`): applicato al cambio effetto se non ci sono mapping tuoi, pulsante "Auto" con annulla, impostazione on/off; `check:mappings`
+- **`check:sweep`**: percorre in-app tutti gli effetti, ogni post e ogni set di post dell'Auto VJ, con tre sonde per misura sul frame dell'output; segnala BIANCO, NERO, PIATTO; `--audio` con un 128 BPM sintetico
+
+### Changed
+- **Vortex riscritto** (era rotto: cucitura radiale con `arms` non interi, scatto di 90 gradi ogni quattro battiti): spirale logaritmica, foro nero al centro, calcio che tira verso l'interno
+- **Spiral riscritta**: tunnel a spirale logaritmica con bracci sottili antialias, direzione senza salti; `twist` minimo 3
+- **Tribal e' ora un occhio stile Sharingan**: pupilla, iride, tomoe orbitanti, contrazione sul calcio
+- **Counter (sevenseg) riscritto**: segmenti a 45°, cifre grandi, bagliore, scorrimento sui colpi di hat
+- Revisione di tutti gli effetti, Geometrici compresi (kaleidoscope non va piu' al bianco, rings e hexagons con pavimento di luce): orologi del basso senza teletrasporto a t grande, vignette in unita' del quadro (striscia LED e verticale), niente guadagni che portano al bianco, antialiasing, valori che crescono senza limite avvolti. Reaction: range feed/kill ristretti alla zona viva
+- Pavimento di luce in silenzio su undici effetti, static e starfield; Outline non e' piu' nero a amount 1
+
+### Noto
+- Radar, particles e stringart sulla striscia LED restano scuri in silenzio ma con struttura visibile. Sweep e anteprime usano audio sintetico: non ancora provato con musica vera in sala
+
 ## [0.59.0-beta] — 2026-10-02
 
 **F1–F6: la manipolazione del frame che mancava** (dallo studio sui preset altrui). Due branch in parallelo. Senza tag.

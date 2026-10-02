@@ -26,15 +26,16 @@ uniform float wobble;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-float noise(float x) {
+// periodic in `per` cells so the ray field closes on itself around the rim
+float noise(float x, float per) {
   float i = floor(x), f = fract(x);
-  return mix(hash(vec2(i, 0.0)), hash(vec2(i + 1.0, 0.0)), f * f * (3.0 - 2.0 * f));
+  return mix(hash(vec2(mod(i, per), 0.0)), hash(vec2(mod(i + 1.0, per), 0.0)), f * f * (3.0 - 2.0 * f));
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   float aspect = uResolution.x / uResolution.y;
-  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5) / min(aspect, 1.0);
   float r = length(p);
   float a = atan(p.y, p.x);
 
@@ -44,8 +45,8 @@ void main() {
   float outside = smoothstep(rim, rim + 0.004, r);
 
   // rays: two octaves of angular noise, drifting opposite ways
-  float rays = noise(a * 6.0 / TAU * 12.0 + uTime * 0.6)
-             * noise(a * 6.0 / TAU * 29.0 - uTime * 0.9);
+  float rays = noise(a / TAU * 72.0 + uTime * 0.6, 72.0)
+             * noise(a / TAU * 174.0 - uTime * 0.9, 174.0);
   rays = pow(rays, 1.5) * 1.6;
   float reach = corona * (0.6 + 1.6 * uBass);
   float halo = exp(-(r - rim) * 9.0 / reach) * (0.35 + rays);

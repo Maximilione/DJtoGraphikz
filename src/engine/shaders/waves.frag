@@ -49,7 +49,7 @@ void main() {
     float d = abs(uv.y - wave);
 
     // Glow
-    float glow = 0.003 / (d + 0.003);
+    float glow = 0.004 / (d + 0.004);
     glow = pow(glow, 1.3);
     glow = min(glow, 2.0);
 
@@ -64,11 +64,11 @@ void main() {
     float fade = 1.0 - abs(fi - 0.5) * 1.5;
     fade = max(fade, 0.2);
 
-    color += wColor * (glow * 0.15 + line * 0.8) * fade;
+    color += wColor * (glow * 0.4 + line) * fade * (0.9 + 0.5 * uEnergy);
   }
 
   // Horizontal energy bars at extreme positions
-  float energyBar = smoothstep(0.002, 0.0, abs(uv.y - 0.75 * sign(uv.y))) * uEnergy;
+  float energyBar = smoothstep(0.002, 0.0, abs(uv.y - 0.46 * sign(uv.y))) * uEnergy;
   color += uColor2 * energyBar;
 
   // Beat pulse
