@@ -60,7 +60,7 @@ Everything is on the keyboard (table below) and **hold = momentary**: a tap latc
 
 ### Setlists and media
 
-**Setlists**: an ordered list of looks, each with its own duration (seconds, beats, per song, or by hand with `N` / `Shift+N`) and transition, and its own graphics per step: images, GIFs and text that appear with the step and leave with the next. **Media** panel: images/GIFs (beat-synced), video, webcam and text as overlays with the full post chain. **Deck B** with crossfader: a second effect (5 blend modes, split/radial/luma/audio **masks**) or a **video deck**, a playlist of mp4/webm clips locked to the BPM.
+**Setlists**: an ordered list of looks, each with its own duration (seconds, beats, per song, or by hand with `N` / `Shift+N`) and transition, and its own graphics per step: images, GIFs and text that appear with the step and leave with the next. Ready-made 80-minute sets for hard tekno, bounce techno and techno are in `docs/scalette/live-4h.json` (Setlists > Import). **Media** panel: images/GIFs (beat-synced), video, webcam and text as overlays with the full post chain. **Deck B** with crossfader: a second effect (5 blend modes, split/radial/luma/audio **masks**) or a **video deck**, a playlist of mp4/webm clips locked to the BPM.
 
 ### Outputs
 
