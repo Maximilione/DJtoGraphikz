@@ -28,12 +28,13 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
-  float gen = floor(uBeatClock);
+  // the beat count feeds a sin() hash: fold it or an hour in, the bars repeat
+  float gen = mod(floor(uBeatClock), 512.0);
 
   // three bands, each with its own slide and tear
   float band = floor(uv.y * 3.0);
-  float slide = uTime * 0.05 * jitter * (mod(band, 2.0) * 2.0 - 1.0);
-  float tear = (hash(vec2(band, floor(uTime * 12.0))) - 0.5) * 0.15 * uHighHit * jitter;
+  float slide = mod(uTime * 0.05 * jitter, 1.0) * (mod(band, 2.0) * 2.0 - 1.0);
+  float tear = (hash(vec2(band, mod(floor(uTime * 12.0), 512.0))) - 0.5) * 0.15 * uHighHit * jitter;
   float x = uv.x + slide + tear;
 
   float n = max(4.0, floor(bars));
@@ -42,7 +43,9 @@ void main() {
   // width of the printed bar inside its cell: random per cell, re-rolled per beat
   float w = hash(vec2(cell, gen)) ;
   float on = step(gap, w);
-  float edge = step(0.15, f) * step(f, 0.15 + w * 0.85);
+  // bar edges one pixel soft, so the slide does not crawl
+  float aa = n / uResolution.x;
+  float edge = smoothstep(0.15 - aa, 0.15, f) * (1.0 - smoothstep(0.15 + w * 0.85, 0.15 + w * 0.85 + aa, f));
   float bar = on * edge;
 
   // a few bars carry the palette, the rest are white
