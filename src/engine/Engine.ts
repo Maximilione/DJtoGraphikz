@@ -1193,14 +1193,12 @@ export class Engine {
         tDiffuse: { value: null },
         uWet: { value: 1 },
         tPrevFrame: { value: this.rtPrev.texture },
-        uDecay: { value: 0.9 },
-        uZoom: { value: 0.003 },
-        uRotation: { value: 0.2 },
         uBass: { value: 0 },
+        uBeat: { value: 0 },
         uTime: { value: 0 },
-        uWarp: { value: 0.6 },
       }
     }))
+
 
     this.postMaterials.set('filmgrain', new THREE.ShaderMaterial({
       vertexShader: FULLSCREEN_VERT,
