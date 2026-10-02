@@ -47,6 +47,8 @@ void main() {
       strandColor = mix(strandColor, uColor3, fh * 0.2);
 
       color += strandColor * glow * 0.3;
+      // idle floor: a soft halo along each strand, so the helices read in silence
+      color += strandColor * exp(-d * 25.0) * 0.14 * (1.0 - 0.5 * uEnergy);
 
       // Rungs connecting the two strands
       if (strand == 0) {

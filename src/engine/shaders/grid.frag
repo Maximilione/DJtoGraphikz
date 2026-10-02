@@ -62,8 +62,10 @@ void main() {
     float wave = sin(z * wavefreq - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
     wave = pow(wave, 4.0);
 
-    color += uColor1 * grid * fog * (0.8 + uBeat * 0.5);
+    color += uColor1 * grid * fog * (1.0 + uBeat * 0.4);
     color += uColor3 * wave * fog * 0.3 * lineX;
+    // idle floor: a dim glow on the ground plane, so the horizon reads in silence
+    color += uColor1 * fog * 0.08 * (1.0 - 0.7 * uEnergy);
 
     // Grid intersection highlights
     float intersect = lineX * lineZ;
@@ -73,7 +75,7 @@ void main() {
   // Sky — subtle gradient
   if (p.y >= -0.1) {
     float skyGrad = smoothstep(-0.1, 0.5, p.y);
-    color += mix(uColor1, vec3(0.0), skyGrad) * 0.05;
+    color += mix(uColor1, vec3(0.0), skyGrad) * 0.08;
 
     // Sun/moon
     float sunDist = length(p - vec2(0.0, 0.15));

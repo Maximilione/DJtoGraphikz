@@ -79,7 +79,10 @@ void main() {
   vec3 color = vec3(0.0);
 
   // Hex edges
-  color += cellColor * edge * (0.6 + uEnergy * 0.4);
+  color += cellColor * edge * (0.8 + uEnergy * 0.2);
+
+  // Idle floor: the wave tints the cells it passes, so the lattice reads in silence
+  color += cellColor * fill * (1.0 - edge) * 0.12;
 
   // Fill with pattern
   float innerPattern = sin(gv.x * 20.0 + t * 3.0) * sin(gv.y * 20.0 - t * 2.0);
