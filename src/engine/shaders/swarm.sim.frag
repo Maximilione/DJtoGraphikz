@@ -108,10 +108,13 @@ void main() {
   // a silent room must still move: the audio adds to the floor, it is not
   // the whole term. At 0.25 the swarm barely drifts and reads as a still image.
   flow *= 0.60 + 0.55 * uEnergy;
+  // kick: the whole field lurches, plus a small radial shove. Both go into
+  // the target velocity so the drag bounds them: added to vel after the mix
+  // the old 1.6 shove compounded to six units a second, and a track with a
+  // kick on every beat kept the swarm as a hollow ring of grain.
+  flow *= 1.0 + uBassHit * burst * 1.5;
+  flow += normalize(pos + 1e-4) * uBassHit * burst * 0.35;
   vel = mix(vel, flow, clamp(0.06 + 0.5 * drag, 0.02, 0.9));
-
-  // kick: a radial shove that the drag eats over the next beat
-  vel += normalize(pos + 1e-4) * uBassHit * burst * 1.6;
 
   // slow drift back to the middle, so nothing leaves for good on a quiet part
   pos -= pos * 0.004 * (1.0 - 0.7 * uBass);
