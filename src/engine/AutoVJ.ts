@@ -97,6 +97,7 @@ export const FAMILY: Record<EffectId, Family> = {
   cage: 'object', cracks: 'grid', warehouse: 'tunnel', downpour: 'particles', eclipse: 'radial',
   blinds: 'grid',
   bounceball: 'object', pump: 'radial', roll: 'grid',
+  spaceghost: 'organic',
 }
 
 // shorthand builders keep the tables readable
@@ -261,6 +262,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'acid-techno': {
     label: 'Acid Techno',
     scenes: [
+      s('break', 'spaceghost', ['bloom', 'chromatic'], { folds: v(5), glow: a(30, 'bass', 0.4), drift: v(1.2) }),
       s('break', 'reaction', ['bloom'], { feed: v(0.0545), kill: a(0.062, 'lfo-sine', 0.15, 32), inject: v(1.4) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.24), corona: a(1.4, 'bass', 0.5), wobble: v(0.8) }),
       s('break', 'radar', ['bloom', 'scanlines'], { sweep: v(2), blips: v(12), fade: v(2) }),
@@ -346,6 +348,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'trance': {
     label: 'Trance',
     scenes: [
+      s('break', 'spaceghost', ['bloom'], { folds: v(3), glow: v(40), drift: v(0.6) }),
       s('break', 'caustics', ['bloom'], { causticscale: v(1.8), sharpness: v(0.75), depthk: v(1) }),
       s('break', 'orbits', ['bloom', 'feedback'], { bodies: v(10), orbitr: a(0.6, 'lfo-sine', 0.25, 32), trail: v(0.8) }),
       s('break', 'fluid', ['bloom'], { zoom: v(1.3), swirl: a(1.4, 'lfo-sine', 0.35, 16) }),
@@ -432,9 +435,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'ambient': {
     label: 'Ambient',
     scenes: [
+      s('break', 'spaceghost', ['bloom'], { speed: v(0.5), folds: v(4), glow: v(45), drift: v(0.4) }),
       s('break', 'caustics', ['bloom'], { causticscale: v(1.3), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.2) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.7), swirl: v(1), dissipate: v(0.4) }),
-      s('break', 'reaction', ['bloom'], { feed: v(0.038), kill: v(0.059), inject: v(0.5) }),
+      s('break', 'reaction', ['bloom'], { feed: v(0.038), kill: v(0.061), inject: v(0.5) }),
       s('break', 'pulsar', ['bloom'], { lines: v(64), peaks: a(0.7, 'lfo-sine', 0.3, 32), flow: v(0.15) }),
       s('break', 'inkflow', ['filmgrain'], { speed: v(0.6), inkscale: v(2), flowspd: v(0.4), inkcontrast: a(1.1, 'bass', 0.3) }),
       s('break', 'ripples', ['bloom'], { spreadv: v(1), heightk: a(0.8, 'bass', 0.4), sheen: v(1.3) }),
@@ -526,6 +530,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('build', 'spiral', ['bloom'], { speed: a(0.4, 'energy', 0.9), arms: v(7), twist: v(14), pulse: v(0.2) }),
       s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.8, 'energy', 0.6), wobble: v(1) }),
       s('build', 'gyroid', ['bloom'], { cells: v(2.4), shell: v(0.3), travel: a(0.3, 'energy', 0.9) }),
+      s('groove', 'spaceghost', ['bloom'], { folds: v(4), glow: a(34, 'bass', 0.3), drift: v(1) }),
       s('groove', 'gyroid', ['bloom'], { cells: v(2.4), shell: a(0.45, 'bass', 0.4), travel: v(1) }),
       s('groove', 'swarm', ['bloom', 'feedback'], { turbulence: a(1.4, 'lfo-sine', 0.35, 32), drag: v(0.3), burst: v(1.2), dotsize: v(2.6) }),
       s('groove', 'fractal', ['bloom', 'chromatic'], { iterations: v(36), zoom: a(1.3, 'bass', 0.5), morph: a(0.25, 'lfo-sine', 0.5, 8) }),

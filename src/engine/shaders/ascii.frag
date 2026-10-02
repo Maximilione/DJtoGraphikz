@@ -38,7 +38,10 @@ float source(vec2 p) {
           + sin(length(p) * 5.0 - t * 1.7);
   v = v * 0.25 + 0.5;
   float spec = texture2D(uSpectrum, vec2(clamp(p.x * 0.25 + 0.5, 0.0, 1.0), 0.5)).r;
-  return clamp(v * (0.55 + 0.9 * uEnergy) + spec * 0.45, 0.0, 1.0);
+  // gain kept under 1 so the field spans all the glyph levels: with the old
+  // gain a loud track saturated most cells to the top glyph and the screen
+  // read as magenta blobs instead of text
+  return clamp(v * (0.5 + 0.4 * uEnergy) + spec * 0.3, 0.0, 1.0);
 }
 
 // 5x5 glyphs, densest last. Each row is 5 bits, packed low to high.
@@ -49,9 +52,11 @@ float glyph(int idx, vec2 g) {
   if (idx <= 0) { rows[0]=0.0; rows[1]=0.0; rows[2]=4.0;  rows[3]=0.0;  rows[4]=0.0; }        // .
   else if (idx == 1) { rows[0]=0.0; rows[1]=4.0; rows[2]=14.0; rows[3]=4.0; rows[4]=0.0; }    // +
   else if (idx == 2) { rows[0]=17.0; rows[1]=10.0; rows[2]=4.0; rows[3]=10.0; rows[4]=17.0; } // x
-  else if (idx == 3) { rows[0]=21.0; rows[1]=14.0; rows[2]=31.0; rows[3]=14.0; rows[4]=21.0; }// *
-  else if (idx == 4) { rows[0]=14.0; rows[1]=17.0; rows[2]=17.0; rows[3]=17.0; rows[4]=14.0; }// O
-  else { rows[0]=31.0; rows[1]=31.0; rows[2]=31.0; rows[3]=31.0; rows[4]=31.0; }              // block
+  else if (idx == 3) { rows[0]=14.0; rows[1]=17.0; rows[2]=17.0; rows[3]=17.0; rows[4]=14.0; }// O
+  else if (idx == 4) { rows[0]=21.0; rows[1]=14.0; rows[2]=31.0; rows[3]=14.0; rows[4]=21.0; }// *
+  // densest: a bold O, not a solid block — a block has no gaps and the hot
+  // regions turned into flat slabs instead of printed characters
+  else { rows[0]=14.0; rows[1]=31.0; rows[2]=31.0; rows[3]=31.0; rows[4]=14.0; }              // @
   float row = rows[4 - c.y];
   float bit = floor(mod(row / pow(2.0, float(4 - c.x)), 2.0));
   return bit;

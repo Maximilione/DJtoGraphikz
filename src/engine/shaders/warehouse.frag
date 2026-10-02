@@ -53,7 +53,11 @@ void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   vec2 p = (uv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
 
-  float z0 = uBassTime * 2.2 + uTime * 0.3;
+  // the corridor repeats every pillar bay, so the camera can wrap on a
+  // multiple of it: after hours of travel the raymarch and the normals
+  // still run on small coordinates instead of drifting in float noise
+  float sp = max(0.5, pillars);
+  float z0 = mod(uBassTime * 2.2 + uTime * 0.3, sp * 32.0);
   vec3 ro = vec3(0.35 * sin(uTime * 0.31), -0.35 + 0.05 * sin(uTime * 0.7), z0);
   vec3 rd = normalize(vec3(p.x, p.y, 1.4));
   // a slow hand-held roll
@@ -74,16 +78,17 @@ void main() {
     vec3 n = normal(pos);
     // the lamp rides ahead, under the ceiling; flicker is a coin toss at 30 Hz
     vec3 lamp = vec3(0.0, 1.0, z0 + 3.0);
-    float coin = step(0.35, hash(vec2(floor(uTime * 30.0), 1.0)));
+    float coin = step(0.35, hash(vec2(mod(floor(uTime * 30.0), 1024.0), 1.0)));
     float fl = mix(1.0, coin, flicker);
     vec3 L = lamp - pos;
     float dist = length(L);
     L /= dist;
     float diff = max(dot(n, L), 0.0) / (1.0 + dist * dist * 0.18);
     // concrete: grey, grainy, slightly darker in the seams
-    float grain = 0.75 + 0.25 * hash3(floor(pos * 12.0));
+    float grain = 0.75 + 0.25 * hash3(floor(vec3(pos.xy, mod(pos.z, sp)) * 12.0));
     vec3 albedo = vec3(0.55) * grain;
-    float kick = 0.5 + 1.2 * uBass;
+    // idle floor: the lamp is on even in silence, the bass only pushes it
+    float kick = 0.9 + 0.8 * uBass;
     col = albedo * diff * fl * kick * mix(vec3(1.0), uColor1, 0.35);
     // the kick reaches the far end for an instant
     col += albedo * 0.08 * uBassHit;

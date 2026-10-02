@@ -40,7 +40,7 @@ Opzionale: **📱** nella barra in alto → inquadra il QR → codice a 6 cifre,
 
 ### Motore visivo
 
-**65 effetti in 7 categorie** — Geometrici (Tunnel, Kaleido, Truchet), Organici (Fluid, Smoke, React), Movimento (Swarm, Pulsar, Shatter), Digitali (Matrix, Lasers, Spectrum), Videogame (le torri della PS2, snowboard alla 1080°), Tekno (16 visual scuri guidati dal kick: Flash, Spiral, Bunker…) e Bounce (Balls, Pump, Roll). Ognuno ha 2-3 parametri veri, mappabili all'audio (bass/mid/high/energy/beat) o a un LFO a tempo; **Smart map** fa la mappatura per te con un click. Una **camera master** (zoom, rotazione, pan, mosaico a specchio, spinta sulla cassa) e la macro **Intensità** agiscono su tutta la scena.
+**66 effetti in 7 categorie** — Geometrici (Tunnel, Kaleido, Truchet), Organici (Fluid, Smoke, Space Ghost), Movimento (Swarm, Pulsar, Shatter), Digitali (Matrix, Lasers, Spectrum), Videogame (le torri della PS2, snowboard alla 1080°), Tekno (16 visual scuri guidati dal kick: Flash, Spiral, Bunker…) e Bounce (Balls, Pump, Roll). Ognuno ha 2-3 parametri veri, mappabili all'audio (bass/mid/high/energy/beat) o a un LFO a tempo; **Smart map** fa la mappatura per te con un click, e ogni effetto ha un **mapping consigliato** applicato quando lo scegli (pulsante "Auto", annulla in un click). Una **camera master** (zoom, rotazione, pan, mosaico a specchio, spinta sulla cassa) e la macro **Intensità** agiscono su tutta la scena.
 
 **Post sul frame** — 13 post-FX riordinabili con wet/dry per effetto: Bloom, Chromatic, RGB Split, RGB Delay, Invert, Feedback (scia in basso, MilkDrop al massimo), Mirror (da orizzontale a kaleido), Pixelate, Displace, Film Grain, Scanlines, Frame Glitch, Outline. Più color grade master, tone mapping ACES e motion blur. **16 palette**, un editor, e una palette da qualunque immagine: trascina il flyer del locale sull'ultimo slot.
 
@@ -100,6 +100,7 @@ yarn dev             # Electron + Vite
 yarn build           # build di produzione
 yarn check:output    # gate di release: il proiettore disegna davvero? (avvia l'app)
 yarn check:dryrun    # il beat tracker segue un brano sintetico a 128 BPM
+yarn check:sweep     # sweep in-app di ogni effetto e post: fallisce su frame bianco, nero o piatto (avvia l'app)
 yarn check:phases    # rigioca una registrazione nel rilevatore di fasi dell'Auto VJ
 yarn check:ui        # fotografa la finestra di controllo
 yarn package:mac     # .dmg (anche package:win / package:linux)

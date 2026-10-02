@@ -20,8 +20,11 @@ void main() {
   float bl = lum(vec2(-1.0, -1.0)), bc = lum(vec2(0.0, -1.0)), br = lum(vec2(1.0, -1.0));
   float gx = (tr + 2.0 * mr + br) - (tl + 2.0 * ml + bl);
   float gy = (tl + 2.0 * tc + tr) - (bl + 2.0 * bc + br);
-  float edge = smoothstep(0.1, 0.6, length(vec2(gx, gy)));
+  // soft content (plasma, caustics) has gradients of a few percent per pixel:
+  // a 0.1 floor on the Sobel found nothing and amount 1 painted the wall
+  // black. Lower floor, and the original never goes below a fifth.
+  float edge = smoothstep(0.02, 0.35, length(vec2(gx, gy)));
   vec3 src = texture2D(tDiffuse, vUv).rgb;
   vec3 neon = max(uColor1, vec3(0.15)) * edge * (1.2 + uBeat * 0.8);
-  gl_FragColor = vec4(src * (1.0 - uWet) + neon, 1.0);
+  gl_FragColor = vec4(src * (1.0 - 0.8 * uWet) + neon * uWet, 1.0);
 }

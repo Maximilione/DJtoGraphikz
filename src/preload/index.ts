@@ -54,6 +54,8 @@ const api = {
   selfTestCamera: process.env.DJG_SELFTEST_CAMERA || '',
   /** Gate: crop the output window, so a shot can prove the slice really cuts. */
   selfTestSlice: process.env.DJG_SELFTEST_SLICE || '',
+  /** Release sweep: walk every effect/post/chain and probe the projector after each (scripts/check-sweep.py) */
+  selfTestSweep: process.env.DJG_SELFTEST_SWEEP || '',
   onSelfTestShot: (cb: () => void) => { ipcRenderer.on('selftest:shot', cb); return () => ipcRenderer.removeListener('selftest:shot', cb) },
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 

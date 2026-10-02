@@ -65,7 +65,9 @@ void main() {
   vec2 p = uv * zoom;
 
   // Advection — noise warps the sampling position
-  float warpStrength = swirl + uBass * 1.5 + uBeat * 0.5;
+  // audio adds to the warp but gently: past ~2 the field folds into fine
+  // crumpled noise with no readable shape
+  float warpStrength = swirl + uBass * 0.6 + uBeat * 0.25;
   vec2 warp1 = vec2(
     fbm(p + vec2(t * 0.3, t * 0.1)),
     fbm(p + vec2(t * 0.1, t * 0.4) + 5.0)
@@ -96,10 +98,12 @@ void main() {
   color += (uColor1 + uColor2) * highlight * 0.5;
 
   // Beat brightness
-  color *= 0.6 + uEnergy * 0.4 + uBeat * 0.5;
+  color *= 0.6 + uEnergy * 0.3 + uBeat * 0.3;
 
-  // Vignette
-  float vig = 1.0 - length(uv) * 0.5;
+  // Vignette in frame space: on a wide strip uv.x runs past 2 and the old
+  // length(uv) version went negative, which ACES paints as white bands
+  vec2 fc = (vUv - 0.5) * vec2(1.78, 1.0);
+  float vig = 1.0 - length(fc) * 0.5;
   color *= vig;
 
   gl_FragColor = vec4(color, 1.0);

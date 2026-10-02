@@ -100,8 +100,8 @@ vec3 shade(vec3 ro, vec3 rd, float t, vec3 nrm, float hitH, float colH, vec3 fog
     float vgrad = colH > 0.0 ? hitH / colH : 1.0;
     float axis = abs(nrm.x) > 0.5 ? 0.92 : abs(nrm.z) > 0.5 ? 0.70 : 1.25;
     vec3 silver = mix(vec3(0.78, 0.84, 0.95), uColor1, 0.10);
-    col = silver * (0.35 + vgrad * 0.75) * axis;
-    col += silver * smoothstep(0.92, 1.0, vgrad) * 0.8;                 // glowing crown
+    col = silver * (0.35 + vgrad * 0.75) * axis * (0.85 + 0.3 * uBass);
+    col += silver * smoothstep(0.92, 1.0, vgrad) * (0.6 + 1.2 * uBass);  // glowing crown, lit by the bass
     col += silver * (0.5 + 0.5 * sin(hitH * 9.0 + uTime * 0.4)) * 0.06; // faint bands
     float fres = pow(1.0 - abs(dot(nrm, -rd)), 2.0);
     col += vec3(0.7, 0.8, 1.0) * fres * 0.35;
@@ -152,8 +152,10 @@ void main() {
   }
 
   // gentle vignette + beat bloom (subtle: PS2 is elegant, not a strobe)
-  color *= smoothstep(1.6, 0.55, length(uv));
-  color *= 1.0 + uBeat * 0.10;
+  // frame-normalised: in height units a 6:1 LED strip was black at the sides
+  vec2 vq = (gl_FragCoord.xy / uResolution - 0.5) * 1.44;
+  color *= smoothstep(1.6, 0.55, length(vq));
+  color *= 1.0 + uBeat * 0.18;
   color = min(color, vec3(2.0));
   gl_FragColor = vec4(color, 1.0);
 }

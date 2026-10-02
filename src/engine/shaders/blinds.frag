@@ -49,6 +49,6 @@ void main() {
 
   vec3 col = mix(vec3(1.0), uColor1, 0.35) * light * through;
   col += uColor2 * light * edge;
-  col += vec3(1.0) * uBassHit * through * 0.25;
+  col += vec3(1.0) * uBassHit * through * light * 0.5;
   gl_FragColor = vec4(col, 1.0);
 }

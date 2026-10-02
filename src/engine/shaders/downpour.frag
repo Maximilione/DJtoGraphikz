@@ -33,8 +33,13 @@ float layer(vec2 uv, float cols, float speed, float len) {
   float seed = hash(vec2(col, floor(cols)));
   float y = fract(uv.y * 1.2 + seed * 7.0 + speed * (0.7 + 0.6 * seed));
   float drop = smoothstep(0.0, len, y) * smoothstep(len * 1.15, len * 0.98, y);
-  // thin: only the middle of the column
-  float thin = smoothstep(0.35, 0.5, f) * smoothstep(0.65, 0.5, f);
+  // thin: only the middle of the column, with a soft halo so the streaks read
+  // in silence (idle floor) instead of vanishing into black. The core width is
+  // bounded on screen: never a fat blob on a sparse sheet, never under a pixel
+  // (shimmer) on a dense one
+  float hw = clamp(0.15 / cols, 1.0 / uResolution.x, 0.006) * cols;
+  float ax = abs(f - 0.5);
+  float thin = smoothstep(hw, 0.0, ax) + smoothstep(hw * 2.67, 0.0, ax) * 0.35;
   // not every column rains at once
   float on = step(0.35, hash(vec2(col, floor(y + seed) + floor(cols))));
   return drop * thin * on;
@@ -50,7 +55,9 @@ void main() {
   r += layer(uv + 0.37, n * 1.7, fall * 1.1, l * 0.7) * 0.55;
   r += layer(uv + 0.71, n * 2.8, fall * 0.7, l * 0.5) * 0.3;
 
-  vec3 col = mix(vec3(1.0), uColor1, 0.3) * r * (0.7 + 0.5 * uMid);
+  vec3 col = mix(vec3(1.0), uColor1, 0.3) * r * (0.9 + 0.4 * uMid);
+  // a faint sky glow at the top: the storm has a horizon even in silence
+  col += uColor1 * 0.05 * smoothstep(0.4, 1.0, uv.y) * (1.0 - 0.5 * uEnergy);
   // lightning
   float bolt = pow(clamp(uBassHit, 0.0, 1.0), 6.0);
   col += (vec3(0.18) + r * 0.8) * bolt;
