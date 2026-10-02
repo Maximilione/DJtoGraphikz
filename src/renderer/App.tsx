@@ -319,8 +319,10 @@ export function App() {
     const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) => {
       vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
       eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
-      if (!idleSettings.enabled || vj.isEnabled()) return
+      // the release sweep sets effects itself and measures them: idle must not move the picture under it
+      if (!idleSettings.enabled || vj.isEnabled() || window.api?.selfTestSweep) return
       const ev = idle.update(energyRaw > 0, performance.now())
+      if (ev) window.api?.logToFile?.('idle', `[Idle] ${ev} effect=${eng.getCurrentEffect()}`)
       if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
         idleBefore = eng.getCurrentEffect()
         fadeTo(idleSettings.effect, 3)

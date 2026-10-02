@@ -17,7 +17,7 @@ export async function runSweep(engine: Engine) {
   const probe = async (kind: string, id: string) => {
     const p = await window.api?.probeOutput?.()
     log(p
-      ? `[Sweep] kind=${kind} id=${id} mean=${p.mean.toFixed(3)} std=${p.std.toFixed(3)} bright=${p.bright.toFixed(3)} fps=${p.fps.toFixed(0)}`
+      ? `[Sweep] kind=${kind} id=${id} mean=${p.mean.toFixed(3)} std=${p.std.toFixed(3)} bright=${p.bright.toFixed(3)} fps=${p.fps.toFixed(0)} now=${engine.getCurrentEffect()}/${engine.getActivePosts().join('+') || '-'}`
       : `[Sweep] kind=${kind} id=${id} NOPROBE`)
   }
   engine.setTransitionDuration(0)

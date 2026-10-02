@@ -36,7 +36,7 @@ void main() {
 
   float n = hash(c + vec2(fract(uTime * 7.31) * 100.0, fract(uTime * 3.7) * 50.0));
   // dark snow: cube it so most of the frame stays black
-  float snow = pow(n, 6.0) * (0.25 + 0.9 * uEnergy);
+  float snow = pow(n, 6.0) * (0.45 + 0.8 * uEnergy);
 
   // sync roll: a dark band with a bright edge that rolls with the bass
   float y = fract(uv.y - uBassTime * 0.25 * roll - uTime * 0.02);
