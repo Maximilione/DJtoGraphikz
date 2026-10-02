@@ -121,6 +121,7 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
       { id: 'bloom', label: 'Bloom', icon: '✦', desc: 'Diffusione del glow' },
       { id: 'chromatic', label: 'Chromatic', icon: '◐', desc: 'Aberrazione prismatica' },
       { id: 'rgb-split', label: 'RGB Split', icon: '▥', desc: 'Offset canali colore' },
+      { id: 'rgb-delay', label: 'RGB Delay', icon: '▤', desc: 'Canali colore da frame diversi' },
       { id: 'invert', label: 'Invert', icon: '◑', desc: 'Colori in negativo' },
     ],
   },
