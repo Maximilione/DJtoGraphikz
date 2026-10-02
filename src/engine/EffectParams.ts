@@ -338,6 +338,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'pump', label: 'Pompa', min: 0, max: 1, default: 0.7 },
     { key: 'drift', label: 'Scorrimento', min: 0, max: 3, default: 1 },
   ],
+  spaceghost: [
+    { key: 'folds', label: 'Pieghe', min: 2, max: 6, default: 4 },
+    { key: 'glow', label: 'Bagliore', min: 20, max: 60, default: 34 },
+    { key: 'drift', label: 'Deriva', min: 0, max: 2, default: 1 },
+  ],
   reaction: [
     { key: 'feed', label: 'Nutrimento', min: 0.014, max: 0.07, default: 0.0545 },
     { key: 'kill', label: 'Consumo', min: 0.045, max: 0.07, default: 0.062 },
