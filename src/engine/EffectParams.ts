@@ -322,7 +322,7 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'open', label: 'Apertura', min: 0.05, max: 1, default: 0.5 },
     { key: 'tilt', label: 'Inclinazione', min: 0, max: 1, default: 0.2 },
   ],
-  // --- Bounce: palle, pompa, coriandoli
+  // --- Bounce techno: palle, pompa, rullo
   bounceball: [
     { key: 'balls', label: 'Palle', min: 1, max: 8, default: 3 },
     { key: 'bounce', label: 'Salto', min: 0.3, max: 1.5, default: 1 },
@@ -333,10 +333,10 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'pump', label: 'Pompa', min: 0, max: 1, default: 0.7 },
     { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.5 },
   ],
-  confetti: [
-    { key: 'count', label: 'Pezzi', min: 8, max: 160, default: 80 },
-    { key: 'burst', label: 'Sparo', min: 0.5, max: 3, default: 1.5 },
-    { key: 'gravity', label: 'Gravita', min: 0, max: 2, default: 1 },
+  roll: [
+    { key: 'lanes', label: 'Corsie', min: 2, max: 12, default: 6 },
+    { key: 'pump', label: 'Pompa', min: 0, max: 1, default: 0.7 },
+    { key: 'drift', label: 'Scorrimento', min: 0, max: 3, default: 1 },
   ],
   reaction: [
     { key: 'feed', label: 'Nutrimento', min: 0.014, max: 0.07, default: 0.0545 },

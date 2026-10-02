@@ -109,7 +109,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
     effects: [
       { id: 'bounceball', label: 'Balls', icon: '●' },
       { id: 'pump', label: 'Pump', icon: '▣' },
-      { id: 'confetti', label: 'Confetti', icon: '✶' },
+      { id: 'roll', label: 'Roll', icon: '▬' },
     ],
   },
 ]
@@ -213,5 +213,5 @@ export const GENRES: { id: Genre; label: string; desc: string }[] = [
   { id: 'gabber', label: 'Gabber', desc: 'Caos totale, glitch, velocissimo' },
   { id: 'tech-house', label: 'Tech House', desc: 'Groove caldo, geometrie morbide' },
   { id: 'psytrance', label: 'Psytrance', desc: 'Frattali, caleidoscopi, acidissimo' },
-  { id: 'bounce', label: 'Bounce', desc: 'Palle, pompa, coriandoli: festa colorata' },
+  { id: 'bounce', label: 'Bounce Techno', desc: 'Groove rotolante, scuro, pompa sull\'offbeat' },
 ]
