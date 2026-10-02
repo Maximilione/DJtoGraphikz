@@ -104,6 +104,14 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'blinds', label: 'Blinds', icon: '☰' },
     ],
   },
+  {
+    name: 'Bounce',
+    effects: [
+      { id: 'bounceball', label: 'Balls', icon: '●' },
+      { id: 'pump', label: 'Pump', icon: '▣' },
+      { id: 'confetti', label: 'Confetti', icon: '✶' },
+    ],
+  },
 ]
 
 export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: string; icon: string; desc: string }[] }[] = [
@@ -205,4 +213,5 @@ export const GENRES: { id: Genre; label: string; desc: string }[] = [
   { id: 'gabber', label: 'Gabber', desc: 'Caos totale, glitch, velocissimo' },
   { id: 'tech-house', label: 'Tech House', desc: 'Groove caldo, geometrie morbide' },
   { id: 'psytrance', label: 'Psytrance', desc: 'Frattali, caleidoscopi, acidissimo' },
+  { id: 'bounce', label: 'Bounce', desc: 'Palle, pompa, coriandoli: festa colorata' },
 ]
