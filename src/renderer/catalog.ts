@@ -95,7 +95,6 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'barcode', label: 'Barcode', icon: '▥' },
       { id: 'chevrons', label: 'Hazard', icon: '⋀' },
       { id: 'static', label: 'Static', icon: '▩' },
-      { id: 'radar', label: 'Radar', icon: '◔' },
       { id: 'cage', label: 'Cage', icon: '▣' },
       { id: 'cracks', label: 'Cracks', icon: '⌇' },
       { id: 'warehouse', label: 'Bunker', icon: '⌂' },

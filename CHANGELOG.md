@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.61.2-beta] — 2026-10-02
+
+### Changed
+- **Radar rimosso** dall'app, dall'Auto VJ (scene e famiglie) e dal mapping consigliato: 64 effetti. I preset salvati che lo citano restano caricabili. Scalette dei live rigenerate senza Radar
+
 ## [0.61.1-beta] — 2026-10-02
 
 ### Changed
