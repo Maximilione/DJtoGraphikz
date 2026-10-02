@@ -14,11 +14,19 @@ const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 export async function runSweep(engine: Engine) {
   const log = (m: string) => window.api?.logToFile?.('sweep', m)
+  // three shots 250 ms apart: a strobe or a flickering lamp sampled once
+  // reads black between flashes; the brightest of three is what the room sees
   const probe = async (kind: string, id: string) => {
-    const p = await window.api?.probeOutput?.()
-    log(p
-      ? `[Sweep] kind=${kind} id=${id} mean=${p.mean.toFixed(3)} std=${p.std.toFixed(3)} bright=${p.bright.toFixed(3)} fps=${p.fps.toFixed(0)} now=${engine.getCurrentEffect()}/${engine.getActivePosts().join('+') || '-'}`
-      : `[Sweep] kind=${kind} id=${id} NOPROBE`)
+    const shots = []
+    for (let i = 0; i < 3; i++) {
+      const p = await window.api?.probeOutput?.()
+      if (p) shots.push(p)
+      await wait(250)
+    }
+    if (!shots.length) { log(`[Sweep] kind=${kind} id=${id} NOPROBE`); return }
+    const max = shots.reduce((a, b) => (b.mean > a.mean ? b : a))
+    const avg = shots.reduce((a, b) => a + b.mean, 0) / shots.length
+    log(`[Sweep] kind=${kind} id=${id} mean=${max.mean.toFixed(3)} std=${max.std.toFixed(3)} bright=${max.bright.toFixed(3)} fps=${max.fps.toFixed(0)} avg=${avg.toFixed(3)} now=${engine.getCurrentEffect()}/${engine.getActivePosts().join('+') || '-'}`)
   }
   engine.setTransitionDuration(0)
   engine.setIntensity(1)
@@ -27,7 +35,7 @@ export async function runSweep(engine: Engine) {
   for (const fx of ALL_EFFECTS) {
     engine.setActivePosts([])
     engine.setEffect(fx.id)
-    await wait(700)
+    await wait(500)
     await probe('effect', fx.id)
   }
 
@@ -37,7 +45,7 @@ export async function runSweep(engine: Engine) {
   engine.setEffect('plasma')
   for (const id of posts) for (const a of [0.5, 1]) {
     engine.setActivePosts([id], { [id]: a } as Partial<Record<PostId, number>>)
-    await wait(1500)
+    await wait(1000)
     await probe('post', `${id}@${a}`)
   }
 
@@ -47,7 +55,7 @@ export async function runSweep(engine: Engine) {
   for (const set of sets) for (const fx of ['plasma', 'strobegrid'] as const) {
     engine.setEffect(fx)
     engine.setActivePosts(set.split('+') as PostId[])
-    await wait(1500)
+    await wait(1000)
     await probe('set', `${fx}:${set}`)
   }
   engine.setActivePosts([])
