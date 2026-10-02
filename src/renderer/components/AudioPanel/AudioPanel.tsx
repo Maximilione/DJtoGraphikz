@@ -402,7 +402,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
           <input type="number" min={3} max={120} value={idle.seconds} style={{ width: 48 }}
             onChange={e => setIdleCfg({ seconds: Math.max(3, Math.min(120, +e.target.value | 0)) })} aria-label="Secondi di silenzio" />
           <span className="label">s →</span>
-          <select style={{ flex: 1, minWidth: 0 }} value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto in idle">
+          <select style={{ flex: '1 1 90px', minWidth: 0 }} value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto in idle">
             {ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>)}
           </select>
         </div>
