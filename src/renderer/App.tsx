@@ -30,6 +30,7 @@ import { allPalettes } from './palettes'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
+import { runSweep } from './sweep'
 import { ReelBuffer, cropRect, reelFileName, loadReelSettings, onReelSettings, CHUNK_MS, DROP_DELAY_MS, REEL_FPS, type ReelLap, type ReelSettings } from './reel'
 import { loadLooks } from './looks'
 import { readJson, writeJson, writeString, readString } from './storage'
@@ -222,6 +223,9 @@ export function App() {
     // custom shader source it handed over (DJG_SELFTEST_SHADER)
     if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
     else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
+
+    // Release sweep: every effect, post and Auto VJ post chain, probed on the projector
+    if (window.api?.selfTestSweep) setTimeout(() => { void runSweep(eng) }, 4000)
 
     // Gate: frame the scene, so a screenshot can prove the camera pass runs.
     if (window.api?.selfTestCamera) {
