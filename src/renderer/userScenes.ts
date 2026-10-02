@@ -17,6 +17,9 @@ export interface UserScene extends Scene {
 }
 
 export const USER_SCENES_KEY = 'djtographikz-user-scenes'
+export const ONLY_MINE_KEY = 'djtographikz-user-scenes-only'
+/** Fired when something other than the Auto VJ panel (the phone) changed the scenes or the flag */
+export const USER_SCENES_EVENT = 'djg:user-scenes'
 
 export function loadUserScenes(): UserScene[] {
   const raw = readJson<unknown>(USER_SCENES_KEY, [])

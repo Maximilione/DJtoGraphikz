@@ -31,6 +31,7 @@ let lastEngineState: unknown = null
 let lastAudio: { bpm: number; energy: number; beatPulse: number } | null = null
 let lastVj: { enabled: boolean; genre: string } | null = null
 let lastSeq: unknown = null
+let lastExt: unknown = null
 let remoteDefs: Record<string, unknown> | null = null
 let remoteLooks: unknown[] = []
 // Bumped on every looks push; the page re-fetches thumbs only when it changes
@@ -217,7 +218,7 @@ export function setupRemoteServer(
     if (req.method === 'GET' && url === '/state') {
       if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
       res.setHeader('Cache-Control', 'no-store')
-      json(res, 200, { engine: lastEngineState, looksRev, audio: lastAudio, vj: lastVj, seq: lastSeq })
+      json(res, 200, { engine: lastEngineState, looksRev, audio: lastAudio, vj: lastVj, seq: lastSeq, ext: lastExt })
       return
     }
 
@@ -298,6 +299,9 @@ export function setupRemoteServer(
 
   // Sequence status pushed by PresetPanel on every change
   ipcMain.on('remote:seq', (_e, seq) => { lastSeq = seq && typeof seq === 'object' ? seq : null })
+
+  // BPM mode, scenes, overlays: what the phone shows beyond the engine snapshot
+  ipcMain.on('remote:ext', (_e, ext) => { lastExt = ext && typeof ext === 'object' ? ext : null })
 
   // Catalogs pushed once by the renderer at engine init
   ipcMain.on('remote:defs', (_e, defs) => { remoteDefs = defs })

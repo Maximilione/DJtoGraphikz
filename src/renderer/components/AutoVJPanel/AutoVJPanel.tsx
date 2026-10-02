@@ -4,7 +4,7 @@ import type { Engine } from '@engine/Engine'
 import { AutoVJControl } from '../AutoVJ/AutoVJControl'
 import { Panel } from '../Panel/Panel'
 import { effectLabel } from '../../catalog'
-import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, type UserScene } from '../../userScenes'
+import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, ONLY_MINE_KEY, USER_SCENES_EVENT, type UserScene } from '../../userScenes'
 import { readJson, writeJson } from '../../storage'
 
 // The AutoVJ instance lives in App (shared with Simple mode); this panel is just its Pro-view controls.
@@ -21,13 +21,19 @@ interface AutoVJPanelProps {
 
 const PHASE_LABEL: Record<Phase, string> = { break: 'Pausa', build: 'Salita', groove: 'Groove', peak: 'Picco' }
 
-const ONLY_MINE_KEY = 'djtographikz-user-scenes-only'
 
 export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
   const config = GENRE_CONFIGS[vjGenre]
   const [mine, setMine] = useState<UserScene[]>(loadUserScenes)
   const [onlyMine, setOnlyMine] = useState<boolean>(() => readJson<boolean>(ONLY_MINE_KEY, false))
   const [savePhase, setSavePhase] = useState<Phase | ''>('')
+
+  // the phone can save a scene or flip the flag while this panel is open
+  useEffect(() => {
+    const reload = () => { setMine(loadUserScenes()); setOnlyMine(readJson<boolean>(ONLY_MINE_KEY, false)) }
+    window.addEventListener(USER_SCENES_EVENT, reload)
+    return () => window.removeEventListener(USER_SCENES_EVENT, reload)
+  }, [])
 
   // the Auto VJ reads them from here, on every change and at mount
   useEffect(() => { vj.setUserScenes(userScenesByGenre(mine), onlyMine) }, [vj, mine, onlyMine])
