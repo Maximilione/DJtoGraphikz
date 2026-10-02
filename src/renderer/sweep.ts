@@ -1,5 +1,6 @@
 import type { Engine, PostId } from '@engine/Engine'
 import { GENRE_CONFIGS } from '@engine/AutoVJ'
+import { LIVE_POSTS } from '@engine/livePostSets'
 import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
 
 /**
@@ -57,6 +58,14 @@ export async function runSweep(engine: Engine) {
     engine.setActivePosts(set.split('+') as PostId[])
     await wait(1000)
     await probe('set', `${fx}:${set}`)
+  }
+  // the heavy chains of the live setlists, at their own amounts, over the three
+  // scenes most likely to turn them white
+  for (const set of Object.values(LIVE_POSTS).flat()) for (const fx of ['plasma', 'strobegrid', 'kaleidoscope'] as const) {
+    engine.setEffect(fx)
+    engine.setActivePosts(Object.keys(set.amounts) as PostId[], set.amounts)
+    await wait(1000)
+    await probe('live', `${fx}:${set.name}`)
   }
   engine.setActivePosts([])
   log('[Sweep] done')
