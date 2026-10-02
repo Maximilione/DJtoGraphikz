@@ -19,7 +19,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LOG_DIR = pathlib.Path.home() / ".djtographikz" / "logs"
 WHITE_MEAN, BLACK_MEAN, FLAT_STD = 0.92, 0.015, 0.006
-SETTLE_MS = 420000
+SETTLE_MS = 600000
 
 
 def main() -> int:
@@ -44,8 +44,9 @@ def main() -> int:
     cmd = ["yarn", "dev"] if os.environ.get("DJG_SWEEP_DEV") else ["yarn", "preview"]
     print("avvio app, sweep di effetti, post e catene Auto VJ (~5 min)…")
     proc = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, timeout=SETTLE_MS / 1000 + 90)
-    logs = [p for p in LOG_DIR.glob("*.log") if p.stat().st_mtime >= started]
-    text = "".join(p.read_text(errors="replace") for p in logs) + proc.stdout
+    # the newest log only: two runs back to back must not be read as one
+    logs = sorted((p for p in LOG_DIR.glob("*.log") if p.stat().st_mtime >= started), key=lambda p: p.stat().st_mtime)
+    text = (logs[-1].read_text(errors="replace") if logs else "") + proc.stdout
     rows = re.findall(r"\[Sweep\] kind=(\w+) id=(\S+) mean=([\d.]+) std=([\d.]+) bright=([\d.]+) fps=(\d+)", text)
     noprobe = re.findall(r"\[Sweep\] kind=(\w+) id=(\S+) NOPROBE", text)
     done = "[Sweep] done" in text
