@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { listAudioInputs } from '../../audioDevices'
+import { listAudioInputs, pickInput } from '../../audioDevices'
 import { GENRE_CONFIGS, type Genre } from '@engine/AutoVJ'
 import { seedFactoryLooks } from '../../factoryLooks'
 
@@ -46,7 +46,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
       try {
         const inputs = await listAudioInputs()
         setDevices(inputs)
-        if (inputs.length > 0) setDeviceId(inputs[0].deviceId)
+        if (inputs.length > 0) setDeviceId(pickInput(inputs))
       } catch (err: any) {
         setError(`Impossibile accedere all'audio: ${err.message}`)
       }
