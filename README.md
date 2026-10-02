@@ -40,7 +40,7 @@ Optional: **📱** in the top bar → scan the QR → 6-digit code, and the phon
 
 ### Visual engine
 
-**65 effects in 7 categories** — Geometric (Tunnel, Kaleido, Truchet), Organic (Fluid, Smoke, React), Motion (Swarm, Pulsar, Shatter), Digital (Matrix, Lasers, Spectrum), Videogame (PS2 towers, 1080° snowboarding), Tekno (16 dark kick-driven visuals: Flash, Spiral, Bunker…) and Bounce (Balls, Pump, Roll). Each has 2-3 real parameters, mappable to audio (bass/mid/high/energy/beat) or to a tempo-synced LFO; **Smart map** does the mapping for you in one click. A **master camera** (zoom, rotation, pan, mirrored tiling, push-in on the kick) and an **Intensity** macro act on the whole scene.
+**66 effects in 7 categories** — Geometric (Tunnel, Kaleido, Truchet), Organic (Fluid, Smoke, Space Ghost), Motion (Swarm, Pulsar, Shatter), Digital (Matrix, Lasers, Spectrum), Videogame (PS2 towers, 1080° snowboarding), Tekno (16 dark kick-driven visuals: Flash, Spiral, Bunker…) and Bounce (Balls, Pump, Roll). Each has 2-3 real parameters, mappable to audio (bass/mid/high/energy/beat) or to a tempo-synced LFO; **Smart map** does the mapping for you in one click, and every effect has a **recommended mapping** applied when you pick it ("Auto" button, one-click undo). A **master camera** (zoom, rotation, pan, mirrored tiling, push-in on the kick) and an **Intensity** macro act on the whole scene.
 
 **Post on the frame** — 13 reorderable post-FX with per-effect wet/dry: Bloom, Chromatic, RGB Split, RGB Delay, Invert, Feedback (trail at low, MilkDrop at full), Mirror (horizontal → kaleido), Pixelate, Displace, Film Grain, Scanlines, Frame Glitch, Outline. Plus master color grade, ACES tone mapping and motion blur. **16 palettes**, a custom editor, and a palette from any picture: drop the club's flyer on the last slot.
 
@@ -100,6 +100,7 @@ yarn dev             # Electron + Vite
 yarn build           # production build
 yarn check:output    # release gate: is the projector really drawing? (launches the app)
 yarn check:dryrun    # the beat tracker follows a synthetic 128 BPM track
+yarn check:sweep     # in-app sweep of every effect and post: fails on a white, black or flat frame (launches the app)
 yarn check:phases    # replay a recording through the Auto VJ phase detector
 yarn check:ui        # photograph the control window
 yarn package:mac     # .dmg (also package:win / package:linux)
