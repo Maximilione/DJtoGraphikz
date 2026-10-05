@@ -363,6 +363,16 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'scan', label: 'Scansione', min: 0, max: 2, default: 1 },
     { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
   ],
+  android: [
+    { key: 'dissolve', label: 'Dissolvenza', min: 0, max: 1, default: 0.35 },
+    { key: 'panels', label: 'Pannelli', min: 0.5, max: 4, default: 2 },
+    { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
+  ],
+  monolith: [
+    { key: 'pulse', label: 'Pulsazione', min: 0, max: 2, default: 1 },
+    { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
+    { key: 'width', label: 'Fessura', min: 0.4, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
@@ -387,8 +397,9 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'dotsize', label: 'Punti', min: 1, max: 8, default: 3.2 },
   ],
   mesh: [
-    // look: 0 neon wireframe, 1 points, 2 metal (rounded to the nearest in the shader)
-    { key: 'look', label: 'Look (0 filo, 1 punti, 2 metallo)', min: 0, max: 2, default: 0 },
+    // look: 0 neon wireframe, 1 points, 2 metal, 3 hologram, 4 dissolve (rounded to the nearest in the shader)
+    { key: 'look', label: 'Look (0 filo, 1 punti, 2 metallo, 3 ologramma, 4 dissolve)', min: 0, max: 4, default: 0 },
+    { key: 'dissolve', label: 'Dissolvenza (look 4)', min: 0, max: 1, default: 0.35 },
     { key: 'spin', label: 'Rotazione', min: 0, max: 3, default: 1 },
     { key: 'burst', label: 'Esplosione', min: 0, max: 2, default: 1 },
     { key: 'dotsize', label: 'Punti', min: 1, max: 8, default: 3 },

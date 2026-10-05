@@ -149,10 +149,9 @@ let current: MeshModel | null = null
 const groups = new Set<THREE.Group>()
 
 function fill(group: THREE.Group, model: MeshModel) {
-  const [wire, points, solid] = group.children as [THREE.LineSegments, THREE.Points, THREE.Mesh]
+  const [wire, points, solid, holo, dissolving, dust] = group.children as [THREE.LineSegments, THREE.Points, THREE.Mesh, THREE.Mesh, THREE.Mesh, THREE.Points]
   const old = [wire.geometry, points.geometry, solid.geometry]
-  points.geometry = model.geometry
-  solid.geometry = model.geometry
+  for (const o of [points, solid, holo, dissolving, dust]) o.geometry = model.geometry
   // triangle edges, not the quads of a flat-shaded export: WireframeGeometry reads an index or a soup alike
   wire.geometry = model.geometry.getIndex() ? new THREE.WireframeGeometry(model.geometry) : new THREE.BufferGeometry()
   for (const g of old) if (g !== model.geometry) g.dispose()
@@ -171,16 +170,19 @@ export function buildMesh(uniforms: Record<string, THREE.IUniform>) {
   uniforms.uPointsOnly = { value: current.pointsOnly ? 1 : 0 }
   const mk = (look: number) => new THREE.ShaderMaterial({
     vertexShader: meshVert, fragmentShader: meshFrag, uniforms, defines: { LOOK: look },
-    // neon and dust glow additively; the metal is opaque and needs the depth buffer
-    blending: look === 2 ? THREE.NoBlending : THREE.AdditiveBlending,
-    depthTest: look === 2, depthWrite: look === 2, transparent: look !== 2,
+    // neon, dust and hologram glow additively; the metals (2, 4) are opaque and need the depth buffer
+    blending: look === 2 || look === 4 ? THREE.NoBlending : THREE.AdditiveBlending,
+    depthTest: look === 2 || look === 4, depthWrite: look === 2 || look === 4, transparent: look !== 2 && look !== 4,
   })
   const empty = new THREE.BufferGeometry()
   const wire = new THREE.LineSegments(empty, mk(0))
   const points = new THREE.Points(empty, mk(1))
   const solid = new THREE.Mesh(empty, mk(2))
+  const holo = new THREE.Mesh(empty, mk(3))
+  const dissolving = new THREE.Mesh(empty, mk(4))
+  const dust = new THREE.Points(empty, mk(5))
   const group = new THREE.Group()
-  for (const o of [wire, points, solid]) { o.frustumCulled = false; group.add(o) }
+  for (const o of [wire, points, solid, holo, dissolving, dust]) { o.frustumCulled = false; group.add(o) }
   group.userData.uniforms = uniforms
   group.userData.depth = true   // the solid look needs a depth buffer in the target (see Engine.renderEffect)
   fill(group, current)
