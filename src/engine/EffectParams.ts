@@ -363,6 +363,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'scan', label: 'Scansione', min: 0, max: 2, default: 1 },
     { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
   ],
+  android: [
+    { key: 'dissolve', label: 'Dissolvenza', min: 0, max: 1, default: 0.35 },
+    { key: 'panels', label: 'Pannelli', min: 0.5, max: 4, default: 2 },
+    { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
