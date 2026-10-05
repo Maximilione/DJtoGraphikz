@@ -348,6 +348,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'zoom', label: 'Zoom', min: 0.6, max: 2, default: 1 },
     { key: 'glow', label: 'Alone', min: 0.3, max: 2, default: 1 },
   ],
+  storm: [
+    { key: 'bolts', label: 'Fulmini', min: 1, max: 4, default: 2 },
+    { key: 'branches', label: 'Ramificazioni', min: 0, max: 2, default: 1 },
+    { key: 'fog', label: 'Nuvole', min: 0.3, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },

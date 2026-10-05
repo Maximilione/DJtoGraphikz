@@ -356,6 +356,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     zoom: { source: 'energy', depth: 0.3, value: 0.9 },
     power: { source: 'lfo-sine', depth: 0.3, lfoRate: 64 },
   },
+  storm: {
+    fog: { source: 'bass', depth: 0.5, value: 0.9 },
+    branches: { source: 'energy', depth: 0.3, value: 1 },
+    bolts: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
