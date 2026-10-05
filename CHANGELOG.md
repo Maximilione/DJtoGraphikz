@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.68.0-beta] — 2026-10-05
+
+### Added
+- **Stile Anyma**: effetto `android` (busto umanoide cromato procedurale con pannelli biomeccanici, visiera luminosa, dissolvenza in particelle sul kick), effetto `monolith` (portale monumentale con fessura di luce, nebbia volumetrica, pavimento a specchio), look `hologram` e `dissolve` per `mesh` (caricando un modello umanoide ottieni lo stesso stile), Look di fabbrica "Anyma" (si semina solo a Look Bank vuoto) e palette dedicata nell'Auto VJ.
+
 ## [0.67.0-beta] — 2026-10-05
 
 ### Added
