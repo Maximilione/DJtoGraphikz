@@ -29,7 +29,8 @@ export interface MidiTarget {
 }
 
 const POSTS: PostId[] = ['bloom', 'rgb-split', 'chromatic', 'feedback', 'filmgrain', 'scanlines', 'pixelate', 'mirror', 'invert',
-  'rgb-delay', 'displace', 'frame-glitch', 'outline']
+  'rgb-delay', 'displace', 'frame-glitch', 'outline',
+  'anamorphic']
 
 export const MIDI_TARGETS: MidiTarget[] = [
   { id: 'master', label: 'Master', group: 'Mix', toCmd: v => ({ type: 'brightness', value: v }) },
