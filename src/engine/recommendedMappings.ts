@@ -341,6 +341,26 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     flow: { source: 'energy', depth: 0.4, value: 0.3 },
     lines: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 40 },
   },
+  cathedral: {
+    rays: { source: 'bass', depth: 0.5, value: 0.8 },
+    density: { source: 'energy', depth: 0.3, value: 0.8 },
+    sway: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+  },
+  chrome: {
+    morph: { source: 'bass', depth: 0.5, value: 0.8 },
+    shine: { source: 'high', depth: 0.3, value: 0.9 },
+    blobs: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
+  crystals: {
+    size: { source: 'bass', depth: 0.4, value: 0.9 },
+    dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
+    facets: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
+  galaxy: {
+    burst: { source: 'bass', depth: 0.5, value: 0.8 },
+    twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+    arms: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+  },
   // Non ancora in EFFECT_PARAMS su main: la voce aspetta l'effetto, il check
   // la valida senza pretendere le chiavi (e senza `value`, range ignoto).
   spaceghost: {

@@ -333,6 +333,26 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 20, max: 60, default: 34 },
     { key: 'drift', label: 'Deriva', min: 0, max: 2, default: 1 },
   ],
+  cathedral: [
+    { key: 'density', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
+    { key: 'rays', label: 'Raggi', min: 0.3, max: 2.5, default: 1 },
+    { key: 'sway', label: 'Oscillazione', min: 0, max: 2, default: 1 },
+  ],
+  chrome: [
+    { key: 'blobs', label: 'Gocce', min: 2, max: 6, default: 4 },
+    { key: 'morph', label: 'Deformazione', min: 0, max: 2, default: 1 },
+    { key: 'shine', label: 'Lucentezza', min: 0.4, max: 1.6, default: 1 },
+  ],
+  crystals: [
+    { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
+    { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
+    { key: 'size', label: 'Dimensione', min: 0.5, max: 1.6, default: 1 },
+  ],
+  galaxy: [
+    { key: 'arms', label: 'Bracci', min: 1, max: 6, default: 3 },
+    { key: 'twist', label: 'Torsione', min: 0, max: 4, default: 2 },
+    { key: 'burst', label: 'Esplosione', min: 0, max: 2, default: 1 },
+  ],
   reaction: [
     // measured on the projector: below feed 0.034 or above kill 0.064 the
     // chemistry dies to a black frame, below kill 0.060 it fills solid
