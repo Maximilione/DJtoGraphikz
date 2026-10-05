@@ -144,6 +144,7 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
     name: 'Cinema',
     effects: [
       { id: 'anamorphic', label: 'Anamorphic', icon: '⟷', desc: 'Flare orizzontale blu sulle alte luci' },
+      { id: 'halation', label: 'Halation', icon: '◌', desc: 'Alone caldo attorno alle luci' },
     ],
   },
   {
