@@ -346,6 +346,13 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'burst', label: 'Scoppio', min: 0, max: 2, default: 1 },
     { key: 'dotsize', label: 'Punti', min: 1, max: 8, default: 3.2 },
   ],
+  mesh: [
+    // look: 0 neon wireframe, 1 points, 2 metal (rounded to the nearest in the shader)
+    { key: 'look', label: 'Look (0 filo, 1 punti, 2 metallo)', min: 0, max: 2, default: 0 },
+    { key: 'spin', label: 'Rotazione', min: 0, max: 3, default: 1 },
+    { key: 'burst', label: 'Esplosione', min: 0, max: 2, default: 1 },
+    { key: 'dotsize', label: 'Punti', min: 1, max: 8, default: 3 },
+  ],
   pulsar: [
     { key: 'lines', label: 'Linee', min: 16, max: 72, default: 46 },
     { key: 'peaks', label: 'Picchi', min: 0.2, max: 2.5, default: 1 },
