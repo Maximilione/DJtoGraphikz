@@ -147,6 +147,7 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
       { id: 'halation', label: 'Halation', icon: '◌', desc: 'Alone caldo attorno alle luci' },
       { id: 'godrays', label: 'God Rays', icon: '☀', desc: 'Raggi radiali dalle alte luci' },
       { id: 'cinegrade', label: 'Cine Grade', icon: '▭', desc: 'Curva a S, split-toning dalla palette, vignetta' },
+      { id: 'tiltshift', label: 'Tilt Shift', icon: '⎯', desc: 'Profondita di campo finta con bokeh' },
     ],
   },
   {
