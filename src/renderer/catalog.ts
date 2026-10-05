@@ -76,6 +76,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'grid', label: 'Grid', icon: '⊞' },
       { id: 'glitch', label: 'Glitch', icon: '⚡' },
       { id: 'lasers', label: 'Lasers', icon: '☄' },
+      { id: 'beamfield', label: 'Beamfield', icon: '☼' },
       { id: 'storm', label: 'Storm', icon: 'ϟ' },
       { id: 'strobegrid', label: 'Strobe', icon: '▦' },
       { id: 'raymarch', label: 'Lattice', icon: '⌗' },
