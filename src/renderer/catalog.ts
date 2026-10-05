@@ -43,6 +43,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'reaction', label: 'React', icon: '❋' },
       { id: 'caustics', label: 'Caustic', icon: '≈' },
       { id: 'smoke', label: 'Smoke', icon: '♨' },
+      { id: 'chrome', label: 'Chrome', icon: '◍' },
       { id: 'ripples', label: 'Ripples', icon: '≈' },
       { id: 'vortex', label: 'Vortex', icon: '❂' },
       { id: 'spaceghost', label: 'Ghost', icon: '☁' },
