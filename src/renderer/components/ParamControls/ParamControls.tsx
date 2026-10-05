@@ -94,6 +94,31 @@ export function ParamControls({ engine }: ParamControlsProps) {
           </button>
         </div>
       </div>
+      {engine.getCurrentEffect() === 'mesh' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button className="btn" style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            title="GLB, GLTF, OBJ, STL, PLY, FBX — il modello viene copiato nella libreria e va anche sull'uscita"
+            onClick={async () => {
+              const f = (await window.api?.pickModels())?.[0]
+              if (!f) return
+              try {
+                const saved = await window.api.librarySaveCopy(f.name, f.path)
+                engine.setMeshModelFile({ name: saved.name, path: saved.path })
+                force()
+              } catch (err) {
+                console.error('[Mesh] import fallito:', err)
+                pushToast(`Non riesco a caricare ${f.name}`, undefined, undefined, 'err')
+              }
+            }}>
+            Carica modello 3D…
+          </button>
+          <span className="micro">{engine.getMeshModel()?.name ?? 'modello di default'}</span>
+          {engine.getMeshModel() && (
+            <button className="btn" style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+              onClick={() => { engine.setMeshModelFile(null); force() }}>Default</button>
+          )}
+        </div>
+      )}
       {defs.map(def => {
         const st = engine.getParamState(def.key)
         const step = (def.max - def.min) / 100

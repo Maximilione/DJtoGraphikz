@@ -87,7 +87,7 @@ export const FAMILY: Record<EffectId, Family> = {
   fluid: 'organic', plasma: 'organic', warp: 'organic', metaballs: 'organic', fire: 'organic',
   fractal: 'organic', inkflow: 'organic', reaction: 'organic', caustics: 'organic', smoke: 'organic',
   ripples: 'organic', vortex: 'radial',
-  particles: 'particles', swarm: 'particles', starfield: 'tunnel', waves: 'lines', pulsar: 'lines',
+  particles: 'particles', swarm: 'particles', mesh: 'object', starfield: 'tunnel', waves: 'lines', pulsar: 'lines',
   lissajous: 'lines', dna: 'lines', orbits: 'lines', terrain: 'tunnel', pulsecity: 'grid', shatter: 'particles',
   matrix: 'glyph', grid: 'tunnel', glitch: 'glyph', lasers: 'lines', strobegrid: 'strobe',
   raymarch: 'tunnel', gyroid: 'tunnel', ascii: 'glyph', spectrum: 'lines',

@@ -3,7 +3,7 @@ import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
-import { IMAGE_RE, imageMime } from '../../../shared/mediaFormats'
+import { IMAGE_RE, MODEL_RE, imageMime } from '../../../shared/mediaFormats'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -112,6 +112,10 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     try {
       if (IMAGE_RE.test(item.name)) {
         await engine.addOverlay(item.name, await readLibraryImage(item.path, item.name))
+      } else if (MODEL_RE.test(item.name)) {
+        // a 3D model is not an overlay: it becomes the `mesh` effect's model
+        engine.setMeshModelFile({ name: item.name, path: item.path })
+        engine.setEffect('mesh')
       } else {
         await engine.addVideoOverlay(item.name, { kind: 'video', path: item.path })
       }

@@ -4,7 +4,7 @@ import { statfs } from 'fs/promises'
 import { basename, join } from 'path'
 import { homedir, tmpdir } from 'os'
 import { execFileSync } from 'child_process'
-import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, CONVERT_RE, imageMime } from '../shared/mediaFormats'
+import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, MODEL_EXT, CONVERT_RE, imageMime } from '../shared/mediaFormats'
 import { inflateRawSync } from 'zlib'
 
 const USER_DATA_DIR = join(homedir(), '.djtographikz')
@@ -181,6 +181,16 @@ export function setupIpcHandlers(
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Video', extensions: VIDEO_EXT }]
+    })
+    if (result.canceled) return []
+    return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
+  // One 3D model for the `mesh` effect; the renderer copies it into the library
+  ipcMain.handle('asset:pick-model', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Modelli 3D', extensions: MODEL_EXT }]
     })
     if (result.canceled) return []
     return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
