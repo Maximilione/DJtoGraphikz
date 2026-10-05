@@ -84,6 +84,7 @@ import rgbdelayFrag from './shaders/rgbdelay.frag?raw'
 import chromaticFrag from './shaders/chromatic.frag?raw'
 import filmgrainFrag from './shaders/filmgrain.frag?raw'
 import halationFrag from './shaders/halation.frag?raw'
+import godraysFrag from './shaders/godrays.frag?raw'
 import anamorphicFrag from './shaders/anamorphic.frag?raw'
 import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
@@ -188,11 +189,12 @@ export type EffectId =
   | 'spaceghost'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
-  | 'anamorphic' | 'halation'
+  | 'anamorphic' | 'godrays' | 'halation'
 
 /** Cinema posts built on the half-res highlight buffer: prefilter threshold + blur passes [dirX, dirY, radius] */
 const CINEMA_BLOOM: Partial<Record<PostId, { threshold: number; blurs: [number, number, number][] }>> = {
   'halation': { threshold: 0.55, blurs: [[1, 0, 3], [0, 1, 3]] },
+  'godrays': { threshold: 0.5, blurs: [[1, 0, 2], [0, 1, 2]] },
   anamorphic: { threshold: 0.6, blurs: [[1, 0, 5], [1, 0, 12]] },
 }
 
@@ -1340,6 +1342,19 @@ export class Engine {
         tDiffuse: { value: null },
         tBloom: { value: null },
         uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+      }
+    }))
+    this.postMaterials.set('godrays', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: godraysFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        tBloom: { value: null },
+        uWet: { value: 1 },
+        uTime: { value: 0 },
+        uEnergy: { value: 0 },
         uBeat: { value: 0 },
         uColor1: { value: this.colors[0] },
       }
