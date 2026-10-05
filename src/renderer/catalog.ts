@@ -141,6 +141,16 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
     ],
   },
   {
+    name: 'Cinema',
+    effects: [
+      { id: 'anamorphic', label: 'Anamorphic', icon: '⟷', desc: 'Flare orizzontale blu sulle alte luci' },
+      { id: 'halation', label: 'Halation', icon: '◌', desc: 'Alone caldo attorno alle luci' },
+      { id: 'godrays', label: 'God Rays', icon: '☀', desc: 'Raggi radiali dalle alte luci' },
+      { id: 'cinegrade', label: 'Cine Grade', icon: '▭', desc: 'Curva a S, split-toning dalla palette, vignetta' },
+      { id: 'tiltshift', label: 'Tilt Shift', icon: '⎯', desc: 'Profondita di campo finta con bokeh' },
+    ],
+  },
+  {
     name: 'Frame',
     effects: [
       { id: 'frame-glitch', label: 'Frame Glitch', icon: '▤', desc: 'Righe che saltano, tear e bleed sui colpi' },
