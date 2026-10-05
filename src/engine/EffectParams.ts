@@ -353,6 +353,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'branches', label: 'Ramificazioni', min: 0, max: 2, default: 1 },
     { key: 'fog', label: 'Nuvole', min: 0.3, max: 2, default: 1 },
   ],
+  ribbons: [
+    { key: 'count', label: 'Nastri', min: 3, max: 14, default: 8 },
+    { key: 'curl', label: 'Avvolgimento', min: 0, max: 2, default: 1 },
+    { key: 'twist', label: 'Torsione', min: 0, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },

@@ -361,6 +361,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     branches: { source: 'energy', depth: 0.3, value: 1 },
     bolts: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
   },
+  ribbons: {
+    curl: { source: 'bass', depth: 0.4, value: 0.9 },
+    twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+    count: { source: 'energy', depth: 0.3, value: 8 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },

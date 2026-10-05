@@ -37,6 +37,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
     effects: [
       { id: 'fluid', label: 'Fluid', icon: '≋' },
       { id: 'plasma', label: 'Plasma', icon: '◈' },
+      { id: 'ribbons', label: 'Ribbons', icon: '∽' },
       { id: 'warp', label: 'Warp', icon: '∿' },
       { id: 'metaballs', label: 'Meta', icon: '●' },
       { id: 'fire', label: 'Fire', icon: '△' },
