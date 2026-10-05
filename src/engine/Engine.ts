@@ -85,6 +85,7 @@ import chromaticFrag from './shaders/chromatic.frag?raw'
 import filmgrainFrag from './shaders/filmgrain.frag?raw'
 import halationFrag from './shaders/halation.frag?raw'
 import godraysFrag from './shaders/godrays.frag?raw'
+import cinegradeFrag from './shaders/cinegrade.frag?raw'
 import anamorphicFrag from './shaders/anamorphic.frag?raw'
 import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
@@ -189,7 +190,7 @@ export type EffectId =
   | 'spaceghost'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
-  | 'anamorphic' | 'godrays' | 'halation'
+  | 'anamorphic' | 'cinegrade' | 'godrays' | 'halation'
 
 /** Cinema posts built on the half-res highlight buffer: prefilter threshold + blur passes [dirX, dirY, radius] */
 const CINEMA_BLOOM: Partial<Record<PostId, { threshold: number; blurs: [number, number, number][] }>> = {
@@ -1357,6 +1358,17 @@ export class Engine {
         uEnergy: { value: 0 },
         uBeat: { value: 0 },
         uColor1: { value: this.colors[0] },
+      }
+    }))
+    this.postMaterials.set('cinegrade', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: cinegradeFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+        uColor3: { value: this.colors[2] },
       }
     }))
   }
