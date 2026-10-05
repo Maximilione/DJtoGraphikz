@@ -97,7 +97,7 @@ export const FAMILY: Record<EffectId, Family> = {
   cage: 'object', cracks: 'grid', warehouse: 'tunnel', downpour: 'particles', eclipse: 'radial',
   blinds: 'grid',
   bounceball: 'object', pump: 'radial', roll: 'grid',
-  spaceghost: 'organic',
+  spaceghost: 'organic', galaxy: 'particles',
 }
 
 // shorthand builders keep the tables readable
@@ -241,6 +241,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'lasers', ['bloom'], { beams: v(5), spread: v(0.5), sweep: a(0.5, 'lfo-saw', 0.4, 16) }),
       s('peak', 'fire', ['bloom'], { falloff: v(1.1), turbulence: a(0.5, 'mid', 0.4), sparks: v(4) }),
       s('peak', 'vortex', ['bloom', 'feedback'], { speed: v(0.8), arms: v(4), twist: v(2.2), pull: a(0.6, 'bass', 0.4) }),
+      s('peak', 'galaxy', ['bloom', 'chromatic'], { arms: v(5), twist: v(1.2), burst: a(1.4, 'bass', 0.4) }),
       s('peak', 'flash', ['filmgrain'], { decay: v(2), scan: v(0.5), tint: v(0.5) }),
       s('peak', 'impact', ['bloom'], { rings: v(3), width: v(1.5), fade: v(0.8) }),
     ],
@@ -282,6 +283,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'shatter', ['bloom', 'chromatic'], { shards: v(16), burst: a(1.2, 'bass', 0.45), edgeglow: v(1) }),
       s('peak', 'impact', ['bloom'], { rings: v(4), width: v(1.2), fade: v(1) }),
       s('peak', 'raymarch', ['bloom', 'chromatic'], { repscale: v(2.2), glowk: a(1, 'energy', 0.5), camfov: a(1, 'bass', -0.25) }),
+      s('peak', 'galaxy', ['bloom', 'chromatic'], { arms: v(3), twist: a(2, 'lfo-sine', 0.3, 32), burst: a(1.2, 'bass', 0.5) }),
       s('peak', 'flash', ['bloom'], { decay: v(3), scan: v(0.4), tint: v(0.8) }),
       s('peak', 'fractal', ['bloom', 'chromatic'], { iterations: v(30), zoom: a(1.4, 'bass', 0.45), morph: a(0.22, 'lfo-saw', 0.4, 4) }),
       s('peak', 'pulsecity', ['bloom'], { columns: v(18), gapw: v(0.12), punch: a(1.5, 'bass', 0.4) }),
@@ -369,6 +371,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'rings', ['bloom'], { speed: v(1.3), ringcount: v(10), spacing: a(0.08, 'bass', 0.4), gapfreq: v(6) }),
       s('peak', 'vortex', ['bloom', 'feedback'], { arms: v(4), twist: v(1.8), pull: a(1, 'bass', 0.5) }),
       s('peak', 'fractal', ['bloom', 'chromatic'], { iterations: v(28), zoom: a(1.3, 'bass', 0.4), morph: a(0.2, 'lfo-sine', 0.4, 8) }),
+      s('peak', 'galaxy', ['bloom'], { arms: v(2), twist: v(2.4), burst: a(1, 'bass', 0.5) }),
       s('peak', 'shatter', ['bloom', 'chromatic'], { shards: v(14), burst: a(1.2, 'bass', 0.4), edgeglow: v(1) }),
       s('peak', 'flash', ['bloom'], { decay: v(2), scan: v(0.3), tint: v(1) }),
     ],
