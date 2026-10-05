@@ -52,6 +52,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
     effects: [
       { id: 'particles', label: 'Particle', icon: '⁂' },
       { id: 'swarm', label: 'Swarm', icon: '✺' },
+      { id: 'galaxy', label: 'Galaxy', icon: '✹' },
       { id: 'starfield', label: 'Stars', icon: '✧' },
       { id: 'waves', label: 'Waves', icon: '〰' },
       { id: 'pulsar', label: 'Pulsar', icon: '⩘' },

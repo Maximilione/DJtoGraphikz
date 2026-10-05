@@ -77,6 +77,8 @@ import bounceballFrag from './shaders/bounceball.frag?raw'
 import pumpFrag from './shaders/pump.frag?raw'
 import rollFrag from './shaders/roll.frag?raw'
 import spaceghostFrag from './shaders/spaceghost.frag?raw'
+import galaxyVert from './shaders/galaxy.vert?raw'
+import galaxyFrag from './shaders/galaxy.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -183,7 +185,7 @@ export type EffectId =
   | 'static' | 'cage' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
-  | 'spaceghost'
+  | 'spaceghost' | 'galaxy'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
 
@@ -448,6 +450,10 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
     passes: [{ frag: swarmSimFrag, buffer: 'P', rows: 192, cols: 192, nearest: true }],
     build: (u) => buildPointCloud(u, 192, swarmVert, swarmFrag),
   },
+  // 768x768 = 589,824 points, positioned analytically in the vertex shader:
+  // no simulation buffer, so the cost is vertex ALU plus additive fill. The
+  // count is the ceiling on integrated GPUs; the sprites are 1.5-8 px.
+  galaxy: { build: (u) => buildPointCloud(u, 768, galaxyVert, galaxyFrag) },
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']

@@ -333,6 +333,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 20, max: 60, default: 34 },
     { key: 'drift', label: 'Deriva', min: 0, max: 2, default: 1 },
   ],
+  galaxy: [
+    { key: 'arms', label: 'Bracci', min: 1, max: 6, default: 3 },
+    { key: 'twist', label: 'Torsione', min: 0, max: 4, default: 2 },
+    { key: 'burst', label: 'Esplosione', min: 0, max: 2, default: 1 },
+  ],
   reaction: [
     // measured on the projector: below feed 0.034 or above kill 0.064 the
     // chemistry dies to a black frame, below kill 0.060 it fills solid
