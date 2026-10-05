@@ -103,6 +103,7 @@ export const FAMILY: Record<EffectId, Family> = {
   ribbons: 'organic',
   beamfield: 'radial',
   android: 'object',
+  monolith: 'tunnel',
 }
 
 // shorthand builders keep the tables readable
@@ -262,6 +263,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('build', 'beamfield', ['bloom', 'filmgrain'], { beams: v(6), scan: a(0.8, 'energy', 0.5), haze: v(1.4) }),
       s('break', 'android', ['bloom', 'filmgrain'], { dissolve: v(0.2), panels: v(2), glow: a(0.8, 'energy', 0.5) }),
       s('peak', 'android', ['bloom', 'chromatic'], { dissolve: a(0.5, 'bass', 0.5), panels: v(2.5), glow: a(1.2, 'bass', 0.4) }),
+      s('groove', 'monolith', ['bloom', 'filmgrain'], { pulse: a(1, 'bass', 0.5), haze: v(1.2), width: v(0.9) }),
     ],
     palettes: [BLOOD, MONO, LAVA, STEEL],
     phraseBars: 8,
@@ -361,6 +363,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'ribbons', ['bloom'], { count: v(5), curl: v(0.7), twist: a(0.8, 'lfo-sine', 0.3, 64) }),
       s('break', 'android', ['bloom'], { dissolve: v(0.25), panels: v(1.5), glow: a(0.9, 'energy', 0.5) }),
       s('groove', 'android', ['bloom'], { dissolve: a(0.4, 'bass', 0.4), panels: v(2), glow: a(1, 'bass', 0.4) }),
+      s('break', 'monolith', ['bloom'], { pulse: v(0.6), haze: v(1.5), width: v(0.7) }),
     ],
     palettes: [ICE, VAPOR, FOREST, MONO, ANYMA],
     phraseBars: 16,
@@ -412,6 +415,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'beamfield', ['bloom', 'chromatic'], { beams: v(12), scan: v(1.2), haze: a(1.2, 'bass', 0.4) }),
       s('break', 'android', ['bloom'], { dissolve: v(0.3), panels: v(1.5), glow: a(1, 'energy', 0.5) }),
       s('peak', 'android', ['bloom', 'chromatic'], { dissolve: a(0.6, 'bass', 0.5), panels: v(2), glow: a(1.3, 'bass', 0.4) }),
+      s('build', 'monolith', ['bloom'], { pulse: a(0.8, 'energy', 0.5), haze: v(1.3), width: a(0.8, 'energy', 0.5) }),
+      s('peak', 'monolith', ['bloom', 'chromatic'], { pulse: a(1.4, 'bass', 0.5), haze: a(1.2, 'bass', 0.4), width: v(1.3) }),
     ],
     palettes: [AURORA, VAPOR, ICE, PASTEL, ANYMA],
     phraseBars: 8,
