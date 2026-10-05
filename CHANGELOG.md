@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.67.0-beta] — 2026-10-05
+
+### Added
+- **Mesh 3D**: effetto `mesh` che carica modelli GLB/GLTF, OBJ, STL, PLY, FBX (dialog dal pannello parametri o dalla libreria Media). Tre look (filo neon, punti, metallo con riflessi), kick = esplosione dei vertici, bassi = scala, alti = scintillio. Senza modello mostra un toro-nodo procedurale. Il modello viaggia nello snapshot, la finestra output lo rilegge. I `.gltf` funzionano solo con buffer incorporati.
+- **Sequenze di immagini**: cartella di frame numerati (PNG, JPG, WebP, AVIF; EXR/DPX/TIFF convertiti in PNG a 8 bit con `sips` su macOS) come overlay animato (fps o loop da 1–32 battute) e come clip del Deck B agganciata al BPM. Finestra scorrevole con tetto di RAM per le sequenze 4K. `check:sequenza`.
+- **4 effetti**: `mandelbulb` (frattale 3D con dive ciclico), `storm` (fulmini ramificati su cielo di nuvole), `ribbons` (nastri tipo aurora), `beamfield` (rig laser da palco nella nebbia). Inseriti nelle scene dell'Auto VJ.
+
 ## [0.66.0-beta] — 2026-10-05
 
 ### Added
