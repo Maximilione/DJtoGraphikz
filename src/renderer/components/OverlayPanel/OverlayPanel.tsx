@@ -3,6 +3,7 @@ import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
+import { IMAGE_RE, imageMime } from '../../../shared/mediaFormats'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -22,14 +23,9 @@ function mediaBadge(overlay: OverlayItem): string {
   return 'IMG'
 }
 
-export const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i
+export { IMAGE_RE }
 
-function mimeFor(name: string): string {
-  const ext = name.split('.').pop()?.toLowerCase() || 'png'
-  if (ext === 'svg') return 'image/svg+xml'
-  if (ext === 'jpg') return 'image/jpeg'
-  return `image/${ext}`
-}
+const mimeFor = imageMime
 
 /** A library file → the data URL the Engine's addOverlay wants */
 export async function readLibraryImage(path: string, name: string): Promise<string> {
