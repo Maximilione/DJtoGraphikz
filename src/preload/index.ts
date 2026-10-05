@@ -19,6 +19,7 @@ const api = {
 
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
+  pickSequence: (): Promise<{ name: string; dir: string; paths: string[]; note?: string } | null> => ipcRenderer.invoke('asset:pick-sequence'),
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
   pickModels: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-model'),
   readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),

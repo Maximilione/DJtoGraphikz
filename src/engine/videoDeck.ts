@@ -17,6 +17,10 @@ export interface VideoClip {
   name: string
   /** BPM the clip was cut at: playbackRate = live BPM / this. */
   bpm: number
+  /** Image sequence instead of a file: ordered frame paths (`path` is then the folder). */
+  frames?: string[]
+  /** Frames per second of the sequence (default 30); with `bpm` it sets the loop length. */
+  fps?: number
 }
 
 export interface VideoDeck {

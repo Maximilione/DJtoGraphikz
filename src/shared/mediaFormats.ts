@@ -12,11 +12,26 @@ export const VIDEO_EXT = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv', 'ogg', '3gp
 /** 3D models for the `mesh` effect (GLTF only when self-contained: .glb or embedded buffers). */
 export const MODEL_EXT = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx']
 
+/**
+ * Image sequences (a folder of numbered frames, e.g. TouchDesigner/Blender/AE
+ * renders). Frames Chromium decodes as they are; PNG/WebP/AVIF keep alpha.
+ */
+export const SEQ_NATIVE = ['png', 'jpg', 'jpeg', 'webp', 'avif']
+/**
+ * Not decodable by Chromium. On macOS they are converted to PNG with `sips`
+ * (EXR/DPX are 16/32-bit: sips tone-maps them to 8-bit, the HDR range is lost);
+ * elsewhere the folder is rejected with a message. Convert upstream (ffmpeg,
+ * oiiotool) if you need them on Windows/Linux.
+ */
+export const SEQ_CONVERT = ['exr', 'dpx', 'tif', 'tiff']
+
 const alt = (l: string[]) => new RegExp(`\\.(${l.join('|')})$`, 'i')
 export const IMAGE_RE = alt(IMAGE_NATIVE)
 export const VIDEO_RE = alt(VIDEO_EXT)
 export const MODEL_RE = alt(MODEL_EXT)
 export const CONVERT_RE = alt(IMAGE_CONVERT)
+export const SEQ_RE = alt(SEQ_NATIVE)
+export const SEQ_CONVERT_RE = alt(SEQ_CONVERT)
 
 export function imageMime(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() || 'png'

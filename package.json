@@ -25,6 +25,7 @@
     "check:momentary": "node scripts/check-momentary.mjs",
     "check:intensity": "node scripts/check-intensity.mjs",
     "check:mappings": "node scripts/check-mappings.mjs",
+    "check:sequenza": "node scripts/check-sequenza.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
     "check:phone": "node scripts/check-phone.mjs",
     "check:phoneseq": "node scripts/check-phoneseq.mjs",
