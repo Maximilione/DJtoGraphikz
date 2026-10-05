@@ -86,6 +86,7 @@ import filmgrainFrag from './shaders/filmgrain.frag?raw'
 import halationFrag from './shaders/halation.frag?raw'
 import godraysFrag from './shaders/godrays.frag?raw'
 import cinegradeFrag from './shaders/cinegrade.frag?raw'
+import tiltshiftFrag from './shaders/tiltshift.frag?raw'
 import anamorphicFrag from './shaders/anamorphic.frag?raw'
 import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
@@ -190,7 +191,7 @@ export type EffectId =
   | 'spaceghost'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
-  | 'anamorphic' | 'cinegrade' | 'godrays' | 'halation'
+  | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
 
 /** Cinema posts built on the half-res highlight buffer: prefilter threshold + blur passes [dirX, dirY, radius] */
 const CINEMA_BLOOM: Partial<Record<PostId, { threshold: number; blurs: [number, number, number][] }>> = {
@@ -1369,6 +1370,16 @@ export class Engine {
         uBeat: { value: 0 },
         uColor1: { value: this.colors[0] },
         uColor3: { value: this.colors[2] },
+      }
+    }))
+    this.postMaterials.set('tiltshift', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: tiltshiftFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uEnergy: { value: 0 },
+        uResolution: { value: this.resolution },
       }
     }))
   }
