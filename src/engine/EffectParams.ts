@@ -343,6 +343,26 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'morph', label: 'Deformazione', min: 0, max: 2, default: 1 },
     { key: 'shine', label: 'Lucentezza', min: 0.4, max: 1.6, default: 1 },
   ],
+  mandelbulb: [
+    { key: 'power', label: 'Potenza', min: 3, max: 10, default: 8 },
+    { key: 'zoom', label: 'Zoom', min: 0.6, max: 2, default: 1 },
+    { key: 'glow', label: 'Alone', min: 0.3, max: 2, default: 1 },
+  ],
+  storm: [
+    { key: 'bolts', label: 'Fulmini', min: 1, max: 4, default: 2 },
+    { key: 'branches', label: 'Ramificazioni', min: 0, max: 2, default: 1 },
+    { key: 'fog', label: 'Nuvole', min: 0.3, max: 2, default: 1 },
+  ],
+  ribbons: [
+    { key: 'count', label: 'Nastri', min: 3, max: 14, default: 8 },
+    { key: 'curl', label: 'Avvolgimento', min: 0, max: 2, default: 1 },
+    { key: 'twist', label: 'Torsione', min: 0, max: 2, default: 1 },
+  ],
+  beamfield: [
+    { key: 'beams', label: 'Fasci', min: 4, max: 12, default: 8 },
+    { key: 'scan', label: 'Scansione', min: 0, max: 2, default: 1 },
+    { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
