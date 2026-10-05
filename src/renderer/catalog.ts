@@ -141,6 +141,12 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
     ],
   },
   {
+    name: 'Cinema',
+    effects: [
+      { id: 'anamorphic', label: 'Anamorphic', icon: '⟷', desc: 'Flare orizzontale blu sulle alte luci' },
+    ],
+  },
+  {
     name: 'Frame',
     effects: [
       { id: 'frame-glitch', label: 'Frame Glitch', icon: '▤', desc: 'Righe che saltano, tear e bleed sui colpi' },

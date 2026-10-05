@@ -83,6 +83,7 @@ import feedbackFrag from './shaders/feedback.frag?raw'
 import rgbdelayFrag from './shaders/rgbdelay.frag?raw'
 import chromaticFrag from './shaders/chromatic.frag?raw'
 import filmgrainFrag from './shaders/filmgrain.frag?raw'
+import anamorphicFrag from './shaders/anamorphic.frag?raw'
 import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
 import mirrorFrag from './shaders/mirror.frag?raw'
@@ -186,6 +187,12 @@ export type EffectId =
   | 'spaceghost'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
+  | 'anamorphic'
+
+/** Cinema posts built on the half-res highlight buffer: prefilter threshold + blur passes [dirX, dirY, radius] */
+const CINEMA_BLOOM: Partial<Record<PostId, { threshold: number; blurs: [number, number, number][] }>> = {
+  anamorphic: { threshold: 0.6, blurs: [[1, 0, 5], [1, 0, 12]] },
+}
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
 const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
@@ -1309,6 +1316,19 @@ export class Engine {
         uBeat: { value: 0 },
         uColor1: { value: this.colors[0] },
         uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('anamorphic', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: anamorphicFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        tBloom: { value: null },
+        uWet: { value: 1 },
+        uEnergy: { value: 0 },
+        uBeat: { value: 0 },
+        uColor2: { value: this.colors[1] },
       }
     }))
   }
@@ -3038,6 +3058,8 @@ export class Engine {
 
       if (entry.id === 'bloom') {
         this.renderBloom(read, write, wet)
+      } else if (CINEMA_BLOOM[entry.id]) {
+        this.renderBloomPost(entry.id, read, write, wet)
       } else {
         const pu = mat.uniforms
         pu.tDiffuse.value = read.texture
@@ -3206,6 +3228,39 @@ export class Engine {
     cu.uEnergy.value = this.smoothEnergy
     cu.uWet.value = amount
     this.renderPass(this.postMaterials.get('bloom')!, write)
+  }
+
+  /**
+   * Cinema posts that read a half-res highlight buffer (prefilter, then the
+   * blur passes listed in CINEMA_BLOOM) and composite it over the image.
+   */
+  private renderBloomPost(id: PostId, read: THREE.WebGLRenderTarget, write: THREE.WebGLRenderTarget, wet: number) {
+    const spec = CINEMA_BLOOM[id]!
+    const pu = this.bloomPrefilterMaterial.uniforms
+    pu.tDiffuse.value = read.texture
+    pu.uThreshold.value = spec.threshold
+    this.renderPass(this.bloomPrefilterMaterial, this.rtBloomA)
+    pu.uThreshold.value = 0.55
+
+    const bu = this.blurMaterial.uniforms
+    let src = this.rtBloomA, dst = this.rtBloomB
+    for (const [dx, dy, radius] of spec.blurs) {
+      bu.tDiffuse.value = src.texture
+      bu.uDirection.value.set(dx, dy)
+      bu.uRadius.value = radius
+      this.renderPass(this.blurMaterial, dst)
+      const t = src; src = dst; dst = t
+    }
+    bu.uRadius.value = 1.5
+
+    const u = this.postMaterials.get(id)!.uniforms
+    u.tDiffuse.value = read.texture
+    u.tBloom.value = src.texture
+    u.uWet.value = wet
+    u.uEnergy && (u.uEnergy.value = this.smoothEnergy)
+    u.uBeat && (u.uBeat.value = this.beatPulse)
+    u.uTime && (u.uTime.value = this.effectTime)
+    this.renderPass(this.postMaterials.get(id)!, write)
   }
 
   private renderMaster(texture: THREE.Texture) {
