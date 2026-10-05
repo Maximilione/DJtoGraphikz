@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.66.0-beta] — 2026-10-05
+
+### Added
+- **4 effetti 3D**: `galaxy` (590k particelle GPU a bracci di spirale, onda d'urto sul kick), `cathedral` (navata gotica raymarched con god rays veri), `chrome` (goccia di mercurio liquido con riflessi e iridescenza), `crystals` (tunnel di cristalli con rifrazione e dispersione). Inseriti nelle scene dell'Auto VJ.
+- **5 post cinema** (categoria Cinema): `anamorphic` (streak orizzontale), `halation`, `godrays`, `cinegrade` (curva S, split-toning dalla palette, vignette), `tiltshift` (bokeh). Tre catene pronte C1–C3 per le scalette.
+- **Strato Impatto** (pannello sotto Camera): shake sul kick, punch-zoom elastico sul beat, flash su colpi alti e sul drop, risposta per banda (bassi shake/zoom, medi distorsione, alti chromatic/scintillio), inseguitore d'energia per fase. Logica pura in `src/engine/impact.ts`, `check:reactivity`.
+
+### Fixed
+- `camera.frag`: `mirrorFold` ribaltava l'immagine di 180 gradi (mancava `1.0 -`).
+
 ## [0.65.0-beta] — 2026-10-05
 
 ### Added
