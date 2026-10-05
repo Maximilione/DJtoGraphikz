@@ -26,6 +26,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'neonpoly', label: 'Neon', icon: '⬠' },
       { id: 'truchet', label: 'Truchet', icon: '◜' },
       { id: 'quasicrystal', label: 'Quasi', icon: '❉' },
+      { id: 'crystals', label: 'Crystals', icon: '◆' },
       { id: 'cathedral', label: 'Cathedral', icon: '✝' },
       { id: 'stringart', label: 'String', icon: '✴' },
     ],

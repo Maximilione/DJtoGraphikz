@@ -97,7 +97,7 @@ export const FAMILY: Record<EffectId, Family> = {
   cage: 'object', cracks: 'grid', warehouse: 'tunnel', downpour: 'particles', eclipse: 'radial',
   blinds: 'grid',
   bounceball: 'object', pump: 'radial', roll: 'grid',
-  spaceghost: 'organic', galaxy: 'particles', chrome: 'object', cathedral: 'tunnel',
+  spaceghost: 'organic', galaxy: 'particles', crystals: 'tunnel', chrome: 'object', cathedral: 'tunnel',
 }
 
 // shorthand builders keep the tables readable
@@ -265,6 +265,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'inkflow', ['filmgrain'], { inkscale: v(2.2), flowspd: a(0.6, 'bass', 0.3), inkcontrast: v(1.3) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(1), swirl: v(1.6), dissipate: v(0.25) }),
       s('build', 'spiral', ['bloom'], { speed: a(0.4, 'energy', 0.8), arms: v(6), twist: v(12), pulse: v(0.2) }),
+      s('build', 'crystals', ['bloom', 'chromatic'], { facets: v(9), dispersion: a(1, 'energy', 0.5), size: v(0.9) }),
       s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.6, 'energy', 0.6), wobble: v(1) }),
       s('build', 'quasicrystal', ['bloom', 'chromatic'], { speed: a(0.5, 'energy', 0.8), waves: v(9), qfreq: v(80), contrast: v(0.5) }),
       s('groove', 'spiral', ['filmgrain'], { arms: v(3), twist: a(7, 'lfo-sine', 0.3, 16), pulse: v(0.4) }),
@@ -336,6 +337,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'impact', ['bloom'], { rings: v(2), width: v(2), fade: v(0.6) }),
       s('peak', 'quasicrystal', ['bloom', 'chromatic'], { waves: v(7), qfreq: a(40, 'lfo-sine', 0.3, 64), contrast: v(0.35) }),
       s('peak', 'cracks', ['bloom'], { cells: v(6), width: v(1.2), glow: a(0.8, 'bass', 0.5) }),
+      s('peak', 'crystals', ['bloom'], { facets: v(6), dispersion: v(0.9), size: v(1) }),
     ],
     palettes: [ICE, VAPOR, FOREST, MONO],
     phraseBars: 16,
@@ -378,6 +380,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'vortex', ['bloom', 'feedback'], { arms: v(4), twist: v(1.8), pull: a(1, 'bass', 0.5) }),
       s('peak', 'fractal', ['bloom', 'chromatic'], { iterations: v(28), zoom: a(1.3, 'bass', 0.4), morph: a(0.2, 'lfo-sine', 0.4, 8) }),
       s('peak', 'galaxy', ['bloom'], { arms: v(2), twist: v(2.4), burst: a(1, 'bass', 0.5) }),
+      s('peak', 'crystals', ['bloom', 'chromatic'], { facets: v(8), dispersion: a(1.2, 'energy', 0.4), size: a(1, 'bass', 0.4) }),
       s('peak', 'shatter', ['bloom', 'chromatic'], { shards: v(14), burst: a(1.2, 'bass', 0.4), edgeglow: v(1) }),
       s('peak', 'flash', ['bloom'], { decay: v(2), scan: v(0.3), tint: v(1) }),
     ],
