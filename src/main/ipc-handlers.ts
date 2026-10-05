@@ -1,10 +1,11 @@
 import { BrowserWindow, ipcMain, dialog, net } from 'electron'
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, existsSync, readdirSync, unlinkSync } from 'fs'
 import { statfs } from 'fs/promises'
 import { basename, join } from 'path'
 import { homedir, tmpdir } from 'os'
 import { execFileSync } from 'child_process'
-import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, CONVERT_RE, imageMime } from '../shared/mediaFormats'
+import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, CONVERT_RE, SEQ_RE, SEQ_CONVERT_RE, imageMime } from '../shared/mediaFormats'
+import { sortNatural } from '../shared/imageSequence'
 import { inflateRawSync } from 'zlib'
 
 const USER_DATA_DIR = join(homedir(), '.djtographikz')
@@ -184,6 +185,34 @@ export function setupIpcHandlers(
     })
     if (result.canceled) return []
     return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
+  // A folder of numbered frames. One sequence per folder; frames are streamed
+  // by the renderer over djg-media, so only paths cross IPC.
+  ipcMain.handle('asset:pick-sequence', async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || !result.filePaths[0]) return null
+    const dir = result.filePaths[0]
+    const files = readdirSync(dir)
+    const native = files.filter(f => SEQ_RE.test(f))
+    const foreign = files.filter(f => SEQ_CONVERT_RE.test(f))
+    const name = basename(dir)
+    if (native.length) {
+      const note = foreign.length ? `${foreign.length} file EXR/DPX/TIFF ignorati: una sola sequenza per cartella` : undefined
+      return { name, dir, paths: sortNatural(native).map(f => join(dir, f)), note }
+    }
+    if (!foreign.length) return { name, dir, paths: [], note: 'nessun frame PNG/JPG/WebP/AVIF nella cartella' }
+    if (process.platform !== 'darwin') {
+      return { name, dir, paths: [], note: 'EXR/DPX/TIFF non si leggono qui: convertili in PNG (ffmpeg, oiiotool) e riprova' }
+    }
+    // macOS: sips → PNG in a temp folder, one call for the whole sequence
+    const out = mkdtempSync(join(tmpdir(), 'djg-seq-'))
+    try {
+      execFileSync('/usr/bin/sips', ['-s', 'format', 'png', ...sortNatural(foreign).map(f => join(dir, f)), '--out', out], { stdio: 'ignore' })
+    } catch { /* partial output is still usable: judge by what landed */ }
+    const pngs = sortNatural(readdirSync(out).filter(f => /\.png$/i.test(f))).map(f => join(out, f))
+    if (!pngs.length) return { name, dir, paths: [], note: 'conversione con sips fallita: converti i frame in PNG' }
+    return { name, dir, paths: pngs, note: 'frame convertiti in PNG a 8 bit (sips)' }
   })
 
   ipcMain.handle('asset:read-file', async (_event, filePath: string) => {

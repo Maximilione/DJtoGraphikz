@@ -7,7 +7,9 @@ import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type A
 import { recommendedFor } from './recommendedMappings'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
-import { type VideoDeck, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
+import { SequencePlayer } from './SequencePlayer'
+import { frameAtTime, frameAtBeat, frameAtDeck, SEQ_DEFAULT_FPS } from '../shared/imageSequence'
+import { type VideoDeck, type VideoClip, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
 import kaleidoscopeFrag from './shaders/kaleidoscope.frag?raw'
@@ -158,7 +160,13 @@ export interface OverlayItem {
     | { kind: 'video'; path: string }
     | { kind: 'webcam'; deviceId?: string }
     | { kind: 'text'; text: string; font?: string; color?: string; size?: number }
+    | { kind: 'sequence'; paths: string[]; fps: number; beats: number }
+  /** Image sequence: frames per second, and beats per loop (0 = free-running at fps). */
+  seqFps?: number
+  seqBeats?: number
   // Internal — managed by engine
+  _seq?: SequencePlayer
+  _seqStart?: number
   _texture?: THREE.Texture
   _canvas?: HTMLCanvasElement
   _isGif?: boolean
@@ -518,7 +526,9 @@ export class Engine {
   private deckVideo: HTMLVideoElement | null = null
   private deckVideoTex: THREE.VideoTexture | null = null
   private deckVideoPath = ''        // what the <video> is loading/playing
-  private deckVideoSeek = false     // clipStartBeat changed: seek on the next ready frame
+  private deckSeq: SequencePlayer | null = null   // deck B clip that is an image sequence
+  private deckSeqKey = ''
+  private deckVideoSeek = false    // clipStartBeat changed: seek on the next ready frame
   private prevBarPhase = 0
 
   // Master stage (always on)
@@ -1915,6 +1925,29 @@ export class Engine {
     this.setVideoDeck({ clips, enabled: true })
   }
 
+  /** A frame folder as a clip; plays at `fps`, tempo-locked through the clip's native BPM like a video. */
+  addSequenceClip(seq: { name: string; dir: string; paths: string[] }, fps = SEQ_DEFAULT_FPS) {
+    const bpm = Math.round(this.audioAnalyzer.getData().bpm || 128)
+    const clips = [...this.videoDeck.clips, { path: seq.dir, name: seq.name, bpm, frames: seq.paths, fps }]
+    this.setVideoDeck({ clips, enabled: true })
+  }
+
+  /** Sequence clip on deck B: the player lives while the clip is current. */
+  private tickDeckSeq(clip: VideoClip & { frames: string[] }): THREE.Texture | null {
+    if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
+    if (!this.deckSeq || this.deckSeqKey !== clip.path) {
+      this.deckSeq?.dispose()
+      const p = new SequencePlayer(clip.frames)
+      this.deckSeq = p
+      this.deckSeqKey = clip.path
+      p.ready().catch(err => console.error('[Engine] sequenza deck illeggibile:', clip.path, err))
+    }
+    const p = this.deckSeq
+    if (!p.hasFrame) return null
+    p.show(frameAtDeck(this.beatClock, this.videoDeck.clipStartBeat, clip.bpm, clip.fps || SEQ_DEFAULT_FPS, p.count))
+    return p.texture
+  }
+
   private syncDeckVideo(state: VideoDeck) {
     const wasStart = this.videoDeck.clipStartBeat
     this.videoDeck = state
@@ -1953,8 +1986,11 @@ export class Engine {
     const clip = d.enabled ? d.clips[d.clip] : undefined
     if (!clip) {
       if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
+      if (this.deckSeq) { this.deckSeq.dispose(); this.deckSeq = null; this.deckSeqKey = '' }
       return null
     }
+    if (clip.frames) return this.tickDeckSeq(clip as VideoClip & { frames: string[] })
+    if (this.deckSeq) { this.deckSeq.dispose(); this.deckSeq = null; this.deckSeqKey = '' }
     if (clip.path !== this.deckVideoPath) this.loadDeckClip(clip.path)
     const v = this.deckVideo!
     const rate = playbackRate(bpm, clip.bpm)
@@ -2336,6 +2372,43 @@ export class Engine {
     return overlay
   }
 
+  /**
+   * A folder of numbered frames as an overlay. Both windows build their own
+   * SequencePlayer from the path list (streamed over djg-media, nothing big
+   * over IPC); beat-locked loops read the shared beatClock.
+   */
+  async addSequenceOverlay(
+    name: string,
+    source: { kind: 'sequence'; paths: string[]; fps: number; beats: number },
+    existingId?: string
+  ): Promise<OverlayItem> {
+    const id = existingId || `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const seq = new SequencePlayer(source.paths)
+    try { await seq.ready() } catch (err) { seq.dispose(); throw err }
+
+    const overlay: OverlayItem = {
+      id, name, dataUrl: '',
+      opacity: 1.0, scale: 1.0, offsetX: 0, offsetY: 0,
+      visible: true, gifSync: 'free', displace: 0,
+      source, seqFps: source.fps, seqBeats: source.beats,
+      _texture: seq.texture!,
+      _seq: seq,
+      _seqStart: performance.now(),
+    }
+    this.overlays.push(overlay)
+
+    if (!this.remote) {
+      try {
+        window.api?.sendOverlayAdd({
+          id, name, dataUrl: '', opacity: overlay.opacity, scale: overlay.scale,
+          offsetX: overlay.offsetX, offsetY: overlay.offsetY, visible: overlay.visible,
+          gifSync: overlay.gifSync, displace: overlay.displace, source,
+        })
+      } catch (_) {}
+    }
+    return overlay
+  }
+
   /** Text rendered to a canvas, then straight into the normal overlay pipeline. */
   addTextOverlay(
     text: string,
@@ -2401,6 +2474,7 @@ export class Engine {
       if (video.src.startsWith('blob:')) URL.revokeObjectURL(video.src)
       video.removeAttribute('src')
     }
+    overlay._seq?.dispose()
     overlay._texture?.dispose()
   }
 
@@ -2417,7 +2491,7 @@ export class Engine {
     return this.overlays
   }
 
-  updateOverlay(id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace'>>) {
+  updateOverlay(id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace' | 'seqFps' | 'seqBeats'>>) {
     const overlay = this.overlays.find(o => o.id === id)
     if (overlay) {
       Object.assign(overlay, updates)
@@ -2992,6 +3066,13 @@ export class Engine {
           }
         }
 
+        if (overlay._seq) {
+          const n = overlay._seq.count
+          overlay._seq.show(overlay.seqBeats
+            ? frameAtBeat(this.beatClock, overlay.seqBeats, n)
+            : frameAtTime(performance.now() - (overlay._seqStart || 0), overlay.seqFps || SEQ_DEFAULT_FPS, n))
+        }
+
         const ou = this.overlayMaterial.uniforms
         ou.tDiffuse.value = src.texture
         ou.tOverlay.value = overlay._texture
@@ -3351,6 +3432,7 @@ export class Engine {
     this.deckMixMaterial.dispose()
     if (this.deckVideo) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideo = null }
     this.deckVideoTex?.dispose(); this.deckVideoTex = null
+    this.deckSeq?.dispose(); this.deckSeq = null
     this.masterMaterial.dispose()
     this.pixelRT?.dispose()
     this.motionBlurMaterial.dispose()
