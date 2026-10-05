@@ -189,7 +189,15 @@ export class AudioAnalyzer {
       this.stream = await navigator.mediaDevices.getUserMedia(constraints)
     } catch (err) {
       console.error('[AudioAnalyzer] getUserMedia failed:', err)
-      throw err
+      // Stale deviceId (card replugged → new id): retrying the same exact id
+      // loops forever. Fall back to the system default and forget the id.
+      const name = (err as DOMException)?.name
+      if (!deviceId || (name !== 'OverconstrainedError' && name !== 'NotFoundError')) throw err
+      console.warn('[AudioAnalyzer] device id gone — falling back to default input')
+      this.lastDeviceId = undefined
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      })
     }
     console.log('[AudioAnalyzer] Got stream, tracks:', this.stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
 
