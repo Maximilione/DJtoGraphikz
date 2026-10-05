@@ -341,6 +341,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     flow: { source: 'energy', depth: 0.4, value: 0.3 },
     lines: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 40 },
   },
+  cathedral: {
+    rays: { source: 'bass', depth: 0.5, value: 0.8 },
+    density: { source: 'energy', depth: 0.3, value: 0.8 },
+    sway: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+  },
   galaxy: {
     burst: { source: 'bass', depth: 0.5, value: 0.8 },
     twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },

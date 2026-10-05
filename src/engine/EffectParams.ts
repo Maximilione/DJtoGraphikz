@@ -333,6 +333,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 20, max: 60, default: 34 },
     { key: 'drift', label: 'Deriva', min: 0, max: 2, default: 1 },
   ],
+  cathedral: [
+    { key: 'density', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
+    { key: 'rays', label: 'Raggi', min: 0.3, max: 2.5, default: 1 },
+    { key: 'sway', label: 'Oscillazione', min: 0, max: 2, default: 1 },
+  ],
   galaxy: [
     { key: 'arms', label: 'Bracci', min: 1, max: 6, default: 3 },
     { key: 'twist', label: 'Torsione', min: 0, max: 4, default: 2 },

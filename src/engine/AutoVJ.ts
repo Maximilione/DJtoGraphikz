@@ -97,7 +97,7 @@ export const FAMILY: Record<EffectId, Family> = {
   cage: 'object', cracks: 'grid', warehouse: 'tunnel', downpour: 'particles', eclipse: 'radial',
   blinds: 'grid',
   bounceball: 'object', pump: 'radial', roll: 'grid',
-  spaceghost: 'organic', galaxy: 'particles',
+  spaceghost: 'organic', galaxy: 'particles', cathedral: 'tunnel',
 }
 
 // shorthand builders keep the tables readable
@@ -224,6 +224,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'cracks', ['bloom'], { cells: v(8), width: v(1), glow: a(1, 'bass', 0.6) }),
       s('groove', 'blinds', ['filmgrain'], { slats: v(14), open: a(0.5, 'bass', 0.5), tilt: v(0.2) }),
       s('groove', 'cage', ['bloom', 'chromatic'], { size: v(1), thickness: v(2), spin: v(0.6) }),
+      s('groove', 'cathedral', ['bloom'], { density: v(1.4), rays: a(1, 'bass', 0.5), sway: v(0.6) }),
       s('groove', 'pulsar', ['bloom'], { lines: v(40), peaks: a(1.3, 'bass', 0.5), flow: v(0.5) }),
       s('groove', 'matrix', ['bloom', 'scanlines'], { cols: v(48), fallspeed: a(1, 'bass', 0.4), trailfade: v(0.85) }),
       s('groove', 'grid', ['bloom', 'scanlines'], { density: v(1.6), fogamt: a(0.25, 'energy', 0.3), wavefreq: a(2, 'bass', 0.35) }),
@@ -307,6 +308,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'caustics', ['bloom'], { causticscale: v(1.4), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.1) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.7), swirl: v(1), dissipate: v(0.4) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.3), corona: v(0.6), wobble: v(0.2) }),
+      s('break', 'cathedral', ['bloom'], { density: v(1.3), rays: v(0.8), sway: a(0.8, 'lfo-sine', 0.3, 32) }),
       s('build', 'stringart', ['bloom'], { speed: a(0.5, 'energy', 0.6), nodes: v(120), multiplier: v(2.4), linew: v(0.6) }),
       s('build', 'eclipse', ['bloom'], { radius: v(0.3), corona: a(0.8, 'energy', 0.6), wobble: v(0.3) }),
       s('build', 'blinds', ['filmgrain'], { slats: v(20), open: a(0.15, 'energy', 0.8), tilt: v(0.5) }),
@@ -353,6 +355,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('build', 'starfield', ['bloom'], { speed: a(0.6, 'energy', 0.9), tile: v(6), density: v(0.5) }),
       s('build', 'eclipse', ['bloom'], { radius: v(0.24), corona: a(1.4, 'energy', 0.7), wobble: v(0.4) }),
       s('build', 'sacred', ['bloom'], { speed: a(0.5, 'energy', 0.7), zoom: v(1.4), radius: v(0.32), ringfreq: v(9) }),
+      s('build', 'cathedral', ['bloom'], { density: v(1.1), rays: a(1.2, 'energy', 0.5), sway: v(1) }),
       s('groove', 'stringart', ['bloom'], { nodes: v(96), multiplier: a(3.2, 'lfo-saw', 0.3, 64), linew: v(0.8) }),
       s('groove', 'kaleidoscope', ['bloom', 'chromatic'], { segments: v(12), zoom: a(1.1, 'lfo-sine', 0.35, 16), detail: v(2.4) }),
       s('groove', 'mandala', ['bloom', 'feedback'], { symmetry: v(12), ringfreq: a(6, 'bass', 0.35) }),
