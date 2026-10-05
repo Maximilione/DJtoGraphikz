@@ -2,7 +2,9 @@ import { BrowserWindow, ipcMain, dialog, net } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'fs'
 import { statfs } from 'fs/promises'
 import { basename, join } from 'path'
-import { homedir } from 'os'
+import { homedir, tmpdir } from 'os'
+import { execFileSync } from 'child_process'
+import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, CONVERT_RE, imageMime } from '../shared/mediaFormats'
 import { inflateRawSync } from 'zlib'
 
 const USER_DATA_DIR = join(homedir(), '.djtographikz')
@@ -178,7 +180,7 @@ export function setupIpcHandlers(
   ipcMain.handle('asset:pick-video', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Video', extensions: ['mp4', 'mov', 'webm', 'mkv', 'm4v'] }]
+      filters: [{ name: 'Video', extensions: VIDEO_EXT }]
     })
     if (result.canceled) return []
     return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
@@ -193,19 +195,27 @@ export function setupIpcHandlers(
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'gif', 'webp'] }
+        { name: 'Immagini', extensions: process.platform === 'darwin' ? [...IMAGE_NATIVE, ...IMAGE_CONVERT] : IMAGE_NATIVE }
       ]
     })
     if (result.canceled) return []
-    return result.filePaths.map(filePath => {
-      const data = readFileSync(filePath)
-      const ext = filePath.split('.').pop() || 'png'
-      const name = basename(filePath) || 'asset'
-      return {
-        name,
-        ext,
-        data: `data:image/${ext === 'svg' ? 'svg+xml' : ext};base64,${data.toString('base64')}`
+    const out: { name: string; ext: string; data: string }[] = []
+    for (const filePath of result.filePaths) {
+      let path = filePath
+      let name = basename(filePath) || 'asset'
+      // HEIC/TIFF/PSD/RAW...: Chromium can't decode them, macOS can. sips → PNG.
+      if (CONVERT_RE.test(path)) {
+        if (process.platform !== 'darwin') continue
+        const png = join(tmpdir(), `djg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`)
+        try {
+          execFileSync('/usr/bin/sips', ['-s', 'format', 'png', path, '--out', png], { stdio: 'ignore' })
+        } catch { continue }
+        path = png
+        name = name.replace(/\.[^.]+$/, '') + '.png'
       }
-    })
+      const data = readFileSync(path)
+      out.push({ name, ext: name.split('.').pop() || 'png', data: `data:${imageMime(name)};base64,${data.toString('base64')}` })
+    }
+    return out
   })
 }

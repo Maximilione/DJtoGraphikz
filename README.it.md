@@ -60,7 +60,7 @@ Tutto è sulla tastiera (tabella sotto) e **tieni premuto = momentaneo**: un toc
 
 ### Scalette e media
 
-**Scalette**: una sequenza di look, ognuno con la sua durata (secondi, battute, a ogni canzone, o a mano con `N` / `Shift+N`) e la sua transizione, e la sua grafica per passo: immagini, GIF e testi che compaiono con il passo e spariscono col successivo. Tre scalette pronte da 80 minuti (hard tekno, bounce techno, techno) in `docs/scalette/live-4h.json` (Scalette > Importa). Pannello **Media**: immagini/GIF (a tempo), video, webcam e testo come overlay con tutta la catena post. **Deck B** con crossfader: un secondo effetto (5 blend, **maschere** split/radiale/luma/audio) o un **deck video**, una playlist di clip mp4/webm agganciate al BPM.
+**Scalette**: una sequenza di look, ognuno con la sua durata (secondi, battute, a ogni canzone, o a mano con `N` / `Shift+N`) e la sua transizione, e la sua grafica per passo: immagini, GIF e testi che compaiono con il passo e spariscono col successivo. Tre scalette pronte da 80 minuti (hard tekno, bounce techno, techno) in `docs/scalette/live-4h.json` (Scalette > Importa). Pannello **Media**: immagini (PNG, JPEG, GIF/APNG, WebP, AVIF, SVG, BMP, ICO; su macOS anche HEIC, TIFF, PSD, RAW, JPEG 2000), video (mp4, mov, webm, mkv, ogv, 3gp), webcam e testo come overlay con tutta la catena post. **Deck B** con crossfader: un secondo effetto (5 blend, **maschere** split/radiale/luma/audio) o un **deck video**, una playlist di clip mp4/webm agganciate al BPM.
 
 ### Uscite
 

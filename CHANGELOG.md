@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.65.0-beta] — 2026-10-05
+
+### Added
+- **Molti piu' formati nel pannello Media**: immagini PNG, APNG, JPEG, GIF, WebP, AVIF, SVG, BMP, ICO; su macOS anche HEIC/HEIF, TIFF, PSD, JPEG 2000, TGA, ICNS e RAW (DNG, CR2, NEF, ARW), convertiti in PNG all'import con `sips`. Video mp4, m4v, mov, webm, mkv, ogv, 3gp. Un solo elenco in `src/shared/mediaFormats.ts` per dialoghi, libreria e protocollo `djg-media`.
+
 ## [0.64.2-beta] — 2026-10-05
 
 ### Fixed
