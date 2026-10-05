@@ -50,6 +50,7 @@ import reactionSimFrag from './shaders/reaction.sim.frag?raw'
 import swarmSimFrag from './shaders/swarm.sim.frag?raw'
 import swarmVert from './shaders/swarm.vert?raw'
 import swarmFrag from './shaders/swarm.frag?raw'
+import { buildMesh, releaseMesh, setMeshModel, parseModel } from './meshModel'
 import spectrumFrag from './shaders/spectrum.frag?raw'
 import truchetFrag from './shaders/truchet.frag?raw'
 import causticsFrag from './shaders/caustics.frag?raw'
@@ -176,7 +177,7 @@ export type EffectId =
   | 'hexagons' | 'dna'
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
-  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm'
+  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm' | 'mesh'
   | 'spectrum' | 'truchet' | 'caustics' | 'quasicrystal' | 'gyroid'
   | 'stringart' | 'ascii' | 'smoke'
   | 'flash' | 'halftone' | 'spiral' | 'warehouse' | 'impact' | 'barcode'
@@ -253,6 +254,8 @@ export interface EngineState {
   maskSoft?: number
   /** Deck B as a video playlist (Q4): the output mirrors clip + clipStartBeat */
   videoDeck?: VideoDeck
+  /** 3D model of the `mesh` effect: the output loads the same file from the library */
+  meshModel?: { name: string; path: string } | null
   brightness?: number
   blackout?: boolean
   frozen?: boolean
@@ -448,6 +451,8 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
     passes: [{ frag: swarmSimFrag, buffer: 'P', rows: 192, cols: 192, nearest: true }],
     build: (u) => buildPointCloud(u, 192, swarmVert, swarmFrag),
   },
+  // a loaded 3D model (or the procedural default); see meshModel.ts
+  mesh: { build: buildMesh },
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']
@@ -515,6 +520,8 @@ export class Engine {
   // Deck B as video (Q4). One <video> per window; the control decides the clip,
   // the output mirrors it from the snapshot and seeks to the beat grid.
   private videoDeck: VideoDeck = { ...VIDEO_DECK_DEFAULT }
+  private meshModel: { name: string; path: string } | null = null
+  private meshLoading = ''
   private deckVideo: HTMLVideoElement | null = null
   private deckVideoTex: THREE.VideoTexture | null = null
   private deckVideoPath = ''        // what the <video> is loading/playing
@@ -1152,6 +1159,7 @@ export class Engine {
     }
     const geo = this.geometries.get(mat)
     if (geo) {
+      releaseMesh(geo.object)
       geo.scene.remove(geo.object)
       geo.object.traverse(o => (o as THREE.Mesh).geometry?.dispose())
       this.geometries.delete(mat)
@@ -1892,6 +1900,29 @@ export class Engine {
   setMaskSoft(v: number) { this.maskSoft = Math.max(0, Math.min(1, v)); this.emitState() }
   getMaskSoft(): number { return this.maskSoft }
 
+  // ---- 3D model of the `mesh` effect ----
+
+  getMeshModel() { return this.meshModel }
+
+  /** Control window: choose the model (a library path) and tell the output */
+  setMeshModelFile(m: { name: string; path: string } | null) {
+    this.loadMeshModel(m)
+    this.emitState()
+  }
+
+  /** Both windows: read + parse the file; a bad file leaves the current model alone */
+  private loadMeshModel(m: { name: string; path: string } | null) {
+    const path = m?.path ?? ''
+    this.meshModel = m
+    if (path === this.meshLoading) return
+    this.meshLoading = path
+    if (!m) { setMeshModel(null); return }
+    window.api.readFile(m.path)
+      .then(buf => parseModel(buf instanceof ArrayBuffer ? buf : new Uint8Array(buf as any).buffer, m.name))
+      .then(model => { if (this.meshLoading === path) setMeshModel(model) })
+      .catch(err => console.error('[Engine] modello 3D illeggibile:', m.name, err))
+  }
+
   // ---- Deck B as video playlist (Q4) ----
 
   getVideoDeck(): VideoDeck { return this.videoDeck }
@@ -2037,6 +2068,7 @@ export class Engine {
     if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (state.videoDeck) this.videoDeck = clampClip({ ...VIDEO_DECK_DEFAULT, ...state.videoDeck, clip: 0, clipStartBeat: 0, bars: 0 })
+    if (state.meshModel !== undefined) this.loadMeshModel(state.meshModel)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
@@ -2117,6 +2149,7 @@ export class Engine {
     if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (state.videoDeck) this.syncDeckVideo(state.videoDeck)
+    if (state.meshModel !== undefined) this.loadMeshModel(state.meshModel)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.blackout === 'boolean') this.blackout = state.blackout
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
@@ -2551,6 +2584,7 @@ export class Engine {
       blendMode: this.blendMode,
       maskSoft: this.maskSoft,
       videoDeck: this.videoDeck,
+      meshModel: this.meshModel,
       brightness: this.brightness,
       blackout: this.blackout,
       frozen: this.frozen,
@@ -3138,8 +3172,12 @@ export class Engine {
     if (geo) {
       // geometry leaves gaps where a fullscreen quad would have overwritten
       // every pixel, so this one does need a clear
+      // targets carry no depth buffer (fullscreen quads never need one): a
+      // model that depth-tests gets one on first use
+      if (geo.object.userData.depth && !target.depthBuffer) { target.depthBuffer = true; target.dispose() }
+      this.renderer.setRenderTarget(target)
       this.renderer.setClearColor(0x000000, 1)
-      this.renderer.clear(true, false, false)
+      this.renderer.clear(true, true, false)
       this.renderer.render(geo.scene, this.camera)
     } else {
       this.quad.material = mat
