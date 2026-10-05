@@ -340,6 +340,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     burst: { source: 'beat', depth: 0.6, value: 0.8 },
     spin: { source: 'energy', depth: 0.3, value: 1 },
     dotsize: { source: 'high', depth: 0.3, value: 3 },
+    dissolve: { source: 'energy', depth: 0.3, value: 0.35 },
   },
   pulsar: {
     peaks: { source: 'bass', depth: 0.5, value: 0.9 },
@@ -375,6 +376,16 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     haze: { source: 'bass', depth: 0.4, value: 0.9 },
     scan: { source: 'energy', depth: 0.4, value: 1 },
     beams: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+  },
+  android: {
+    dissolve: { source: 'bass', depth: 0.4, value: 0.3 },
+    glow: { source: 'energy', depth: 0.4, value: 0.9 },
+    panels: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
+  },
+  monolith: {
+    pulse: { source: 'bass', depth: 0.4, value: 0.9 },
+    haze: { source: 'energy', depth: 0.3, value: 1 },
+    width: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
   },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
