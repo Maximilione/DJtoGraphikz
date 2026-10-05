@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.64.2-beta] — 2026-10-05
+
+### Fixed
+- **Audio fermo dopo lo scollegamento della scheda**: se l'id del dispositivo salvato spariva (scheda ricollegata, id nuovo), il riavvio automatico riprovava all'infinito con `OverconstrainedError`. Ora `AudioAnalyzer` ricade sull'ingresso predefinito e dimentica l'id; il pannello poi riporta la scheda esterna.
+
 ## [0.64.1-beta] — 2026-10-02
 
 ### Fixed
