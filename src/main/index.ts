@@ -19,7 +19,7 @@ import { setupProDjLink } from './prodjlink'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
-import { VIDEO_RE } from '../shared/mediaFormats'
+import { VIDEO_RE, SEQ_RE } from '../shared/mediaFormats'
 
 let controlWindow: BrowserWindow | null = null
 let quitting = false
@@ -416,7 +416,7 @@ app.whenReady().then(async () => {
 
   protocol.handle('djg-media', req => {
     const path = new URL(req.url).searchParams.get('p')
-    if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path))) return new Response('', { status: 400 })
+    if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path) || SEQ_RE.test(path))) return new Response('', { status: 400 })
     return net.fetch(pathToFileURL(path).toString())
   })
 
