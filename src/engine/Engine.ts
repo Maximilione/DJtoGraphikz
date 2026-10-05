@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
+import { IMPACT_DEFAULT, IMPACT_NEUTRAL, impactActive, newImpactRuntime, sanitizeImpact, stepImpact, type ImpactOut, type ImpactState } from './impact'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
 import type { Phase } from './AutoVJ'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
@@ -238,6 +239,8 @@ export interface EngineState {
   intensity?: number
   /** Master camera. The projector applies it itself, on its own resolution. */
   camera?: CameraState
+  /** Audio impact layer (shake / punch / flash / bands / energy chaser) */
+  impact?: ImpactState
   cycle?: {
     enabled: boolean
     palettes: [string, string, string][]
@@ -484,6 +487,10 @@ export class Engine {
   private cameraMaterial: THREE.ShaderMaterial
   /** Master camera. Neutral means the pass does not run at all. */
   private cameraState: CameraState = { ...CAMERA_NEUTRAL }
+  /** Audio impact layer: state travels in the snapshot, the runtime is per-window */
+  private impactState: ImpactState = { ...IMPACT_DEFAULT }
+  private impactRt = newImpactRuntime()
+  private impactOut: ImpactOut = IMPACT_NEUTRAL
 
   // Current state
   private currentEffect: EffectId = 'tunnel'
@@ -740,6 +747,13 @@ export class Engine {
         uTile: { value: 1 },
         uPushAmt: { value: 0 },
         uBeat: { value: 0 },
+        uShake: { value: new THREE.Vector2(0, 0) },
+        uPunch: { value: 1 },
+        uWarp: { value: 0 },
+        uChroma: { value: 0 },
+        uSparkle: { value: 0 },
+        uFlash: { value: 0 },
+        uTime: { value: 0 },
       },
     })
 
@@ -1842,7 +1856,7 @@ export class Engine {
   private cameraActive(): boolean {
     const c = this.cameraState
     return c.zoom !== 1 || c.rotation !== 0 || c.panX !== 0 || c.panY !== 0
-      || c.tile > 1 || c.push !== 0
+      || c.tile > 1 || c.push !== 0 || impactActive(this.impactOut)
   }
 
   setCamera(patch: Partial<CameraState>) {
@@ -1857,6 +1871,12 @@ export class Engine {
   }
 
   getCamera(): CameraState { return { ...this.cameraState } }
+
+  setImpact(patch: Partial<ImpactState>) {
+    this.impactState = sanitizeImpact({ ...this.impactState, ...patch })
+    this.emitState()
+  }
+  getImpact(): ImpactState { return { ...this.impactState } }
 
   /** Back to the identity — the camera's own panic. */
   resetCamera() {
@@ -2046,6 +2066,7 @@ export class Engine {
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
+    if (state.impact) this.impactState = sanitizeImpact(state.impact)
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
       this.cycleIntervalMs = state.cycle.intervalMs
@@ -2062,7 +2083,7 @@ export class Engine {
   // ---- Remote (output window) API ----
 
   /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
-  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number; spectrum?: Uint8Array }) {
+  setAudioData(data: { phase?: Phase; bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number; spectrum?: Uint8Array }) {
     this.smoothBass = data.bass || 0
     this.smoothMid = data.mid || 0
     this.smoothHigh = data.high || 0
@@ -2082,6 +2103,7 @@ export class Engine {
       if (this.spectrumTex) this.spectrumTex.needsUpdate = true
     }
     if (typeof data.effectTime === 'number') this.effectTime = data.effectTime
+    if (data.phase) this.phase = data.phase
     if (data.beatDetected) this.pendingBeat = true
   }
 
@@ -2109,6 +2131,7 @@ export class Engine {
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
+    if (state.impact) this.impactState = sanitizeImpact(state.impact)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -2562,6 +2585,7 @@ export class Engine {
       // to travel: without it the projector shows the un-boosted scene.
       intensity: this.intensity,
       camera: { ...this.cameraState },
+      impact: { ...this.impactState },
       // Custom shader must ride the snapshot: any emit without it used to
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
@@ -2805,6 +2829,12 @@ export class Engine {
       this.beatPulse *= 0.88
     }
 
+    // Impact layer: same maths in both windows, driven by the audio each has
+    this.impactOut = stepImpact(this.impactRt, this.impactState, {
+      dt, beat: beatDetected, mid: this.smoothMid, high: this.smoothHigh,
+      highHit: this.highHit, phase: this.phase,
+    })
+
     // Gated clocks: advance only while the band is actually playing, so a
     // breakdown freezes bass-driven motion and the drop restarts it
     this.bassTime += dt * this.smoothBass
@@ -3020,6 +3050,14 @@ export class Engine {
       cu.uTile.value = this.cameraState.tile
       cu.uPushAmt.value = this.cameraState.push
       cu.uBeat.value = this.beatPulse
+      const io = this.impactOut
+      cu.uShake.value.set(io.shakeX, io.shakeY)
+      cu.uPunch.value = io.zoom
+      cu.uWarp.value = io.warp
+      cu.uChroma.value = io.chroma
+      cu.uSparkle.value = io.sparkle
+      cu.uFlash.value = io.flash
+      cu.uTime.value = this.beatClock
       this.renderPass(this.cameraMaterial, this.rtB)
       this.blit(this.rtB.texture, this.rtA)
     }
@@ -3319,6 +3357,7 @@ export class Engine {
         spectrum: this.spectrumPixels,
         bpm,
         beatDetected,
+        phase: this.phase,
       })
     } catch (_) {}
   }
