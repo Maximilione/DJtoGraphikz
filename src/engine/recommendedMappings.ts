@@ -346,6 +346,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     density: { source: 'energy', depth: 0.3, value: 0.8 },
     sway: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
   },
+  chrome: {
+    morph: { source: 'bass', depth: 0.5, value: 0.8 },
+    shine: { source: 'high', depth: 0.3, value: 0.9 },
+    blobs: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
   galaxy: {
     burst: { source: 'bass', depth: 0.5, value: 0.8 },
     twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },

@@ -338,6 +338,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'rays', label: 'Raggi', min: 0.3, max: 2.5, default: 1 },
     { key: 'sway', label: 'Oscillazione', min: 0, max: 2, default: 1 },
   ],
+  chrome: [
+    { key: 'blobs', label: 'Gocce', min: 2, max: 6, default: 4 },
+    { key: 'morph', label: 'Deformazione', min: 0, max: 2, default: 1 },
+    { key: 'shine', label: 'Lucentezza', min: 0.4, max: 1.6, default: 1 },
+  ],
   galaxy: [
     { key: 'arms', label: 'Bracci', min: 1, max: 6, default: 3 },
     { key: 'twist', label: 'Torsione', min: 0, max: 4, default: 2 },

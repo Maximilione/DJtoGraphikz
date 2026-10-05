@@ -97,7 +97,7 @@ export const FAMILY: Record<EffectId, Family> = {
   cage: 'object', cracks: 'grid', warehouse: 'tunnel', downpour: 'particles', eclipse: 'radial',
   blinds: 'grid',
   bounceball: 'object', pump: 'radial', roll: 'grid',
-  spaceghost: 'organic', galaxy: 'particles', cathedral: 'tunnel',
+  spaceghost: 'organic', galaxy: 'particles', chrome: 'object', cathedral: 'tunnel',
 }
 
 // shorthand builders keep the tables readable
@@ -245,6 +245,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'galaxy', ['bloom', 'chromatic'], { arms: v(5), twist: v(1.2), burst: a(1.4, 'bass', 0.4) }),
       s('peak', 'flash', ['filmgrain'], { decay: v(2), scan: v(0.5), tint: v(0.5) }),
       s('peak', 'impact', ['bloom'], { rings: v(3), width: v(1.5), fade: v(0.8) }),
+      s('peak', 'chrome', ['bloom', 'chromatic'], { blobs: v(5), morph: a(1.4, 'bass', 0.5), shine: v(1.2) }),
     ],
     palettes: [BLOOD, MONO, LAVA, STEEL],
     phraseBars: 8,
@@ -267,6 +268,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('build', 'eclipse', ['bloom'], { radius: v(0.22), corona: a(1.6, 'energy', 0.6), wobble: v(1) }),
       s('build', 'quasicrystal', ['bloom', 'chromatic'], { speed: a(0.5, 'energy', 0.8), waves: v(9), qfreq: v(80), contrast: v(0.5) }),
       s('groove', 'spiral', ['filmgrain'], { arms: v(3), twist: a(7, 'lfo-sine', 0.3, 16), pulse: v(0.4) }),
+      s('groove', 'chrome', ['bloom', 'chromatic'], { blobs: v(4), morph: a(1, 'bass', 0.5), shine: v(1.1) }),
       s('groove', 'quasicrystal', ['bloom', 'chromatic'], { waves: v(5), qfreq: v(60), contrast: a(0.4, 'high', 0.4) }),
       s('groove', 'tunnel', ['bloom'], { speed: v(1.2), twist: a(0.5, 'lfo-sine', 0.5, 8), ringdensity: a(8, 'bass', 0.35) }),
       s('groove', 'vortex', ['bloom', 'feedback'], { arms: v(3), twist: a(1.2, 'lfo-sine', 0.4, 16), pull: a(0.8, 'bass', 0.5) }),
@@ -321,6 +323,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'mandala', ['bloom', 'feedback'], { symmetry: v(8), ringfreq: a(5, 'lfo-sine', 0.3, 32) }),
       s('groove', 'rings', ['bloom'], { speed: v(0.8), ringcount: v(12), spacing: v(0.07), gapfreq: a(4, 'lfo-saw', 0.25, 16) }),
       s('groove', 'metaballs', ['bloom'], { count: v(5), size: a(0.09, 'bass', 0.3), threshold: v(1.2) }),
+      s('groove', 'chrome', ['bloom'], { blobs: v(3), morph: v(0.7), shine: v(1) }),
       s('groove', 'sacred', ['bloom'], { speed: v(0.7), zoom: a(1, 'lfo-sine', 0.25, 32), radius: v(0.3), ringfreq: v(6) }),
       s('groove', 'hexagons', ['bloom'], { speed: v(0.7), zoom: v(3), wavefreq: a(1.5, 'lfo-sine', 0.3, 16) }),
       s('groove', 'kaleidoscope', ['bloom', 'chromatic'], { speed: v(0.7), segments: v(6), zoom: a(1, 'lfo-sine', 0.25, 32), detail: v(2.2) }),
