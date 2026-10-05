@@ -19,6 +19,7 @@ import { setupProDjLink } from './prodjlink'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
+import { VIDEO_RE } from '../shared/mediaFormats'
 
 let controlWindow: BrowserWindow | null = null
 let quitting = false
@@ -401,7 +402,7 @@ protocol.registerSchemesAsPrivileged([{
   privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
 }])
 
-const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v)$/i
+const VIDEO_EXT = VIDEO_RE
 /** The dry-run audio the gate feeds the analyser; same door as video. */
 const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|flac)$/i
 
