@@ -8,6 +8,14 @@ uniform vec2  uPan;         // in screen widths, 0 = centred
 uniform float uTile;        // 1 = off; 2+ = mirrored grid of that many
 uniform float uPushAmt;     // how much a kick pushes in
 uniform float uBeat;        // the beat pulse, already decayed
+// Impact layer (audio-driven, see engine/impact.ts) — all 0 when silent
+uniform vec2  uShake;       // screen widths
+uniform float uPunch;       // extra zoom factor, 1 = none
+uniform float uWarp;        // mid-band wobble amplitude (uv)
+uniform float uChroma;      // high-band channel split (uv)
+uniform float uSparkle;     // high-band glitter, additive, tiny
+uniform float uFlash;       // soft lift towards white, capped by the engine
+uniform float uTime;
 
 varying vec2 vUv;
 
@@ -25,8 +33,8 @@ varying vec2 vUv;
  */
 vec2 mirrorFold(vec2 uv) {
   // fract of the doubled coordinate, folded back: 0..1..0 with no seam
-  vec2 t = abs(fract(uv * 0.5) * 2.0 - 1.0);
-  return t;
+  // 1 - fold, so uv inside 0..1 maps to itself (the bare fold flipped the image)
+  return 1.0 - abs(fract(uv * 0.5) * 2.0 - 1.0);
 }
 
 void main() {
@@ -39,17 +47,31 @@ void main() {
 
   // A kick pushes the camera in. Zero when the fader is down, so a silent room
   // is perfectly still.
-  float zoom = max(0.05, uZoom * (1.0 + uPushAmt * uBeat));
+  float zoom = max(0.05, uZoom * uPunch * (1.0 + uPushAmt * uBeat));
   uv /= zoom;
 
   float c = cos(uRotation), s = sin(uRotation);
   uv = mat2(c, -s, s, c) * uv;
 
   uv.x /= aspect;
-  uv += 0.5 + uPan;
+  uv += 0.5 + uPan + uShake;
+  uv += uWarp * vec2(sin(uv.y * 9.0 + uTime * 2.3), cos(uv.x * 7.0 - uTime * 1.9));
 
   // Tiling is the same fold, run at a higher frequency.
   uv = mirrorFold(uv * max(1.0, uTile));
 
-  gl_FragColor = texture2D(tDiffuse, uv);
+  vec3 c;
+  if (uChroma > 0.0) {
+    vec2 d = (uv - 0.5) * uChroma * 6.0;
+    c = vec3(texture2D(tDiffuse, mirrorFold(uv + d)).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, mirrorFold(uv - d)).b);
+  } else {
+    c = texture2D(tDiffuse, uv).rgb;
+  }
+  // glitter: sparse hash-noise, only where it is already lit a little
+  vec2 g = floor(vUv * uResolution * 0.5);
+  float h = fract(sin(dot(g, vec2(12.9898, 78.233)) + uTime * 7.0) * 43758.5453);
+  c += step(0.985, h) * uSparkle * 4.0 * (0.3 + dot(c, vec3(0.333)));
+  // soft flash: lifts towards white, never reaches it
+  c += uFlash * (1.0 - c);
+  gl_FragColor = vec4(c, 1.0);
 }

@@ -33,6 +33,7 @@
     "check:storage": "node scripts/check-storage.mjs",
     "check:venues": "node scripts/check-venues.mjs",
     "check:outputs": "node scripts/check-outputs.mjs",
+    "check:reactivity": "node scripts/check-reactivity.mjs",
     "check:autovj": "node scripts/check-autovj.mjs",
     "check:phases": "node scripts/check-phases.mjs",
     "check:key": "node scripts/check-key.mjs",
