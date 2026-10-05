@@ -366,6 +366,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
     count: { source: 'energy', depth: 0.3, value: 8 },
   },
+  beamfield: {
+    haze: { source: 'bass', depth: 0.4, value: 0.9 },
+    scan: { source: 'energy', depth: 0.4, value: 1 },
+    beams: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },

@@ -83,6 +83,7 @@ import galaxyFrag from './shaders/galaxy.frag?raw'
 import cathedralFrag from './shaders/cathedral.frag?raw'
 import chromeFrag from './shaders/chrome.frag?raw'
 import crystalsFrag from './shaders/crystals.frag?raw'
+import beamfieldFrag from './shaders/beamfield.frag?raw'
 import ribbonsFrag from './shaders/ribbons.frag?raw'
 import stormFrag from './shaders/storm.frag?raw'
 import mandelbulbFrag from './shaders/mandelbulb.frag?raw'
@@ -197,7 +198,7 @@ export type EffectId =
   | 'static' | 'cage' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
-  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons'
+  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -478,6 +479,7 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   cathedral: cathedralFrag,
   chrome: chromeFrag,
   crystals: crystalsFrag,
+  beamfield: beamfieldFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
   mandelbulb: mandelbulbFrag,

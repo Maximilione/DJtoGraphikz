@@ -358,6 +358,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'curl', label: 'Avvolgimento', min: 0, max: 2, default: 1 },
     { key: 'twist', label: 'Torsione', min: 0, max: 2, default: 1 },
   ],
+  beamfield: [
+    { key: 'beams', label: 'Fasci', min: 4, max: 12, default: 8 },
+    { key: 'scan', label: 'Scansione', min: 0, max: 2, default: 1 },
+    { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
