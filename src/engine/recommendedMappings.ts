@@ -377,6 +377,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     scan: { source: 'energy', depth: 0.4, value: 1 },
     beams: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
   },
+  android: {
+    dissolve: { source: 'bass', depth: 0.4, value: 0.3 },
+    glow: { source: 'energy', depth: 0.4, value: 0.9 },
+    panels: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
