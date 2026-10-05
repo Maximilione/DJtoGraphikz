@@ -20,6 +20,7 @@ const api = {
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
+  pickModels: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-model'),
   readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
 
   // Update check (notification-only: unsigned builds can't self-install)
