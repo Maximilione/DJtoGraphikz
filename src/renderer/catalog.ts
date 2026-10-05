@@ -27,6 +27,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'truchet', label: 'Truchet', icon: '◜' },
       { id: 'quasicrystal', label: 'Quasi', icon: '❉' },
       { id: 'crystals', label: 'Crystals', icon: '◆' },
+      { id: 'monolith', label: 'Monolith', icon: '▯' },
       { id: 'android', label: 'Android', icon: '☤' },
       { id: 'mandelbulb', label: 'Mandelbulb', icon: '❂' },
       { id: 'cathedral', label: 'Cathedral', icon: '✝' },
