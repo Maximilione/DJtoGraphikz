@@ -14,7 +14,7 @@ import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
-import { CameraPanel } from './components/CameraPanel/CameraPanel'
+import { CameraPanel, ImpactPanel } from './components/CameraPanel/CameraPanel'
 import { DmxPanel } from './components/DmxPanel/DmxPanel'
 import { VenuePanel } from './components/VenuePanel/VenuePanel'
 import { OutputsPanel, useOutputs } from './components/OutputsPanel/OutputsPanel'
@@ -1251,6 +1251,7 @@ export function App() {
             <PresetPanel engine={engine} player={seqPlayer} />
             <ShaderEditor engine={engine} />
             <CameraPanel engine={engine} />
+            <ImpactPanel engine={engine} />
             <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
               selected={mappingOut} onSelect={setMappingOut} />
             <DmxPanel key={panelEpoch} engine={engine} />
