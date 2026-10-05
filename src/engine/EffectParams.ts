@@ -343,6 +343,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'morph', label: 'Deformazione', min: 0, max: 2, default: 1 },
     { key: 'shine', label: 'Lucentezza', min: 0.4, max: 1.6, default: 1 },
   ],
+  crystals: [
+    { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
+    { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
+    { key: 'size', label: 'Dimensione', min: 0.5, max: 1.6, default: 1 },
+  ],
   galaxy: [
     { key: 'arms', label: 'Bracci', min: 1, max: 6, default: 3 },
     { key: 'twist', label: 'Torsione', min: 0, max: 4, default: 2 },
