@@ -29,8 +29,10 @@ float hash1(float n) {
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
-  vec3 color = vec3(0.0);
   float t = uTime;
+  // deep backdrop: palette-tinted radial haze, alive in silence
+  float r0 = length(uv * vec2(1.0 / max(1.0, uResolution.x / uResolution.y * 0.56), 1.0));
+  vec3 color = mix(uColor3, uColor1, 0.4) * (0.035 + 0.05 * exp(-r0 * 2.2) + 0.05 * uEnergy * exp(-r0 * 1.5));
   // a LED strip is six times wider than tall: stretch the particle field
   // sideways so it is not a small cluster in the middle (the glow stays round)
   float stretch = max(1.0, uResolution.x / uResolution.y * 0.56);
@@ -65,12 +67,15 @@ void main() {
       float glow = pSize / (d + 0.001);
       glow = pow(glow, 1.5);
       glow = min(glow, 2.0);
+      // soft halo around every spark, swells on the kick
+      glow += exp(-d * d / (pSize * pSize * 60.0 + 0.0004)) * (0.35 + 0.5 * uBeat);
 
       // Color based on layer and position
       vec3 pColor;
-      if (layer == 0) pColor = uColor1;
-      else if (layer == 1) pColor = uColor2;
-      else pColor = uColor3;
+      if (layer == 0) pColor = mix(uColor1, uColor3, step(0.6, hash1(seed + 7.0)));
+      else pColor = mix(uColor2, uColor3, step(0.7, hash1(seed + 7.0)));
+      // hot white-ish core on the brightest sparks, kept for the bloom
+      pColor = mix(pColor, vec3(1.0), clamp(glow - 1.0, 0.0, 1.0) * 0.35);
 
       // Twinkle
       float twinkle = sin(t * 3.0 + fi * 2.0 + uHigh * 5.0) * 0.5 + 0.5;
@@ -79,13 +84,19 @@ void main() {
       // Fade with distance from center
       float fade = 1.0 - smoothstep(0.3, 0.9, radius);
 
-      color += pColor * glow * fade * 0.15;
+      color += pColor * glow * (0.35 + 0.65 * fade) * fade * 0.3 * (1.0 + uBeat * 0.8);
     }
   }
 
-  // Central glow
   float centerDist = length(uv);
-  color += mix(uColor1, uColor2, 0.5) * exp(-centerDist * 5.0) * (0.2 + uBeat * 0.45);
+
+  // shockwave ring: a physical event on every kick
+  float ringR = (1.0 - uBeat) * 0.9;
+  float ring = exp(-abs(length(uv / vec2(stretch, 1.0)) - ringR) * 14.0) * uBeat;
+  color += mix(uColor2, uColor3, 0.5) * ring * 0.9;
+
+  // Central glow
+  color += mix(uColor1, uColor2, 0.5) * exp(-centerDist * 5.0) * (0.3 + uBeat * 0.9);
 
   // Subtle radial streaks — idle floor so the hub keeps turning in silence
   float angle = atan(uv.y, uv.x);
@@ -93,8 +104,8 @@ void main() {
   streaks = pow(streaks, 8.0);
   color += uColor3 * streaks * exp(-centerDist * 4.0) * (0.4 + 0.6 * uEnergy) * 0.18;
 
-  color = min(color, vec3(1.5));
-  color = pow(color, vec3(0.9));
+  // soft shoulder: highlights stay clean for the bloom, never flat white
+  color = vec3(1.0) - exp(-color * 1.4);
 
   gl_FragColor = vec4(color, 1.0);
 }
