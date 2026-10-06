@@ -9,6 +9,10 @@ const api = {
   libraryList: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('library:list'),
   libraryDelete: (name: string): Promise<void> => ipcRenderer.invoke('library:delete', name),
 
+  // Plugin dichiarativi (~/.djtographikz/plugins)
+  listPlugins: (): Promise<import('../shared/plugins').LoadedPlugin[]> => ipcRenderer.invoke('plugins:list'),
+  openPluginsFolder: (): Promise<void> => ipcRenderer.invoke('plugins:open-folder'),
+
   // ISF folder (~/.djtographikz/isf)
   listIsf: (): Promise<{ name: string; source: string }[]> => ipcRenderer.invoke('isf:list'),
   browseIsf: (force?: boolean): Promise<{ id: string; title: string; user: string; thumb: string; stars: number }[]> =>
