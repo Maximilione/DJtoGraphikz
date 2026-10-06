@@ -387,6 +387,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     glow: { source: 'energy', depth: 0.4, value: 0.9 },
     panels: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
   },
+  faces: {
+    glow: { source: 'bass', depth: 0.4, value: 0.9 },
+    spin: { source: 'energy', depth: 0.3, value: 1 },
+    faces: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+  },
   monolith: {
     pulse: { source: 'bass', depth: 0.4, value: 0.9 },
     haze: { source: 'energy', depth: 0.3, value: 1 },

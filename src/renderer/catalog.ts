@@ -29,6 +29,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'crystals', label: 'Crystals', icon: '◆' },
       { id: 'monolith', label: 'Monolith', icon: '▯' },
       { id: 'android', label: 'Android', icon: '☤' },
+      { id: 'faces', label: 'Maschere', icon: '☺' },
       { id: 'mandelbulb', label: 'Mandelbulb', icon: '❂' },
       { id: 'cathedral', label: 'Cathedral', icon: '✝' },
       { id: 'stringart', label: 'String', icon: '✴' },
