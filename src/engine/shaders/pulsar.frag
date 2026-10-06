@@ -122,20 +122,28 @@ void main() {
 
     if (d > lh) {
       float depth = fi / slices;
-      float w = 0.0024 + 0.0012 * uHigh;
+      float w = 0.0024 + 0.0012 * uHigh + 0.0016 * uHighHit + 0.0012 * uBassHit;
       float ink = 1.0 - smoothstep(w, w * 2.8, abs(d));
       float glow = exp(-abs(d) / (0.008 + 0.024 * uBeat))
                  * (0.09 + 0.18 * uEnergy) * (1.0 - depth);
 
       vec3 tint = mix(uColor1, uColor2, depth * depth);
-      acc += tint * (ink + glow) * exp(-2.4 * depth);
+      // the crest of each line burns hotter than its flanks: white-ish core
+      float hot = (1.0 - smoothstep(0.0, w * 1.1, abs(d))) * (0.25 + 0.7 * uBassHit);
+      acc += (tint * (ink + glow) + mix(tint, vec3(1.0), 0.6) * hot) * exp(-2.4 * depth);
       lh = d;
     }
   }
 
+  // atmosphere: a haze band on the horizon that swells with the kick, and
+  // a faint fog that lifts the far side of the field off the black
+  float hz = (uv.y - HORIZON) / 0.12;
+  float hwin = exp(-(p.x * p.x) / (aspect * aspect * 0.81));
   vec3 bg = uColor3 * 0.030 * smoothstep(1.35, 0.2, length((uv - 0.5) * vec2(1.5, 1.0)));
-  vec3 col = bg + sqrt(clamp(acc, 0.0, 1.0)) * (0.85 + 0.4 * uBeat);
+  bg += mix(uColor1, uColor2, 0.5) * exp(-hz * hz) * hwin * (0.035 + 0.10 * uBass + 0.35 * uBassHit);
+  bg += uColor3 * 0.05 * smoothstep(0.0, HORIZON, uv.y) * smoothstep(1.0, HORIZON, uv.y + 0.4);
+  vec3 col = bg + sqrt(clamp(acc, 0.0, 1.0)) * (0.85 + 0.4 * uBeat + 0.35 * uBassHit);
   col += (hash21(uv * 971.0 + uTime) - 0.5) * 0.012;
 
-  gl_FragColor = vec4(max(col, 0.0), 1.0);
+  gl_FragColor = vec4(clamp(max(col, 0.0), 0.0, 0.95), 1.0);
 }
