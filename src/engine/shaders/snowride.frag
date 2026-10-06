@@ -246,5 +246,7 @@ void main() {
 
   // soft tone-map: stays off pure white on peaks
   color = 1.0 - exp(-color * 1.5);
+  // contrast: blue shadows and a darker sky so the slope reads through haze
+  color = pow(color, vec3(1.5)) * 1.15;
   gl_FragColor = vec4(color, 1.0);
 }
