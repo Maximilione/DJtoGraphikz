@@ -26,8 +26,10 @@ uniform float fog;
 // own. The bolts are re-rolled as the bass advances (a new strike every few
 // kicks) and flare on every kick; the whole sky is lit by them, the clouds
 // pick up the flash, and the horizon mirrors the strike in the wet ground.
-// Between strikes the bolts stay as thin live filaments so the frame is never
-// a flat dark sky.
+// A strike also starts by itself every ~2 s on uTime, so a silent room still
+// gets lightning; between strikes the bolts stay as thin live filaments, the
+// clouds glow and far flashes flicker inside them, so the frame is never a
+// flat dark sky.
 
 float hash(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 float vnoise(float x) {
@@ -91,7 +93,7 @@ void main() {
 
   float nb = clamp(branches, 0.0, 2.0) * 2.0;
   float nbolts = floor(clamp(bolts, 1.0, 4.0) + 0.5);
-  float flash = 0.18 + 0.5 * uEnergy + 1.5 * kick;
+  float flash0 = 0.8 + 0.5 * uEnergy + 1.5 * kick;
 
   vec2 p = uv;
   bool below = uv.y < H;
@@ -99,31 +101,45 @@ void main() {
 
   float g = 0.0;
   float lamp = 0.0;
+  float pulse = 0.0;
   for (int i = 0; i < 4; i++) {
     if (float(i) >= nbolts) break;
     float fi = float(i);
-    float seed = floor(uBassTime * 1.2 + fi * 5.3) * 1.37 + fi * 9.1;
+    // new strike on the bass or, with no bass, every ~2 s on the clock
+    float tt = uTime * 0.5 + fi * 0.37;
+    float seed = (floor(uBassTime * 1.2 + fi * 5.3) + floor(tt)) * 1.37 + fi * 9.1;
+    float pl = exp(-fract(tt) * 3.5);
+    pulse = max(pulse, pl);
     float x0 = (hash(seed + 0.5) - 0.5) * 1.1;
     float w = i == 0 ? 1.0 : 0.55;
     g += w * forks(p, x0, seed, 1.1, nb);
-    lamp += w * exp(-abs(uv.x - x0) * 2.2);
+    lamp += w * exp(-abs(uv.x - x0) * 2.2) * (1.0 + pl);
   }
+  float flash = flash0 + 1.2 * pulse;
   g = min(g, 6.0) * flash * (below ? 0.32 : 1.0);
 
   // storm clouds, lit from within by the strikes
   float cl = vn2(uv * vec2(2.2, 4.0) + vec2(uTime * 0.04, 0.0)) * 0.6 + vn2(uv * vec2(5.0, 9.0) - uTime * 0.07) * 0.4;
-  cl = smoothstep(0.25, 0.9, cl) * smoothstep(H - 0.05, 0.4, uv.y);
+  cl = smoothstep(0.15, 0.9, cl) * smoothstep(H - 0.05, 0.4, uv.y);
   float haze = clamp(fog, 0.3, 2.0);
-  vec3 sky = mix(uColor2 * 0.10, uColor1 * 0.10, smoothstep(H, 0.5, uv.y));
-  sky += uColor2 * cl * (0.14 + 0.28 * lamp * flash * haze) + uColor1 * cl * 0.05;
+  vec3 sky = mix(uColor2 * 0.40, uColor1 * 0.40, smoothstep(H, 0.5, uv.y));
+  sky += uColor2 * cl * (0.8 + 0.28 * lamp * flash * haze) + uColor1 * cl * 0.05;
+  // far flashes: a distant strike lights a patch of cloud now and then
+  float tf = uTime * 0.37 + 0.2;
+  float fx = (hash(floor(tf)) - 0.5) * 1.6;
+  float far = exp(-fract(tf) * 4.0) * exp(-((uv.x - fx) * (uv.x - fx) * 3.0 + (uv.y - 0.15) * (uv.y - 0.15) * 8.0));
+  sky += mix(uColor2, uColor3, 0.5) * far * (0.3 + cl) * 2.0;
+  sky += uColor3 * 0.15 * smoothstep(H, 0.55, uv.y) * (0.4 + cl);
   // wet ground: dark gradient with a sheen at the horizon
-  vec3 ground = mix(uColor1 * 0.05, uColor2 * 0.03, smoothstep(H, -0.6, uv.y));
-  ground += uColor3 * 0.05 * smoothstep(0.1, 0.0, abs(uv.y - H)) * (0.5 + kick);
+  vec3 ground = mix(uColor1 * 0.30, uColor2 * 0.18, smoothstep(H, -0.6, uv.y));
+  ground += uColor3 * 0.8 * smoothstep(0.1, 0.0, abs(uv.y - H)) * (0.5 + kick);
+  // puddles mirroring the glow of the sky
+  ground += uColor2 * 0.9 * exp(-(H - uv.y) * 5.0) * (0.4 + 0.6 * vn2(vec2(uv.x * 3.0 + uTime * 0.1, uv.y * 30.0)));
   vec3 col = below ? ground : sky;
 
   vec3 bolt = mix(uColor3, vec3(1.0), 0.55) * g + uColor1 * g * g * 0.05;
   col += bolt + uColor1 * g * 0.18;
-  col += uColor2 * exp(-abs(uv.y - H) * 14.0) * 0.12 * haze;
+  col += uColor2 * exp(-abs(uv.y - H) * 14.0) * 0.5 * haze;
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.2 - dot(uv, uv) * 0.6, 0.5, 1.0);
