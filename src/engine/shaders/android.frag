@@ -73,22 +73,41 @@ float sdRoundBox(vec3 p, vec3 b, float r) {
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 
-// the intact figure, +z is the face. y runs from the crown (0.95) to the cut (-1)
+// smooth max (carve): subtracts b from a with a rounded rim
+float smax(float a, float b, float k) { return -smin(-a, -b, k); }
+
+// the intact figure, +z is the face. y runs from the crown (0.95) to the cut (-1).
+// Only ellipsoids, blended with wide smooth-mins; x is mirrored so every pair
+// of parts costs one evaluation. Head and body groups are skipped when far.
 float body(vec3 p) {
-  float head = sdEllipsoid(p - vec3(0.0, 0.62, 0.0), vec3(0.25, 0.32, 0.29));
-  float jaw = sdEllipsoid(p - vec3(0.0, 0.42, 0.07), vec3(0.17, 0.2, 0.2));
-  float d = smin(head, jaw, 0.08);
-  float neck = sdCapsule(p, vec3(0.0, 0.3, -0.02), vec3(0.0, 0.0, -0.03), 0.105);
-  d = smin(d, neck, 0.1);
-  float sh = sdCapsule(p, vec3(-0.5, -0.12, -0.02), vec3(0.5, -0.12, -0.02), 0.15);
-  d = smin(d, sh, 0.12);
-  // the chest narrows towards the waist: scale x with height (the 0.8 keeps the field a safe step)
-  vec3 q = p - vec3(0.0, -0.58, 0.0);
-  q.x *= 1.0 + 0.5 * (q.y + 0.4);
-  float torso = sdRoundBox(q, vec3(0.36, 0.4, 0.16), 0.08) * 0.8;
-  d = smin(d, torso, 0.1);
-  // a swell on the chest
-  d = smin(d, sdEllipsoid(p - vec3(0.0, -0.3, 0.1), vec3(0.3, 0.2, 0.14)), 0.1);
+  vec3 m = vec3(abs(p.x), p.y, p.z);
+  float neck = sdEllipsoid(p - vec3(0.0, 0.17, -0.025), vec3(0.105, 0.24, 0.105));
+  float d = neck;
+  if (p.y > -0.02) {
+    float head = sdEllipsoid(p - vec3(0.0, 0.64, -0.01), vec3(0.235, 0.31, 0.27));
+    float jaw = sdEllipsoid(p - vec3(0.0, 0.44, 0.06), vec3(0.165, 0.18, 0.2));
+    float h = smin(head, jaw, 0.14);
+    h = smin(h, sdEllipsoid(p - vec3(0.0, 0.33, 0.15), vec3(0.075, 0.07, 0.08)), 0.07);   // chin
+    h = smin(h, sdEllipsoid(m - vec3(0.105, 0.55, 0.15), vec3(0.09, 0.065, 0.085)), 0.08); // cheekbones
+    h = smin(h, sdEllipsoid(p - vec3(0.0, 0.54, 0.255), vec3(0.03, 0.065, 0.05)), 0.05);   // nose
+    h = smax(h, -sdEllipsoid(m - vec3(0.095, 0.62, 0.245), vec3(0.075, 0.04, 0.06)), 0.035); // eye sockets
+    h = smax(h, -sdEllipsoid(m - vec3(0.1, 0.5, 0.2), vec3(0.06, 0.03, 0.05)), 0.04);        // under-eye hollows
+    d = smin(d, h, 0.12);
+  }
+  if (p.y < 0.3) {
+    // trapezius slopes from the neck to the rounded shoulders
+    float lo = sdEllipsoid(m - vec3(0.24, -0.02, -0.045), vec3(0.2, 0.09, 0.11));
+    lo = smin(lo, sdEllipsoid(m - vec3(0.46, -0.15, -0.02), vec3(0.17, 0.15, 0.15)), 0.14);
+    // clavicles
+    lo = smin(lo, sdCapsule(m, vec3(0.04, -0.09, 0.1), vec3(0.34, -0.08, 0.06), 0.03), 0.05);
+    // torso tapering to the waist, with soft pectorals
+    vec3 q = p - vec3(0.0, -0.52, 0.0);
+    q.x *= 1.0 + 0.5 * (q.y + 0.4);
+    float torso = sdEllipsoid(q, vec3(0.34, 0.5, 0.2)) * 0.85;
+    lo = smin(lo, torso, 0.18);
+    lo = smin(lo, sdEllipsoid(m - vec3(0.14, -0.29, 0.1), vec3(0.16, 0.12, 0.1)), 0.1);
+    d = smin(d, lo, 0.16);
+  }
   return d;
 }
 
@@ -104,7 +123,7 @@ float map(vec3 p) {
 
 vec3 normalAt(vec3 p) {
   vec2 k = vec2(1.0, -1.0);
-  const float e = 0.003;
+  const float e = 0.0015;
   return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e) +
                    k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
 }
@@ -169,25 +188,31 @@ void main() {
       vec3 r = reflect(rd, n);
       float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
 
-      // panels: staggered bricks on the surface, seams between them
-      vec2 g = vec2(pO.x * 1.0 + 0.7 * pO.z, pO.y) * panels * 3.2;
+      // panels: thin curved plates that wrap the surface (angle round the
+      // vertical axis, rows that bend with the form), fine seams, sparse on the face
+      vec2 g = vec2(atan(pO.x, pO.z) * 0.5, pO.y + 0.05 * sin(pO.x * 7.0 + pO.y * 3.0)) * panels * 3.2;
       float row = floor(g.y);
       g.x += 0.5 * mod(row, 2.0);
       vec2 cell = fract(g);
       vec2 cid = vec2(floor(g.x), row);
       float edgeD = min(min(cell.x, 1.0 - cell.x) * 0.6, min(cell.y, 1.0 - cell.y));
-      float seam = 1.0 - smoothstep(0.02, 0.07, edgeD);
+      float seam = (1.0 - smoothstep(0.008, 0.035, edgeD)) * mix(1.0, 0.3, smoothstep(0.25, 0.4, pO.y));
       float ph = hash21(cid);
       // each plate is a slightly different mirror: the studio is blurred on some
       vec3 mir = studio(r);
       vec3 rough = studio(normalize(r + (vec3(ph, hash21(cid + 3.0), hash21(cid + 7.0)) - 0.5) * 0.9));
-      vec3 metal = mix(mir, rough, 0.45 * step(0.6, ph));
-      vec3 surf = metal * (0.55 + 0.9 * fres) * mix(1.0, 0.25, seam);
+      vec3 metal = mix(mir, rough, 0.2 * step(0.6, ph));
+      vec3 surf = metal * (0.55 + 0.9 * fres) * mix(1.0, 0.45, seam);
       surf += uColor2 * 0.06;   // ambient: never a black body
+
+      // fine luminous veins running under the skin
+      float vein = (1.0 - smoothstep(0.0, 0.02, abs(vnoise(pO * 6.0 + vec3(0.0, uTime * 0.1, 0.0)) - 0.5)))
+                 * (0.3 + 0.7 * smoothstep(0.55, 0.8, vnoise(pO * 2.0 - uBassTime * 0.3)));
+      surf += uColor3 * vein * (0.3 + 0.6 * gKick + 0.4 * uMid) * glow;
 
       // seams carry light, a wave climbs the body with the bass
       float wave = pow(0.5 + 0.5 * sin(pO.y * 4.0 - uBassTime * 2.5 + ph * 2.0), 6.0);
-      surf += uColor1 * seam * (0.25 + 1.2 * wave + 0.6 * gKick + 0.4 * uMid) * glow;
+      surf += uColor1 * seam * (0.2 + 1.2 * wave + 0.6 * gKick + 0.4 * uMid) * glow;
 
       // visor: a dark glass band across the eyes with a slit of light
       float front = smoothstep(0.05, 0.4, pO.z);
