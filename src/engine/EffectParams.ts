@@ -368,6 +368,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'panels', label: 'Pannelli', min: 0.5, max: 4, default: 2 },
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
+  faces: [
+    { key: 'faces', label: 'Volti', min: 5, max: 14, default: 9 },
+    { key: 'spin', label: 'Rotazione', min: 0, max: 3, default: 1 },
+    { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
+  ],
   monolith: [
     { key: 'pulse', label: 'Pulsazione', min: 0, max: 2, default: 1 },
     { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
