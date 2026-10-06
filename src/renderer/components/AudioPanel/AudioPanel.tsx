@@ -179,10 +179,14 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     // profile's input there would yank the track being tested.
     const onFile = engine.audioAnalyzer.getSourceKind() === 'file'
     if (s.running && s.deviceId && !onFile) {
+      // Listing inputs can wait on the permission dialog: anyone who started or stopped
+      // the analyzer meanwhile (Onboarding, the Stop button) has the last word.
+      const gen = engine.audioAnalyzer.generation
       // The saved id can be the built-in mic from a rehearsal: choose again
       // from what is plugged in now, before starting on it.
       listAudioInputs().catch(() => [] as MediaDeviceInfo[]).then(inputs => {
         const id = inputs.length ? pickInput(inputs, s.deviceId) : (s.deviceId ?? '')
+        if (engine.audioAnalyzer.generation !== gen) return
         setSelectedDevice(id)
         if (engine.audioAnalyzer.currentDeviceId === id) return
         return engine.audioAnalyzer.start(id).then(applyAnalyzerSettings)
@@ -216,6 +220,9 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         if (running) drawSpectrum()
         else cancelAnimationFrame(animFrameRef.current)
       }
+      // automatic recovery gave up (permission denied): say why instead of "Audio fermo"
+      const fatal = engine.audioAnalyzer.lastError
+      if (fatal && !engine.audioAnalyzer.isRunning) setError(prev => prev ?? audioErrorHelp({ name: fatal.split(':')[0] }, 'Errore audio'))
       const lbl = engine.audioAnalyzer.currentLabel
       setActiveLabel(prev => (prev === lbl ? prev : lbl))
       const m = engine.audioAnalyzer.getBpmMode()
