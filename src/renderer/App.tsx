@@ -866,6 +866,7 @@ export function App() {
         case 'motionBlur': engine.setMotionBlur(v); break
         case 'intensity': setIntensity(v); engine.setIntensity(v); break
         case 'lineBoost': engine.setLineBoost(v); break
+        case 'presence': engine.setPresence(v); break
         case 'camera': engine.setCamera(v); break
         case 'cameraReset': engine.resetCamera(); break
         case 'blendMode': engine.setBlendMode(v); break
@@ -1024,6 +1025,7 @@ export function App() {
             className="tb-master"
             type="range" min={0} max={1} step={0.01}
             value={intensity}
+            style={{ '--p': `${intensity * 100}%` } as React.CSSProperties}
             onChange={e => {
               const v = parseFloat(e.target.value)
               setIntensity(v)
@@ -1039,6 +1041,7 @@ export function App() {
             className="tb-master"
             type="range" min={0} max={1} step={0.01}
             value={brightness}
+            style={{ '--p': `${brightness * 100}%` } as React.CSSProperties}
             onChange={e => {
               const v = parseFloat(e.target.value)
               setBrightness(v)
