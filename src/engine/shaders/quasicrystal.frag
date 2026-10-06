@@ -18,6 +18,7 @@ varying vec2 vUv;
 uniform float waves;
 uniform float qfreq;
 uniform float contrast;
+uniform float uLineBoost;
 
 #define PI 3.14159265359
 
@@ -65,7 +66,8 @@ void main() {
   vec3 w = sin(sum * (PI * 3.0) + uBeatClock * 0.3);
   float k = 1.0 + contrast * 9.0;
   float band = 0.5 + 0.5 * tanh(w.y * k);
-  vec3 edge = vec3(1.0) - smoothstep(vec3(0.0), vec3(0.55 / k), abs(w));
+  // the boost widens the lit part of each fringe (capped: never a flat field)
+  vec3 edge = vec3(1.0) - smoothstep(vec3(0.0), vec3(min(0.55 * (1.0 + 1.5 * uLineBoost) / k, 0.5)), abs(w));
 
   vec3 c = mix(uColor3 * 0.07, uColor1, band);
   c = mix(c, uColor2, smoothstep(0.6, 1.0, band));

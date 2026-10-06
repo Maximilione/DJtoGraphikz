@@ -13,6 +13,7 @@ uniform vec2 uResolution;
 uniform float segments;
 uniform float zoom;
 uniform float detail;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -72,11 +73,20 @@ void main() {
   pattern = pow(pattern, 0.8 + uMid * 0.5);
 
   // Neon edge lines
-  float edge1 = abs(sin(n2 * detail + uTime));
-  edge1 = smoothstep(0.95, 1.0, edge1) * 2.0;
+  // lines sit on the crests of |sin(x)|; dx is the distance from a crest in
+  // radians. Half-width = authored one widened by the boost, floored at a few
+  // screen pixels (fwidth(x) is radians per pixel), capped so it never floods.
+  float lb = 1.0 + 2.5 * uLineBoost;
+  float mpx = 3.0 + 4.0 * uLineBoost;
+  float x1 = n2 * detail + uTime;
+  float dx1 = abs(fract(x1 / PI) - 0.5) * PI;
+  float hw1 = min(max(0.45 * lb, fwidth(x1) * mpx), 1.2);
+  float edge1 = (1.0 - smoothstep(0.0, hw1, dx1)) * 2.0;
 
-  float edge2 = abs(sin(n3 * 12.0 - uTime * 1.5));
-  edge2 = smoothstep(0.93, 1.0, edge2) * 1.5;
+  float x2 = n3 * 12.0 - uTime * 1.5;
+  float dx2 = abs(fract(x2 / PI) - 0.5) * PI;
+  float hw2 = min(max(0.53 * lb, fwidth(x2) * mpx), 1.2);
+  float edge2 = (1.0 - smoothstep(0.0, hw2, dx2)) * 1.5;
 
   // Color
   vec3 color = vec3(0.0);
