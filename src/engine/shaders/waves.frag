@@ -72,6 +72,9 @@ void main() {
   float energyBar = smoothstep(0.002 * (1.0 + 2.5 * uLineBoost), 0.0, abs(uv.y - 0.46 * sign(uv.y))) * uEnergy;
   color += uColor2 * energyBar;
 
+  // faint tinted haze so the wall is never black between the lines
+  color += mix(uColor1, uColor3, uv.y * 0.5 + 0.5) * 0.06;
+
   // Beat pulse
   color *= 1.0 + uBeat * 0.4;
 
