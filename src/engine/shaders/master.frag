@@ -7,6 +7,7 @@ uniform float uBrightness;   // master fader / blackout
 uniform float uContrast;     // 1 = neutral
 uniform float uSaturation;   // 1 = neutral
 uniform float uVignette;     // 0 = off
+uniform float uPresence;     // projector presence macro, 0 = off (identical output)
 uniform float uLift;         // shadow lift, 0 = neutral
 // Keystone / quad-warp (projection mapping): inverse homography screen→source
 uniform bool uWarpOn;
@@ -41,6 +42,16 @@ void main() {
   // Saturation
   float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(luma), c, uSaturation);
+
+  // Projector presence (smoke / house lights): raise the darks, a touch more
+  // colour, soft bloom on the highlights, capped so it never clips to white.
+  if (uPresence > 0.0) {
+    c = pow(max(c, vec3(0.0)), vec3(1.0 - 0.3 * uPresence));
+    float l2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(vec3(l2), c, 1.0 + 0.25 * uPresence);
+    c += c * 0.18 * uPresence * smoothstep(0.55, 1.0, l2);
+    c = mix(c, min(c, vec3(0.96)), uPresence);
+  }
 
   // Vignette
   vec2 d = uv - 0.5;
