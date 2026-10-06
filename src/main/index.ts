@@ -207,9 +207,14 @@ function ghost(win: BrowserWindow): void {
 }
 
 function createControlWindow(): BrowserWindow {
+  // Open almost full screen on the display the user is on (work area: below the
+  // menu bar and above the Dock). Not macOS fullscreen: no Space transition.
+  // Under the self-test the old fixed size stays, the captures depend on it.
+  const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(SELFTEST
+      ? { width: 1280, height: 800 }
+      : { x: wa.x, y: wa.y, width: wa.width, height: wa.height }),
     minWidth: 900,
     minHeight: 600,
     title: 'DJtoGraphikz',
