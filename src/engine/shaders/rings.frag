@@ -16,6 +16,7 @@ uniform float uBassTime;
 uniform float ringcount;
 uniform float spacing;
 uniform float gapfreq;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -28,6 +29,9 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
   vec3 color = vec3(0.0);
+  // line boost: authored widths scale up, and never fall under mpx pixels
+  float lb = 1.0 + 2.5 * uLineBoost;
+  float mpx = 3.0 + 4.0 * uLineBoost;
 
   // Multiple concentric ring systems
   for (int sys = 0; sys < 3; sys++) {
@@ -62,9 +66,9 @@ void main() {
       float gapMask = smoothstep(0.0, 0.3, gap);
 
       float rd = abs(r - ringR);
-      float ring = smoothstep(max(thickness, fwidth(rd) * 1.5), 0.0, rd) * gapMask;
+      float ring = smoothstep(max(thickness * lb, fwidth(rd) * mpx), 0.0, rd) * gapMask;
       // idle floor: a soft halo around each ring, so the systems read in silence
-      ring += exp(-rd * 30.0) * gapMask * 0.7 * (1.0 - 0.5 * uEnergy);
+      ring += exp(-rd * 30.0 / (1.0 + uLineBoost)) * gapMask * 0.7 * (1.0 - 0.5 * uEnergy);
 
       // Fade with expansion
       float fade = 1.0 - ringR;
@@ -85,12 +89,14 @@ void main() {
   {
     float bp = 1.0 - uBeatPhase;
     float preR = uBeatPhase * 0.9;
-    float pre = smoothstep(0.012, 0.0, abs(length(uv) - preR)) * bp * 0.6;
+    float dpre = abs(length(uv) - preR);
+    float pre = smoothstep(max(0.012 * lb, fwidth(dpre) * mpx), 0.0, dpre) * bp * 0.6;
     color += mix(uColor2, uColor3, uBarPhase) * pre;
   }
   if (uBeat > 0.1) {
     float burstR = uBeat * 0.8;
-    float burst = smoothstep(0.01, 0.0, abs(length(uv) - burstR));
+    float dbu = abs(length(uv) - burstR);
+    float burst = smoothstep(max(0.01 * lb, fwidth(dbu) * mpx), 0.0, dbu);
     color += mix(uColor1, uColor2, 0.5) * burst * 1.5 * uBeat;
   }
 

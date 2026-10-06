@@ -18,6 +18,7 @@ varying vec2 vUv;
 uniform float cellsize;
 uniform float levels;
 uniform float sourcezoom;
+uniform float uLineBoost;
 
 // Terminal readout: a procedural field sampled once per character cell and
 // printed as a glyph whose ink coverage matches the brightness. The glyphs are
@@ -76,7 +77,14 @@ void main() {
 
   float lv = clamp(floor(levels), 2.0, 6.0);
   int idx = int(clamp(floor(v * lv), 0.0, lv - 1.0) * (6.0 / lv));
-  float ink = glyph(idx, inCell);
+  // a glyph stroke is one bit = a fifth of the cell: ~2 px at the default
+  // size. Dilate it so strokes reach mpx pixels (never past a tenth of the
+  // cell: the glyphs must stay glyphs, not blobs)
+  vec2 cellPx = uResolution / grid;
+  vec2 dil = clamp(0.5 * ((3.0 + 4.0 * uLineBoost) - cellPx * 0.2), vec2(0.0), 0.1 * cellPx) / cellPx;
+  float ink = max(max(glyph(idx, inCell), glyph(idx, inCell + vec2(dil.x, 0.0))),
+                  max(glyph(idx, inCell - vec2(dil.x, 0.0)),
+                      max(glyph(idx, inCell + vec2(0.0, dil.y)), glyph(idx, inCell - vec2(0.0, dil.y)))));
 
   // a scanline-ish tint: hotter cells drift toward color2
   vec3 tint = mix(uColor1, uColor2, smoothstep(0.35, 0.95, v));
