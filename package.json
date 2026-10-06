@@ -23,6 +23,7 @@
     "check:midiclock": "node scripts/check-midiclock.mjs",
     "check:prodjlink": "node scripts/check-prodjlink.mjs",
     "check:dryrun": "python3 scripts/check-dryrun.py",
+    "check:gamepad": "node scripts/check-gamepad.mjs",
     "check:momentary": "node scripts/check-momentary.mjs",
     "check:intensity": "node scripts/check-intensity.mjs",
     "check:presence": "node scripts/check-presence.mjs",
