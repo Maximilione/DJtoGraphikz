@@ -866,6 +866,7 @@ export function App() {
         case 'motionBlur': engine.setMotionBlur(v); break
         case 'intensity': setIntensity(v); engine.setIntensity(v); break
         case 'lineBoost': engine.setLineBoost(v); break
+        case 'presence': engine.setPresence(v); break
         case 'camera': engine.setCamera(v); break
         case 'cameraReset': engine.resetCamera(); break
         case 'blendMode': engine.setBlendMode(v); break

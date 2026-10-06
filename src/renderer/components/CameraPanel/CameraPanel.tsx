@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Engine, CameraState } from '@engine/Engine'
 import { CAMERA_NEUTRAL } from '@engine/Engine'
 import { LINE_BOOST_DEFAULT } from '@engine/lineBoost'
+import { PRESENCE_DEFAULT } from '@engine/presence'
 import { IMPACT_DEFAULT, type ImpactState } from '@engine/impact'
 import { Panel } from '../Panel/Panel'
 import { SliderRow } from '../SliderRow/SliderRow'
@@ -22,12 +23,13 @@ interface CameraPanelProps {
 export function CameraPanel({ engine }: CameraPanelProps) {
   const [cam, setCam] = useState<CameraState>(CAMERA_NEUTRAL)
   const [lb, setLb] = useState(LINE_BOOST_DEFAULT)
+  const [pres, setPres] = useState(PRESENCE_DEFAULT)
 
   // The camera moves from the phone, OSC and MIDI too, so the panel follows
   // the engine rather than owning the value.
   useEffect(() => {
     if (!engine) return
-    const sync = () => { setCam(engine.getCamera()); setLb(engine.getLineBoost()) }
+    const sync = () => { setCam(engine.getCamera()); setLb(engine.getLineBoost()); setPres(engine.getPresence()) }
     sync()
     return engine.onState(sync)
   }, [engine])
@@ -80,6 +82,11 @@ export function CameraPanel({ engine }: CameraPanelProps) {
           label="Spessore linee" value={lb} min={0} max={1} step={0.05}
           title="Spessore e luminosita' delle linee in tutti gli effetti con tratti, contorni e righe. Alza per proiettore, fumo e luci di sala: le linee restano leggibili a distanza"
           onChange={v => { engine.setLineBoost(v); setLb(v) }}
+        />
+        <SliderRow
+          label="Presenza" value={pres} min={0} max={1} step={0.05}
+          title="Presenza proiettore: alza i neri perche' i dettagli scuri emergano nel fumo e con le luci di sala accese, colori un po' piu' vivi, bagliore morbido sulle alte luci, mai bianco pieno. A zero l'immagine e' invariata"
+          onChange={v => { engine.setPresence(v); setPres(v) }}
         />
         <button
           className="btn btn-secondary btn-sm"

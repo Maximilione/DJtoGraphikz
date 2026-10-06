@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { LINE_BOOST_DEFAULT, sanitizeLineBoost } from './lineBoost'
+import { PRESENCE_DEFAULT, sanitizePresence } from './presence'
 import { IMPACT_DEFAULT, IMPACT_NEUTRAL, impactActive, newImpactRuntime, sanitizeImpact, stepImpact, type ImpactOut, type ImpactState } from './impact'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
 import type { Phase } from './AutoVJ'
@@ -279,6 +280,8 @@ export interface EngineState {
   impact?: ImpactState
   /** Spessore linee globale, 0..1 (uniform uLineBoost) */
   lineBoost?: number
+  /** Presenza proiettore, 0..1 (uniform uPresence del passaggio master) */
+  presence?: number
   cycle?: {
     enabled: boolean
     palettes: [string, string, string][]
@@ -548,6 +551,7 @@ export class Engine {
   /** Audio impact layer: state travels in the snapshot, the runtime is per-window */
   private impactState: ImpactState = { ...IMPACT_DEFAULT }
   private lineBoost = LINE_BOOST_DEFAULT
+  private presence = PRESENCE_DEFAULT
   private impactRt = newImpactRuntime()
   private impactOut: ImpactOut = IMPACT_NEUTRAL
 
@@ -886,6 +890,7 @@ export class Engine {
         uSrcScale: { value: new THREE.Vector2(1, 1) },
         uGamma: { value: 1 },
         uOutBright: { value: 1 },
+        uPresence: { value: 0 },
       }
     })
 
@@ -2029,6 +2034,14 @@ export class Engine {
   }
   getLineBoost(): number { return this.lineBoost }
 
+  setPresence(v: number) {
+    const next = sanitizePresence(v)
+    if (next === this.presence) return
+    this.presence = next
+    this.emitState()
+  }
+  getPresence(): number { return this.presence }
+
   /** Back to the identity — the camera's own panic. */
   resetCamera() {
     this.cameraState = { ...CAMERA_NEUTRAL }
@@ -2346,6 +2359,7 @@ export class Engine {
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
     if (state.impact) this.impactState = sanitizeImpact(state.impact)
     this.lineBoost = sanitizeLineBoost(state.lineBoost)
+    this.presence = sanitizePresence(state.presence)
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
       this.cycleIntervalMs = state.cycle.intervalMs
@@ -2412,6 +2426,7 @@ export class Engine {
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
     if (state.impact) this.impactState = sanitizeImpact(state.impact)
     this.lineBoost = sanitizeLineBoost(state.lineBoost)
+    this.presence = sanitizePresence(state.presence)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -2909,6 +2924,7 @@ export class Engine {
       camera: { ...this.cameraState },
       impact: { ...this.impactState },
       lineBoost: this.lineBoost,
+      presence: this.presence,
       // Custom shader must ride the snapshot: any emit without it used to
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
@@ -3621,6 +3637,7 @@ export class Engine {
     const mu = this.masterMaterial.uniforms
     mu.tDiffuse.value = texture
     mu.uBrightness.value = this.blackout ? 0 : this.brightness
+    mu.uPresence.value = this.presence
     this.renderPass(this.masterMaterial, null)
     this.renderer.setRenderTarget(null)
     this.samplePixelMap()
