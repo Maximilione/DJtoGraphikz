@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Engine, CameraState } from '@engine/Engine'
 import { CAMERA_NEUTRAL } from '@engine/Engine'
+import { LINE_BOOST_DEFAULT } from '@engine/lineBoost'
 import { IMPACT_DEFAULT, type ImpactState } from '@engine/impact'
 import { Panel } from '../Panel/Panel'
 import { SliderRow } from '../SliderRow/SliderRow'
@@ -20,13 +21,15 @@ interface CameraPanelProps {
  */
 export function CameraPanel({ engine }: CameraPanelProps) {
   const [cam, setCam] = useState<CameraState>(CAMERA_NEUTRAL)
+  const [lb, setLb] = useState(LINE_BOOST_DEFAULT)
 
   // The camera moves from the phone, OSC and MIDI too, so the panel follows
   // the engine rather than owning the value.
   useEffect(() => {
     if (!engine) return
-    setCam(engine.getCamera())
-    return engine.onState(() => setCam(engine.getCamera()))
+    const sync = () => { setCam(engine.getCamera()); setLb(engine.getLineBoost()) }
+    sync()
+    return engine.onState(sync)
   }, [engine])
 
   const set = useCallback((patch: Partial<CameraState>) => {
@@ -72,6 +75,11 @@ export function CameraPanel({ engine }: CameraPanelProps) {
           label="Spinta" value={cam.push} min={0} max={1} step={0.05}
           title="Quanto la cassa spinge dentro l'inquadratura — a zero la camera sta ferma"
           onChange={v => set({ push: v })}
+        />
+        <SliderRow
+          label="Spessore linee" value={lb} min={0} max={1} step={0.05}
+          title="Spessore e luminosita' delle linee in tutti gli effetti con tratti, contorni e righe. Alza per proiettore, fumo e luci di sala: le linee restano leggibili a distanza"
+          onChange={v => { engine.setLineBoost(v); setLb(v) }}
         />
         <button
           className="btn btn-secondary btn-sm"

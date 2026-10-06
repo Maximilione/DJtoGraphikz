@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
+import { LINE_BOOST_DEFAULT, sanitizeLineBoost } from './lineBoost'
 import { IMPACT_DEFAULT, IMPACT_NEUTRAL, impactActive, newImpactRuntime, sanitizeImpact, stepImpact, type ImpactOut, type ImpactState } from './impact'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
 import type { Phase } from './AutoVJ'
@@ -276,6 +277,8 @@ export interface EngineState {
   camera?: CameraState
   /** Audio impact layer (shake / punch / flash / bands / energy chaser) */
   impact?: ImpactState
+  /** Spessore linee globale, 0..1 (uniform uLineBoost) */
+  lineBoost?: number
   cycle?: {
     enabled: boolean
     palettes: [string, string, string][]
@@ -544,6 +547,7 @@ export class Engine {
   private cameraState: CameraState = { ...CAMERA_NEUTRAL }
   /** Audio impact layer: state travels in the snapshot, the runtime is per-window */
   private impactState: ImpactState = { ...IMPACT_DEFAULT }
+  private lineBoost = LINE_BOOST_DEFAULT
   private impactRt = newImpactRuntime()
   private impactOut: ImpactOut = IMPACT_NEUTRAL
 
@@ -1086,6 +1090,7 @@ export class Engine {
         uSub: { value: 0 },
         uPresence: { value: 0 },
         uBassHit: { value: 0 },
+        uLineBoost: { value: this.lineBoost },
         uMidHit: { value: 0 },
         uHighHit: { value: 0 },
         uBassTime: { value: 0 },
@@ -1322,6 +1327,7 @@ export class Engine {
         uWet: { value: 1 },
         uTime: { value: 0 },
         uEnergy: { value: 0 },
+        uLineBoost: { value: this.lineBoost },
         uResolution: { value: this.resolution },
       }
     }))
@@ -1400,6 +1406,7 @@ export class Engine {
         uWet: { value: 1 },
         uBeat: { value: 0 },
         uColor1: { value: this.colors[0] },
+        uLineBoost: { value: this.lineBoost },
         uResolution: { value: this.resolution },
       }
     }))
@@ -2014,6 +2021,14 @@ export class Engine {
   }
   getImpact(): ImpactState { return { ...this.impactState } }
 
+  setLineBoost(v: number) {
+    const next = sanitizeLineBoost(v)
+    if (next === this.lineBoost) return
+    this.lineBoost = next
+    this.emitState()
+  }
+  getLineBoost(): number { return this.lineBoost }
+
   /** Back to the identity — the camera's own panic. */
   resetCamera() {
     this.cameraState = { ...CAMERA_NEUTRAL }
@@ -2330,6 +2345,7 @@ export class Engine {
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
     if (state.impact) this.impactState = sanitizeImpact(state.impact)
+    this.lineBoost = sanitizeLineBoost(state.lineBoost)
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
       this.cycleIntervalMs = state.cycle.intervalMs
@@ -2395,6 +2411,7 @@ export class Engine {
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
     if (state.impact) this.impactState = sanitizeImpact(state.impact)
+    this.lineBoost = sanitizeLineBoost(state.lineBoost)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -2891,6 +2908,7 @@ export class Engine {
       intensity: this.intensity,
       camera: { ...this.cameraState },
       impact: { ...this.impactState },
+      lineBoost: this.lineBoost,
       // Custom shader must ride the snapshot: any emit without it used to
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
@@ -3400,6 +3418,7 @@ export class Engine {
         if (pu.uEnergy) pu.uEnergy.value = this.smoothEnergy
         if (pu.uBeat) pu.uBeat.value = this.beatPulse
         if (pu.uHighHit) pu.uHighHit.value = this.highHit
+        if (pu.uLineBoost) pu.uLineBoost.value = this.lineBoost
         if (pu.uTime) pu.uTime.value = time
         if (entry.id === 'rgb-delay') this.feedRgbDelay(read, wet)
         // amount grezzo, senza la macro intensita': chi lo legge sceglie un
@@ -3469,6 +3488,7 @@ export class Engine {
     if (u.uSub) u.uSub.value = this.smoothSub * k
     if (u.uPresence) u.uPresence.value = this.smoothPresence * k
     if (u.uBassHit) u.uBassHit.value = this.bassHit * k
+    if (u.uLineBoost) u.uLineBoost.value = this.lineBoost
     if (u.uMidHit) u.uMidHit.value = this.midHit * k
     if (u.uHighHit) u.uHighHit.value = this.highHit * k
     if (u.uBassTime) u.uBassTime.value = this.bassTime
