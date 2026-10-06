@@ -1,0 +1,10 @@
+{
+  "name": "Warm-up Neon",
+  "loop": true,
+  "mode": "timer",
+  "defaultHold": 16,
+  "steps": [
+    { "name": "01 acid tunnel", "hold": 16, "preset": { "name": "acid tunnel", "effect": "tunnel", "post": ["bloom"], "colors": ["#ccff00", "#00ffaa", "#220033"] } },
+    { "name": "02 sunset kaleido", "hold": 16, "preset": { "name": "sunset kaleido", "effect": "kaleidoscope", "post": [], "colors": ["#ff5e3a", "#ff2a68", "#2b0a3d"] } }
+  ]
+}
