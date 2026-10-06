@@ -54,6 +54,20 @@ const PHASES: { id: Phase; label: string }[] = [
   { id: 'break', label: 'pausa' }, { id: 'build', label: 'salita' }, { id: 'groove', label: 'groove' }, { id: 'peak', label: 'picco' },
 ]
 
+/** What went wrong with the input, and what to do about it — not the raw DOMException text. */
+function audioErrorHelp(err: any, prefix: string): string {
+  switch (err?.name) {
+    case 'NotAllowedError': case 'SecurityError':
+      return 'Accesso audio negato. Consenti il microfono a DJtoGraphikz in Impostazioni di Sistema > Privacy e sicurezza > Microfono, poi premi Riprova.'
+    case 'NotFoundError': case 'OverconstrainedError':
+      return 'Nessun ingresso audio trovato. Collega la scheda audio o il mixer e premi Riprova.'
+    case 'NotReadableError':
+      return 'L\'ingresso audio e\' occupato da un\'altra app. Chiudila (o scegli un altro dispositivo) e premi Riprova.'
+    default:
+      return `${prefix}: ${err?.message ?? err}. Premi Riprova.`
+  }
+}
+
 const agoLabel = (ms: number) => ms < 60000 ? `${Math.max(0, Math.round(ms / 1000))} s fa` : `${Math.round(ms / 60000)} min fa`
 
 export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
@@ -117,7 +131,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       setError(null)
     } catch (err: any) {
       console.error('Failed to enumerate devices:', err)
-      setError(`Accesso audio negato: ${err.message}`)
+      setError(audioErrorHelp(err, 'Non riesco a leggere gli ingressi audio'))
     }
   }
 
@@ -282,7 +296,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       drawSpectrum()
     } catch (err: any) {
       console.error('Failed to start audio:', err)
-      setError(`Errore audio: ${err.message}`)
+      setError(audioErrorHelp(err, 'Errore audio'))
     }
   }
 
@@ -374,12 +388,14 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       }
 
       ctx.fillStyle = '#00ff88'
-      ctx.font = '10px monospace'
+      ctx.font = '11px monospace'
       ctx.fillText(`BPM: ${audioData.bpm.toFixed(0)}`, 4, 12)
       ctx.fillText(`Energy: ${(audioData.energy * 100).toFixed(0)}%`, 4, 24)
-      ctx.fillText(`Bass: ${(audioData.bass * 100).toFixed(0)}%`, w - 80, 12)
-      ctx.fillText(`Beat: ${audioData.beatDetected ? 'YES' : '-'}`, w - 80, 24)
-      if (audioData.key) ctx.fillText(`Key: ${keyName(audioData.key)} ${(audioData.key.confidence * 100).toFixed(0)}%`, w - 80, 36)
+      ctx.textAlign = 'right'   // right-hand column hugs the edge instead of running past it
+      ctx.fillText(`Bass: ${(audioData.bass * 100).toFixed(0)}%`, w - 4, 12)
+      ctx.fillText(`Beat: ${audioData.beatDetected ? 'YES' : '-'}`, w - 4, 24)
+      if (audioData.key) ctx.fillText(`Key: ${keyName(audioData.key)} ${(audioData.key.confidence * 100).toFixed(0)}%`, w - 4, 36)
+      ctx.textAlign = 'left'
 
       // the Auto VJ's phase lamps, bottom row: what the machine hears the
       // track doing — pausa / salita / groove / picco
@@ -389,7 +405,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
           const on = ph.id === phaseRef.current
           ctx.fillStyle = on ? '#00ff88' : 'rgba(255,255,255,0.28)'
           ctx.fillText(on ? `● ${ph.label}` : `○ ${ph.label}`, x, h - 5)
-          x += ctx.measureText(`● ${ph.label}`).width + 10
+          x += ctx.measureText(`● ${ph.label}`).width + 8
         }
       }
     }
@@ -408,7 +424,23 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         {/* A mic that was refused is not news while a file is playing: the
             analysis is running, just not on the input. An error about the file
             itself still shows, because then there is no file loaded. */}
-        {error && !file.name && <div className="u-error">{error}</div>}
+        {error && !file.name && (
+          <div className="u-error u-col" style={{ gap: 'var(--s2)' }} role="alert">
+            <span>{error}</span>
+            <button className="btn btn-sm" onClick={refreshDevices} style={{ alignSelf: 'flex-start' }}>Riprova</button>
+          </div>
+        )}
+
+        {/* what is on right now, before any control */}
+        <div className="u-row" style={{ minWidth: 0 }}>
+          <div className={`status-dot${audioActive ? ' on' : ''}`} />
+          <span className="u-hint" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            color: audioActive ? 'var(--text-primary)' : undefined }}>
+            {!audioActive ? 'Audio fermo'
+              : file.name ? `In ascolto: ${file.name}`
+              : `In ascolto: ${devices.find(d => d.deviceId === selectedDevice)?.label || 'ingresso audio'}`}
+          </span>
+        </div>
 
         {/* S5: what the wall does when the music stops and the Auto VJ is off */}
         {/* not a .slider-row: its labels are a fixed 74px each, and four of them
@@ -462,7 +494,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
                   engine?.audioAnalyzer.seek(t)
                   setFile(f => ({ ...f, at: t }))
                 }}
-                style={{ flex: 1, minWidth: 0 }}
+                style={{ flex: 1, minWidth: 0, '--p': `${file.len > 0 ? Math.min(100, (file.at / file.len) * 100) : 0}%` } as React.CSSProperties}
               />
               <span className="u-value" style={{ width: '74px', flexShrink: 0 }}>
                 {mmss(file.at)} / {mmss(file.len)}
@@ -549,7 +581,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         {/* Spectrum visualizer */}
         <canvas
           ref={canvasRef}
-          width={296}
+          width={270}
           height={60}
           style={{
             width: '100%',
@@ -560,21 +592,13 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         />
 
         {/* Beat Sensitivity */}
-        <div>
-          <div className="cat-label">Sensibilità beat</div>
-          <div className="u-row">
-            <span className="u-hint" style={{ width: '28px' }}>Min</span>
-            <input
-              type="range"
-              min={0} max={1} step={0.05}
-              value={sensitivity}
-              title="Quanto facilmente scatta il rilevamento del beat"
-              onChange={e => handleSensitivity(parseFloat(e.target.value))}
-              style={{ flex: 1 }}
-            />
-            <span className="u-hint" style={{ width: '28px', textAlign: 'right' }}>Max</span>
-          </div>
-        </div>
+        <SliderRow
+          label="Sensibilità beat" percent
+          labelTitle="Da poco sensibile (solo colpi netti) a molto sensibile (scatta facilmente)"
+          title="Quanto facilmente scatta il rilevamento del beat"
+          value={sensitivity} min={0} max={1} step={0.05}
+          onChange={handleSensitivity}
+        />
 
         {/* BPM Section */}
         <div>
@@ -615,7 +639,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
           </div>
 
           {/* Mode selector */}
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
             {BPM_MODES.map(mode => (
               <button
                 key={mode.id}
