@@ -6,6 +6,9 @@ uniform float uMid;
 uniform float uHigh;
 uniform float uEnergy;
 uniform float uBeat;
+uniform float uBassHit;
+uniform float uHighTime;
+uniform float uBassTime;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
@@ -58,36 +61,40 @@ void main() {
     }
   }
 
-  // Edge detection
+  // Edge detection: sharp neon core + wide halo for the bloom
   float edge = d2 - d1;
-  float edgeLine = 1.0 - smoothstep(0.0, edgewidth + uHigh * 0.05, edge);
+  float ew = edgewidth + uHigh * 0.05;
+  float edgeLine = 1.0 - smoothstep(0.0, ew, edge);
+  float halo = exp(-edge * 9.0);
 
   // Cell color based on point hash
   float cellId = dot(nearestPoint, vec2(12.9898, 78.233));
   float cellHue = fract(cellId * 43758.5453 + t * 0.1);
-
-  // Patterns
   vec3 cellColor = mix(uColor1, uColor2, cellHue);
   cellColor = mix(cellColor, uColor3, fract(cellHue * 3.0 + 0.5));
 
-  // Shade by distance
-  float shade = 1.0 - d1 * 0.8;
-  shade = pow(max(shade, 0.0), 1.5);
-
-  vec3 color = cellColor * shade * 0.5;
+  // Cell body: dark at the rim, lit nucleus, per-cell flash on kick/hats
+  float shade = pow(max(1.0 - d1 * 0.9, 0.0), 2.0);
+  float nuc = exp(-d1 * d1 * 18.0);
+  float flash = step(0.7, fract(cellHue * 7.0 + uHighTime * 2.0));
+  vec3 color = cellColor * (0.06 + shade * 0.4 + nuc * (0.35 + uBassHit * 0.9 + flash * uHigh * 0.8));
 
   // Neon edges
-  color += uColor1 * edgeLine * 2.0;
-  color += uColor3 * edgeLine * pow(1.0 - d1, 3.0);
+  color += mix(uColor1, vec3(1.0), 0.25) * edgeLine * 1.6;
+  color += uColor3 * edgeLine * pow(max(1.0 - d1, 0.0), 3.0);
+  color += mix(uColor2, uColor1, 0.5) * halo * (0.12 + uEnergy * 0.2);
 
-  // Beat pulse on edges
-  color += (uColor1 + uColor2) * edgeLine * uBeat * 3.0;
+  // Kick: edges flare, a shockwave ring sweeps out from the center
+  color += (uColor1 + uColor2) * edgeLine * (uBeat * 1.4 + uBassHit * 1.2);
+  float rr = length(uv);
+  float wave = (1.0 - uBassHit) * 1.1;
+  color += uColor3 * smoothstep(0.07, 0.0, abs(rr - wave)) * uBassHit * (0.4 + halo * 1.5);
 
-  // Center glow
-  float glow = exp(-length(uv) * 2.0) * uEnergy;
-  color += uColor2 * glow * 0.5;
-
-  color *= 1.0 + uBeat * 0.5;
+  // Center glow + depth vignette (never fully black)
+  color += uColor2 * exp(-rr * 2.0) * uEnergy * 0.5;
+  color *= (0.55 + 0.45 * smoothstep(1.2, 0.2, rr)) * (1.0 + uBeat * 0.4);
+  color += uColor2 * 0.02;
+  color = min(color, vec3(1.8));
 
   gl_FragColor = vec4(color, 1.0);
 }
