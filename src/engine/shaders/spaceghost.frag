@@ -73,7 +73,8 @@ void main() {
   }
   // log compresses the hot cores into glow instead of white; the floor keeps
   // a dim nebula in a silent room
-  float vig = 1.0 - 0.6 * dot(p, p);
+  // 1/(1+k r^2): the linear falloff went negative on wide frames (LED strip, ultrawide)
+  float vig = 1.0 / (1.0 + 0.9 * dot(p, p));
   col = log(col * (1.0 + 1.4 * uBassHit + 0.5 * uBeat) + 1.0) * 0.75 * vig;
   col += mix(uColor3, uColor2, 0.4) * (0.035 + 0.05 * exp(-dot(p, p) * 3.0)) * (0.7 + 0.6 * uEnergy);
   gl_FragColor = vec4(col, 1.0);
