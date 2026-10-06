@@ -2,6 +2,26 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.71.0-beta] — 2026-10-06
+
+### Added
+- **Presenza proiettore**: macro 0–1 (pannello Camera, telefono, OSC `/djg/presence`) che alza i dettagli scuri, la saturazione e il bloom morbido sulle alte luci, con tetto a 0.96, per fumo e luci di sala. A 0 l'output e' identico. `check:presence`.
+- **GIF export**: pulsante «GIF» accanto alla registrazione WebM; 3/5/8 secondi o loop a N battute esatte, larghezza 320/480/640. Encoder in TypeScript puro, senza dipendenze. `check:gif` (round-trip col decoder dell'app).
+- **Plugin dichiarativi**: cartelle in `~/.djtographikz/plugins/` con `plugin.json` che portano shader ISF, palette, look, scalette e mapping, mai codice. Manifest validato (path traversal, symlink, id duplicati, dimensioni). Tab «Plugin» in Preset & Scalette, `docs/PLUGINS.md`, esempio in `docs/plugin-example/`. `check:plugins`.
+- **Gamepad**: pulsanti e assi di un controller assegnabili con learn agli stessi comandi del MIDI (tap = latch, hold = momentaneo), sezione «Gamepad» nel pannello MIDI. `check:gamepad`.
+- **Installer dmg con grafica**: sfondo con titolo e freccia, icone posizionate, titolo del volume (`scripts/make-dmg-background.py`).
+- `check:glsl`: compila tutti gli shader con glslang come fa three su WebGL2 (serve `brew install glslang`, altrimenti salta).
+
+### Changed
+- **Scalette live** rigenerate con i nuovi effetti (galaxy, cathedral, chrome, crystals, mandelbulb, storm, ribbons, beamfield, android, monolith, mesh) e i post Cinema per fase; l'Anyma pesa soprattutto nel Live 3.
+- **Audio piu' robusto**: se l'id del dispositivo sparisce il riavvio riprova con la scheda esterna; il pannello mostra il dispositivo realmente attivo e propone «Usa <scheda>» se si ascolta quello integrato; backoff con log meno rumoroso. Le schede integrate di Windows (Realtek) e le cuffie Bluetooth non vengono piu' scambiate per schede esterne. `check:audiorecovery`.
+- Slider INTENS., MASTER e del deck con traccia riempita.
+
+### Fixed
+- `camera.frag` non compilava (`c` dichiarata due volte): con la camera o l'Impatto attivi il passaggio falliva e lo schermo andava nero.
+- Lo slider «Spessore linee» non aveva effetto sulle `scanlines` (la uniform era sul materiale `filmgrain`).
+- Audio: due `start()` sovrapposti lasciavano due `AudioContext`; uno Stop premuto durante l'avvio o un retry veniva annullato; un permesso microfono negato veniva ritentato all'infinito.
+
 ## [0.70.0-beta] — 2026-10-06
 
 ### Added

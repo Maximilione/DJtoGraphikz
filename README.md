@@ -56,7 +56,7 @@ A beat tracker built for club music (spectral flux, phase-locked loop, genre-awa
 
 ### Live control
 
-Everything is on the keyboard (table below) and **hold = momentary**: a tap latches, holding and releasing puts it back — blackout, freeze, post-FX, effects, looks, MIDI pads, a thumb on the phone. **Beat-roll** (`,` `.` `/`) loops the visual over a quarter, an eighth or a sixteenth of a beat. **Look Bank**: 4×4 slots with thumbnails, Shift+1-0 to recall. **MIDI learn** for any controller, **phone** (up to 4 devices, QR pairing), **OSC** on UDP `:9700` (`/djg/*`, TouchOSC-ready).
+Everything is on the keyboard (table below) and **hold = momentary**: a tap latches, holding and releasing puts it back — blackout, freeze, post-FX, effects, looks, MIDI pads, a thumb on the phone. **Beat-roll** (`,` `.` `/`) loops the visual over a quarter, an eighth or a sixteenth of a beat. **GIF export** (3–8 s or N beats, looping), a declarative **plugin** folder (ISF shaders, palettes, looks, setlists, no code), **gamepad** learn and a graphical dmg installer. **Look Bank**: 4×4 slots with thumbnails, Shift+1-0 to recall. **MIDI learn** for any controller, **phone** (up to 4 devices, QR pairing), **OSC** on UDP `:9700` (`/djg/*`, TouchOSC-ready).
 
 ### Setlists and media
 

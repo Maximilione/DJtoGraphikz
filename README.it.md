@@ -56,7 +56,7 @@ Un beat tracker fatto per la musica da club (spectral flux, aggancio di fase, pr
 
 ### Controllo dal vivo
 
-Tutto è sulla tastiera (tabella sotto) e **tieni premuto = momentaneo**: un tocco resta, tenere e mollare torna com'era — blackout, freeze, post-FX, effetti, look, pad MIDI, il dito sul telefono. Il **beat-roll** (`,` `.` `/`) fa girare il visual in loop su un quarto, un ottavo o un sedicesimo di battuta. **Look Bank**: 4×4 slot con thumbnail, Shift+1-0 per richiamarli. **MIDI learn** per qualsiasi controller, **telefono** (fino a 4 dispositivi, pairing via QR), **OSC** su UDP `:9700` (`/djg/*`, pronto per TouchOSC).
+Tutto è sulla tastiera (tabella sotto) e **tieni premuto = momentaneo**: un tocco resta, tenere e mollare torna com'era — blackout, freeze, post-FX, effetti, look, pad MIDI, il dito sul telefono. Il **beat-roll** (`,` `.` `/`) fa girare il visual in loop su un quarto, un ottavo o un sedicesimo di battuta. **Export GIF** (3–8 s o N battute, in loop), cartella **plugin** dichiarativa (shader ISF, palette, look, scalette, senza codice), **gamepad** con learn e installer dmg con grafica. **Look Bank**: 4×4 slot con thumbnail, Shift+1-0 per richiamarli. **MIDI learn** per qualsiasi controller, **telefono** (fino a 4 dispositivi, pairing via QR), **OSC** su UDP `:9700` (`/djg/*`, pronto per TouchOSC).
 
 ### Scalette e media
 
