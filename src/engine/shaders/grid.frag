@@ -16,6 +16,7 @@ uniform float uBassHit;
 uniform float density;
 uniform float fogamt;
 uniform float wavefreq;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -39,7 +40,7 @@ void main() {
 
   // Horizon line
   float hd = abs(p.y + 0.1);
-  float horizon = smoothstep(max(0.005, fwidth(hd) * 1.5), 0.0, hd);
+  float horizon = smoothstep(max(0.005 * (1.0 + 2.5 * uLineBoost), fwidth(hd) * (3.0 + 4.0 * uLineBoost)), 0.0, hd);
   color += mix(uColor2, vec3(1.0), 0.3) * horizon * (2.0 + uBassHit * 2.0);
   // haze band at the horizon
   color += mix(uColor1, uColor2, 0.5) * exp(-abs(p.y + 0.1) * 9.0) * (0.18 + 0.25 * uBassHit + 0.15 * uEnergy);
@@ -56,16 +57,21 @@ void main() {
     float gridX = abs(fract(x * 2.0 * density) - 0.5);
     float gridZ = abs(fract(z * 1.0 * density) - 0.5);
 
-    float lineX = smoothstep(max(0.02, fwidth(gridX) * 1.5), 0.0, gridX);
-    float lineZ = smoothstep(max(0.02, fwidth(gridZ) * 1.5), 0.0, gridZ);
+    // near the camera the cells are huge and the old 0.02 is already tens of
+    // pixels, so only the pixel floor grows: it is the far lines that vanish
+    float pxw = 3.0 + 4.0 * uLineBoost;
+    float lineX = smoothstep(max(0.02, fwidth(gridX) * pxw), 0.0, gridX);
+    float lineZ = smoothstep(max(0.02, fwidth(gridZ) * pxw), 0.0, gridZ);
     // near the horizon the lines are denser than pixels: fade them out there
     // instead of letting them fuse into a solid bright band
-    lineZ *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridZ));
-    lineX *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridX));
+    // (wider lines fuse earlier, so the fade starts earlier with the boost)
+    float fk = 1.0 + 2.0 * uLineBoost;
+    lineZ *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridZ) * fk);
+    lineX *= 1.0 - smoothstep(0.15, 0.45, fwidth(gridX) * fk);
     float grid = max(lineX, lineZ);
     // soft halo along the lines, same distance fade
-    float halo = max(exp(-gridX * 9.0) * (1.0 - smoothstep(0.15, 0.45, fwidth(gridX))),
-                     exp(-gridZ * 9.0) * (1.0 - smoothstep(0.15, 0.45, fwidth(gridZ))));
+    float halo = max(exp(-gridX * 9.0) * (1.0 - smoothstep(0.15, 0.45, fwidth(gridX) * fk)),
+                     exp(-gridZ * 9.0) * (1.0 - smoothstep(0.15, 0.45, fwidth(gridZ) * fk)));
 
     // Distance fog
     float fog = exp(-depth * fogamt);

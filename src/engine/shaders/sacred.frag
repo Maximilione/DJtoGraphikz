@@ -15,6 +15,7 @@ uniform vec2 uResolution;
 uniform float zoom;
 uniform float radius;
 uniform float ringfreq;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -24,10 +25,16 @@ varying vec2 vUv;
 mat2 rot(float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
 
 // Crisp line plus a soft halo that the bloom can pick up
+// Line half-width: the authored one widened by the boost, never under a few
+// screen pixels (fwidth(d) is the pixel size in d units) so it survives smoke.
+float lw(float w, float d) {
+  return max(w * (1.0 + 2.5 * uLineBoost), fwidth(d) * (3.0 + 4.0 * uLineBoost));
+}
+
 float ring(vec2 p, float r, float w) {
   float d = abs(length(p) - r);
-  float aw = max(w, fwidth(d) * 1.5);
-  return smoothstep(aw, aw * 0.3, d) + 0.12 * exp(-d * 26.0);
+  float aw = lw(w, d);
+  return smoothstep(aw, aw * 0.3, d) + 0.12 * exp(-d * 26.0 / (1.0 + uLineBoost));
 }
 
 float node(vec2 q) {
@@ -81,7 +88,8 @@ void main() {
     float d = abs(dot(uv, vec2(-dir.y, dir.x)));
     float along = abs(dot(uv, dir));
     float mask = 1.0 - smoothstep(r2, r2 + r, along);
-    pattern += (smoothstep(0.02, 0.005, d) + 0.1 * exp(-d * 30.0)) * mask * 0.3;
+    float lwm = lw(0.02, d);
+    pattern += (smoothstep(lwm, lwm * 0.25, d) + 0.1 * exp(-d * 30.0 / (1.0 + uLineBoost))) * mask * 0.3;
   }
 
   // Pulsing concentric rings
@@ -93,7 +101,8 @@ void main() {
     vec2 p = uv * rot(t * 0.3 + float(k) * TAU / 3.0);
     float tri = max(abs(p.x) * 0.866 + p.y * 0.5, -p.y);
     float triRing = abs(tri - (0.8 + float(k) * 0.3));
-    pattern += smoothstep(0.03, 0.01, triRing) * 0.6 + 0.12 * exp(-triRing * 24.0);
+    float lwt = lw(0.03, triRing);
+    pattern += smoothstep(lwt, lwt * 0.33, triRing) * 0.6 + 0.12 * exp(-triRing * 24.0 / (1.0 + uLineBoost));
   }
 
   // Kick shockwave through the geometry

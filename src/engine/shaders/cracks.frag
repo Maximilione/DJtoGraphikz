@@ -18,6 +18,7 @@ varying vec2 vUv;
 uniform float cells;
 uniform float width;
 uniform float glow;
+uniform float uLineBoost;
 
 // Cracked concrete lit from below. A Voronoi edge network is the crack; the
 // slabs are near black, and every beat sends a pulse of light out from the
@@ -56,8 +57,11 @@ void main() {
       edge = min(edge, dot(0.5 * (r1 + rr), normalize(rr - r1)));
   }
 
-  float w = 0.02 * width;
-  float crack = 1.0 - smoothstep(w, w + 0.02, edge);
+  // half-width in cell units: widened by the boost, floored at a few screen
+  // pixels (a cell is uResolution.y / cells pixels tall)
+  float cellPx = uResolution.y / max(2.0, cells);
+  float w = max(0.02 * width * (1.0 + 2.5 * uLineBoost), (1.5 + 2.0 * uLineBoost) / cellPx);
+  float crack = 1.0 - smoothstep(w, w + max(0.02, 1.5 / cellPx), edge);
   // the pulse travels outward along the cracks, one per beat
   float dist = length(p);
   float pulse = exp(-abs(dist - uBeatPhase * 0.9) * 6.0) * (0.5 + 0.8 * uBass);
@@ -72,7 +76,7 @@ void main() {
   vec3 col = vec3(slab) * (1.0 + 0.8 * uBassHit) + under * (0.5 + 0.9 * exp(-edge * 6.0));
   col += mix(uColor1, vec3(1.0), pulse * 0.5 + 0.15) * lit;
   // wide halo bleeding out of the crack, hot core on the kick
-  col += mix(uColor2, uColor1, 0.5) * exp(-edge * 14.0) * (0.12 + 0.5 * uBassHit) * glow;
+  col += mix(uColor2, uColor1, 0.5) * exp(-edge * 14.0 / (1.0 + uLineBoost)) * (0.12 + 0.5 * uBassHit) * glow;
   col += uColor2 * crack * exp(-edge * 40.0) * 0.3;
   col = vec3(1.0) - exp(-col * 1.3);
   gl_FragColor = vec4(col, 1.0);
