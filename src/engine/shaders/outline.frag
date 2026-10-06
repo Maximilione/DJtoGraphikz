@@ -26,5 +26,5 @@ void main() {
   float edge = smoothstep(0.02, 0.35, length(vec2(gx, gy)));
   vec3 src = texture2D(tDiffuse, vUv).rgb;
   vec3 neon = max(uColor1, vec3(0.15)) * edge * (1.2 + uBeat * 0.8);
-  gl_FragColor = vec4(src * (1.0 - 0.8 * uWet) + neon * uWet, 1.0);
+  gl_FragColor = vec4(src * (1.0 - 0.65 * uWet) + neon * uWet, 1.0);
 }
