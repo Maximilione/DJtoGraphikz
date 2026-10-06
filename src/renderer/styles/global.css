@@ -70,13 +70,14 @@
   --s8: 32px;
 
   /* -- Type scale (11px floor for body copy) --
-     10px exists for one thing only: the mono chips in ParamControls, which are
-     uppercase and tracked. 18 and 24 are the two heading sizes. They were all
+     --fs-2xs is the mono chips in ParamControls (uppercase, tracked). The small
+     steps were 10/11/12 and are 11/12/13 now: legible from a metre away in a
+     dark room. 18 and 24 are the two heading sizes. They were all
      literals before, which is why the audit counted nine rendered sizes
      against a scale of four. */
-  --fs-2xs: 10px;
-  --fs-xs: 11px;
-  --fs-sm: 12px;
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
   --fs-md: 13px;
   --fs-lg: 15px;
   --fs-xl: 18px;
@@ -140,11 +141,11 @@ h4 {
 }
 
 /* ---- Scrollbar ---- */
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg3);
-  border-radius: 4px;
+  background: var(--line-strong);
+  border-radius: 5px;
   border: 2px solid var(--bg0);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
@@ -188,7 +189,7 @@ textarea:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 /* ---- Range slider ----
@@ -294,7 +295,8 @@ input[type="range"]:active::-webkit-slider-thumb {
   align-items: center;
   justify-content: center;
   gap: var(--s2);
-  padding: 5px 10px;
+  min-height: 28px;
+  padding: 4px 10px;
   border-radius: var(--r-sm);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -308,11 +310,22 @@ input[type="range"]:active::-webkit-slider-thumb {
   border-color: var(--line-strong);
 }
 
-.btn:active:not(:disabled) {
+/* One pressed / disabled look for every button-like control */
+.btn:active:not(:disabled),
+.pill:active:not(:disabled),
+.fx-btn:active:not(:disabled),
+.tab:active:not(:disabled),
+.row-item:active:not(:disabled),
+.mode-switch button:active:not(:disabled) {
   transform: translateY(1px);
 }
 
-.btn:disabled {
+.btn:disabled,
+.pill:disabled,
+.fx-btn:disabled,
+.tab:disabled,
+.row-item:disabled,
+.mode-switch button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -346,7 +359,8 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 .btn-sm {
-  padding: 3px 7px;
+  min-height: 28px;
+  padding: 3px 8px;
   font-size: var(--fs-xs);
   border-radius: var(--r-sm);
 }
@@ -355,6 +369,7 @@ input[type="range"]:active::-webkit-slider-thumb {
    .media-device-cancel, .look-del, .look-edit and .toast-undo, which were six
    rules for the same idea. */
 .btn-ghost {
+  min-height: 24px;
   padding: 0 3px;
   background: transparent;
   border-color: transparent;
@@ -363,7 +378,6 @@ input[type="range"]:active::-webkit-slider-thumb {
   line-height: 1.4;
 }
 .btn-ghost:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--text-primary); }
-.btn-ghost:disabled { opacity: 0.35; cursor: default; }
 .btn-ghost.danger { color: var(--danger); }
 .btn-ghost.danger:hover:not(:disabled) { color: var(--danger); }
 .btn-ghost.toast-action {
@@ -377,6 +391,10 @@ input[type="range"]:active::-webkit-slider-thumb {
 
 /* ---- Effect grid button ---- */
 .fx-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
   padding: var(--s3) var(--s4);
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -390,7 +408,7 @@ input[type="range"]:active::-webkit-slider-thumb {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.fx-btn:hover {
+.fx-btn:hover:not(:disabled) {
   background: var(--bg3);
   border-color: var(--line-strong);
   color: var(--text-primary);
@@ -402,12 +420,17 @@ input[type="range"]:active::-webkit-slider-thumb {
   font-weight: 600;
   box-shadow: 0 0 8px rgba(0, 255, 136, 0.1);
 }
+.fx-btn .fx-ico { font-size: var(--fs-sm); line-height: 1; flex-shrink: 0; opacity: 0.5; }
+.fx-btn.active .fx-ico { opacity: 1; }
+.fx-btn .fx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-btn-lg { padding: 10px var(--s4); gap: var(--s3); }
+.fx-btn-lg .fx-ico { font-size: var(--fs-icon); opacity: 1; }
 
 /* ---- Toggle switch ---- */
 .toggle {
-  width: 26px;
-  height: 13px;
-  border-radius: 7px;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
   background: var(--bg3);
   position: relative;
   flex-shrink: 0;
@@ -419,16 +442,16 @@ input[type="range"]:active::-webkit-slider-thumb {
 .toggle::after {
   content: '';
   position: absolute;
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--text-primary);
-  top: 2px;
-  left: 2px;
+  top: 3px;
+  left: 3px;
   transition: left var(--t-fast);
 }
 .toggle.active::after {
-  left: 15px;
+  left: 17px;
   background: #000;
 }
 
@@ -613,6 +636,7 @@ input[type="range"]:active::-webkit-slider-thumb {
   overflow: hidden;
 }
 .mode-switch button {
+  min-height: 28px;
   padding: var(--s2) 10px;
   font-size: var(--fs-xs);
   font-weight: 700;
@@ -879,6 +903,7 @@ input[type="range"]:active::-webkit-slider-thumb {
 
 /* ---- Select ---- */
 select {
+  min-height: 28px;
   padding: var(--s2) var(--s4);
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -888,13 +913,11 @@ select {
   cursor: pointer;
 }
 select:hover { border-color: var(--line-strong); background: var(--bg3); }
-select:focus {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 2px var(--focus-ring);
-}
+select:focus { border-color: var(--accent-dim); }
 
 /* ---- Text / number inputs ---- */
 input[type="text"], input[type="number"] {
+  min-height: 28px;
   padding: var(--s2) var(--s4);
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -908,15 +931,12 @@ input[type="number"] {
 input[type="text"]:hover, input[type="number"]:hover {
   border-color: var(--line-strong);
 }
-input[type="text"]:focus, input[type="number"]:focus {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 2px var(--focus-ring);
-}
+input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent-dim); }
 
 /* ---- Color input ---- */
 input[type="color"] {
   width: 100%;
-  height: 24px;
+  height: 28px;
   padding: var(--s1);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
@@ -924,10 +944,7 @@ input[type="color"] {
   cursor: pointer;
 }
 input[type="color"]:hover { border-color: var(--line-strong); }
-input[type="color"]:focus {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 2px var(--focus-ring);
-}
+input[type="color"]:focus { border-color: var(--accent-dim); }
 
 .label {
   font-size: var(--fs-xs);
@@ -1051,6 +1068,32 @@ input[type="color"]:focus {
 .look-slot:focus-within .look-edit {
   opacity: 1;
 }
+
+/* U3.3 — Look Bank: empty-slot save hint, rename input, drag feedback */
+.look-slot.empty::after { content: '+'; }
+.look-slot.empty:hover::after {
+  content: '+ salva';
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.look-slot.drag-over { border-color: var(--accent-dim); }
+
+/* .look-slot input.look-rename (0,2,1) beats the global input rules by coming later */
+.look-slot input.look-rename {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  min-height: 0;
+  padding: 1px 3px;
+  border: none;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-primary);
+  font-size: var(--fs-xs);
+}
+
 
 /* Media panel — unified add row + media cards */
 .media-add {
@@ -1226,32 +1269,18 @@ input[type="color"]:focus {
 .media-text-row input[type="text"] {
   flex: 1;
   min-width: 0;
-  padding: 5px var(--s4);
-  border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: var(--bg2);
-  color: var(--text-primary);
-  font-size: var(--fs-xs);
-}
-
-.media-text-row input[type="text"]:focus {
-  outline: none;
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .media-text-row input[type="color"] {
-  width: 26px;
-  height: 26px;
-  padding: var(--s1);
-  border: 1px solid var(--line);
+  width: 28px;
+  height: 28px;
   border-radius: var(--r-md);
-  background: var(--bg2);
-  cursor: pointer;
   flex-shrink: 0;
 }
 
 .media-text-row button {
+  min-height: 28px;
   padding: var(--s3) var(--s4);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -1270,7 +1299,7 @@ input[type="color"]:focus {
 
 .media-text-row button:disabled {
   opacity: 0.45;
-  cursor: default;
+  cursor: not-allowed;
 }
 
 /* Media panel — persistent library (saved assets, one tap to re-add) */
@@ -1429,6 +1458,7 @@ input[type="color"]:focus {
 /* pill segmented buttons */
 .pill {
   flex: 1;
+  min-height: 28px;
   padding: var(--s2) var(--s3);
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -1437,7 +1467,7 @@ input[type="color"]:focus {
   font-size: var(--fs-xs);
   cursor: pointer;
 }
-.pill:hover:not(.active) { background: var(--bg3); border-color: var(--line-strong); }
+.pill:hover:not(.active):not(:disabled) { background: var(--bg3); border-color: var(--line-strong); }
 .pill.active {
   border-color: var(--accent);
   background: var(--accent-glow);
@@ -1453,7 +1483,8 @@ input[type="color"]:focus {
 }
 .tab {
   flex: 1;
-  padding: 7px var(--s2);
+  min-height: 30px;
+  padding: 6px var(--s2);
   background: transparent;
   color: var(--text-muted);
   font-size: var(--fs-xs);
@@ -1462,7 +1493,7 @@ input[type="color"]:focus {
   text-transform: uppercase;
   border-bottom: 2px solid transparent;
 }
-.tab:hover:not(.active) { color: var(--text-secondary); }
+.tab:hover:not(.active):not(:disabled) { color: var(--text-secondary); }
 .tab.active {
   background: var(--bg1);
   color: var(--accent);
@@ -1474,12 +1505,6 @@ input[type="color"]:focus {
 .fx-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; }
 /* Simple mode: the same grid, roomier rows for a bigger target in the dark */
 .fx-grid-lg { gap: var(--s2); }
-.fx-btn-lg { padding: 10px var(--s4); gap: var(--s3); }
-.fx-btn-lg .fx-ico { font-size: var(--fs-icon); opacity: 1; }
-.fx-btn { display: flex; align-items: center; gap: 4px; }
-.fx-btn .fx-ico { font-size: var(--fs-sm); line-height: 1; flex-shrink: 0; opacity: 0.5; }
-.fx-btn.active .fx-ico { opacity: 1; }
-.fx-btn .fx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* active-state banner (current effect, now playing) */
 .active-banner {
@@ -1517,13 +1542,14 @@ input[type="color"]:focus {
   display: flex;
   align-items: center;
   gap: var(--s3);
-  padding: 5px var(--s3);
+  min-height: 28px;
+  padding: 4px var(--s3);
   border-radius: var(--r-sm);
   background: var(--bg2);
   border: 1px solid var(--line);
   cursor: pointer;
 }
-.row-item:hover:not(.active) { background: var(--bg3); border-color: var(--line-strong); }
+.row-item:hover:not(.active):not(:disabled) { background: var(--bg3); border-color: var(--line-strong); }
 .row-item.active { background: var(--accent-glow); border-color: var(--accent); }
 .row-item .row-title { font-size: var(--fs-xs); color: var(--text-secondary); }
 .row-item.active .row-title { color: var(--text-primary); font-weight: 600; }
@@ -1587,15 +1613,18 @@ input[type="color"]:focus {
   border: 1px solid transparent;
 }
 .num-value:hover { border-color: var(--line-strong); }
-.num-edit {
+/* .num-input input.num-edit is (0,2,1): it beats the global text-input rules,
+   :focus included, by coming later. No !important needed. */
+.num-input input.num-edit {
   width: 100%;
-  padding: 1px 3px !important;
-  border-radius: 2px !important;
-  border: 1px solid var(--accent) !important;
-  background: var(--bg0) !important;
-  color: var(--accent) !important;
-  font-size: var(--fs-xs) !important;
-  font-family: var(--font-mono) !important;
+  min-height: 0;
+  padding: 1px 3px;
+  border-radius: 2px;
+  border: 1px solid var(--accent);
+  background: var(--bg0);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
   text-align: right;
 }
 
@@ -1619,34 +1648,11 @@ input[type="color"]:focus {
 }
 .code-edit.error { border-color: var(--danger); }
 
-/* U3.3 — Look Bank: empty-slot save hint, rename input, drag feedback */
-.look-slot.empty::after { content: '+'; }
-.look-slot.empty:hover::after {
-  content: '+ salva';
-  font-size: var(--fs-xs);
-  color: var(--text-secondary);
-}
-.look-slot.drag-over { border-color: var(--accent-dim); }
-
 /* Drop a track on the audio panel to analyse it instead of the input. */
 .u-col.drag-over {
   outline: 2px dashed var(--accent-dim);
   outline-offset: 2px;
 }
-.look-slot .look-rename {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  padding: 1px 3px !important;
-  border: none !important;
-  border-radius: 0 !important;
-  background: rgba(0, 0, 0, 0.8) !important;
-  color: var(--text-primary) !important;
-  font-size: var(--fs-xs) !important;
-}
-
 /* U3.4 — toast with undo action */
 .toast.toast-action { pointer-events: auto; }
 
