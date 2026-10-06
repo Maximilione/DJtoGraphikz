@@ -171,6 +171,15 @@ export function App() {
 
   // AutoVJ lives here so Simple and Pro views share one instance
   const vjRef = useRef<AutoVJ>(new AutoVJ())
+  // Pro: gli FX stanno sotto il Look Bank; sotto 1100px tornano nella sidebar
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1100px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1100px)')
+    const on = () => setWide(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  const fxCenter = mode === 'pro' && wide
   const [vjEnabled, setVjEnabled] = useState(false)
   const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
   const [vjStatus, setVjStatus] = useState<{ current: string; count: number; phase: Phase }>({ current: '', count: 0, phase: 'groove' })
@@ -1304,7 +1313,7 @@ export function App() {
             </>
           ) : (
             <>
-              <EffectPanel engine={engine} />
+              {!fxCenter && <EffectPanel engine={engine} />}
               <AutoVJPanel
                 engine={engine}
                 vj={vjRef.current}
@@ -1320,7 +1329,7 @@ export function App() {
         )}
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
-        <div className="center-area">
+        <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
           <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
                style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
@@ -1343,6 +1352,7 @@ export function App() {
               <LookBank engine={engine} />
             </div>
           )}
+          {fxCenter && <div className="center-fx"><EffectPanel engine={engine} /></div>}
         </div>
 
         {/* Right sidebar — pro only */}

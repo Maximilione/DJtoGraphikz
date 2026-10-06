@@ -422,3 +422,28 @@
 /* in Live niente modifica/elimina: un tocco sbagliato davanti al pubblico costa un look */
 .mode-live .look-slot .look-edit, .mode-live .look-slot .look-del { display: none; }
 .mode-live .bottom-bar { font-size: var(--fs-sm); min-height: 28px; }
+
+/* ---- FX sticky tabs + FX sotto il Look Bank (Pro, >=1100px) ---- */
+/* overflow:clip (non hidden): hidden farebbe del pannello lo scroll container e lo sticky non partirebbe */
+.fx-panel { overflow: clip; }
+.fx-params, .fx-lib { display: contents; } /* sidebar stretta: layout invariato */
+.fx-sticky-tabs { position: sticky; top: 0; z-index: 5; background: var(--bg2); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+.fx-search { position: sticky; top: 33px; z-index: 4; background: var(--bg1); padding: var(--s1) 0; }
+
+.center-fx-on { overflow-y: auto; }
+.center-fx-on > * { flex-shrink: 0; }
+.center-fx-on .preview-container,
+.center-fx-on .preview-container.compact { flex: 0 0 auto; height: clamp(220px, 38vh, 440px); }
+.center-fx-on .preview-container .preview-canvas { height: 100%; width: auto; }
+.center-fx-on .live-lookbank { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; }
+.center-fx { padding: var(--s2); border-top: 1px solid var(--line); container-type: inline-size; }
+.center-fx .fx-panel { margin-bottom: 0; }
+.center-fx .fx-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+/* centro largo: libreria a sinistra, parametri a lato a larghezza piena */
+@container (min-width: 760px) {
+  .fx-panel .u-col:has(> .fx-params) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: var(--s2); align-items: start; }
+  .fx-panel .u-col:has(> .fx-params) > .fx-search,
+  .fx-panel .u-col:has(> .fx-params) > .active-banner { grid-column: 1 / -1; }
+  .fx-panel .fx-params { display: flex; grid-column: 2; grid-row: 3; position: sticky; top: 76px; }
+  .fx-panel .fx-lib { display: flex; grid-column: 1; grid-row: 3; }
+}
