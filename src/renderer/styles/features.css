@@ -122,6 +122,8 @@
   background: var(--bg0);
 }
 .live-lookbank .panel { margin-bottom: 0; }
+/* pro: the Look Bank takes the space under the deck instead of a 220px strip */
+.main-area:not(.live-layout) .live-lookbank { flex: 1 1 0; min-height: 160px; max-height: none; }
 /* la griglia 4x4 del LookBank si distende in orizzontale (8 colonne, 2 righe) */
 .live-lookbank .look-bank-grid { grid-template-columns: repeat(8, 1fr); }
 
@@ -204,7 +206,7 @@
 }
 
 /* Collapsible preview: compact = fixed strip, panels get the space */
-.preview-container.compact { flex: 0 0 auto; height: clamp(170px, 26vh, 300px); }
+.preview-container.compact { flex: 0 0 auto; height: clamp(220px, 34vh, 420px); }
 .preview-container.compact .preview-canvas { height: 100%; width: auto; }
 .preview-toggle {
   position: absolute;

@@ -47,7 +47,7 @@ type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
 const SETTINGS_KEY = 'djtographikz-settings'
-const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact'
+const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact-v2'
 const BEATFLASH_KEY = 'djtographikz-beatflash'
 
 // Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
@@ -635,6 +635,7 @@ export function App() {
     const missing = list.filter(o => o.displayId !== null && !displays.some(d => d.id === o.displayId))
     setOutputs(list.map(o => missing.includes(o) ? { ...o, displayId: null } : o))
     engine.setRenderSize(list[0].width, list[0].height)
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes to the new aspect
 
     engine.setBrightness(v.brightness); setBrightness(v.brightness)
     if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
@@ -1122,6 +1123,7 @@ export function App() {
             onChange={e => {
               const [w, h] = e.target.value.split('x').map(Number)
               engine?.setRenderSize(w, h)
+              requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes
               setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
             }}
             title="Risoluzione di uscita del proiettore"
@@ -1199,7 +1201,6 @@ export function App() {
                 onVJToggle={toggleVJ}
                 onVJGenre={changeVJGenre}
               />
-              {engine && <LookBank engine={engine} />}
             </>
           ) : (
             <>
@@ -1237,7 +1238,7 @@ export function App() {
             <span className="preview-label">PREVIEW</span>
           </div>
           {mode === 'pro' && <DeckPanel engine={engine} />}
-          {mode === 'live' && engine && (
+          {engine && (
             <div className="live-lookbank">
               <LookBank engine={engine} />
             </div>
@@ -1247,7 +1248,6 @@ export function App() {
         {/* Right sidebar — pro only */}
         {mode === 'pro' && (
           <div className="sidebar-right">
-            {engine && <LookBank engine={engine} />}
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} player={seqPlayer} />
             <ShaderEditor engine={engine} />
