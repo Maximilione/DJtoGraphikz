@@ -88,7 +88,7 @@ Integrazione:
 - [ ] **Syphon/Spout output** — condivisione texture GPU (native addon macOS/Win)
 - [ ] **NDI output** — video via rete (SDK nativo). Vedi **I2 uscita OBS**: copre lo stesso uso senza SDK
 - [ ] **Ableton Link** — sync BPM via rete (native addon). Vedi **I1 MIDI Clock**: stessa resa su un canale già aperto
-- [ ] **3D geometry scenes** — mesh audio-reattive
+- [x] **3D geometry scenes** — mesh audio-reattive — fatto in v0.67.0: effetto `mesh` (GLB/OBJ/STL/PLY/FBX, look filo/punti/metallo/ologramma/dissolvenza), piu' `galaxy`, `mandelbulb`, `android`
 - [ ] **Plugin architecture** — sistema plugin terze parti
 - [x] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
 
