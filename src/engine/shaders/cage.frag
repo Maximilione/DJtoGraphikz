@@ -12,6 +12,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -36,7 +37,9 @@ float sdBoxFrame(vec3 p, vec3 b, float e) {
 
 vec2 map(vec3 p) {
   float s = size * (1.0 + 0.15 * uBass);
-  float e = 0.012 * thickness;
+  // bar half-thickness: widened, floored at ~lminPx pixels (world units per pixel at the cube's depth)
+  float pxW = 2.25 / (min(uResolution.x / uResolution.y, 1.0) * uResolution.y);
+  float e = max(0.012 * thickness * (1.0 + 2.5 * uLineBoost), 0.5 * (3.0 + 4.0 * uLineBoost) * pxW);
   // every rotation rate below is a multiple of 1/20 turn, so wrapping on
   // 20 turns is seamless and keeps the angle small after hours
   float t = mod(uBeatClock * 0.25 * spin + uTime * 0.2, 125.6637);
@@ -62,6 +65,7 @@ void main() {
   float gOuter = 0.0, gInner = 0.0;
   // sharp edge glow plus a wide soft haze: the haze is the idle floor that
   // keeps the cubes readable in silence, and it steps back as the music comes in
+  float fall = 38.0 / (1.0 + uLineBoost);   // wider halo with the boost
   float haze = 0.012 * (1.0 - 0.7 * uEnergy);
   for (int i = 0; i < 72; i++) {
     vec3 pos = ro + rd * t;
@@ -70,8 +74,8 @@ void main() {
     // weighted by the step so the glow is an integral along the ray, not a
     // count of how many tiny steps a grazing ray happened to take
     float dt = max(m * 0.8, 0.01);
-    gOuter += (exp(-d.x * 38.0) * 2.5 + exp(-d.x * 9.0) * haze * 14.0) * dt;
-    gInner += (exp(-d.y * 38.0) * 2.5 + exp(-d.y * 9.0) * haze * 14.0) * dt;
+    gOuter += (exp(-d.x * fall) * 2.5 + exp(-d.x * 9.0) * haze * 14.0) * dt;
+    gInner += (exp(-d.y * fall) * 2.5 + exp(-d.y * 9.0) * haze * 14.0) * dt;
     if (m < 0.001) {
       // on the bar itself: a solid core under the halo
       gOuter += step(d.x, 0.001) * 0.3;

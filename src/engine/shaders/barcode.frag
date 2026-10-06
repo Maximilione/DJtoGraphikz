@@ -13,6 +13,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -43,9 +44,12 @@ void main() {
   // width of the printed bar inside its cell: random per cell, re-rolled per beat
   float w = hash(vec2(cell, gen)) ;
   float on = step(gap, w);
+  // printed width: widened, and never under lminPx pixels (a cell is uResolution.x / n px)
+  float lminPx = 3.0 + 4.0 * uLineBoost;
+  float bw = min(max(w * 0.85 * (1.0 + 0.8 * uLineBoost), lminPx * n / uResolution.x), 0.85);
   // bar edges one pixel soft, so the slide does not crawl
   float aa = n / uResolution.x;
-  float edge = smoothstep(0.15 - aa, 0.15, f) * (1.0 - smoothstep(0.15 + w * 0.85, 0.15 + w * 0.85 + aa, f));
+  float edge = smoothstep(0.15 - aa, 0.15, f) * (1.0 - smoothstep(0.15 + bw, 0.15 + bw + aa, f));
   float bar = on * edge;
 
   // a few bars carry the palette, the rest are white

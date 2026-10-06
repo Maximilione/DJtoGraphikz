@@ -17,6 +17,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -34,6 +35,8 @@ uniform float sweep;
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
+  float lkb = 1.0 + 2.5 * uLineBoost;
+  float lminW = (3.0 + 4.0 * uLineBoost) / uResolution.y;
   vec3 color = vec3(0.0);
 
   for (int e = 0; e < 2; e++) {
@@ -62,7 +65,8 @@ void main() {
       float beamA = aim + k * 2.0 * halfFan * (1.0 - fe * 2.0);
       // angular distance from the beam
       float da = abs(mod(baseA - beamA + PI, TAU) - PI);
-      float w = 0.0016 + uHigh * 0.002;
+      float w = max((0.0016 + uHigh * 0.002) * lkb * lkb, 8.0 * lminW * lminW / max(d, 0.05));
+      // pixel floor: beam half-width ~ lminW at any distance
       float core = w / (da * da * d * 8.0 + w) ;
       float haze = 0.02 / (da * 12.0 + 0.25) / (d * 2.0 + 0.4);
       vec3 c = mix(uColor1, uColor2, fract(i * 0.37 + fe * 0.5 + uBarPhase));
