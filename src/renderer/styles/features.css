@@ -204,7 +204,8 @@
 }
 
 /* Collapsible preview: compact = fixed strip, panels get the space */
-.preview-container.compact { flex: 0 0 auto; height: 150px; }
+.preview-container.compact { flex: 0 0 auto; height: clamp(170px, 26vh, 300px); }
+.preview-container.compact .preview-canvas { height: 100%; width: auto; }
 .preview-toggle {
   position: absolute;
   top: 8px;

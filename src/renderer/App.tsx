@@ -153,7 +153,7 @@ export function App() {
   const [showQuickGuide, setShowQuickGuide] = useState(false)
 
   // Preview riducibile: compatta la striscia video, i pannelli prendono spazio
-  const [previewCompact, setPreviewCompact] = React.useState(() => readString(PREVIEW_COMPACT_KEY) === '1')
+  const [previewCompact, setPreviewCompact] = React.useState(() => readString(PREVIEW_COMPACT_KEY) !== '0')
   const togglePreviewCompact = React.useCallback(() => {
     setPreviewCompact(c => {
       writeString(PREVIEW_COMPACT_KEY, c ? '0' : '1')
@@ -1220,7 +1220,8 @@ export function App() {
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className="center-area">
-          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}>
+          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
+               style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
             {mode !== 'live' && (
               <button

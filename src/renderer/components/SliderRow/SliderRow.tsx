@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties as _C, ReactNode } from 'react'
 import { NumberInput } from '../NumberInput/NumberInput'
 
 interface SliderRowProps {
@@ -44,6 +44,7 @@ export function SliderRow({
         min={min} max={max} step={step}
         value={value}
         title={title}
+        style={{ '--p': `${max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0}%` } as _C}
         onChange={e => onChange(parseFloat(e.target.value))}
       />
       {percent
