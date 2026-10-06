@@ -102,7 +102,7 @@
 }
 
 /* master slider (era inline width:90px) */
-.tb-master { width: 90px; }
+.tb-master { width: 90px; min-height: 28px; min-width: 60px; flex-shrink: 1; }
 
 /* chip output con icona */
 .output-chip {
