@@ -22,6 +22,7 @@ const api = {
   pickSequence: (): Promise<{ name: string; dir: string; paths: string[]; note?: string } | null> => ipcRenderer.invoke('asset:pick-sequence'),
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
   pickModels: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-model'),
+  pickImages: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-image'),
   readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
 
   // Update check (notification-only: unsigned builds can't self-install)

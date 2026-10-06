@@ -396,6 +396,15 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'burst', label: 'Scoppio', min: 0, max: 2, default: 1 },
     { key: 'dotsize', label: 'Punti', min: 1, max: 8, default: 3.2 },
   ],
+  imgbeat: [
+    // rhythm: 0 beat, 1 two beats, 2 bar, 3 syncopated 3-3-2, 4 kick only (rounded in the shader)
+    { key: 'rhythm', label: 'Ritmo (0 beat, 1 2 beat, 2 battuta, 3 sincopato, 4 kick)', min: 0, max: 4, default: 0 },
+    // style: 0 pulse, 1 negative, 2 duotone, 3 glitch, 4 mirror x4, 5 zoom-through, 6 strobe
+    { key: 'style', label: 'Stile (0 pulso, 1 negativo, 2 duotone, 3 glitch, 4 specchio, 5 zoom, 6 strobo)', min: 0, max: 6, default: 0 },
+    { key: 'size', label: 'Dimensione', min: 0.3, max: 1.2, default: 0.8 },
+    { key: 'punch', label: 'Impatto', min: 0, max: 2, default: 1 },
+    { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.5 },
+  ],
   mesh: [
     // look: 0 neon wireframe, 1 points, 2 metal, 3 hologram, 4 dissolve (rounded to the nearest in the shader)
     { key: 'look', label: 'Look (0 filo, 1 punti, 2 metallo, 3 ologramma, 4 dissolve)', min: 0, max: 4, default: 0 },

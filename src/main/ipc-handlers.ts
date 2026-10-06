@@ -197,6 +197,16 @@ export function setupIpcHandlers(
     return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
   })
 
+  // Pictures for the `imgbeat` effect (the renderer copies them into the library)
+  ipcMain.handle('asset:pick-image', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Immagini', extensions: IMAGE_NATIVE }]
+    })
+    if (result.canceled) return []
+    return result.filePaths.slice(0, 8).map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
   // A folder of numbered frames. One sequence per folder; frames are streamed
   // by the renderer over djg-media, so only paths cross IPC.
   ipcMain.handle('asset:pick-sequence', async () => {
