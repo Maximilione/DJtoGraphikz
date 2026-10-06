@@ -2,6 +2,20 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.70.0-beta] — 2026-10-06
+
+### Added
+- **Immagine a tempo** (`imgbeat`): fino a 8 immagini tue (logo, flyer, foto) che entrano a scatti a ritmo di musica e si alternano a uno sfondo generativo. Ritmo (ogni beat, 2 beat, battuta, 3-3-2, solo kick) e 7 stili (pulso, negativo, duotone, glitch a fette, specchio, tunnel, strobo). Senza immagini mostra un glifo procedurale.
+- **Spessore linee**: controllo globale (pannello Camera, telefono, OSC `/djg/lineboost`) che ispessisce le linee di 21 effetti e dei post `outline` e `scanlines`, con un minimo in pixel e alone, per restare leggibili su proiettore con luci e fumo. `check:lineboost`.
+
+### Changed
+- **UI di controllo rifatta**: slider a tutta larghezza con traccia riempita, cursore da 18 px e area da 28 px; preview piccola con il rapporto d'aspetto dell'uscita (letterbox, prima veniva stirata); Look Bank sotto la preview, in tutte le modalita'; sidebar piu' larghe; font minimi 11-13 px; bottoni da 28 px; focus, scrollbar e toggle piu' visibili; griglia effetti a 2 colonne con categorie comprimibili; barra superiore responsiva con BPM sempre visibile, BLACK e PANIC distinguibili; Live con controlli grandi; messaggi d'errore audio con istruzioni e «Riprova». La finestra di controllo si apre quasi a schermo intero.
+- **Test headless**: sotto self-test le finestre sono trasparenti, click-through e senza focus (`DJG_VISIBLE=1` per vederle). Sweep: tempo massimo 20 minuti.
+
+### Fixed
+- `galaxy` (590k punti) quasi nera in silenzio: l'hash dell'indice in float32 collassava la nuvola a circa 10k stelle. `storm`: ora un fulmine ogni ~2 s anche senza bassi.
+- `strobegrid` e `outline` non vanno piu' a nero in silenzio.
+
 ## [0.69.0-beta] — 2026-10-06
 
 ### Changed
