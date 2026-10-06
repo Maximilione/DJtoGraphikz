@@ -7,6 +7,8 @@ uniform float uHigh;
 uniform float uEnergy;
 uniform float uBeat;
 uniform float uBassTime;
+uniform float uBassHit;
+uniform float uBeatClock;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
@@ -83,12 +85,12 @@ void main() {
   c += uColor2 * light * (0.22 + 0.40 * uEnergy + 0.35 * uBeat + 0.45 * uBassHit);
   c += uColor1 * pow(light, 1.6) * 0.22;
   // clean hot cores for the bloom to take
-  c += mix(uColor2, vec3(1.0), 0.6) * pow(light, 3.0) * (0.10 + 0.40 * uBassHit + 0.20 * uBeat);
+  c += mix(uColor2, vec3(1.0), 0.6) * pow(light, 3.0) * (0.06 + 0.28 * uBassHit + 0.12 * uBeat);
   c += uColor2 * ring * 0.35;
 
   float vig = smoothstep(1.4, 0.3, length((uvp - 0.5) * vec2(1.5, 1.0)));
   c *= vig;
   // soft shoulder: the highlights land near 0.9 instead of clipping flat
-  c = 1.0 - exp(-c * 1.5);
+  c = 1.0 - exp(-c * 1.25);
   gl_FragColor = vec4(c, 1.0);
 }
