@@ -2,6 +2,19 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.69.0-beta] — 2026-10-06
+
+### Changed
+- **Piu' cazzima su 19 effetti non aggiornati di recente**, ognuno riscritto da un agente e controllato da un secondo agente indipendente: mandala, sacred, tunnel, moire, voronoi, neonpoly, orbits, pulsecity, caustics, quasicrystal, reaction, truchet, pulsar, particles, dna, terrain, grid, cracks, spaceghost. Piu' livelli e profondita', aloni per il bloom, kick come evento fisico (onde d'urto, flash, zoom), tone-map morbido e fondo sempre vivo. Id, parametri e uniform invariati: preset e scalette salvate restano validi.
+- `check-sweep.py`: tempo massimo portato a 20 minuti (lo sweep ora ha oltre 150 misure).
+
+### Fixed
+- `caustics`: usava `uBassHit` e `uBeatClock` senza dichiararle (errore di compilazione), e il nucleo caldo spingeva troppi pixel oltre 0.95.
+- `spaceghost`: il vignette diventava negativo sugli schermi molto larghi (striscia LED, ultrawide) e restava solo il pavimento scuro.
+
+### Added
+- Test headless: sotto `DJG_SELFTEST` le finestre sono trasparenti, click-through e senza focus (`DJG_VISIBLE=1` per vederle).
+
 ## [0.68.0-beta] — 2026-10-05
 
 ### Added
