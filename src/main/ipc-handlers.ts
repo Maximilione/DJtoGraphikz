@@ -1,19 +1,30 @@
-import { BrowserWindow, ipcMain, dialog, net } from 'electron'
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, existsSync, readdirSync, unlinkSync } from 'fs'
+import { BrowserWindow, ipcMain, dialog, net, shell } from 'electron'
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, existsSync, readdirSync, unlinkSync, lstatSync, realpathSync } from 'fs'
 import { statfs } from 'fs/promises'
-import { basename, join } from 'path'
+import { basename, join, relative, isAbsolute } from 'path'
 import { homedir, tmpdir } from 'os'
 import { execFileSync } from 'child_process'
 import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, MODEL_EXT, CONVERT_RE, SEQ_RE, SEQ_CONVERT_RE, imageMime } from '../shared/mediaFormats'
 import { sortNatural } from '../shared/imageSequence'
 import { inflateRawSync } from 'zlib'
+import { loadAllPlugins, type PluginFs } from '../shared/plugins'
 
 const USER_DATA_DIR = join(homedir(), '.djtographikz')
 const ASSETS_DIR = join(USER_DATA_DIR, 'assets')
 const ISF_DIR = join(USER_DATA_DIR, 'isf')
+const PLUGINS_DIR = join(USER_DATA_DIR, 'plugins')
+
+const NODE_PLUGIN_FS: PluginFs = {
+  readdir: d => readdirSync(d),
+  lstat: p => { const s = lstatSync(p); return { isFile: s.isFile(), isDirectory: s.isDirectory(), isSymlink: s.isSymbolicLink(), size: s.size } },
+  realpath: p => realpathSync(p),
+  readFile: p => readFileSync(p, 'utf-8'),
+  join,
+  isInside: (root, p) => { const r = relative(root, p); return !!r && !r.startsWith('..') && !isAbsolute(r) },
+}
 
 function ensureDirs() {
-  for (const dir of [USER_DATA_DIR, ASSETS_DIR, ISF_DIR]) {
+  for (const dir of [USER_DATA_DIR, ASSETS_DIR, ISF_DIR, PLUGINS_DIR]) {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   }
 }
@@ -100,6 +111,10 @@ export function setupIpcHandlers(
       .filter(f => /\.(fs|frag|glsl)$/i.test(f))
       .map(f => ({ name: f.replace(/\.(fs|frag|glsl)$/i, ''), source: readFileSync(join(ISF_DIR, f), 'utf-8') }))
   })
+
+  // Plugin dichiarativi: solo dati, validati qui (src/shared/plugins.ts); un plugin rotto non butta giu' gli altri
+  ipcMain.handle('plugins:list', async () => loadAllPlugins(NODE_PLUGIN_FS, PLUGINS_DIR))
+  ipcMain.handle('plugins:open-folder', async () => { await shell.openPath(PLUGINS_DIR) })
 
   // Online library (editor.isf.video): light index of the public generators,
   // cached 24h on disk — the full dump is ~40MB, fetched at most once a day

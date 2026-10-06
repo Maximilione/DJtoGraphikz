@@ -1,5 +1,6 @@
 import { COLOR_PRESETS } from './catalog'
 import { readJson, writeJson } from './storage'
+import { activePluginPalettes, onPlugins } from './plugins'
 
 /**
  * The palettes the user can pick: the factory sixteen, then the ones they
@@ -21,8 +22,9 @@ function sanitize(raw: unknown): UserPalette[] {
     && p.colors.every((c: unknown) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c))).slice(0, MAX_USER)
 }
 
-export function allPalettes(): { label: string; colors: [string, string, string] }[] {
-  return [...COLOR_PRESETS, ...user]
+/** Le palette di fabbrica, le tue, poi quelle dei plugin attivi (`plugin: true`, sola lettura). */
+export function allPalettes(): { label: string; colors: [string, string, string]; plugin?: true }[] {
+  return [...COLOR_PRESETS, ...user, ...activePluginPalettes()]
 }
 
 export function userPalettes(): UserPalette[] { return user }
@@ -42,12 +44,14 @@ export function removeUserPalette(index: number) {
   for (const fn of listeners) fn()
 }
 
-export function isUserPalette(index: number): boolean { return index >= COLOR_PRESETS.length }
+export function isUserPalette(index: number): boolean { return index >= COLOR_PRESETS.length && index < COLOR_PRESETS.length + user.length }
 
 export function onPalettes(fn: () => void): () => void {
   listeners.add(fn)
   return () => { listeners.delete(fn) }
 }
+
+onPlugins(() => { for (const fn of listeners) fn() })
 
 /** A File (drop or picker) → a 64x64 thumbnail's pixels, via the browser. */
 export async function pixelsFromImageFile(file: File): Promise<Uint8ClampedArray> {
