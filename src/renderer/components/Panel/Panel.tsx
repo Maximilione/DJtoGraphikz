@@ -39,8 +39,8 @@ export function Panel({ id, title, children, defaultCollapsed = false, group, ac
         onClick={toggleCollapsed}
         title={collapsed ? `Espandi ${title}` : `Comprimi ${title}`}
       >
-        <span>{title}{active ? ' ●' : ''}</span>
-        <span>{collapsed ? '+' : '-'}</span>
+        <span>{title}{active && <i className="panel-dot" title="Attivo" aria-label="Attivo" />}</span>
+        <span aria-hidden="true">{collapsed ? '+' : '\u2212'}</span>
       </button>
       {!collapsed && children}
     </div>
