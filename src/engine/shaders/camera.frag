@@ -60,18 +60,18 @@ void main() {
   // Tiling is the same fold, run at a higher frequency.
   uv = mirrorFold(uv * max(1.0, uTile));
 
-  vec3 c;
+  vec3 col;
   if (uChroma > 0.0) {
     vec2 d = (uv - 0.5) * uChroma * 6.0;
-    c = vec3(texture2D(tDiffuse, mirrorFold(uv + d)).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, mirrorFold(uv - d)).b);
+    col = vec3(texture2D(tDiffuse, mirrorFold(uv + d)).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, mirrorFold(uv - d)).b);
   } else {
-    c = texture2D(tDiffuse, uv).rgb;
+    col = texture2D(tDiffuse, uv).rgb;
   }
   // glitter: sparse hash-noise, only where it is already lit a little
   vec2 g = floor(vUv * uResolution * 0.5);
   float h = fract(sin(dot(g, vec2(12.9898, 78.233)) + uTime * 7.0) * 43758.5453);
-  c += step(0.985, h) * uSparkle * 4.0 * (0.3 + dot(c, vec3(0.333)));
+  col += step(0.985, h) * uSparkle * 4.0 * (0.3 + dot(col, vec3(0.333)));
   // soft flash: lifts towards white, never reaches it
-  c += uFlash * (1.0 - c);
-  gl_FragColor = vec4(c, 1.0);
+  col += uFlash * (1.0 - col);
+  gl_FragColor = vec4(col, 1.0);
 }
