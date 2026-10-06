@@ -51,7 +51,7 @@ void main() {
   for (float i = 0.0; i < 8.0; i++) {
     if (i >= layers) break;
     float k = i / max(layers - 1.0, 1.0);
-    float r = (0.15 + k * 0.62) * (1.0 + uBassHit * 0.12 + uBass * 0.05);
+    float r = (0.15 + k * 0.62) * (1.0 + uBassHit * 0.2 + uBass * 0.06);
     vec2 p = uv * rot(t * (0.2 + k * 0.5) * (mod(i, 2.0) < 1.0 ? 1.0 : -1.0));
 
     float dA = ngon(p, nA, r);
@@ -61,12 +61,27 @@ void main() {
     float w = thickness * (0.5 + uMid * 0.8) * 0.01 + fwidth(d);
     float line = smoothstep(w, 0.0, abs(d));
     // neon: bright core + wide soft glow
-    float glow = 0.004 / (abs(d) + 0.012);
+    float glow = 0.005 / (abs(d) + 0.012) + 0.0009 / (abs(d) * abs(d) * 30.0 + 0.004);
 
     vec3 c = mix(uColor1, uColor2, k);
     c = mix(c, uColor3, step(0.5, fract(i * 0.5 + uHighTime * 1.5)) * 0.4);
-    color += c * (line * 1.1 + glow * 0.7) * (1.0 - k * 0.35);
+    color += c * (line * (1.1 + uBassHit * 0.8) + glow * (0.7 + uBass * 0.5)) * (1.0 - k * 0.35);
   }
+
+  // kick echo: a ghost polygon is thrown outward and fades
+  {
+    float er = 0.2 + (1.0 - uBassHit) * 0.85;
+    float de = ngon(uv * rot(t * 0.3), nA, er);
+    color += mix(uColor3, uColor1, 0.5) * (smoothstep(0.012, 0.0, abs(de)) * 1.2 + 0.006 / (abs(de) + 0.015)) * uBassHit;
+  }
+
+  // depth: faint radial rays and a breathing haze behind the stack
+  float rad = length(uv);
+  float ang0 = atan(uv.y, uv.x);
+  float rays = pow(0.5 + 0.5 * sin(ang0 * nA * 2.0 + t * 0.4), 6.0);
+  color += mix(uColor2, uColor3, 0.5) * rays * exp(-rad * 2.2) * (0.08 + uEnergy * 0.12);
+  color += uColor1 * exp(-rad * 3.0) * (0.05 + uBass * 0.15);
+  color += uColor2 * 0.02;
 
   // vertex sparks on the outer ring
   float n = nA;
@@ -75,9 +90,10 @@ void main() {
     float ang = v * TAU / n + t * 0.2;
     vec2 vp = vec2(cos(ang), sin(ang)) * 0.77;
     float d = length(uv - vp);
-    color += uColor3 * (0.0008 / (d * d + 0.001)) * uHighHit;
+    color += mix(uColor3, vec3(1.0), 0.4) * (0.0008 / (d * d + 0.001)) * (0.25 + uHighHit * 1.2);
   }
 
-  color = min(color, vec3(2.2));
+  color *= 1.0 + uBeat * 0.3;
+  color = min(color, vec3(2.0));
   gl_FragColor = vec4(color, 1.0);
 }
