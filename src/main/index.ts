@@ -192,6 +192,20 @@ const overlays = new Map<string, Record<string, unknown>>()
  */
 const SELFTEST = !!process.env.DJG_SELFTEST
 
+/**
+ * Headless-ish tests: under the self-test every window is fully transparent,
+ * click-through and unfocusable, so a 5-minute sweep no longer takes over a
+ * screen. It stays on screen to the compositor (real GPU frames, no
+ * occlusion throttling), the user just cannot see or touch it.
+ * DJG_VISIBLE=1 brings the windows back for debugging.
+ */
+function ghost(win: BrowserWindow): void {
+  if (!SELFTEST || process.env.DJG_VISIBLE === '1') return
+  win.setOpacity(0)
+  win.setIgnoreMouseEvents(true)
+  win.setFocusable(false)
+}
+
 function createControlWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -208,6 +222,7 @@ function createControlWindow(): BrowserWindow {
       backgroundThrottling: false,
     }
   })
+  ghost(win)
   // Keep audio/rendering alive when control window loses focus
   win.webContents.setBackgroundThrottling(false)
   win.once('ready-to-show', () => {
@@ -268,6 +283,7 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
       backgroundThrottling: false,
     }
   })
+  ghost(win)
   // Prevent throttling when output window loses focus (critical for dual-window VJ)
   win.webContents.setBackgroundThrottling(false)
 
