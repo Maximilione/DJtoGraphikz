@@ -4,6 +4,7 @@ import { KeyDetector, type Key } from './KeyDetector'
 import { BeatTracker } from './BeatTracker'
 import { MidiClock } from './MidiClock'
 import { ProDjLinkClock } from './ProDjLinkClock'
+import { findExternal, isBuiltInLabel, restartPlan } from '../../shared/audioInput'
 
 export interface AudioData {
   sub: number
@@ -119,6 +120,32 @@ export class AudioAnalyzer {
   get isRunning() { return this.running }
   /** Device the graph is actually on — a caller cannot tell from isRunning alone. */
   get currentDeviceId() { return this.lastDeviceId }
+  /** Label of the track actually delivering audio ('' when none) — what the OS really opened. */
+  get currentLabel() { return this.activeLabel }
+  private activeLabel = ''
+  private devChangeBound = false
+
+  /** Id of an external (non built-in) card plugged in now, if any. */
+  private async externalInputId(): Promise<string | undefined> {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      return findExternal(all.filter(d => d.kind === 'audioinput'))?.deviceId
+    } catch { return undefined }
+  }
+
+  /** A card (re)appearing while we are on the room mic, or while recovering: go to it. */
+  private onDeviceChange = async () => {
+    if (this.userStopped || this.sourceKind === 'file') return
+    const recovering = !!this.restartTimer
+    if (!recovering && !(this.running && isBuiltInLabel(this.activeLabel))) return
+    const id = await this.externalInputId()
+    if (!id || this.userStopped) return
+    console.log('[AudioAnalyzer] external card available — switching to it')
+    this.start(id).then(() => { this.restartAttempts = 0 }).catch(() => {
+      this.userStopped = false
+      this.scheduleRestart('switch failed')
+    })
+  }
 
   getStatus(): 'running' | 'reconnecting' | 'stopped' {
     if (this.restartTimer) return 'reconnecting'
@@ -139,18 +166,25 @@ export class AudioAnalyzer {
     if (this.userStopped || this.restartTimer) return
     // A file has no device to come back: restarting would re-open the mic.
     if (this.sourceKind === 'file') return
-    console.warn(`[AudioAnalyzer] audio device lost (${reason}) — restarting in ${delayMs}ms`)
-    this.restartTimer = window.setTimeout(() => {
+    if (restartPlan(this.restartAttempts).log) {
+      console.warn(`[AudioAnalyzer] audio device lost (${reason}) — restarting in ${delayMs}ms`)
+    }
+    this.restartTimer = window.setTimeout(async () => {
       this.restartTimer = 0
-      this.start(this.lastDeviceId)
+      // After enough failures the remembered id is not the way back: one try on the default
+      const plan = restartPlan(this.restartAttempts)
+      // No remembered id (we fell back before): prefer a card over the room mic
+      const id = plan.tryDefault ? undefined : (this.lastDeviceId ?? await this.externalInputId())
+      this.start(id)
         .then(() => { this.restartAttempts = 0 })
         .catch(err => {
           // A USB interface can take seconds to re-enumerate — keep trying
           // with backoff instead of going silent for the rest of the night
           this.restartAttempts++
-          console.error('[AudioAnalyzer] restart failed (attempt ' + this.restartAttempts + '):', err)
+          const next = restartPlan(this.restartAttempts)
+          if (next.log) console.error('[AudioAnalyzer] restart failed (attempt ' + this.restartAttempts + '):', err)
           this.userStopped = false
-          this.scheduleRestart('retry', Math.min(30_000, 1000 * 2 ** this.restartAttempts))
+          this.scheduleRestart('retry', next.delayMs)
         })
     }, delayMs)
   }
@@ -159,6 +193,10 @@ export class AudioAnalyzer {
     this.stop()
     this.userStopped = false
     this.lastDeviceId = deviceId
+    if (!this.devChangeBound) {
+      this.devChangeBound = true
+      navigator.mediaDevices.addEventListener?.('devicechange', this.onDeviceChange)
+    }
 
     // Native device rate — forcing 44100 on 48k hardware goes through a
     // resampler that is a known source of AudioContext device errors
@@ -193,16 +231,29 @@ export class AudioAnalyzer {
       // loops forever. Fall back to the system default and forget the id.
       const name = (err as DOMException)?.name
       if (!deviceId || (name !== 'OverconstrainedError' && name !== 'NotFoundError')) throw err
-      console.warn('[AudioAnalyzer] device id gone — falling back to default input')
-      this.lastDeviceId = undefined
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-      })
+      const raw = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      // Another card may be plugged in under a new id: take it over the room mic
+      const extId = await this.externalInputId()
+      let fallback: MediaStream | null = null
+      if (extId) {
+        try {
+          fallback = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: extId }, ...raw } })
+          this.lastDeviceId = extId
+          console.warn('[AudioAnalyzer] device id gone — using the external card found')
+        } catch (e2) { console.warn('[AudioAnalyzer] external card failed:', e2) }
+      }
+      if (!fallback) {
+        console.warn('[AudioAnalyzer] device id gone — falling back to default input')
+        this.lastDeviceId = undefined
+        fallback = await navigator.mediaDevices.getUserMedia({ audio: raw })
+      }
+      this.stream = fallback
     }
     console.log('[AudioAnalyzer] Got stream, tracks:', this.stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
 
     // Device yanked / OS revoked the track → recover instead of going silent
     const track = this.stream.getAudioTracks()[0]
+    this.activeLabel = track?.label ?? ''
     if (track) track.onended = () => this.scheduleRestart('track ended')
 
     this.source = this.context.createMediaStreamSource(this.stream)
@@ -356,6 +407,7 @@ export class AudioAnalyzer {
     // set is 100 MB of wav.
     if (this.mediaUrl) { URL.revokeObjectURL(this.mediaUrl); this.mediaUrl = '' }
     this.fileName = ''
+    this.activeLabel = ''
     this.sourceKind = 'device'
     if (this.context && this.context.state !== 'closed') {
       this.context.close().catch(() => {})
