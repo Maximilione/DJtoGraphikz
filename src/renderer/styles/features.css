@@ -435,7 +435,7 @@
 .center-fx-on .preview-container,
 .center-fx-on .preview-container.compact { flex: 0 0 auto; height: clamp(220px, 38vh, 440px); }
 .center-fx-on .preview-container .preview-canvas { height: 100%; width: auto; }
-.center-fx-on .live-lookbank { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; }
+.main-area .center-fx-on .live-lookbank { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; }
 .center-fx { padding: var(--s2); border-top: 1px solid var(--line); container-type: inline-size; }
 .center-fx .fx-panel { margin-bottom: 0; }
 .center-fx .fx-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
