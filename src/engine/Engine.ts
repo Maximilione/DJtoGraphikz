@@ -976,7 +976,20 @@ export class Engine {
     // out, display just woken) would set a 0x0 drawing buffer and the preview
     // stays black until some later resize event happens to fire
     if (!(parent.clientWidth > 1) || !(parent.clientHeight > 1)) return
-    this.renderer.setSize(parent.clientWidth, parent.clientHeight)
+    // Letterbox the preview too: biggest rect with the OUTPUT aspect inside the
+    // container's content box, so a 21:9 wall or a LED strip is shown in its
+    // real shape instead of being stretched to the panel.
+    const cs = getComputedStyle(parent)
+    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)
+    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+    const boxW = Math.max(2, parent.clientWidth - padX)
+    const boxH = Math.max(2, parent.clientHeight - padY)
+    const aspect = this.outputWidth > 0 && this.outputHeight > 0 ? this.outputWidth / this.outputHeight : boxW / boxH
+    let pw = boxW
+    let ph = boxH
+    if (pw / ph > aspect) pw = Math.round(ph * aspect)
+    else ph = Math.round(pw / aspect)
+    this.renderer.setSize(Math.max(2, pw), Math.max(2, ph))
     // Preview keeps the OUTPUT resolution in uResolution, so what you see on the
     // preview is the same framing/scale that goes to the projector.
     this.setRenderSize(this.outputWidth, this.outputHeight)
