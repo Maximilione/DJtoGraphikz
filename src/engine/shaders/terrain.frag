@@ -46,6 +46,19 @@ void main() {
   float t = uTime;
   vec3 color = vec3(0.0);
 
+  // night sky above the horizon: palette gradient, drifting stars, a haze
+  // band that hugs the horizon and swells on the kick
+  if (uv.y >= horizon) {
+    float sk = (uv.y - horizon) / max(1.0 - horizon, 0.05);
+    color += mix(uColor2, uColor3, sk) * (0.05 + 0.1 * (1.0 - sk)) * (0.7 + 0.5 * uEnergy);
+    vec2 sg = vec2(x, uv.y) * 70.0;
+    vec2 sid = floor(sg);
+    float sh = hash(sid);
+    float star = step(0.985, sh) * smoothstep(0.4, 0.0, length(fract(sg) - 0.5));
+    color += vec3(1.0) * star * (0.4 + 0.6 * sin(t * 2.0 + sh * 50.0)) * 0.6 * (0.6 + uHigh);
+  }
+  color += mix(uColor1, uColor2, 0.5) * exp(-abs(uv.y - horizon) * 14.0) * (0.22 + 0.3 * uBassHit + 0.2 * uEnergy);
+
   // sun on the horizon
   vec2 sun = vec2(0.0, horizon + 0.13);
   float sd = length(vec2(x, uv.y) - sun);
@@ -54,7 +67,8 @@ void main() {
   // horizontal blinds cut into the sun
   disc *= 0.55 + 0.45 * smoothstep(0.3, 0.7, sin(uv.y * 90.0 + t * 2.0));
   color += mix(uColor1, uColor2, uv.y * 2.0) * disc;
-  color += uColor2 * (0.02 / (sd + 0.05)) * (0.6 + uEnergy);
+  color += uColor2 * (0.035 / (sd + 0.05)) * (0.8 + uEnergy + uBassHit);
+  color += mix(uColor1, vec3(1.0), 0.4) * exp(-max(sd - sunR, 0.0) * 9.0) * 0.25 * (1.0 + 1.5 * uBassHit);
 
   // ridge rows: from horizon (far) to bottom (near), scrolling with the music
   if (uv.y < horizon) {
@@ -72,19 +86,19 @@ void main() {
     float lineD = abs(rowF - 0.5 - h * 0.6 * depth01);
     float w = max(0.03, fwidth(z) * ridges * 0.02);
     float line = smoothstep(w, 0.0, lineD);
-    float fade = depth01;                          // nearer = brighter
+    float fade = 0.3 + 0.7 * depth01;              // nearer = brighter, far ridges still read
     vec3 lc = mix(uColor2, uColor1, fract(row * 0.23));
-    color += lc * line * fade * (0.7 + glowamt * 0.5);
+    color += lc * line * fade * (1.0 + glowamt * 0.6 + uBassHit * 1.2);
     // glow under the lines
-    color += lc * smoothstep(0.35, 0.0, lineD) * 0.12 * glowamt * fade;
+    color += lc * smoothstep(0.4, 0.0, lineD) * 0.2 * glowamt * fade * (1.0 + uBass);
     // ground haze so a silent room is not black below the horizon
-    color += uColor2 * 0.07 * depth01 * (0.5 + 0.5 * glowamt);
+    color += uColor2 * 0.1 * depth01 * (0.5 + 0.5 * glowamt);
     // grid verticals
     float vx = abs(fract(x * (2.0 + depth01 * 6.0) + sin(row) * 0.3) - 0.5);
-    color += uColor3 * smoothstep(0.02, 0.0, vx) * 0.12 * fade;
+    color += uColor3 * smoothstep(0.02, 0.0, vx) * 0.2 * fade * (1.0 + uBassHit);
   }
 
-  color *= 1.0 + uBeat * 0.25;
-  color = min(color, vec3(2.0));
+  color *= 1.0 + uBeat * 0.4;
+  color = vec3(1.0) - exp(-max(color, vec3(0.0)) * 1.25);
   gl_FragColor = vec4(color, 1.0);
 }
