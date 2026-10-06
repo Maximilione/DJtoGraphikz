@@ -346,7 +346,8 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 .btn-sm {
-  padding: 3px 7px;
+  padding: 3px 8px;
+  min-height: 28px;
   font-size: var(--fs-xs);
   border-radius: var(--r-sm);
 }
@@ -362,6 +363,7 @@ input[type="range"]:active::-webkit-slider-thumb {
   font-weight: 400;
   line-height: 1.4;
 }
+.btn-ghost.btn-sm { min-width: 28px; padding: 0 var(--s2); }
 .btn-ghost:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--text-primary); }
 .btn-ghost:disabled { opacity: 0.35; cursor: default; }
 .btn-ghost.danger { color: var(--danger); }
@@ -1428,7 +1430,9 @@ input[type="color"]:focus {
 
 /* pill segmented buttons */
 .pill {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 28px;
+  white-space: nowrap;
   padding: var(--s2) var(--s3);
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -1453,7 +1457,8 @@ input[type="color"]:focus {
 }
 .tab {
   flex: 1;
-  padding: 7px var(--s2);
+  padding: 9px var(--s2);
+  min-height: 32px;
   background: transparent;
   color: var(--text-muted);
   font-size: var(--fs-xs);
@@ -1468,10 +1473,35 @@ input[type="color"]:focus {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
-.tab-count { margin-left: 3px; font-size: var(--fs-xs); opacity: 0.7; }
+.tab-count { margin-left: 4px; font-size: var(--fs-xs); opacity: 0.7; font-variant-numeric: tabular-nums; }
+/* a count that means "on right now" is a badge, not a muted total */
+.tab-count.on {
+  opacity: 1;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #000;
+}
 
 /* 3-col effect grid (Pro mode) — .fx-btn draws the buttons */
-.fx-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; }
+/* two columns: at 3 the 300px sidebar cut every name to ~8 letters */
+.fx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.fx-btn { min-height: 28px; }
+.fx-btn-lg { min-height: 40px; }
+/* a category you can fold: 75 effects are scanned by section */
+.fx-cat > summary {
+  display: flex; align-items: center; gap: var(--s2);
+  min-height: 28px; cursor: pointer; list-style: none;
+  font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--text-muted);
+  border-bottom: 1px solid var(--line); margin-bottom: var(--s2);
+}
+.fx-cat > summary::-webkit-details-marker { display: none; }
+.fx-cat > summary::before { content: '▾'; width: 10px; }
+.fx-cat:not([open]) > summary::before { content: '▸'; }
+.fx-cat > summary:hover { color: var(--text-secondary); }
+.fx-cat-n { font-weight: 400; letter-spacing: 0; }
+.fx-cat-on { margin-left: auto; color: var(--accent); letter-spacing: 0; text-transform: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Simple mode: the same grid, roomier rows for a bigger target in the dark */
 .fx-grid-lg { gap: var(--s2); }
 .fx-btn-lg { padding: 10px var(--s4); gap: var(--s3); }
@@ -1509,6 +1539,7 @@ input[type="color"]:focus {
 
 /* selectable list row with title + subtitle (genres, post FX, presets) */
 .row-item {
+  min-height: 28px;
   /* A row reads left: the browser centres a button's text, and .btn does not
      undo it. Without this the title sits in the middle of a full-width row
      with the toggle stranded at the edge. */
@@ -1536,13 +1567,15 @@ input[type="color"]:focus {
 .pal-grid-lg { gap: var(--s2); }
 
 .pal-btn {
+  min-width: 0;
+  min-height: 28px;
   flex-direction: column;
   align-items: center;
   gap: var(--s1);
 }
 .pal-btn:hover:not(.active) { border-color: var(--line-strong); }
 .pal-btn.active { border-color: var(--accent); background: var(--accent-glow); }
-.pal-btn .pal-name { font-size: var(--fs-xs); color: var(--text-muted); }
+.pal-btn .pal-name { font-size: var(--fs-xs); color: var(--text-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal-btn.active .pal-name { color: var(--accent); font-weight: 600; }
 
 .pal-swatches { display: flex; gap: 1px; }

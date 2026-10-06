@@ -228,8 +228,9 @@
 .pm-chip {
   flex-shrink: 0;
   min-width: 52px;
+  min-height: 28px;
   padding: var(--s1) var(--s3);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -262,7 +263,8 @@
 .pm-srcgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .pm-src {
   padding: var(--s3) var(--s1);
-  font-size: var(--fs-2xs);
+  min-height: 32px;
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
   font-weight: 700;
   background: var(--bg1);
@@ -275,10 +277,14 @@
 .pm-depth { display: flex; align-items: center; gap: 6px; }
 .pm-depth input[type='range'] { flex: 1; }
 .pm-rates { display: flex; gap: 3px; flex: 1; }
+.pm-depth.col { flex-direction: column; align-items: stretch; gap: 2px; }
+.pm-depth.col .micro { width: auto; }
+.chain-ctl { display: flex; align-items: center; }
 .pm-rate {
   flex: 1;
   padding: var(--s2) 0;
-  font-size: var(--fs-2xs);
+  min-height: 28px;
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
   background: var(--bg1);
   border: 1px solid var(--border);
@@ -287,7 +293,7 @@
   cursor: pointer;
 }
 .pm-rate.on { color: var(--accent); border-color: var(--accent); }
-.pm-pop .micro { font-size: var(--fs-2xs); color: var(--text-muted); width: 62px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.pm-pop .micro { font-size: var(--fs-xs); color: var(--text-muted); width: 62px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* Il proiettore non deve mai restare nero senza dirlo: blackout o master a
    zero sono indistinguibili da un output rotto se non li annunci. */
