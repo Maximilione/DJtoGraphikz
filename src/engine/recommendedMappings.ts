@@ -336,6 +336,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     dotsize: { source: 'energy', depth: 0.3, value: 3 },
     drag: { source: 'high', depth: 0.2, value: 0.3 },
   },
+  imgbeat: {
+    punch: { source: 'bass', depth: 0.5, value: 1 },
+    size: { source: 'energy', depth: 0.2, value: 0.8 },
+    spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 64 },
+  },
   mesh: {
     burst: { source: 'beat', depth: 0.6, value: 0.8 },
     spin: { source: 'energy', depth: 0.3, value: 1 },
