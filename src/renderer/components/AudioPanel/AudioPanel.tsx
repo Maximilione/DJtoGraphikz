@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { readJson, writeJson } from '../../storage'
 import { pushToast } from '../Toasts/Toasts'
-import { listAudioInputs, pickInput, isBuiltIn } from '../../audioDevices'
+import { listAudioInputs, pickInput } from '../../audioDevices'
+import { findExternal, isBuiltInLabel } from '../../../shared/audioInput'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import type { Phase } from '@engine/AutoVJ'
@@ -143,16 +144,12 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     return () => md.removeEventListener?.('devicechange', refreshDevices)
   }, [])
 
-  // Running on the room mic while a sound card is there: move to the card
-  useEffect(() => {
-    if (!engine || !audioActive || engine.audioAnalyzer.getSourceKind() === 'file') return
-    const cur = devices.find(d => d.deviceId === engine.audioAnalyzer.currentDeviceId)
-    const best = devices.find(d => d.deviceId === selectedDevice)
-    if (cur && best && cur.deviceId !== best.deviceId && isBuiltIn(cur) && !isBuiltIn(best)) {
-      engine.audioAnalyzer.start(best.deviceId).then(applyAnalyzerSettings).catch(() => {})
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devices, selectedDevice, audioActive])
+  // Moving to a card that shows up while on the room mic (or while recovering) is
+  // AudioAnalyzer's job — it listens to devicechange itself, panel mounted or not.
+  // What the OS really opened (track label), and an external card we could use instead
+  const [activeLabel, setActiveLabel] = useState('')
+  const externalCard = findExternal(devices)
+  const onRoomMic = audioActive && !file.name && !!activeLabel && isBuiltInLabel(activeLabel) && !!externalCard
 
   // Push panel settings into the analyzer — needed on restore and after every
   // (re)start, since start() rebuilds the audio graph
@@ -219,6 +216,8 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         if (running) drawSpectrum()
         else cancelAnimationFrame(animFrameRef.current)
       }
+      const lbl = engine.audioAnalyzer.currentLabel
+      setActiveLabel(prev => (prev === lbl ? prev : lbl))
       const m = engine.audioAnalyzer.getBpmMode()
       if (m !== bpmMode) setBpmMode(m)
       const mb = engine.audioAnalyzer.getManualBpm()
@@ -438,9 +437,18 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
             color: audioActive ? 'var(--text-primary)' : undefined }}>
             {!audioActive ? 'Audio fermo'
               : file.name ? `In ascolto: ${file.name}`
-              : `In ascolto: ${devices.find(d => d.deviceId === selectedDevice)?.label || 'ingresso audio'}`}
+              : `In ascolto: ${activeLabel || devices.find(d => d.deviceId === selectedDevice)?.label || 'ingresso audio'}`}
           </span>
         </div>
+        {onRoomMic && externalCard && (
+          <div className="u-row" style={{ gap: 'var(--s2)', minWidth: 0 }}>
+            <span className="u-hint" style={{ minWidth: 0, flex: 1 }}>Stai usando il microfono di sistema.</span>
+            <button className="btn btn-sm" title={externalCard.label} onClick={() => {
+              setSelectedDevice(externalCard.deviceId)
+              engine?.audioAnalyzer.start(externalCard.deviceId).catch(() => {})
+            }}>Usa {externalCard.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '')}</button>
+          </div>
+        )}
 
         {/* S5: what the wall does when the music stops and the Auto VJ is off */}
         {/* not a .slider-row: its labels are a fixed 74px each, and four of them
