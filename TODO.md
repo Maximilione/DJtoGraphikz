@@ -89,7 +89,7 @@ Integrazione:
 - [ ] **NDI output** — video via rete (SDK nativo). Vedi **I2 uscita OBS**: copre lo stesso uso senza SDK
 - [ ] **Ableton Link** — sync BPM via rete (native addon). Vedi **I1 MIDI Clock**: stessa resa su un canale già aperto
 - [x] **3D geometry scenes** — mesh audio-reattive — fatto in v0.67.0: effetto `mesh` (GLB/OBJ/STL/PLY/FBX, look filo/punti/metallo/ologramma/dissolvenza), piu' `galaxy`, `mandelbulb`, `android`
-- [ ] **Plugin architecture** — sistema plugin terze parti
+- [x] **Plugin architecture** — sistema plugin terze parti — fatto: plugin dichiarativi in `~/.djtographikz/plugins/` (effetti shader, palette, preset, scalette, mapping consigliati), **solo contributi dichiarativi, niente codice**. Vedi `docs/PLUGINS.md`
 - [x] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
 
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
