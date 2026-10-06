@@ -10,6 +10,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 uniform float freqa;
 uniform float freqb;
 uniform float size;
@@ -34,6 +35,8 @@ vec2 lissa(float s, float fa, float fb, float phase, float amp) {
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
+  float lkb = 1.0 + 2.5 * uLineBoost;
+  float lminW = (3.0 + 4.0 * uLineBoost) / uResolution.y;
   vec3 color = vec3(0.0);
   // portrait output: shrink the figure so it stays inside the frame
   float fit = min(1.0, uResolution.x / uResolution.y * 0.85);
@@ -66,12 +69,12 @@ void main() {
     }
 
     // Glow around the curve
-    float glow = 0.004 / (minDist + 0.002);
+    float glow = 0.004 * (1.0 + uLineBoost) / (minDist + 0.002);
     glow = pow(glow, 1.4);
     glow = min(glow, 3.0);
 
     // Line
-    float line = smoothstep(max(0.005, fwidth(minDist) * 1.5), 0.0, minDist);
+    float line = smoothstep(max(max(0.005 * lkb, lminW), fwidth(minDist) * 1.5), 0.0, minDist);
 
     // Color varies along curve parameter
     vec3 cColor;

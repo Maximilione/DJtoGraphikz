@@ -13,6 +13,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -60,7 +61,9 @@ void main() {
     float s = dot(cross(o, b), nrm) / nl2;      // along the pixel ray
     float t = dot(cross(r, o), nrm) / nl2;      // along the beam
     float dist = abs(dot(o, nrm)) / nl;
-    float w = 0.05 * (1.0 + 0.12 * max(t, 0.0)) * (1.0 + 0.5 * kick);
+    // beam width: widened, floored at ~lminPx pixels at the pixel ray's distance s (1 px ~ 1/(1.2*uRes.y) rad)
+    float w = max(0.05 * (1.0 + 0.12 * max(t, 0.0)) * (1.0 + 0.5 * kick) * (1.0 + 2.5 * uLineBoost),
+                  0.5 * (3.0 + 4.0 * uLineBoost) * max(s, 0.0) / (1.2 * uResolution.y));
     float vis = (s > 0.0 && t > 0.0) ? 1.0 : 0.0;
     float g = exp(-dist * dist / (w * w)) / max(nl, 0.12) * exp(-max(t, 0.0) * 0.045) * vis;
 
