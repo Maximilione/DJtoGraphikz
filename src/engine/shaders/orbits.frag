@@ -17,6 +17,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -52,12 +53,14 @@ void main() {
   }
   color += uColor1 * 0.03 * (1.0 - rad * 0.6) + uColor2 * 0.012;
 
+  float lkb = 1.0 + 2.5 * uLineBoost;
+  float lminW = (3.0 + 4.0 * uLineBoost) / uResolution.y;
   // orbit rings with a kick shockwave running through them
   for (int k = 0; k < 3; k++) {
     float rr = orbitr * (0.45 + float(k) * 0.35) * (1.0 + uBass * 0.15);
     float d = abs(rad - rr);
     float wv = smoothstep(0.1, 0.0, abs(rad - (1.0 - uBassHit) * 1.1)) * uBassHit;
-    color += uColor3 * (smoothstep(0.004, 0.0, d - fwidth(d)) * (0.22 + wv * 1.2) + 0.0012 / (d + 0.01) * (0.4 + uBass));
+    color += uColor3 * (smoothstep(max(0.004 * lkb, lminW), 0.0, d - fwidth(d)) * (0.22 * (1.0 + uLineBoost) + wv * 1.2) + 0.0012 * (1.0 + uLineBoost) / (d + 0.01) * (0.4 + uBass));
   }
 
   for (float i = 0.0; i < 16.0; i++) {
