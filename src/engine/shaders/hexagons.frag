@@ -84,6 +84,9 @@ void main() {
   // Idle floor: the wave tints the cells it passes, so the lattice reads in silence
   color += cellColor * fill * (1.0 - edge) * 0.3;
 
+  // faint tint on every cell: the lattice never reads as black on a wall
+  color += cellColor * (1.0 - edge) * 0.2 * (0.5 + 0.5 * wave);
+
   // Fill with pattern
   float innerPattern = sin(gv.x * 20.0 + t * 3.0) * sin(gv.y * 20.0 - t * 2.0);
   innerPattern = smoothstep(0.5, 1.0, innerPattern);
