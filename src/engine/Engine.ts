@@ -93,6 +93,7 @@ import imgbeatFrag from './shaders/imgbeat.frag?raw'
 import beamfieldFrag from './shaders/beamfield.frag?raw'
 import monolithFrag from './shaders/monolith.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
+import facesFrag from './shaders/faces.frag?raw'
 import ribbonsFrag from './shaders/ribbons.frag?raw'
 import stormFrag from './shaders/storm.frag?raw'
 import mandelbulbFrag from './shaders/mandelbulb.frag?raw'
@@ -213,7 +214,7 @@ export type EffectId =
   | 'static' | 'cage' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
-  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'monolith' | 'imgbeat'
+  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'faces' | 'monolith' | 'imgbeat'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -505,6 +506,7 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   imgbeat: imgbeatFrag,
   beamfield: beamfieldFrag,
   android: androidFrag,
+  faces: facesFrag,
   monolith: monolithFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
