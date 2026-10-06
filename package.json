@@ -31,7 +31,6 @@
     "check:sequences": "node scripts/check-sequences.mjs",
     "check:phone": "node scripts/check-phone.mjs",
     "check:phoneseq": "node scripts/check-phoneseq.mjs",
-    "check:phoneseq": "node scripts/check-phoneseq.mjs",
     "check:loaders": "node scripts/check-loaders.mjs",
     "check:storage": "node scripts/check-storage.mjs",
     "check:venues": "node scripts/check-venues.mjs",
@@ -92,6 +91,29 @@
     "publish": {
       "provider": "github",
       "releaseType": "release"
+    },
+    "dmg": {
+      "title": "DJtoGraphikz ${version}",
+      "background": "build/dmg-background.png",
+      "icon": "build/icon.icns",
+      "iconSize": 96,
+      "window": {
+        "width": 660,
+        "height": 400
+      },
+      "contents": [
+        {
+          "x": 165,
+          "y": 200,
+          "type": "file"
+        },
+        {
+          "x": 495,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   },
   "dependencies": {
