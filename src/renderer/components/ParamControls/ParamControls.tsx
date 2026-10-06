@@ -119,6 +119,33 @@ export function ParamControls({ engine }: ParamControlsProps) {
           )}
         </div>
       )}
+      {engine.getCurrentEffect() === 'imgbeat' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button className="btn" style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            title="PNG, JPG, WebP, SVG, GIF (primo fotogramma) — fino a 8, copiate nella libreria e anche sull'uscita"
+            onClick={async () => {
+              const picked = (await window.api?.pickImages()) ?? []
+              if (!picked.length) return
+              try {
+                const saved = await Promise.all(picked.map(f => window.api.librarySaveCopy(f.name, f.path)))
+                engine.setImgbeatImages([...engine.getImgbeatImages(), ...saved.map(s => ({ name: s.name, path: s.path }))].slice(0, 8))
+                force()
+              } catch (err) {
+                console.error('[Imgbeat] import fallito:', err)
+                pushToast('Non riesco a caricare le immagini', undefined, undefined, 'err')
+              }
+            }}>
+            Carica immagini…
+          </button>
+          <span className="micro">
+            {engine.getImgbeatImages().length ? engine.getImgbeatImages().map(i => i.name).join(', ') : 'immagine di default'}
+          </span>
+          {engine.getImgbeatImages().length > 0 && (
+            <button className="btn" style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+              onClick={() => { engine.setImgbeatImages([]); force() }}>Default</button>
+          )}
+        </div>
+      )}
       {defs.map(def => {
         const st = engine.getParamState(def.key)
         const step = (def.max - def.min) / 100

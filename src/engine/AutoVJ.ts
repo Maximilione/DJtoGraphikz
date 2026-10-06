@@ -104,6 +104,7 @@ export const FAMILY: Record<EffectId, Family> = {
   beamfield: 'radial',
   android: 'object',
   monolith: 'tunnel',
+  imgbeat: 'object',
 }
 
 // shorthand builders keep the tables readable
