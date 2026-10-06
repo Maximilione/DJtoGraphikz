@@ -69,7 +69,7 @@ void main() {
   // light shafts: each bay has a lamp under the ceiling, and the dust and
   // smoke between ray and lamp scatter it (cheap inverse-square integral)
   float shaft = 0.0;
-  float lampOn = (0.75 + 0.25 * uBass) + 0.9 * uBassHit + 0.4 * uBeat;
+  float lampOn = (0.5 + 0.25 * uBass) + 0.9 * uBassHit + 0.4 * uBeat;
   for (int i = 0; i < 64; i++) {
     vec3 pp = ro + rd * t;
     d = map(pp);
@@ -105,7 +105,7 @@ void main() {
     float d2 = length(L2);
     L2 /= d2;
     float diff2 = max(dot(n, L2), 0.0) / (1.0 + d2 * d2 * 0.5);
-    col += albedo * diff2 * lampOn * mix(vec3(1.0), uColor2, 0.5) * 1.3;
+    col += albedo * diff2 * lampOn * mix(vec3(1.0), uColor2, 0.5) * 0.8;
     // wet floor and wall sheen: lamp reflections
     vec3 r = reflect(rd, n);
     float sheen = pow(max(dot(r, L2), 0.0), 18.0) * (0.4 + 0.6 * step(0.5, n.y));
@@ -120,10 +120,12 @@ void main() {
   }
   float f = exp(-t * 0.13 * max(0.05, fog));
   col = mix(uColor3 * 0.07, col, f);
-  col += mix(uColor2, vec3(1.0), 0.3) * shaft * lampOn * 0.6;
+  col += mix(uColor2, vec3(1.0), 0.3) * shaft * lampOn * 0.4;
   // dust in the beam
   col += vec3(hash(gl_FragCoord.xy + fract(uTime) * 31.0)) * 0.015;
   // soft shoulder: lamps glow without ever clipping to flat white
   col = 1.0 - exp(-col * 1.4);
+  // contrast: concrete stays dark and moody, lamps and neon pop
+  col = pow(col, vec3(1.7)) * 1.25;
   gl_FragColor = vec4(col, 1.0);
 }
