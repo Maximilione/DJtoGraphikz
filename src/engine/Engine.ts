@@ -2094,37 +2094,55 @@ export class Engine {
     if (key === this.imgbeatLoading) return
     this.imgbeatLoading = key
     const u = this.imgbeatUniforms()
-    if (!list.length) { u.uImgCount.value = 0; return }
+    if (!list.length) {
+      u.uImgCount.value = 0
+      const old = u.tImgs.value as THREE.Texture | null
+      u.tImgs.value = this.getWhiteTexture()
+      if (old && old !== this.whiteTexture) old.dispose()
+      return
+    }
     const CELL = 768
-    const canvas = document.createElement('canvas')
-    canvas.width = CELL * 4
-    canvas.height = CELL * 2
-    const ctx = canvas.getContext('2d')!
-    Promise.all(list.map(async (it, i) => {
+    Promise.all(list.map(async (it) => {
+      let url = ''
       try {
         const buf = await window.api.readFile(it.path)
-        const url = URL.createObjectURL(new Blob([buf as any], { type: imageMime(it.name) }))
+        url = URL.createObjectURL(new Blob([buf as any], { type: imageMime(it.name) }))
         const img = new Image()
         img.src = url
         await img.decode()
-        URL.revokeObjectURL(url)
+        return img
+      } catch (err) {
+        console.error('[Engine] immagine illeggibile:', it.name, err)
+        return null
+      } finally {
+        if (url) URL.revokeObjectURL(url)
+      }
+    })).then(all => {
+      if (this.imgbeatLoading !== key) return
+      // unreadable pictures are skipped: the readable ones fill consecutive cells
+      const imgs = all.filter((i): i is HTMLImageElement => !!i)
+      const old = u.tImgs.value as THREE.Texture | null
+      if (!imgs.length) {
+        u.uImgCount.value = 0
+        u.tImgs.value = this.getWhiteTexture()
+        if (old && old !== this.whiteTexture) old.dispose()
+        return
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = CELL * 4
+      canvas.height = CELL * 2
+      const ctx = canvas.getContext('2d')!
+      imgs.forEach((img, i) => {
         const w = img.naturalWidth || CELL, h = img.naturalHeight || CELL   // an SVG without size
         const s = Math.min(CELL / w, CELL / h)
         ctx.drawImage(img, (i % 4) * CELL + (CELL - w * s) / 2, Math.floor(i / 4) * CELL + (CELL - h * s) / 2, w * s, h * s)
-        return true
-      } catch (err) {
-        console.error('[Engine] immagine illeggibile:', it.name, err)
-        return false
-      }
-    })).then(() => {
-      if (this.imgbeatLoading !== key) return
+      })
       const tex = new THREE.CanvasTexture(canvas)
       tex.flipY = false
       tex.generateMipmaps = false
       tex.minFilter = tex.magFilter = THREE.LinearFilter
-      const old = u.tImgs.value as THREE.Texture | null
       u.tImgs.value = tex
-      u.uImgCount.value = list.length
+      u.uImgCount.value = imgs.length
       if (old && old !== this.whiteTexture) old.dispose()
     })
   }
