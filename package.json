@@ -14,6 +14,7 @@
     "package:win": "electron-builder --win",
     "package:linux": "electron-builder --linux",
     "check:output": "python3 scripts/check-output.py",
+    "check:glsl": "sh scripts/check-glsl.sh",
     "check:sweep": "python3 scripts/check-sweep.py",
     "check:colorsync": "node scripts/check-colorsync.mjs",
     "check:audiodevice": "node scripts/check-audiodevice.mjs",
