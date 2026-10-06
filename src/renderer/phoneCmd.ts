@@ -22,7 +22,7 @@ const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
 
 /** [min, max] of the single-number commands */
 const RANGES: Record<string, [number, number]> = {
-  crossfade: [0, 1], brightness: [0, 1], intensity: [0, 1], maskSoft: [0, 1],
+  crossfade: [0, 1], brightness: [0, 1], intensity: [0, 1], lineBoost: [0, 1], maskSoft: [0, 1],
   motionBlur: [0, 0.95], transitionDuration: [0, 10], bpmSet: [60, 300],
 }
 const GRADE: Record<string, [number, number]> = {
