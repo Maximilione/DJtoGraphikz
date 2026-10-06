@@ -31,7 +31,7 @@ uniform float glow;
 
 const float TAU = 6.2831853;
 const float FLOOR_Y = -0.9;
-const float FINS = 56.0;
+const float FINS = 36.0;
 
 float gKick, gR, gSec, gS, gCy, gBreath, gN;
 vec3 gCop; // copper: the palette only tints it 35%
@@ -96,7 +96,7 @@ vec3 faceLocal(vec3 p) {
 
 float dFloor(vec3 p) {
   float pin = max(length(p.xz) - 0.06, abs(p.y) - 0.95);
-  if (p.y > -0.5) return min(pin, p.y + 0.5);
+  if (p.y > -0.5) return min(pin, max(p.y + 0.5, 0.02)); // bound, never a surface
   float r = length(p.xz);
   float a = atan(p.z, p.x) + uTime * 0.04;
   float sec = TAU / FINS;
@@ -104,8 +104,8 @@ float dFloor(vec3 p) {
   float rad = r * cos(la);
   float lat = r * sin(la) + (p.y - FLOOR_Y) * 0.3;
   float rip = 0.04 * sin(rad * 3.0 - uTime * 1.5) * (0.4 + 2.0 * uMid);
-  float hh = 0.16 + rip;
-  float th = 0.014 + 0.003 * rad;
+  float hh = 0.22 + rip;
+  float th = 0.034 + 0.008 * rad;
   float d = max(max(abs(lat) - th, abs(p.y - (FLOOR_Y + hh)) - hh), max(0.55 - rad, rad - 3.4));
   float hub = max(r - 0.5, abs(p.y - (FLOOR_Y + 0.08)) - 0.1);
   return min(min(d * 0.6, hub), pin);
@@ -219,7 +219,7 @@ void main() {
       // porcelain
       vec3 alb = mix(vec3(1.0, 0.95, 0.88), uColor1, 0.04) * 0.92;
       vec3 L1 = normalize(vec3(-0.9, 0.4, -0.3));
-      vec3 key = mix(vec3(1.0, 0.82, 0.62), gCop, 0.3);
+      vec3 key = mix(vec3(1.0, 0.92, 0.82), gCop, 0.15);
       float w = clamp((dot(n, L1) + 0.1) / 1.1, 0.0, 1.0);
       w = w * w * (1.3 - 0.3 * w);
       float occ = 0.0;
@@ -228,7 +228,7 @@ void main() {
         occ += (hh - map(p + n * hh)) / float(i * i);
       }
       float ao = clamp(1.0 - 2.4 * occ, 0.05, 1.0);
-      vec3 lit = key * w * 1.15 * (0.9 + 0.1 * gBreath)
+      vec3 lit = key * w * 1.6 * (0.9 + 0.1 * gBreath)
                + gCop * 0.035
                + gCop * max(-n.y, 0.0) * g * (0.08 + 0.3 * gKick + 0.4 * finWave(length(p.xz)));
       surf = alb * lit * ao;
@@ -250,16 +250,16 @@ void main() {
       float sa = uBassTime * 0.6 + uTime * 0.2;
       vec3 Ls = normalize(vec3(cos(sa), 0.45, sin(sa)));
       vec3 Lt = normalize(vec3(-cos(sa * 0.7 + 2.0), 0.6, -sin(sa * 0.7 + 2.0)));
-      float env = pow(max(dot(rr, Ls), 0.0), 14.0) * 2.0
-                + pow(max(dot(rr, Lt), 0.0), 22.0) * 1.2
-                + pow(max(dot(rr, normalize(vec3(-0.6, 0.5, -0.5))), 0.0), 18.0) * 0.8;
+      float env = pow(max(dot(rr, Ls), 0.0), 60.0) * 2.5
+                + pow(max(dot(rr, Lt), 0.0), 90.0) * 1.6
+                + pow(max(dot(rr, normalize(vec3(-0.6, 0.5, -0.5))), 0.0), 70.0) * 1.0;
       float low = 0.35 + 0.65 * smoothstep(FLOOR_Y, FLOOR_Y + 0.3, p.y);
       float w = finWave(rad);
       float pulse = 0.1 + 0.08 * gBreath + 1.2 * w + 0.25 * uMid * (0.5 + 0.5 * sin(rad * 5.0 - uTime * 2.0));
       float topEdge = smoothstep(0.55, 0.95, n.y);
       surf = gCop * 0.06 * (0.4 + 0.6 * max(n.y, 0.0))
            + env * gCop * 0.9
-           + gCop * topEdge * (0.5 + pulse * 1.5) * g * 0.8;
+           + gCop * topEdge * (0.9 + pulse * 1.8) * g * 0.9;
       surf *= low;
       if (rad < 0.6) {
         // dark glossy hub with a thin copper ring where the fins end
