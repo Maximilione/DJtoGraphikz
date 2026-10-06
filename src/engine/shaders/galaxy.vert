@@ -24,8 +24,15 @@ varying float vGain;
 // shockwave: a ring races outwards through the disc, shoving the stars it
 // crosses, and the whole cloud breathes out and falls back.
 
+// The index is split in two before it is scaled: fract(n * 0.1031) on a
+// 590k float32 index quantises to a few hundred levels, so thousands of stars
+// landed on the very same spot and the cloud was ~10k stars drawn 59 times.
 vec3 hash3(float n) {
-  vec3 p = fract(vec3(n) * vec3(0.1031, 0.1030, 0.0973));
+  float lo = mod(n, 1024.0);
+  float hi = floor(n / 1024.0);
+  vec3 p = fract(vec3(lo * 0.1031 + hi * 0.2371,
+                      lo * 0.1030 + hi * 0.3917,
+                      lo * 0.0973 + hi * 0.6193));
   p += dot(p, p.yzx + 33.33);
   return fract((p.xxy + p.yzz) * p.zyx);
 }
@@ -40,8 +47,11 @@ void main() {
   // bass-driven clock: a breakdown freezes the spin instead of coasting
   float clk = mod(uBassTime * 0.6 + uTime * 0.12, 6283.0);
 
+  // ~2% of the points are big soft halos: the glow of the core and of the arms,
+  // always there, spread over the disc by area (the stars crowd the core)
+  float halo = step(0.98, fract(g.y * 37.0));
   // radius: dense core, long thin rim
-  float r = pow(h.x, 1.7) * 1.35 + 0.02;
+  float r = mix(pow(h.x, 1.7) * 1.35, sqrt(h.x) * 1.3, halo) + 0.02;
   // shockwave ring: stars near the front are kicked outwards
   float front = fract(uBeatClock * 0.25) * 1.5;
   float wave = exp(-pow((r - front) * 6.0, 2.0)) * (1.0 - front / 1.5);
@@ -51,7 +61,7 @@ void main() {
   float arm = floor(h.y * nArms);
   // differential rotation: angular speed falls with radius
   float spin = clk * 1.6 / (0.35 + r);
-  float scatter = (g.z - 0.5) * 1.1 / (0.6 + 4.0 * r);
+  float scatter = (g.z - 0.5) * 2.5 / (0.6 + 4.0 * r);
   float a = arm * 6.2831853 / nArms + r * twist * 2.4 + scatter + spin;
 
   float thick = 0.07 * exp(-r * 2.2) + 0.012;
@@ -76,8 +86,13 @@ void main() {
   vSeed = h.z;
   // nearer stars bigger and brighter; the core is dense so each star is dimmer
   float near = clamp(inv * 0.55, 0.5, 1.8);
-  float size = (1.7 + 1.6 * g.y * g.y) * near * (1.0 + 0.35 * uBeat + 0.3 * wave);
+  float size = mix(3.2 + 1.8 * g.y * g.y, 32.0, halo) * near * (1.0 + 0.35 * uBeat + 0.3 * wave);
   float ps = size * sqrt(uResolution.y / 1080.0);
-  vGain = near * (0.55 + 0.9 * vRad) * (1.0 + 0.5 * wave + 0.4 * kick);
-  gl_PointSize = (ps > 0.0 && ps < 1e4) ? clamp(ps, 1.5, 8.0) : 2.0;
+  // the crowded core is dimmed per star (it piles up and burns out to a flat
+  // white spot); the rim stars are sparse and carry the gain; halos light the
+  // core and arms softly
+  float starGain = 0.2 + 6.0 * vRad * vRad;
+  float haloGain = 1.5 * (0.5 + 0.8 * exp(-vRad * 4.0));
+  vGain = near * mix(starGain, haloGain, halo) * (1.0 + 0.5 * wave + 0.4 * kick);
+  gl_PointSize = (ps > 0.0 && ps < 1e4) ? clamp(ps, 1.5, mix(8.0, 48.0, halo)) : 2.0;
 }
