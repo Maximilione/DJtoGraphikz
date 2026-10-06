@@ -120,6 +120,7 @@ export function App() {
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
   const [fps, setFps] = useState(0)
+  const [bpm, setBpm] = useState(0)
   /** Intensity macro, 0..1 — one fader instead of five sliders, key I */
   const [intensity, setIntensity] = useState(0)
   /**
@@ -446,7 +447,10 @@ export function App() {
   // U1.2 — poll audio status: 'reconnecting' shows the banner, a user stop is fine
   useEffect(() => {
     if (!engine) return
-    const id = window.setInterval(() => setAudioStatus(engine.audioAnalyzer.getStatus()), 1000)
+    const id = window.setInterval(() => {
+      setAudioStatus(engine.audioAnalyzer.getStatus())
+      setBpm(Math.round(engine.audioAnalyzer.getData().bpm) || 0)
+    }, 1000)
     return () => clearInterval(id)
   }, [engine])
 
@@ -955,7 +959,7 @@ export function App() {
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout mode-${mode}`}>
       {showOnboarding && <Onboarding onDone={finishOnboarding} />}
       {showRemote && <RemoteModal onClose={() => setShowRemote(false)} />}
       {showSoundcheck && <Soundcheck engine={engine} outputRes={outputRes} onClose={() => setShowSoundcheck(false)} />}
@@ -980,6 +984,9 @@ export function App() {
             className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
             title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
           />
+          <span className="tb-bpm" title="BPM rilevato (la modalita' BPM si cambia dal pannello Audio)">
+            <b>{audioStatus === 'running' && bpm > 0 ? bpm : '—'}</b> BPM
+          </span>
         </div>
 
         {/* Simple / Pro / Live switch */}
@@ -1038,7 +1045,7 @@ export function App() {
             title="Luminosità master ([ / ])"
           />
           <button
-            className={`btn btn-sm ${blackout ? 'btn-danger' : 'btn-secondary'}`}
+            className={`btn btn-sm btn-black${blackout ? ' on' : ''}`}
             onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
             title="Blackout (B)"
           >
@@ -1062,19 +1069,19 @@ export function App() {
 
         <div className="spacer" />
 
-        <div className="tb-group">
+        <div className="tb-group tb-right">
           <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
             <IconCamera />
           </button>
           <button
-            className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary'}`}
+            className={`btn btn-sm tb-extra ${recording ? 'btn-danger' : 'btn-secondary'}`}
             onClick={toggleRecording}
             title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
            aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
             {recording ? <IconStop /> : <IconRecord />}
           </button>
           {reelArmed && (
-            <button className="btn btn-secondary btn-sm" onClick={() => reelRef.current?.save()}
+            <button className="btn btn-secondary btn-sm tb-extra" onClick={() => reelRef.current?.save()}
               title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)"
               aria-label="Salva il reel degli ultimi 15–30 s">
               <span style={{ color: 'var(--accent)' }}>●</span> Reel
@@ -1104,6 +1111,7 @@ export function App() {
           ))}
           {displays.length > 1 && (
             <select
+              className="tb-extra tb-select"
               value={primaryOut.displayId ?? ''}
               onChange={e => {
                 const id = parseInt(e.target.value)
@@ -1118,6 +1126,7 @@ export function App() {
             </select>
           )}
           <select
+            className="tb-extra tb-select"
             value={outputRes}
             onChange={e => {
               const [w, h] = e.target.value.split('x').map(Number)
@@ -1269,7 +1278,7 @@ export function App() {
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}
         {frozen && <><span>|</span><span style={{ color: 'var(--accent)' }}>FROZEN</span></>}
         <div className="spacer" />
-        <label className="beatflash-toggle" title="Flash del bordo preview a ogni beat">
+        <label className="beatflash-toggle tb-extra" title="Flash del bordo preview a ogni beat">
           <input
             type="checkbox"
             checked={beatFlash}
@@ -1280,7 +1289,7 @@ export function App() {
           />
           flash beat
         </label>
-        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · I intensità · Space tap · tieni premuto = momentaneo</span>
+        <span className="bb-keys tb-extra" title="Scorciatoie da tastiera">B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · I intensità · Space tap · tieni premuto = momentaneo</span>
       </div>
 
       <Toasts />
