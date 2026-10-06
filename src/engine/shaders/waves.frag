@@ -13,6 +13,7 @@ uniform vec2 uResolution;
 uniform float count;
 uniform float amp;
 uniform float freq;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -49,12 +50,12 @@ void main() {
     float d = abs(uv.y - wave);
 
     // Glow
-    float glow = 0.004 / (d + 0.004);
+    float glow = 0.004 * (1.0 + 1.5 * uLineBoost) / (d + 0.004 * (1.0 + 1.5 * uLineBoost));
     glow = pow(glow, 1.3);
     glow = min(glow, 2.0);
 
     // Sharp line
-    float line = smoothstep(max(0.003, fwidth(d) * 1.5), 0.0, d);
+    float line = smoothstep(max(0.003 * (1.0 + 2.5 * uLineBoost), fwidth(d) * (3.0 + 4.0 * uLineBoost)), 0.0, d);
 
     // Color gradient based on wave index
     vec3 wColor = mix(uColor1, uColor2, fi);
@@ -68,7 +69,7 @@ void main() {
   }
 
   // Horizontal energy bars at extreme positions
-  float energyBar = smoothstep(0.002, 0.0, abs(uv.y - 0.46 * sign(uv.y))) * uEnergy;
+  float energyBar = smoothstep(0.002 * (1.0 + 2.5 * uLineBoost), 0.0, abs(uv.y - 0.46 * sign(uv.y))) * uEnergy;
   color += uColor2 * energyBar;
 
   // Beat pulse

@@ -28,6 +28,7 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 uniform float ridges;
 uniform float horizon;
 uniform float glowamt;
+uniform float uLineBoost;
 
 float ridgeH(float x, float row, float t) {
   // layered sines pseudo-terrain, bass raises the peaks
@@ -84,8 +85,12 @@ void main() {
     float h = ridgeH(x * (0.6 + depth01 * 1.6), row, row * 0.618);
     // line where the fractional row crosses the ridge height baseline
     float lineD = abs(rowF - 0.5 - h * 0.6 * depth01);
-    float w = max(0.03, fwidth(z) * ridges * 0.02);
-    float line = smoothstep(w, 0.0, lineD);
+    // half-width in row units: authored one widened by the boost, floored at a
+    // few screen pixels (rpx = rows per pixel), capped so rows never merge into
+    // a slab; where rows are denser than ~4 px the lines thin out instead
+    float rpx = fwidth(z * ridges * 0.3);
+    float w = min(max(0.03 * (1.0 + 2.5 * uLineBoost), rpx * (3.0 + 4.0 * uLineBoost)), 0.22);
+    float line = smoothstep(w, 0.0, lineD) * (1.0 - 0.65 * smoothstep(0.08, 0.25, rpx));
     float fade = 0.3 + 0.7 * depth01;              // nearer = brighter, far ridges still read
     vec3 lc = mix(uColor2, uColor1, fract(row * 0.23));
     color += lc * line * fade * (1.0 + glowamt * 0.6 + uBassHit * 1.2);
@@ -95,7 +100,7 @@ void main() {
     color += uColor2 * 0.1 * depth01 * (0.5 + 0.5 * glowamt);
     // grid verticals
     float vx = abs(fract(x * (2.0 + depth01 * 6.0) + sin(row) * 0.3) - 0.5);
-    color += uColor3 * smoothstep(0.02, 0.0, vx) * 0.2 * fade * (1.0 + uBassHit);
+    color += uColor3 * smoothstep(min(max(0.02, fwidth(vx) * (3.0 + 4.0 * uLineBoost)), 0.2), 0.0, vx) * 0.2 * fade * (1.0 + uBassHit);
   }
 
   color *= 1.0 + uBeat * 0.4;

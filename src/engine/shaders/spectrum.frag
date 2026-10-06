@@ -18,6 +18,7 @@ varying vec2 vUv;
 uniform float bars;
 uniform float mirror;
 uniform float scope;
+uniform float uLineBoost;
 
 // The analyser's own picture: log-spaced bars from uSpectrum with peak caps,
 // mirrored about the centre line, and the oscilloscope trace drawn over them.
@@ -60,14 +61,14 @@ void main() {
   vec3 c = tint * lit * gap * (0.5 + 1.0 * grad);
 
   // cap: a bright line at the top of each bar reads as a level meter
-  float capw = 1.5 / uResolution.y;
+  float capw = max(1.5 * (1.0 + 2.5 * uLineBoost), 1.5 + 2.0 * uLineBoost) / uResolution.y;
   float cap = step(abs(abs(uv.y - base) - h * 0.5), capw) * gap;
   c += tint * cap * (1.2 + 1.5 * uBeat);
 
   // oscilloscope over the top
   float w = texture2D(uSpectrum, vec2(uv.x, 0.5)).g - 0.5;
   float trace = abs(uv.y - (0.5 + w * 0.7 * scope));
-  c += uColor3 * scope * (1.0 - smoothstep(0.0, 3.5 / uResolution.y, trace)) * (0.6 + 0.8 * uHigh);
+  c += uColor3 * scope * (1.0 - smoothstep(0.0, max(3.5 * (1.0 + 2.5 * uLineBoost), 3.0 + 4.0 * uLineBoost) / uResolution.y, trace)) * (0.6 + 0.8 * uHigh);
 
   // floor glow so a silent room is not a black rectangle
   c += tint * exp(-abs(uv.y - base) * 14.0) * (0.05 + 0.12 * uEnergy) * gap;
