@@ -611,6 +611,8 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="addgrid" id="postadd"></div>
       <div class="sect">Intensità</div>
       <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
+      <div class="sect">Spessore linee</div>
+      <div class="prow"><input type="range" id="lboost" min="0" max="1" step="0.01" value="0.5"><span class="pval" id="lboost_v">0.5</span></div>
       <div class="sect">Camera</div>
       <div class="prow"><span class="plbl">Zoom</span><input type="range" id="camzoom" min="0.2" max="4" step="0.05" value="1"><span class="pval" id="camzoom_v">1</span></div>
       <div class="prow"><span class="plbl">Rotaz.</span><input type="range" id="camrot" min="-180" max="180" step="1" value="0"><span class="pval" id="camrot_v">0</span></div>
@@ -1151,6 +1153,8 @@ async function poll(){
   if (!dragging['msoft']) { setRange($('msoft'), ms); setText($('msoft_v'), fmtV(ms)) }
   const ints = num(e.intensity, 0)
   if (!dragging['intens']) { setRange($('intens'), ints); setText($('intens_v'), fmtV(ints)) }
+  const lb = num(e.lineBoost, 0.5)
+  if (!dragging['lboost']) { setRange($('lboost'), lb); setText($('lboost_v'), fmtV(lb)) }
   const cam = e.camera
   if (cam) {
     if (!dragging['camzoom']) { setRange($('camzoom'), cam.zoom); setText($('camzoom_v'), fmtV(cam.zoom)) }
@@ -1250,6 +1254,7 @@ function wireStatic(){
   wireRange($('mblur'), 'mblur', function(v){ return { type: 'motionBlur', value: v } }, $('mblur_v'))
   wireRange($('msoft'), 'msoft', function(v){ return { type: 'maskSoft', value: v } }, $('msoft_v'))
   wireRange($('intens'), 'intens', function(v){ return { type: 'intensity', value: v } }, $('intens_v'))
+  wireRange($('lboost'), 'lboost', function(v){ return { type: 'lineBoost', value: v } }, $('lboost_v'))
   wireRange($('camzoom'), 'camzoom', function(v){ return { type: 'camera', value: { zoom: v } } }, $('camzoom_v'))
   wireRange($('camrot'), 'camrot', function(v){ return { type: 'camera', value: { rotation: v } } }, $('camrot_v'))
   wireRange($('camtile'), 'camtile', function(v){ return { type: 'camera', value: { tile: v } } }, $('camtile_v'))
