@@ -194,7 +194,7 @@
 .isfb-more { width: 100%; margin-top: var(--s4, 8px); padding: 8px; }
 
 /* ISF buttons: full name on up to 2 lines instead of ellipsis */
-.fx-btn-isf { height: auto; min-height: 26px; align-items: flex-start; }
+.fx-btn-isf { height: auto; min-height: 28px; align-items: flex-start; }
 .fx-btn-isf .fx-name {
   white-space: normal;
   word-break: break-word;
