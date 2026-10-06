@@ -17,6 +17,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -41,6 +42,8 @@ float ngon(vec2 p, float n, float r) {
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
+  float lkb = 1.0 + 2.5 * uLineBoost;
+  float lminW = (3.0 + 4.0 * uLineBoost) / uResolution.y;
   vec3 color = vec3(0.0);
 
   // side count morphs smoothly: blend two ngons around the target
@@ -58,10 +61,10 @@ void main() {
     float dB = ngon(p, nB, r);
     float d = mix(dA, dB, smoothstep(0.3, 0.7, morph));
 
-    float w = thickness * (0.5 + uMid * 0.8) * 0.01 + fwidth(d);
+    float w = max(thickness * (0.5 + uMid * 0.8) * 0.01 * lkb, lminW) + fwidth(d);
     float line = smoothstep(w, 0.0, abs(d));
     // neon: bright core + wide soft glow
-    float glow = 0.005 / (abs(d) + 0.012) + 0.0009 / (abs(d) * abs(d) * 30.0 + 0.004);
+    float glow = 0.005 * (1.0 + uLineBoost) / (abs(d) + 0.012) + 0.0009 / (abs(d) * abs(d) * 30.0 + 0.004);
 
     vec3 c = mix(uColor1, uColor2, k);
     c = mix(c, uColor3, step(0.5, fract(i * 0.5 + uHighTime * 1.5)) * 0.4);
@@ -72,7 +75,7 @@ void main() {
   {
     float er = 0.2 + (1.0 - uBassHit) * 0.85;
     float de = ngon(uv * rot(t * 0.3), nA, er);
-    color += mix(uColor3, uColor1, 0.5) * (smoothstep(0.012, 0.0, abs(de)) * 1.2 + 0.006 / (abs(de) + 0.015)) * uBassHit;
+    color += mix(uColor3, uColor1, 0.5) * (smoothstep(max(0.012 * lkb, lminW), 0.0, abs(de)) * 1.2 + 0.006 / (abs(de) + 0.015)) * uBassHit;
   }
 
   // depth: faint radial rays and a breathing haze behind the stack
