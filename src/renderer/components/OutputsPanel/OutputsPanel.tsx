@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Panel } from '../Panel/Panel'
+import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { readJson, writeJson } from '../../storage'
 import { loadReelSettings, saveReelSettings, type ReelSettings } from '../../reel'
@@ -151,18 +152,10 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
                 </select>
               </div>
 
-              <div className="slider-row">
-                <span className="label">Gamma</span>
-                <input type="range" min={0.4} max={2.4} step={0.05} value={o.gamma}
-                  onChange={e => set(open, { gamma: +e.target.value })} style={{ flex: 1 }} />
-                <span className="label" style={{ fontFamily: 'var(--font-mono)' }}>{o.gamma.toFixed(2)}</span>
-              </div>
-              <div className="slider-row">
-                <span className="label">Tetto</span>
-                <input type="range" min={0} max={1} step={0.01} value={o.brightness}
-                  onChange={e => set(open, { brightness: +e.target.value })} style={{ flex: 1 }} />
-                <span className="label" style={{ fontFamily: 'var(--font-mono)' }}>{Math.round(o.brightness * 100)}%</span>
-              </div>
+              <SliderRow label="Gamma" value={o.gamma} min={0.4} max={2.4} step={0.05}
+                onChange={v => set(open, { gamma: v })} />
+              <SliderRow label="Tetto" value={o.brightness} min={0} max={1} step={0.01} percent
+                onChange={v => set(open, { brightness: v })} />
 
               <div className="u-row" style={{ gap: 4 }}>
                 <button className="btn btn-secondary btn-sm"

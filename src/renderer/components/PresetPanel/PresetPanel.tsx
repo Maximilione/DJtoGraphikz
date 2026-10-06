@@ -487,7 +487,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                             value={st.hold}
                             title={draft.mode === 'timer' ? 'Secondi su questo passo' : 'Beat su questo passo'}
                             onChange={e => updateStep(i, { hold: clampHold(parseInt(e.target.value), draft.mode) })}
-                            style={{ flex: 1 }}
+                            style={{ flex: 1, minWidth: 0, '--p': `${((st.hold - HOLD_LIMITS[draft.mode].min) / (HOLD_LIMITS[draft.mode].max - HOLD_LIMITS[draft.mode].min)) * 100}%` } as React.CSSProperties}
                           />
                           <span className="u-value" style={{ width: '32px', flexShrink: 0 }}>
                             {st.hold}{HOLD_LIMITS[draft.mode].unit}

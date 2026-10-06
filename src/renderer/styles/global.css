@@ -270,7 +270,19 @@ input[type="range"]:active::-webkit-slider-thumb {
   color: var(--text-primary);
 }
 
+.panel-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  margin-left: var(--s3);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  vertical-align: middle;
+}
+
 .panel-header span:last-child {
+  min-width: 18px;
+  text-align: center;
   font-size: var(--fs-icon);
   color: var(--text-muted);
   line-height: 1;
