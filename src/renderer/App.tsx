@@ -2,6 +2,7 @@ import './styles/features.css'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { AudioPanel } from './components/AudioPanel/AudioPanel'
 import { Toasts, pushToast } from './components/Toasts/Toasts'
+import { encodeGif, gifTiming, barsSeconds } from './gifEncoder'
 import { EffectPanel } from './components/EffectPanel/EffectPanel'
 import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
@@ -502,6 +503,60 @@ export function App() {
     recorderRef.current = rec
     setRecording(true)
   }, [])
+
+  // GIF export: N seconds (or N bars at the current BPM) of the preview, looped, no dependencies
+  const [gifMenu, setGifMenu] = useState(false)
+  const [gifBusy, setGifBusy] = useState<string | null>(null)
+  const [gifOpt, setGifOpt] = useState({ secs: 5, width: 480, bars: false })
+  const startGif = useCallback(async () => {
+    const eng = engineRef.current
+    if (!eng || gifBusy) return
+    setGifMenu(false)
+    const bpmNow = eng.audioAnalyzer.getEffectiveBpm()
+    const useBars = gifOpt.bars && bpmNow > 0
+    // bars mode: 1 bar at 60-200 BPM is 1.2-4 s; 2 bars when that is under 3 s, so the loop is not a blink
+    const bars = useBars ? (barsSeconds(1, bpmNow) < 3 ? 2 : 1) : 0
+    const seconds = useBars ? barsSeconds(bars, bpmNow) : gifOpt.secs
+    const fps = 15
+    const { frames: total, delayCs } = gifTiming(seconds, fps)
+    const src0 = canvasRef.current
+    if (!src0) return
+    const w = Math.min(gifOpt.width, src0.width)
+    const h = Math.max(1, Math.round(w * src0.height / src0.width))
+    const cv = document.createElement('canvas')
+    cv.width = w; cv.height = h
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    const frames: { data: Uint8ClampedArray }[] = []
+    setGifBusy('GIF 0%')
+    const startedAt = performance.now()
+    try {
+      await new Promise<void>(resolve => {
+        const off = eng.onFrameRendered(canvas => {
+          // frame k is due at k/total of the span: pace by clock, not by render count
+          if (frames.length > (performance.now() - startedAt) / (seconds * 1000) * total) return
+          ctx.drawImage(canvas, 0, 0, w, h)
+          frames.push({ data: ctx.getImageData(0, 0, w, h).data })
+          setGifBusy(`GIF ${Math.round(frames.length / total * 50)}%`)
+          if (frames.length >= total) { off(); resolve() }
+        })
+      })
+      const bytes = await encodeGif(frames, {
+        width: w, height: h, delayCs, dither: true,
+        onProgress: (d, t) => setGifBusy(`GIF ${50 + Math.round(d / t * 50)}%`),
+      })
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/gif' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.gif`
+      a.click()
+      URL.revokeObjectURL(url)
+      pushToast(`GIF salvata · ${seconds.toFixed(1)} s${useBars ? ` (${bars} ${bars === 1 ? 'battuta' : 'battute'} a ${Math.round(bpmNow)} BPM)` : ''} · ${w}×${h} · ${(bytes.length / 1048576).toFixed(1)} MB`, 'gif')
+    } catch (e) {
+      pushToast(`GIF non riuscita: ${(e as Error).message}`, 'gif')
+    } finally {
+      setGifBusy(null)
+    }
+  }, [gifBusy, gifOpt])
 
   // I4 — reel: the last 15–30 s of the preview in 9:16, armed in the Outputs
   // panel, saved by V, the toolbar chip or (opt-in) the Auto VJ's drop. The
@@ -1085,6 +1140,38 @@ export function App() {
            aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
             {recording ? <IconStop /> : <IconRecord />}
           </button>
+          <span className="tb-extra" style={{ position: 'relative', display: 'inline-flex' }}>
+            <button className="btn btn-secondary btn-sm" disabled={!!gifBusy}
+              onClick={() => setGifMenu(m => !m)}
+              title="Esporta una GIF in loop dalla preview" aria-label="Esporta una GIF in loop dalla preview"
+              aria-expanded={gifMenu}>
+              {gifBusy ?? 'GIF'}
+            </button>
+            {gifMenu && (
+              <div role="menu" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 50, padding: 'var(--s3)',
+                display: 'flex', flexDirection: 'column', gap: 'var(--s2)', background: 'var(--bg-panel, #1a1a1f)',
+                border: '1px solid var(--border, #333)', borderRadius: 6, minWidth: 190 }}>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Durata
+                  <select value={gifOpt.secs} disabled={gifOpt.bars && bpm > 0}
+                    onChange={e => setGifOpt(o => ({ ...o, secs: +e.target.value }))}>
+                    {[3, 5, 8].map(s => <option key={s} value={s}>{s} s</option>)}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Larghezza
+                  <select value={gifOpt.width} onChange={e => setGifOpt(o => ({ ...o, width: +e.target.value }))}>
+                    {[320, 480, 640].map(s => <option key={s} value={s}>{s} px</option>)}
+                  </select>
+                </label>
+                <label title={bpm > 0 ? 'Cattura 1-2 battute esatte al BPM corrente: il loop non scatta' : 'BPM non rilevato: usa i secondi'}
+                  style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input type="checkbox" checked={gifOpt.bars} disabled={!(bpm > 0)}
+                    onChange={e => setGifOpt(o => ({ ...o, bars: e.target.checked }))} />
+                  Loop a battuta
+                </label>
+                <button className="btn btn-sm btn-danger" onClick={startGif}>Cattura GIF</button>
+              </div>
+            )}
+          </span>
           {reelArmed && (
             <button className="btn btn-secondary btn-sm tb-extra" onClick={() => reelRef.current?.save()}
               title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)"
