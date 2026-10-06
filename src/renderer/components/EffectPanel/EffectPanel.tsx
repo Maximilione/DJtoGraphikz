@@ -309,9 +309,9 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const searchLower = search.toLowerCase()
 
   return (
-    <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+    <div className="panel fx-panel" style={{ padding: 0 }}>
       {/* Section tabs — always visible */}
-      <div className="tab-bar">
+      <div className="tab-bar fx-sticky-tabs">
         {[
           { id: 'fx' as Section, label: 'Effetti', count: EFFECT_COUNT, on: false, hint: `${EFFECT_COUNT} effetti` },
           // lit only when filters are running: that is the number worth a glance
@@ -335,7 +335,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
         {section === 'fx' && (
           <div className="u-col">
             {/* Search */}
-            <div className="u-row">
+            <div className="u-row fx-search">
               <input
                 type="text"
                 value={search}
@@ -357,6 +357,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </span>
             </div>
 
+            <div className="fx-params u-col">
             {/* Per-effect params + audio mapping */}
             <ParamControls engine={engine} key={activeEffect} />
 
@@ -404,6 +405,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </button>
             </div>
 
+            </div>
+            <div className="fx-lib u-col">
             {/* Categories — the one shared grid */}
             <EffectGrid activeId={activeEffect} onPick={selectEffect} search={search} />
 
@@ -466,6 +469,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {isfBrowserOpen && (
               <IsfBrowser onClose={() => setIsfBrowserOpen(false)} onImported={onIsfImported} />
             )}
+            </div>
           </div>
         )}
 
