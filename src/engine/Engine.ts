@@ -1327,7 +1327,6 @@ export class Engine {
         uWet: { value: 1 },
         uTime: { value: 0 },
         uEnergy: { value: 0 },
-        uLineBoost: { value: this.lineBoost },
         uResolution: { value: this.resolution },
       }
     }))
@@ -1340,6 +1339,7 @@ export class Engine {
         uWet: { value: 1 },
         uTime: { value: 0 },
         uEnergy: { value: 0 },
+        uLineBoost: { value: this.lineBoost },
         uResolution: { value: this.resolution },
       }
     }))
