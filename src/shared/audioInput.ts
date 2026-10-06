@@ -5,7 +5,11 @@ type Dev = { label: string; deviceId: string }
 
 // The system's own microphone, in the labels macOS and Windows give it. An
 // external card (a console's interface, a USB mixer) is never called this.
-const BUILT_IN = /built-?in|incorporat|internal|interno|predefinit|\bmac(book)?\b|imac|mac (mini|studio|pro)|^(default|communications)\b/i
+// (Windows lists the laptop's own codec by chip name: "Microphone (Realtek(R) Audio)", "Microphone Array")
+const BUILT_IN = /built-?in|integrat|incorporat|internal|interno|predefinit|\bmac(book)?\b|imac|mac (mini|studio|pro)|realtek|microphone array|array microfon|conexant|smart sound|^(default|communications)\b/i
+// Headsets: neither the room mic nor a sound card. Never worth switching to (the
+// headset profile drops the sample rate and the output with it), never a reason to switch away.
+const BLUETOOTH = /airpods|bluetooth|\bbeats\b|\bbuds\b|hands-?free|headset|\bhfp\b/i
 // Chromium labels the default entry "Default - <real device>": judge the device behind it
 const DEFAULT_PREFIX = /^(default|communications|predefinit\w*)\s*-\s*/i
 
@@ -18,9 +22,13 @@ export function isBuiltIn(d: Dev): boolean {
   return d.deviceId === 'default' || d.deviceId === 'communications' || isBuiltInLabel(d.label)
 }
 
-/** First real external card. Unlabelled entries (no mic permission yet) are not trusted. */
+export function isBluetoothLabel(label: string): boolean {
+  return BLUETOOTH.test(label)
+}
+
+/** First real external card. Unlabelled entries (no mic permission yet) and headsets are not trusted. */
 export function findExternal<T extends Dev>(devices: T[]): T | undefined {
-  return devices.find(d => d.label && !isBuiltIn(d))
+  return devices.find(d => d.label && !isBuiltIn(d) && !isBluetoothLabel(d.label))
 }
 
 /**
