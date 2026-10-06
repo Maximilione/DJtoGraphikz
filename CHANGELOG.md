@@ -5,6 +5,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](ht
 ## [0.71.0-beta] — 2026-10-06
 
 ### Added
+- **Maschere** (`faces`): lanterna di volti di porcellana fusi attorno a un asse, su un pavimento di lamelle radiali di rame e una parete di teste di vetro con occhi incandescenti (raymarch con ripetizione polare). Kick = la struttura pulsa e le lamelle si illuminano a onda dal mozzo; parametri `faces`, `spin`, `glow`.
 - **Presenza proiettore**: macro 0–1 (pannello Camera, telefono, OSC `/djg/presence`) che alza i dettagli scuri, la saturazione e il bloom morbido sulle alte luci, con tetto a 0.96, per fumo e luci di sala. A 0 l'output e' identico. `check:presence`.
 - **GIF export**: pulsante «GIF» accanto alla registrazione WebM; 3/5/8 secondi o loop a N battute esatte, larghezza 320/480/640. Encoder in TypeScript puro, senza dipendenze. `check:gif` (round-trip col decoder dell'app).
 - **Plugin dichiarativi**: cartelle in `~/.djtographikz/plugins/` con `plugin.json` che portano shader ISF, palette, look, scalette e mapping, mai codice. Manifest validato (path traversal, symlink, id duplicati, dimensioni). Tab «Plugin» in Preset & Scalette, `docs/PLUGINS.md`, esempio in `docs/plugin-example/`. `check:plugins`.
@@ -13,6 +14,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](ht
 - `check:glsl`: compila tutti gli shader con glslang come fa three su WebGL2 (serve `brew install glslang`, altrimenti salta).
 
 ### Changed
+- **Effetti rifatti su feedback**: `downpour` (Rain: 5 strati di pioggia, lampioni, suolo bagnato, ripple), `snowride` (Snow: discesa stilizzata con pista, abeti, porte da slalom), `ps2towers` (torri di vetro sul blu notte, come lo schermo di avvio), `static` (curvatura CRT, barre SMPTE, volto fantasma, glitch a blocchi), `cage` (reattivita' su kick, medi e alti; raymarch a 64 step), `warehouse` (Bunker: lampade, neon e fasci, piu' contrastato), `android` (forme organiche, normali lisce), `hexagons` (mai scuro in silenzio).
+- **Pannello effetti**: tab Effetti/Post FX/Colori sempre visibili in cima mentre si scorre, e nel Pro il pannello passa sotto il Look Bank con griglia a piu' colonne e parametri in una colonna a lato (sotto 1100 px torna nella sidebar). Il Look Bank mostra le due righe da 8 slot.
 - **Scalette live** rigenerate con i nuovi effetti (galaxy, cathedral, chrome, crystals, mandelbulb, storm, ribbons, beamfield, android, monolith, mesh) e i post Cinema per fase; l'Anyma pesa soprattutto nel Live 3.
 - **Audio piu' robusto**: se l'id del dispositivo sparisce il riavvio riprova con la scheda esterna; il pannello mostra il dispositivo realmente attivo e propone «Usa <scheda>» se si ascolta quello integrato; backoff con log meno rumoroso. Le schede integrate di Windows (Realtek) e le cuffie Bluetooth non vengono piu' scambiate per schede esterne. `check:audiorecovery`.
 - Slider INTENS., MASTER e del deck con traccia riempita.
