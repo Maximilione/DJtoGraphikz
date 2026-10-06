@@ -81,7 +81,7 @@ Integrazione:
 
 - [x] **Installer .dmg con grafica personalizzata** — oggi `electron-builder` (`package.json` > `build.mac`, target `dmg`) produce il dmg di default: sfondo bianco, icona e cartella Applicazioni senza stile. Da fare: immagine di sfondo del dmg col logo e la freccia "trascina in Applicazioni", posizione delle icone, dimensione finestra, icona del volume e del dmg (`build.dmg`: `background`, `contents`, `window`, `icon`), asset in `build/`; stessa identita' visiva anche per l'installer Windows (nsis: header/sidebar) se serve. Va provato su un pacchetto vero, non solo in CI · **S** — fatto: `build.dmg` + `scripts/make-dmg-background.py` (sfondo 1x/@2x in `build/`); verificato dmg locale montato (finestra 660x400, tiff 1x+2x, icona volume). Resta da vedere in Finder; nsis non toccato
 
-- [ ] **GIF export** — retrocesso: il recording WebM (v0.8.0) copre quasi tutti gli usi · ½g
+- [x] **GIF export** — pulsante GIF in toolbar: 3/5/8 s o loop a battuta al BPM corrente, 320/480/640 px, encoder TypeScript puro (`gifEncoder.ts`), `check:gif` · ½g
 
 ## PARCHEGGIO — native addon veri, restano parcheggiati
 

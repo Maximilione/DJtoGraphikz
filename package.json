@@ -24,6 +24,7 @@
     "check:prodjlink": "node scripts/check-prodjlink.mjs",
     "check:dryrun": "python3 scripts/check-dryrun.py",
     "check:gamepad": "node scripts/check-gamepad.mjs",
+    "check:gif": "node scripts/check-gif.mjs",
     "check:momentary": "node scripts/check-momentary.mjs",
     "check:intensity": "node scripts/check-intensity.mjs",
     "check:presence": "node scripts/check-presence.mjs",
