@@ -9,6 +9,7 @@ import { recommendedFor } from './recommendedMappings'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
 import { SequencePlayer } from './SequencePlayer'
+import { imageMime } from '../shared/mediaFormats'
 import { frameAtTime, frameAtBeat, frameAtDeck, SEQ_DEFAULT_FPS } from '../shared/imageSequence'
 import { type VideoDeck, type VideoClip, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
 
@@ -86,6 +87,7 @@ import galaxyFrag from './shaders/galaxy.frag?raw'
 import cathedralFrag from './shaders/cathedral.frag?raw'
 import chromeFrag from './shaders/chrome.frag?raw'
 import crystalsFrag from './shaders/crystals.frag?raw'
+import imgbeatFrag from './shaders/imgbeat.frag?raw'
 import beamfieldFrag from './shaders/beamfield.frag?raw'
 import monolithFrag from './shaders/monolith.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
@@ -209,7 +211,7 @@ export type EffectId =
   | 'static' | 'cage' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
-  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'monolith'
+  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'monolith' | 'imgbeat'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -291,6 +293,8 @@ export interface EngineState {
   videoDeck?: VideoDeck
   /** 3D model of the `mesh` effect: the output loads the same file from the library */
   meshModel?: { name: string; path: string } | null
+  /** Pictures of the `imgbeat` effect (max 8): the output loads the same library files */
+  imgbeatImages?: { name: string; path: string }[]
   brightness?: number
   blackout?: boolean
   frozen?: boolean
@@ -492,6 +496,7 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   cathedral: cathedralFrag,
   chrome: chromeFrag,
   crystals: crystalsFrag,
+  imgbeat: imgbeatFrag,
   beamfield: beamfieldFrag,
   android: androidFrag,
   monolith: monolithFrag,
@@ -574,6 +579,10 @@ export class Engine {
   private videoDeck: VideoDeck = { ...VIDEO_DECK_DEFAULT }
   private meshModel: { name: string; path: string } | null = null
   private meshLoading = ''
+  private imgbeatImages: { name: string; path: string }[] = []
+  private imgbeatLoading = ''
+  // one uniform pair shared by every imgbeat material: swapping .value reaches them all
+  private imgbeatU: { tImgs: THREE.IUniform; uImgCount: THREE.IUniform } = { tImgs: { value: null }, uImgCount: { value: 0 } }
   private deckVideo: HTMLVideoElement | null = null
   private deckVideoTex: THREE.VideoTexture | null = null
   private deckVideoPath = ''        // what the <video> is loading/playing
@@ -1087,6 +1096,7 @@ export class Engine {
       uResolution: { value: size },
       uFrame: { value: 0 },
       ...paramUniforms,
+      ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
     }
   }
 
@@ -2061,6 +2071,64 @@ export class Engine {
       .catch(err => console.error('[Engine] modello 3D illeggibile:', m.name, err))
   }
 
+  // ---- pictures of the `imgbeat` effect ----
+
+  getImgbeatImages() { return this.imgbeatImages }
+
+  /** Control window: choose the pictures (library paths, max 8) and tell the output */
+  setImgbeatImages(list: { name: string; path: string }[]) {
+    this.loadImgbeat(list)
+    this.emitState()
+  }
+
+  private imgbeatUniforms() {
+    if (!this.imgbeatU.tImgs.value) this.imgbeatU.tImgs.value = this.getWhiteTexture()
+    return this.imgbeatU
+  }
+
+  /** Both windows: read the files and pack them in one atlas (4x2 cells, each picture letterboxed) */
+  private loadImgbeat(list: { name: string; path: string }[]) {
+    list = list.slice(0, 8)
+    const key = list.map(i => i.path).join('|')
+    this.imgbeatImages = list
+    if (key === this.imgbeatLoading) return
+    this.imgbeatLoading = key
+    const u = this.imgbeatUniforms()
+    if (!list.length) { u.uImgCount.value = 0; return }
+    const CELL = 768
+    const canvas = document.createElement('canvas')
+    canvas.width = CELL * 4
+    canvas.height = CELL * 2
+    const ctx = canvas.getContext('2d')!
+    Promise.all(list.map(async (it, i) => {
+      try {
+        const buf = await window.api.readFile(it.path)
+        const url = URL.createObjectURL(new Blob([buf as any], { type: imageMime(it.name) }))
+        const img = new Image()
+        img.src = url
+        await img.decode()
+        URL.revokeObjectURL(url)
+        const w = img.naturalWidth || CELL, h = img.naturalHeight || CELL   // an SVG without size
+        const s = Math.min(CELL / w, CELL / h)
+        ctx.drawImage(img, (i % 4) * CELL + (CELL - w * s) / 2, Math.floor(i / 4) * CELL + (CELL - h * s) / 2, w * s, h * s)
+        return true
+      } catch (err) {
+        console.error('[Engine] immagine illeggibile:', it.name, err)
+        return false
+      }
+    })).then(() => {
+      if (this.imgbeatLoading !== key) return
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.flipY = false
+      tex.generateMipmaps = false
+      tex.minFilter = tex.magFilter = THREE.LinearFilter
+      const old = u.tImgs.value as THREE.Texture | null
+      u.tImgs.value = tex
+      u.uImgCount.value = list.length
+      if (old && old !== this.whiteTexture) old.dispose()
+    })
+  }
+
   // ---- Deck B as video playlist (Q4) ----
 
   getVideoDeck(): VideoDeck { return this.videoDeck }
@@ -2233,6 +2301,7 @@ export class Engine {
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (state.videoDeck) this.videoDeck = clampClip({ ...VIDEO_DECK_DEFAULT, ...state.videoDeck, clip: 0, clipStartBeat: 0, bars: 0 })
     if (state.meshModel !== undefined) this.loadMeshModel(state.meshModel)
+    if (state.imgbeatImages) this.loadImgbeat(state.imgbeatImages)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
@@ -2317,6 +2386,7 @@ export class Engine {
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (state.videoDeck) this.syncDeckVideo(state.videoDeck)
     if (state.meshModel !== undefined) this.loadMeshModel(state.meshModel)
+    if (state.imgbeatImages) this.loadImgbeat(state.imgbeatImages)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.blackout === 'boolean') this.blackout = state.blackout
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
@@ -2790,6 +2860,7 @@ export class Engine {
       maskSoft: this.maskSoft,
       videoDeck: this.videoDeck,
       meshModel: this.meshModel,
+      imgbeatImages: this.imgbeatImages,
       brightness: this.brightness,
       blackout: this.blackout,
       frozen: this.frozen,
