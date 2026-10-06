@@ -3,7 +3,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 import assert from 'node:assert/strict'
 await build({ entryPoints: ['src/shared/audioInput.ts'], bundle: true, format: 'esm', outfile: '/tmp/djg-ad.mjs', logLevel: 'error' })
-const { pickInput, findExternal, isBuiltInLabel, restartPlan } = await import(pathToFileURL('/tmp/djg-ad.mjs').href)
+const { pickInput, findExternal, isBuiltInLabel, isBluetoothLabel, restartPlan } = await import(pathToFileURL('/tmp/djg-ad.mjs').href)
 const d = (deviceId, label) => ({ deviceId, label, kind: 'audioinput' })
 const mac = [d('default', 'Default - MacBook Pro Microphone'), d('a1', 'MacBook Pro Microphone'), d('b2', 'Behringer UMC202HD (1397:0507)')]
 const win = [d('default', 'Predefinito - Microphone (Realtek)'), d('communications', 'Communications - Microphone (Realtek)'), d('c3', 'Microphone (Focusrite USB Audio)')]
@@ -33,4 +33,22 @@ const logs = [...Array(25).keys()].filter(n => restartPlan(n).log)
 assert.deepEqual(logs, [0, 1, 10, 20], 'log non ripetitivo')
 const defs = [...Array(30).keys()].filter(n => restartPlan(n).tryDefault)
 assert.deepEqual(defs, [5], 'default provato una volta dopo 5 fallimenti')
-console.log('21 controlli ok')
+// schede tipiche dei DJ: tutte ESTERNE, mai scambiate per il microfono di sistema
+for (const l of ['Scarlett 2i2 USB', 'Focusrite USB Audio', 'UMC202HD 192k', 'Behringer UMC204HD (1397:0508)', 'Traktor Audio 2 MK2', 'Native Instruments Traktor Audio 10', 'DJM-900NXS2', 'Pioneer DJM-V10', 'XDJ-RX3', 'Allen & Heath Xone:96', 'ZOOM H6 Audio', 'USB Audio CODEC', 'Soundcraft Ui24', 'Mackie Onyx', 'Default - Focusrite USB Audio'])
+  assert.equal(isBuiltInLabel(l), false, l + ' deve essere esterna')
+for (const l of ['Microphone (Realtek(R) Audio)', 'Microphone Array (Intel Smart Sound)', 'MacBook Air Microphone', 'Microfono integrato'])
+  assert.equal(isBuiltInLabel(l), true, l + ' deve essere di sistema')
+// Windows: la scheda Realtek elencata col suo id non e' una scheda esterna
+const winReal = [d('default', 'Default - Microphone (Realtek(R) Audio)'), d('r1', 'Microphone (Realtek(R) Audio)'), d('f1', 'Line (Focusrite USB Audio)')]
+assert.equal(pickInput(winReal), 'f1', 'windows: Realtek non e\' esterna')
+// Bluetooth: non scelto al posto di una scheda USB, non scambiato per integrato
+const bt = [d('default', 'Default - MacBook Pro Microphone'), d('a1', 'MacBook Pro Microphone'), d('bt', 'AirPods Pro di Max'), d('u', 'USB Audio CODEC')]
+assert.equal(pickInput(bt), 'u', 'AirPods non battono la scheda USB')
+assert.equal(findExternal(bt).deviceId, 'u')
+assert.equal(pickInput(bt, 'bt'), 'bt', 'la scelta esplicita delle cuffie resta (non e\' "integrato")')
+assert.equal(isBuiltInLabel('AirPods Pro'), false)
+assert.equal(isBluetoothLabel('AirPods Pro'), true)
+const onlyBt = [d('default', 'Default - MacBook Pro Microphone'), d('bt', 'AirPods Pro')]
+assert.equal(findExternal(onlyBt), undefined, 'solo cuffie: nessuno switch dal microfono')
+assert.equal(pickInput(onlyBt), 'default')
+console.log('controlli ok')
