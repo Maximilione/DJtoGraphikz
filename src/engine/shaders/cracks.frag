@@ -61,12 +61,19 @@ void main() {
   // the pulse travels outward along the cracks, one per beat
   float dist = length(p);
   float pulse = exp(-abs(dist - uBeatPhase * 0.9) * 6.0) * (0.5 + 0.8 * uBass);
-  float lit = crack * (0.25 + pulse * glow);
+  // idle travelling pulse so a silent room still has light running in the cracks
+  float pulse2 = exp(-abs(dist - fract(uTime * 0.12) * 1.1) * 7.0) * 0.6;
+  float lit = crack * (0.55 + (pulse * 1.4 + pulse2) * glow) * (1.0 + uBeat * 0.9);
 
   // slabs: near black, a little grain, slightly lighter toward the crack
-  float slab = 0.012 + 0.02 * hash2(cell + n1).x + exp(-edge * 10.0) * 0.02;
-  vec3 col = vec3(slab) * (1.0 + 0.5 * uBassHit);
-  col += mix(uColor1, vec3(1.0), pulse * 0.5) * lit;
-  col += uColor2 * crack * exp(-edge * 40.0) * 0.1;
+  float slab = 0.03 + 0.05 * hash2(cell + n1).x + exp(-edge * 8.0) * 0.07;
+  // slabs lit from below: the underglow rises from the bottom edge
+  vec3 under = mix(uColor1, uColor3, uv.x) * (0.05 + 0.1 * pow(1.0 - uv.y, 2.0)) * (0.6 + 0.8 * uEnergy);
+  vec3 col = vec3(slab) * (1.0 + 0.8 * uBassHit) + under * (0.5 + 0.9 * exp(-edge * 6.0));
+  col += mix(uColor1, vec3(1.0), pulse * 0.5 + 0.15) * lit;
+  // wide halo bleeding out of the crack, hot core on the kick
+  col += mix(uColor2, uColor1, 0.5) * exp(-edge * 14.0) * (0.12 + 0.5 * uBassHit) * glow;
+  col += uColor2 * crack * exp(-edge * 40.0) * 0.3;
+  col = vec3(1.0) - exp(-col * 1.3);
   gl_FragColor = vec4(col, 1.0);
 }
