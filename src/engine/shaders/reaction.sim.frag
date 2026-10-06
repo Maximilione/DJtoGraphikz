@@ -52,6 +52,10 @@ void main() {
 
   vec4 c = texture2D(tBufferA, uv);
   float a = c.r, b = c.g;
+  // blue is not chemistry: it is the afterglow of the kick injections, read
+  // only by the visible pass. ~0.89 per frame at ITERS = 8. Nothing here
+  // feeds it back into A or B, so the dynamics are exactly as before.
+  float glow = c.b * 0.985;
 
   // 9-point laplacian: the 5-point one is visibly anisotropic, the patterns
   // grow along the texel axes instead of radially
@@ -88,7 +92,8 @@ void main() {
       shot += exp(-dot(d, d) / 0.0012);
     }
     b += shot * uBassHit * inject * 0.25 / ITERS;
+    glow += shot * uBassHit * inject * 0.30 / ITERS;
   }
 
-  gl_FragColor = vec4(clamp(a, 0.0, 1.0), clamp(b, 0.0, 1.0), 0.0, 1.0);
+  gl_FragColor = vec4(clamp(a, 0.0, 1.0), clamp(b, 0.0, 1.0), clamp(glow, 0.0, 1.0), 1.0);
 }
