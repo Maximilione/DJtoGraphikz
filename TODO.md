@@ -90,7 +90,7 @@ Integrazione:
 - [ ] **Ableton Link** — sync BPM via rete (native addon). Vedi **I1 MIDI Clock**: stessa resa su un canale già aperto
 - [ ] **3D geometry scenes** — mesh audio-reattive
 - [ ] **Plugin architecture** — sistema plugin terze parti
-- [ ] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
+- [x] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
 
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 
