@@ -111,7 +111,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
           type="range" min={0} max={1} step={0.01}
           value={crossfade}
           onChange={e => changeCrossfade(parseFloat(e.target.value))}
-          style={{ flex: 1 }}
+          style={{ flex: 1, '--p': `${crossfade * 100}%` } as React.CSSProperties}
           title="Crossfader tra deck A e deck B"
         />
         <span className="deck-label">B</span>
@@ -147,7 +147,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
             value={maskSoft}
             title="Morbidezza del bordo (0 netto, 1 sfumato)"
             onChange={e => { const v = parseFloat(e.target.value); setMaskSoft(v); engine?.setMaskSoft(v) }}
-            style={{ width: '70px' }}
+            style={{ width: '70px', '--p': `${maskSoft * 100}%` } as React.CSSProperties}
           />
         </>}
 
@@ -161,7 +161,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
             setMotionBlur(v)
             engine?.setMotionBlur(v)
           }}
-          style={{ width: '70px' }}
+          style={{ width: '70px', '--p': `${(motionBlur / 0.95) * 100}%` } as React.CSSProperties}
         />
         <NumberInput
           value={motionBlur}
