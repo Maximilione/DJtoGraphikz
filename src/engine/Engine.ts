@@ -178,6 +178,8 @@ export interface OverlayItem {
   gifSync: GifSyncMode
   /** >0 turns the overlay into a displacement map instead of a layer */
   displace: number
+  /** width/height of the source (image/video/sequence/text canvas) — keeps `scale` from stretching non-square media */
+  _aspect?: number
   /** Set for video/webcam/text overlays so the output window can recreate them */
   source?:
     | { kind: 'video'; path: string }
@@ -2570,6 +2572,7 @@ export class Engine {
       visible: true,
       gifSync: 'beat',
       displace: 0,
+      _aspect: canvas.width / canvas.height,
       _texture: texture,
       _canvas: canvas,
       _isGif: isGif,
@@ -2615,6 +2618,7 @@ export class Engine {
         audio: false,
       })
       video.srcObject = stream
+      if (!video.videoWidth) await new Promise<void>(resolve => { video.onloadedmetadata = () => resolve() })
     } else {
       // Streamed by main over djg-media:// — reading the file into a Blob meant
       // a full copy in RAM per window (see src/main/index.ts).
@@ -2639,6 +2643,7 @@ export class Engine {
       opacity: 1.0, scale: 1.0, offsetX: 0, offsetY: 0,
       visible: true, gifSync: 'free', displace: 0,
       source,
+      _aspect: video.videoWidth / video.videoHeight || 1,
       _texture: texture,
       _isVideo: true,
       _video: video,
@@ -2677,6 +2682,7 @@ export class Engine {
       opacity: 1.0, scale: 1.0, offsetX: 0, offsetY: 0,
       visible: true, gifSync: 'free', displace: 0,
       source, seqFps: source.fps, seqBeats: source.beats,
+      _aspect: seq.canvas.width / seq.canvas.height,
       _texture: seq.texture!,
       _seq: seq,
       _seqStart: performance.now(),
@@ -2731,6 +2737,7 @@ export class Engine {
       opacity: 1.0, scale: 0.3, offsetX: 0, offsetY: 0,
       visible: true, gifSync: 'free', displace: 0,
       source,
+      _aspect: canvas.width / canvas.height,
       _texture: texture,
       _canvas: canvas,
     }
@@ -3374,7 +3381,11 @@ export class Engine {
         ou.tDiffuse.value = src.texture
         ou.tOverlay.value = overlay._texture
         ou.uOpacity.value = overlay.opacity
-        ou.uOverlayScale.value.set(overlay.scale, overlay.scale)
+        // scale sets the overlay's height as a fraction of screen height; width follows the
+        // source's own aspect ratio corrected for the screen's — without this a non-square
+        // image/video is stretched to match the screen's aspect instead of keeping its own.
+        const screenAspect = this.resolution.x / this.resolution.y
+        ou.uOverlayScale.value.set(overlay.scale * (overlay._aspect || 1) / screenAspect, overlay.scale)
         ou.uOverlayOffset.value.set(overlay.offsetX, overlay.offsetY)
         ou.uDisplace.value = overlay.displace || 0
 
