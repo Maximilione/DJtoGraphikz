@@ -402,6 +402,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     speed: { source: 'energy', depth: 0.3, value: 1 },
     density: { source: 'lfo-sine', depth: 0.2, lfoRate: 64 },
   },
+  chainfence: {
+    beamIntensity: { source: 'bass', depth: 0.4, value: 0.9 },
+    haze: { source: 'energy', depth: 0.3, value: 1 },
+    rotSpeed: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },

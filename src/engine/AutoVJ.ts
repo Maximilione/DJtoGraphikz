@@ -107,6 +107,7 @@ export const FAMILY: Record<EffectId, Family> = {
   monolith: 'tunnel',
   imgbeat: 'object',
   datacenter: 'tunnel',
+  chainfence: 'tunnel',
 }
 
 // shorthand builders keep the tables readable
