@@ -110,6 +110,8 @@ export const FAMILY: Record<EffectId, Family> = {
   hypercube: 'object',
   vaultdoor: 'object',
   pistons: 'tunnel',
+  datacenter: 'tunnel',
+  chainfence: 'tunnel',
 }
 
 // shorthand builders keep the tables readable

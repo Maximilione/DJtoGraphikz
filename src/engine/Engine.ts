@@ -97,6 +97,8 @@ import trussFrag from './shaders/truss.frag?raw'
 import hypercubeFrag from './shaders/hypercube.frag?raw'
 import vaultdoorFrag from './shaders/vaultdoor.frag?raw'
 import pistonsFrag from './shaders/pistons.frag?raw'
+import datacenterFrag from './shaders/datacenter.frag?raw'
+import chainfenceFrag from './shaders/chainfence.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
 import ribbonsFrag from './shaders/ribbons.frag?raw'
@@ -222,6 +224,7 @@ export type EffectId =
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
   | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'faces' | 'monolith' | 'imgbeat' | 'truss' | 'hypercube' | 'vaultdoor' | 'pistons'
+  | 'datacenter' | 'chainfence'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -519,6 +522,8 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   hypercube: hypercubeFrag,
   vaultdoor: vaultdoorFrag,
   pistons: pistonsFrag,
+  datacenter: datacenterFrag,
+  chainfence: chainfenceFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
   mandelbulb: mandelbulbFrag,
