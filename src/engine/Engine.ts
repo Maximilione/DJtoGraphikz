@@ -14,6 +14,7 @@ import { SequencePlayer } from './SequencePlayer'
 import { imageMime } from '../shared/mediaFormats'
 import { frameAtTime, frameAtBeat, frameAtDeck, SEQ_DEFAULT_FPS } from '../shared/imageSequence'
 import { type VideoDeck, type VideoClip, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
+import { HapPlayer } from './hapContainer'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
 import kaleidoscopeFrag from './shaders/kaleidoscope.frag?raw'
@@ -599,6 +600,13 @@ export class Engine {
   private deckSeq: SequencePlayer | null = null   // deck B clip that is an image sequence
   private deckSeqKey = ''
   private deckVideoSeek = false    // clipStartBeat changed: seek on the next ready frame
+  // HAP path: bypasses the <video> element entirely, decoding compressed
+  // blocks straight into a THREE.CompressedTexture (see hapContainer.ts / hap.ts)
+  private deckHap: HapPlayer | null = null
+  private deckHapKey = ''          // clip path the current HapPlayer probed (or is probing)
+  private deckHapTex: THREE.CompressedTexture | null = null
+  private deckHapTexTime = -1      // clip time already uploaded to deckHapTex (dedupe re-uploads)
+  private hapExtOk: boolean | undefined   // WEBGL_compressed_texture_s3tc present? checked once, lazily
   private prevBarPhase = 0
 
   // Master stage (always on)
@@ -2229,7 +2237,7 @@ export class Engine {
     if (state.clipStartBeat !== wasStart) this.deckVideoSeek = true
   }
 
-  /** The <video> lives as long as the deck is in video mode; clips swap its src. */
+  /** The <video> lives as long as the deck is in video mode; clips swap its src. Only reached for a clip tickDeckVideo already probed as NOT HAP. */
   private loadDeckClip(path: string) {
     this.deckVideoPath = path
     if (!this.deckVideo) {
@@ -2242,11 +2250,59 @@ export class Engine {
     }
     const v = this.deckVideo
     // Same streaming protocol as the video overlays (see addVideoOverlay).
-    // HAP/ProRes clips fail here: Chromium has no decoder, see videoDeck.ts.
+    // HAP (Hap1/Hap5) takes the compressed-texture path above instead, before
+    // this is ever reached — see hap.ts/hapContainer.ts. ProRes has no
+    // GPU-friendly browser path and still fails here; same for HapY/HapM/
+    // HapA/Hap7/HapH, which hap.ts refuses with a clear error of its own.
     v.onerror = () => console.error('[Engine] deck video illeggibile (mp4 H.264 / webm):', path)
     v.src = `djg-media://f/?p=${encodeURIComponent(path)}`
     this.deckVideoSeek = true
     v.play().catch(err => console.error('[Engine] deck video play failed:', err))
+  }
+
+  /** Dispose whatever HAP state belongs to a previous clip — called whenever the deck leaves the HAP path. */
+  private teardownDeckHap() {
+    if (this.deckHap) { this.deckHap.dispose(); this.deckHap = null; this.deckHapKey = '' }
+    this.deckHapTex?.dispose(); this.deckHapTex = null; this.deckHapTexTime = -1
+  }
+
+  /** Checked once per Engine instance: a clear error beats a silently black HAP clip. */
+  private hapTextureSupported(): boolean {
+    let ok = this.hapExtOk
+    if (ok === undefined) {
+      ok = !!this.renderer.extensions.get('WEBGL_compressed_texture_s3tc')
+      this.hapExtOk = ok
+      if (!ok) console.error('[Engine] HAP: la GPU/ANGLE non espone WEBGL_compressed_texture_s3tc — i clip HAP non sono riproducibili su questa macchina')
+    }
+    return ok
+  }
+
+  /** mipmaps[0].data swap + needsUpdate re-uploads via compressedTexSubImage2D — no per-frame texture realloc. */
+  private uploadHapTexture(hap: HapPlayer) {
+    if (!hap.buffer || !hap.format || hap.bufferTime === this.deckHapTexTime) return
+    const glFormat = hap.format === 'dxt1' ? THREE.RGB_S3TC_DXT1_Format : THREE.RGBA_S3TC_DXT5_Format
+    let tex = this.deckHapTex
+    if (!tex || tex.image.width !== hap.width || tex.image.height !== hap.height) {
+      tex?.dispose()
+      tex = new THREE.CompressedTexture([{ data: hap.buffer, width: hap.width, height: hap.height }], hap.width, hap.height, glFormat)
+      tex.minFilter = THREE.LinearFilter
+      tex.magFilter = THREE.LinearFilter
+      this.deckHapTex = tex
+    } else {
+      tex.mipmaps![0].data = hap.buffer
+    }
+    tex.needsUpdate = true
+    this.deckHapTexTime = hap.bufferTime
+  }
+
+  /** HAP clip on deck B: no <video>, no drift correction needed — every tick picks the sample nearest the beat-grid time directly. */
+  private tickDeckHapFrame(hap: HapPlayer, bpm: number, clip: VideoClip): THREE.Texture | null {
+    void bpm // HAP has no native playback clock to rate-lock; clipTime() alone places it on the beat grid
+    if (!(hap.durationSec > 0) || !this.hapTextureSupported()) return null
+    const want = clipTime(this.beatClock, this.videoDeck.clipStartBeat, clip.bpm, hap.durationSec)
+    hap.show(want)
+    this.uploadHapTexture(hap)
+    return this.deckHapTex
   }
 
   /**
@@ -2255,6 +2311,11 @@ export class Engine {
    * <video>; the output's beatClock arrives over IPC a frame late, and seeks
    * land on a keyframe, so a drift of a few frames between control and
    * projector is expected — anything past a quarter second gets re-seeked.
+   *
+   * HAP clips (Hap1/Hap5 — see hap.ts) bypass the <video> element entirely:
+   * sniffing the fourcc takes an async probe (hapContainer.ts), so the first
+   * tick(s) on a new clip path show nothing while that's in flight, exactly
+   * like a freshly-added image sequence does while its first frame decodes.
    */
   private tickDeckVideo(bpm: number): THREE.Texture | null {
     const d = this.videoDeck
@@ -2262,10 +2323,28 @@ export class Engine {
     if (!clip) {
       if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
       if (this.deckSeq) { this.deckSeq.dispose(); this.deckSeq = null; this.deckSeqKey = '' }
+      this.teardownDeckHap()
       return null
     }
-    if (clip.frames) return this.tickDeckSeq(clip as VideoClip & { frames: string[] })
+    if (clip.frames) { this.teardownDeckHap(); return this.tickDeckSeq(clip as VideoClip & { frames: string[] }) }
     if (this.deckSeq) { this.deckSeq.dispose(); this.deckSeq = null; this.deckSeqKey = '' }
+
+    if (this.deckHapKey !== clip.path) {
+      this.teardownDeckHap()
+      const p = new HapPlayer(clip.path)
+      this.deckHap = p
+      this.deckHapKey = clip.path
+      p.ready().catch(err => console.error('[Engine] HAP illeggibile:', clip.path, err))
+    }
+    const hap = this.deckHap!
+    if (hap.status === 'pending') return null   // probing the fourcc — same brief blank as a sequence's first frame
+    if (hap.status === 'error') return null     // unsupported HAP variant or unreadable file — already logged once above
+    if (hap.status === 'hap') {
+      if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
+      return this.tickDeckHapFrame(hap, bpm, clip)
+    }
+
+    // status === 'not-hap': the clip decodes natively — same <video> path as before
     if (clip.path !== this.deckVideoPath) this.loadDeckClip(clip.path)
     const v = this.deckVideo!
     const rate = playbackRate(bpm, clip.bpm)
@@ -3781,6 +3860,7 @@ export class Engine {
     if (this.deckVideo) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideo = null }
     this.deckVideoTex?.dispose(); this.deckVideoTex = null
     this.deckSeq?.dispose(); this.deckSeq = null
+    this.teardownDeckHap()
     this.masterMaterial.dispose()
     this.pixelRT?.dispose()
     this.motionBlurMaterial.dispose()
