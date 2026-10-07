@@ -2,6 +2,20 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.73.0-beta] — 2026-10-07
+
+### Added
+- **8 nuovi effetti raymarch**, stesso registro cinematico del batch "render spettacolari" (stanza nera, bianco/rosso/acciaio, strobo al picco), fatti via subagent paralleli:
+  - **Vaultdoor**: portellone blindato raymarch, iride a diaframma con foro reale nell'SDF — scatta aperta sul kick rivelando il bagliore dietro, poi si richiude; cuciture degli anelli in cascata sincronizzate al beat.
+  - **Pistons**: corridoio di presse idrauliche raymarch, onda sfasata lungo la fila a tempo col beat — scintilla al piede del pistone sul kick, nebbia bassa e luci di emergenza indipendenti.
+  - **Datacenter**: corridoio infinito di server rack in prospettiva centrale, soffitto con canaline e tubi fluorescenti sempre accesi, pavimento a specchio sporco. LED bianco/verde freddo che lampeggiano per rack/riga; sul kick un'onda rossa corre lungo la fila con un beacon lampeggiante al soffitto.
+  - **Chainfence**: tunnel di rete metallica che ruota lentamente, fasci di torcia che lo attraversano a sprazzi con polvere in sospensione; sul kick i fasci si intensificano e se ne accende uno nuovo.
+  - **Truss**: traliccio da palco raymarch visto da sotto, fari PAR/moving-head con coni volumetrici; sul kick flashano bianco/rosso (insieme o in chase).
+  - **Hypercube**: tesseratto wireframe raymarch (cubo dentro cubo), rotazione multi-asse per l'illusione 4D, spigoli con bagliore volumetrico, nodi che pulsano sul beat.
+  - **Turbine**: pala di rotore raymarch in un hangar buio; lo strobo sul kick congela un fotogramma delle pale, nel resto del tempo resta una sagoma scura con blur circolare.
+  - **Reactor**: camera lungo l'asse di uno shaft reattore raymarch, anelli concentrici e condotti radiali pulsano di luce; sul kick un'onda d'urto luminosa nasce al centro e corre verso l'esterno.
+  - Catalogo portato da 77 a 85 effetti.
+
 ## [0.72.0-beta] — 2026-10-07
 
 ### Added
