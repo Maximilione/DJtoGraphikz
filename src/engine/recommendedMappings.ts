@@ -397,6 +397,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     haze: { source: 'energy', depth: 0.3, value: 1 },
     width: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
   },
+  turbine: {
+    speed: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 1.1 },
+    strobe: { source: 'bass', depth: 0.5, value: 0.9 },
+    blades: { source: 'energy', depth: 0.2, value: 1 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
