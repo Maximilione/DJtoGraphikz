@@ -212,14 +212,25 @@ export function setupIpcHandlers(
     return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
   })
 
-  // Pictures for the `imgbeat` effect (the renderer copies them into the library)
+  // Pictures for the `imgbeat` effect (the renderer copies them into the library).
+  // `img.decode()` in Engine.loadImgbeat only reads Chromium-native formats, so
+  // HEIC/TIFF/PSD/RAW are converted to PNG here first — same sips path as asset:import.
   ipcMain.handle('asset:pick-image', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Immagini', extensions: IMAGE_NATIVE }]
+      filters: [{ name: 'Immagini', extensions: process.platform === 'darwin' ? [...IMAGE_NATIVE, ...IMAGE_CONVERT] : IMAGE_NATIVE }]
     })
     if (result.canceled) return []
-    return result.filePaths.slice(0, 8).map(filePath => ({ name: basename(filePath), path: filePath }))
+    return result.filePaths.slice(0, 8).map(filePath => {
+      if (!CONVERT_RE.test(filePath)) return { name: basename(filePath), path: filePath }
+      const png = join(tmpdir(), `djg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`)
+      try {
+        execFileSync('/usr/bin/sips', ['-s', 'format', 'png', filePath, '--out', png], { stdio: 'ignore' })
+        return { name: basename(filePath).replace(/\.[^.]+$/, '') + '.png', path: png }
+      } catch {
+        return { name: basename(filePath), path: filePath }
+      }
+    })
   })
 
   // A folder of numbered frames. One sequence per folder; frames are streamed
