@@ -31,6 +31,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'truss', label: 'Truss', icon: '⌁' },
       { id: 'hypercube', label: 'Hypercube', icon: '◫' },
       { id: 'vaultdoor', label: 'Vaultdoor', icon: '⬭' },
+      { id: 'turbine', label: 'Turbine', icon: '⚙' },
+      { id: 'reactor', label: 'Reactor', icon: '☢' },
       { id: 'android', label: 'Android', icon: '☤' },
       { id: 'faces', label: 'Maschere', icon: '☺' },
       { id: 'mandelbulb', label: 'Mandelbulb', icon: '❂' },
