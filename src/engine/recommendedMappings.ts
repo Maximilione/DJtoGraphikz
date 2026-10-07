@@ -397,6 +397,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     haze: { source: 'energy', depth: 0.3, value: 1 },
     width: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
   },
+  vaultdoor: {
+    apertura: { source: 'bass', depth: 0.4, value: 0.35 },
+    glow: { source: 'energy', depth: 0.4, value: 1 },
+    rings: { source: 'lfo-square', depth: 0.25, lfoRate: 32 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
