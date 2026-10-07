@@ -118,6 +118,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'downpour', label: 'Rain', icon: '⁞' },
       { id: 'eclipse', label: 'Eclipse', icon: '●' },
       { id: 'blinds', label: 'Blinds', icon: '☰' },
+      { id: 'datacenter', label: 'Datacenter', icon: '▧' },
+      { id: 'chainfence', label: 'Chainfence', icon: '⊠' },
     ],
   },
   {
