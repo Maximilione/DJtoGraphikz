@@ -378,6 +378,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
     { key: 'width', label: 'Fessura', min: 0.4, max: 2, default: 1 },
   ],
+  vaultdoor: [
+    { key: 'apertura', label: 'Apertura', min: 0.1, max: 1.0, default: 0.35 },
+    { key: 'rings', label: 'Anelli', min: 3, max: 9, default: 6 },
+    { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
