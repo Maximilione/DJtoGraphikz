@@ -383,6 +383,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'strobe', label: 'Strobo', min: 0, max: 2, default: 1 },
     { key: 'blades', label: 'Pale', min: 3, max: 8, default: 5 },
   ],
+  reactor: [
+    { key: 'speed', label: 'Propagazione', min: 0.2, max: 3, default: 1 },
+    { key: 'rings', label: 'Anelli', min: 3, max: 8, default: 5 },
+    { key: 'glow', label: 'Bagliore', min: 0.3, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
