@@ -383,6 +383,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'rings', label: 'Anelli', min: 3, max: 9, default: 6 },
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
+  pistons: [
+    { key: 'speed', label: 'Velocità', min: 0.5, max: 3, default: 1.5 },
+    { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
+    { key: 'stagger', label: 'Sfasamento', min: 0, max: 2, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },

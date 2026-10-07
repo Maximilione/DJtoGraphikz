@@ -112,6 +112,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'cage', label: 'Cage', icon: '▣' },
       { id: 'cracks', label: 'Cracks', icon: '⌇' },
       { id: 'warehouse', label: 'Bunker', icon: '⌂' },
+      { id: 'pistons', label: 'Pistons', icon: '⊓' },
       { id: 'downpour', label: 'Rain', icon: '⁞' },
       { id: 'eclipse', label: 'Eclipse', icon: '●' },
       { id: 'blinds', label: 'Blinds', icon: '☰' },
