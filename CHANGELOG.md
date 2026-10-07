@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.72.0-beta] — 2026-10-07
+
+### Added
+- **Deck video: supporto HAP (Hap1/Hap5)**: il formato dei pacchetti VJ professionali (Resolume, TouchDesigner, Millumin) ora si riproduce senza conversione — bypassa `<video>`, decodifica i blocchi DXT1/DXT5 (con decode-instructions multi-chunk, Snappy via `snappyjs`) e li carica direttamente in GPU con `compressedTexImage2D`, zero decode CPU. Il fourcc viene letto dal file (non dall'estensione): `.mov` H.264 e `.mov` HAP convivono nello stesso deck. Demux via `mp4box`, Range request per frame (nessun file intero in RAM). Le altre varianti HAP (HapY/HapM/HapA/Hap7/HapH) e ProRes restano non supportate, con errore esplicito invece di un frame nero o corrotto. Richiede `WEBGL_compressed_texture_s3tc` sulla GPU (errore chiaro se assente). `check:hap` (decoder puro, fixture costruite a mano: sezione raw, Snappy, decode-instructions multi-chunk, varianti fuori scope, type byte corrotto).
+
 ## [0.71.1-beta] — 2026-10-07
 
 ### Fixed
