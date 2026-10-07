@@ -402,6 +402,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     strobe: { source: 'bass', depth: 0.5, value: 0.9 },
     blades: { source: 'energy', depth: 0.2, value: 1 },
   },
+  reactor: {
+    speed: { source: 'energy', depth: 0.3, value: 0.9 },
+    rings: { source: 'lfo-square', depth: 0.2, lfoRate: 32, value: 1 },
+    glow: { source: 'bass', depth: 0.4, value: 1 },
+  },
   crystals: {
     size: { source: 'bass', depth: 0.4, value: 0.9 },
     dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
