@@ -3,13 +3,26 @@
  *
  * Which clip plays, when it changes and how fast it runs are decided here
  * with no DOM and no three.js, so `scripts/check-videodeck.mjs` can assert on
- * them. The Engine owns the <video>, the VideoTexture and the blit into the
- * deck B target; the output window mirrors `clip` + `clipStartBeat` from the
- * state snapshot and seeks its own <video> to `clipTime()`.
+ * them. The Engine owns the <video> (or, for HAP clips, the compressed
+ * texture — see hap.ts/hapContainer.ts) and the blit into the deck B target;
+ * the output window runs the same Engine in remote mode off the same state
+ * snapshot, so there is only ever one deck-video pipeline, never two.
  *
  * Honest limit: Chromium decodes H.264 mp4, webm (VP8/VP9/AV1) and mov only
- * when it carries H.264 — not HAP, not ProRes, i.e. not the formats commercial
- * VJ packs ship in. Those need a conversion upstream (ffmpeg -c:v libx264).
+ * when it carries H.264 — not ProRes, which has no GPU-friendly path in a
+ * browser at all. HAP (Hap1/Hap5 — the DXT1/DXT5 variants, by far the most
+ * common ones VJ packs export) bypasses <video> entirely: Engine decodes the
+ * compressed blocks itself and uploads them straight to the GPU, zero CPU
+ * decode. The other real HAP variants — HapY, HapM, HapA, Hap7, HapH — are
+ * not decoded; hap.ts refuses them with a clear error instead of a black or
+ * corrupt frame. All of these need a conversion upstream only when they
+ * aren't mp4/webm/H.264 or Hap1/Hap5 (ffmpeg -c:v libx264, or re-export as
+ * Hap1/Hap5 instead of another HAP variant).
+ *
+ * Which path a .mov file takes is NOT decided by its extension — acceptsVideo
+ * below only gates the file picker. Engine sniffs the actual fourcc off the
+ * first bytes of the chosen file (see hapContainer.ts's probeHapTrack) before
+ * ever touching a <video> element.
  */
 
 export interface VideoClip {
@@ -40,7 +53,7 @@ export interface VideoDeck {
 export const VIDEO_DECK_DEFAULT: VideoDeck = { enabled: false, clips: [], barsPerClip: 4, clip: 0, clipStartBeat: 0, bars: 0 }
 export const BARS_PER_CLIP_CHOICES = [1, 2, 4, 8, 16]
 
-/** What the <video> can realistically decode — see the header. */
+/** File-picker filter only, by extension — .mov covers both plain H.264 and HAP; see the header for which path a file actually takes. */
 export function acceptsVideo(name: string): boolean {
   return /\.(mp4|m4v|webm|mov)$/i.test(name)
 }

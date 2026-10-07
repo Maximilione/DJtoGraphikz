@@ -58,7 +58,8 @@ export function DeckPanel({ engine }: DeckPanelProps) {
 
   const addClips = useCallback(async () => {
     const files = await window.api?.pickVideos()
-    // the dialog also lists mkv: Chromium's <video> does not play it, nor HAP/ProRes (see videoDeck.ts)
+    // the dialog also lists mkv: Chromium's <video> does not play it, and
+    // neither HAP path (ours or <video>'s) understands it — see videoDeck.ts
     const ok = (files || []).filter(f => acceptsVideo(f.name))
     if (ok.length) engine?.addVideoClips(ok)
   }, [engine])
@@ -82,7 +83,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
   return (
     <>
       {video.enabled && (
-        <div className="deck-clips" title="Playlist del deck B: mp4 (H.264) o webm — HAP e ProRes vanno convertiti prima">
+        <div className="deck-clips" title="Playlist del deck B: mp4 (H.264), webm o HAP (Hap1/Hap5) — altre varianti HAP e ProRes vanno convertiti prima">
           <span className="deck-label">CLIP</span>
           {video.clips.length === 0 && <span style={{ color: 'var(--text-muted)' }}>nessuna clip — ＋ per aggiungere mp4/webm</span>}
           {video.clips.map((c, i) => (
