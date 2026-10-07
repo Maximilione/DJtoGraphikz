@@ -28,6 +28,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'quasicrystal', label: 'Quasi', icon: '❉' },
       { id: 'crystals', label: 'Crystals', icon: '◆' },
       { id: 'monolith', label: 'Monolith', icon: '▯' },
+      { id: 'truss', label: 'Truss', icon: '⌁' },
+      { id: 'hypercube', label: 'Hypercube', icon: '◫' },
       { id: 'android', label: 'Android', icon: '☤' },
       { id: 'faces', label: 'Maschere', icon: '☺' },
       { id: 'mandelbulb', label: 'Mandelbulb', icon: '❂' },
