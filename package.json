@@ -56,6 +56,7 @@
     "check:deckmix": "python3 scripts/check-deckmix.py",
     "check:videodeck": "node scripts/check-videodeck.mjs",
     "check:trackchange": "node scripts/check-trackchange.mjs",
+    "check:hap": "node scripts/check-hap.mjs",
     "shader:preview": "python3 scripts/shader-preview.py"
   },
   "build": {
@@ -123,10 +124,12 @@
   },
   "dependencies": {
     "gifuct-js": "^2.1.2",
+    "mp4box": "^2.4.1",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "realtime-bpm-analyzer": "^5.0.2",
+    "snappyjs": "^0.7.0",
     "three": "^0.170.0"
   },
   "devDependencies": {
