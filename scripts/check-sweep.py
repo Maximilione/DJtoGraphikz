@@ -19,7 +19,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LOG_DIR = pathlib.Path.home() / ".djtographikz" / "logs"
 WHITE_MEAN, BLACK_MEAN, FLAT_STD = 0.92, 0.015, 0.006
-SETTLE_MS = 600000
+SETTLE_MS = 1200000
 
 
 def main() -> int:

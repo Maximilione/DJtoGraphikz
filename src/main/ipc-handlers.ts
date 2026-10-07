@@ -1,18 +1,30 @@
-import { BrowserWindow, ipcMain, dialog, net } from 'electron'
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'fs'
+import { BrowserWindow, ipcMain, dialog, net, shell } from 'electron'
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, existsSync, readdirSync, unlinkSync, lstatSync, realpathSync } from 'fs'
 import { statfs } from 'fs/promises'
-import { basename, join } from 'path'
+import { basename, join, relative, isAbsolute } from 'path'
 import { homedir, tmpdir } from 'os'
 import { execFileSync } from 'child_process'
-import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, CONVERT_RE, imageMime } from '../shared/mediaFormats'
+import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, MODEL_EXT, CONVERT_RE, SEQ_RE, SEQ_CONVERT_RE, imageMime } from '../shared/mediaFormats'
+import { sortNatural } from '../shared/imageSequence'
 import { inflateRawSync } from 'zlib'
+import { loadAllPlugins, type PluginFs } from '../shared/plugins'
 
 const USER_DATA_DIR = join(homedir(), '.djtographikz')
 const ASSETS_DIR = join(USER_DATA_DIR, 'assets')
 const ISF_DIR = join(USER_DATA_DIR, 'isf')
+const PLUGINS_DIR = join(USER_DATA_DIR, 'plugins')
+
+const NODE_PLUGIN_FS: PluginFs = {
+  readdir: d => readdirSync(d),
+  lstat: p => { const s = lstatSync(p); return { isFile: s.isFile(), isDirectory: s.isDirectory(), isSymlink: s.isSymbolicLink(), size: s.size } },
+  realpath: p => realpathSync(p),
+  readFile: p => readFileSync(p, 'utf-8'),
+  join,
+  isInside: (root, p) => { const r = relative(root, p); return !!r && !r.startsWith('..') && !isAbsolute(r) },
+}
 
 function ensureDirs() {
-  for (const dir of [USER_DATA_DIR, ASSETS_DIR, ISF_DIR]) {
+  for (const dir of [USER_DATA_DIR, ASSETS_DIR, ISF_DIR, PLUGINS_DIR]) {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   }
 }
@@ -100,6 +112,10 @@ export function setupIpcHandlers(
       .map(f => ({ name: f.replace(/\.(fs|frag|glsl)$/i, ''), source: readFileSync(join(ISF_DIR, f), 'utf-8') }))
   })
 
+  // Plugin dichiarativi: solo dati, validati qui (src/shared/plugins.ts); un plugin rotto non butta giu' gli altri
+  ipcMain.handle('plugins:list', async () => loadAllPlugins(NODE_PLUGIN_FS, PLUGINS_DIR))
+  ipcMain.handle('plugins:open-folder', async () => { await shell.openPath(PLUGINS_DIR) })
+
   // Online library (editor.isf.video): light index of the public generators,
   // cached 24h on disk — the full dump is ~40MB, fetched at most once a day
   ipcMain.handle('isf:browse', async (_e, force?: boolean) => {
@@ -184,6 +200,54 @@ export function setupIpcHandlers(
     })
     if (result.canceled) return []
     return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
+  // One 3D model for the `mesh` effect; the renderer copies it into the library
+  ipcMain.handle('asset:pick-model', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Modelli 3D', extensions: MODEL_EXT }]
+    })
+    if (result.canceled) return []
+    return result.filePaths.map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
+  // Pictures for the `imgbeat` effect (the renderer copies them into the library)
+  ipcMain.handle('asset:pick-image', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Immagini', extensions: IMAGE_NATIVE }]
+    })
+    if (result.canceled) return []
+    return result.filePaths.slice(0, 8).map(filePath => ({ name: basename(filePath), path: filePath }))
+  })
+
+  // A folder of numbered frames. One sequence per folder; frames are streamed
+  // by the renderer over djg-media, so only paths cross IPC.
+  ipcMain.handle('asset:pick-sequence', async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || !result.filePaths[0]) return null
+    const dir = result.filePaths[0]
+    const files = readdirSync(dir)
+    const native = files.filter(f => SEQ_RE.test(f))
+    const foreign = files.filter(f => SEQ_CONVERT_RE.test(f))
+    const name = basename(dir)
+    if (native.length) {
+      const note = foreign.length ? `${foreign.length} file EXR/DPX/TIFF ignorati: una sola sequenza per cartella` : undefined
+      return { name, dir, paths: sortNatural(native).map(f => join(dir, f)), note }
+    }
+    if (!foreign.length) return { name, dir, paths: [], note: 'nessun frame PNG/JPG/WebP/AVIF nella cartella' }
+    if (process.platform !== 'darwin') {
+      return { name, dir, paths: [], note: 'EXR/DPX/TIFF non si leggono qui: convertili in PNG (ffmpeg, oiiotool) e riprova' }
+    }
+    // macOS: sips → PNG in a temp folder, one call for the whole sequence
+    const out = mkdtempSync(join(tmpdir(), 'djg-seq-'))
+    try {
+      execFileSync('/usr/bin/sips', ['-s', 'format', 'png', ...sortNatural(foreign).map(f => join(dir, f)), '--out', out], { stdio: 'ignore' })
+    } catch { /* partial output is still usable: judge by what landed */ }
+    const pngs = sortNatural(readdirSync(out).filter(f => /\.png$/i.test(f))).map(f => join(out, f))
+    if (!pngs.length) return { name, dir, paths: [], note: 'conversione con sips fallita: converti i frame in PNG' }
+    return { name, dir, paths: pngs, note: 'frame convertiti in PNG a 8 bit (sips)' }
   })
 
   ipcMain.handle('asset:read-file', async (_event, filePath: string) => {

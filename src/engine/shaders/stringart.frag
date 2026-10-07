@@ -11,6 +11,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -36,13 +37,19 @@ void main() {
   // on a vertical frame the circle must fit the width, not the height
   vec2 p = (uvp - 0.5) * vec2(aspect, 1.0) * 1.95 * max(1.0, 1.0 / aspect);
 
+  float lkb = 1.0 + 2.5 * uLineBoost;
+  float lminPx = 3.0 + 4.0 * uLineBoost;
+  // p spans 1.95 units over the short side: one pixel in p units
+  float pxP = 1.95 * max(1.0, 1.0 / aspect) / uResolution.y;
   float n = clamp(floor(nodes), 8.0, 120.0);
   // m and m + n draw the same chords, so the drift wraps at n: exact, and the
   // product fi * m never grows past float precision over a long night
   float m = multiplier + mod(uBeatClock * 0.035, n) + uBass * 0.6;
   float r = 0.85 + 0.08 * uBeat;
 
-  float w = linew * 0.0016 * (1.0 + 1.5 * uBass);
+  float w0 = linew * 0.0016 * (1.0 + 1.5 * uBass);
+  // ink half-width ~ 2w: floor it at lminPx pixels
+  float w = max(w0 * lkb, lminPx * pxP * 0.5);
   float acc = 0.0, near = 1e9;
 
   for (int i = 0; i < 120; i++) {
@@ -54,7 +61,7 @@ void main() {
     vec2 B = vec2(cos(a1), sin(a1)) * r;
     float d = segDist(p, A, B);
     near = min(near, d);
-    acc += w / (d + w * 1.4);      // every chord adds a little light
+    acc += w0 / (d + w0 * 1.4);      // every chord adds a little light
   }
 
   float line = 1.0 - smoothstep(w, w * 2.6, near);

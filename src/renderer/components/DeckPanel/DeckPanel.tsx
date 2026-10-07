@@ -3,6 +3,8 @@ import type { Engine, EffectId, BlendMode } from '@engine/Engine'
 import { BLEND_MODES } from '@engine/Engine'
 import { type VideoDeck, VIDEO_DECK_DEFAULT, BARS_PER_CLIP_CHOICES, acceptsVideo } from '@engine/videoDeck'
 import { NumberInput } from '../NumberInput/NumberInput'
+import { pushToast } from '../Toasts/Toasts'
+import { SEQ_DEFAULT_FPS } from '../../../shared/imageSequence'
 import { ALL_EFFECTS } from '../../catalog'
 
 const MASK_FIRST = BLEND_MODES.indexOf('split-v')
@@ -61,7 +63,17 @@ export function DeckPanel({ engine }: DeckPanelProps) {
     if (ok.length) engine?.addVideoClips(ok)
   }, [engine])
 
-  const setClipBpm = (i: number, bpm: number) => {
+  const addSequence = useCallback(async () => {
+    const seq = await window.api?.pickSequence()
+    if (!seq) return
+    if (seq.note) pushToast(seq.note, undefined, undefined, seq.paths.length ? undefined : 'err')
+    if (seq.paths.length) engine?.addSequenceClip(seq)
+  }, [engine])
+
+  const setClipFps = (i: number, fps: number) => {
+    engine?.setVideoDeck({ clips: video.clips.map((c, j) => j === i ? { ...c, fps } : c) })
+  }
+  const setClipBpm =(i: number, bpm: number) => {
     const clips = video.clips.map((c, j) => j === i ? { ...c, bpm } : c)
     engine?.setVideoDeck({ clips })
   }
@@ -76,11 +88,13 @@ export function DeckPanel({ engine }: DeckPanelProps) {
           {video.clips.map((c, i) => (
             <span key={c.path + i} className={`deck-clip${i === video.clip ? ' active' : ''}`} title={c.path}>
               <span onClick={() => engine?.setVideoDeck({ clip: i })} style={{ cursor: 'pointer' }}>{c.name}</span>
+              {c.frames && <NumberInput value={c.fps ?? SEQ_DEFAULT_FPS} min={1} max={120} step={1} suffix="fps" onChange={v => setClipFps(i, v)} />}
               <NumberInput value={c.bpm} min={40} max={300} step={1} suffix="bpm" onChange={v => setClipBpm(i, v)} />
               <button className="btn btn-sm" title="Togli la clip" onClick={() => removeClip(i)}>✕</button>
             </span>
           ))}
           <button className="btn btn-sm" title="Aggiungi clip (mp4 H.264 / webm)" onClick={addClips}>＋</button>
+          <button className="btn btn-sm" title="Aggiungi una cartella di frame numerati (PNG/JPG/WebP/AVIF) come clip: il bpm della clip e gli fps ne fissano la durata" onClick={addSequence}>＋🎞</button>
           <span className="deck-label" title="Ogni quante battute cambia clip (sul giro di battuta)">OGNI</span>
           <select
             value={video.barsPerClip}
@@ -97,7 +111,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
           type="range" min={0} max={1} step={0.01}
           value={crossfade}
           onChange={e => changeCrossfade(parseFloat(e.target.value))}
-          style={{ flex: 1 }}
+          style={{ flex: 1, '--p': `${crossfade * 100}%` } as React.CSSProperties}
           title="Crossfader tra deck A e deck B"
         />
         <span className="deck-label">B</span>
@@ -133,7 +147,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
             value={maskSoft}
             title="Morbidezza del bordo (0 netto, 1 sfumato)"
             onChange={e => { const v = parseFloat(e.target.value); setMaskSoft(v); engine?.setMaskSoft(v) }}
-            style={{ width: '70px' }}
+            style={{ width: '70px', '--p': `${maskSoft * 100}%` } as React.CSSProperties}
           />
         </>}
 
@@ -147,7 +161,7 @@ export function DeckPanel({ engine }: DeckPanelProps) {
             setMotionBlur(v)
             engine?.setMotionBlur(v)
           }}
-          style={{ width: '70px' }}
+          style={{ width: '70px', '--p': `${(motionBlur / 0.95) * 100}%` } as React.CSSProperties}
         />
         <NumberInput
           value={motionBlur}

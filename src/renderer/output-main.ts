@@ -115,6 +115,8 @@ api.onAudioData((data: any) => engine.setAudioData(data))
 api.onOverlayAdd((data: any) => {
   const added = data.source?.kind === 'text'
     ? Promise.resolve(engine.addTextOverlay(data.source.text, data.source, data.id))
+    : data.source?.kind === 'sequence'
+      ? engine.addSequenceOverlay(data.name, data.source, data.id)
     : data.source
       ? engine.addVideoOverlay(data.name, data.source, data.id)
       : engine.addOverlay(data.name, data.dataUrl, data.id)
@@ -124,6 +126,7 @@ api.onOverlayAdd((data: any) => {
       offsetX: data.offsetX, offsetY: data.offsetY,
       visible: data.visible, gifSync: data.gifSync ?? 'beat',
       displace: data.displace ?? 0,
+      ...(data.source?.kind === 'sequence' && { seqFps: data.seqFps ?? data.source.fps, seqBeats: data.seqBeats ?? data.source.beats }),
     })
   }).catch(err => console.error('[Output] overlay add failed:', err))
 })

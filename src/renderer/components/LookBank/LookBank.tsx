@@ -224,7 +224,9 @@ export function LookBank({ engine }: { engine: Engine }) {
             title="Salva il look corrente"
             onClick={() => saveLook(i)}
             {...dropHandlers(i)}
-          />
+          >
+            <span className="look-num">{i + 1}</span>
+          </button>
         ))}
       </div>
     </Panel>

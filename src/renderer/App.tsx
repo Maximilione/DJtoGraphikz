@@ -2,6 +2,7 @@ import './styles/features.css'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { AudioPanel } from './components/AudioPanel/AudioPanel'
 import { Toasts, pushToast } from './components/Toasts/Toasts'
+import { encodeGif, gifTiming, barsSeconds } from './gifEncoder'
 import { EffectPanel } from './components/EffectPanel/EffectPanel'
 import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
 import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
@@ -14,7 +15,7 @@ import { SimplePanel } from './components/SimplePanel/SimplePanel'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
-import { CameraPanel } from './components/CameraPanel/CameraPanel'
+import { CameraPanel, ImpactPanel } from './components/CameraPanel/CameraPanel'
 import { DmxPanel } from './components/DmxPanel/DmxPanel'
 import { VenuePanel } from './components/VenuePanel/VenuePanel'
 import { OutputsPanel, useOutputs } from './components/OutputsPanel/OutputsPanel'
@@ -47,7 +48,7 @@ type UIMode = 'simple' | 'pro' | 'live'
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
 const SETTINGS_KEY = 'djtographikz-settings'
-const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact'
+const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact-v2'
 const BEATFLASH_KEY = 'djtographikz-beatflash'
 
 // Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
@@ -120,6 +121,7 @@ export function App() {
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
   const [fps, setFps] = useState(0)
+  const [bpm, setBpm] = useState(0)
   /** Intensity macro, 0..1 — one fader instead of five sliders, key I */
   const [intensity, setIntensity] = useState(0)
   /**
@@ -153,7 +155,7 @@ export function App() {
   const [showQuickGuide, setShowQuickGuide] = useState(false)
 
   // Preview riducibile: compatta la striscia video, i pannelli prendono spazio
-  const [previewCompact, setPreviewCompact] = React.useState(() => readString(PREVIEW_COMPACT_KEY) === '1')
+  const [previewCompact, setPreviewCompact] = React.useState(() => readString(PREVIEW_COMPACT_KEY) !== '0')
   const togglePreviewCompact = React.useCallback(() => {
     setPreviewCompact(c => {
       writeString(PREVIEW_COMPACT_KEY, c ? '0' : '1')
@@ -169,6 +171,15 @@ export function App() {
 
   // AutoVJ lives here so Simple and Pro views share one instance
   const vjRef = useRef<AutoVJ>(new AutoVJ())
+  // Pro: gli FX stanno sotto il Look Bank; sotto 1100px tornano nella sidebar
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1100px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1100px)')
+    const on = () => setWide(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  const fxCenter = mode === 'pro' && wide
   const [vjEnabled, setVjEnabled] = useState(false)
   const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
   const [vjStatus, setVjStatus] = useState<{ current: string; count: number; phase: Phase }>({ current: '', count: 0, phase: 'groove' })
@@ -446,7 +457,10 @@ export function App() {
   // U1.2 — poll audio status: 'reconnecting' shows the banner, a user stop is fine
   useEffect(() => {
     if (!engine) return
-    const id = window.setInterval(() => setAudioStatus(engine.audioAnalyzer.getStatus()), 1000)
+    const id = window.setInterval(() => {
+      setAudioStatus(engine.audioAnalyzer.getStatus())
+      setBpm(Math.round(engine.audioAnalyzer.getData().bpm) || 0)
+    }, 1000)
     return () => clearInterval(id)
   }, [engine])
 
@@ -498,6 +512,60 @@ export function App() {
     recorderRef.current = rec
     setRecording(true)
   }, [])
+
+  // GIF export: N seconds (or N bars at the current BPM) of the preview, looped, no dependencies
+  const [gifMenu, setGifMenu] = useState(false)
+  const [gifBusy, setGifBusy] = useState<string | null>(null)
+  const [gifOpt, setGifOpt] = useState({ secs: 5, width: 480, bars: false })
+  const startGif = useCallback(async () => {
+    const eng = engineRef.current
+    if (!eng || gifBusy) return
+    setGifMenu(false)
+    const bpmNow = eng.audioAnalyzer.getEffectiveBpm()
+    const useBars = gifOpt.bars && bpmNow > 0
+    // bars mode: 1 bar at 60-200 BPM is 1.2-4 s; 2 bars when that is under 3 s, so the loop is not a blink
+    const bars = useBars ? (barsSeconds(1, bpmNow) < 3 ? 2 : 1) : 0
+    const seconds = useBars ? barsSeconds(bars, bpmNow) : gifOpt.secs
+    const fps = 15
+    const { frames: total, delayCs } = gifTiming(seconds, fps)
+    const src0 = canvasRef.current
+    if (!src0) return
+    const w = Math.min(gifOpt.width, src0.width)
+    const h = Math.max(1, Math.round(w * src0.height / src0.width))
+    const cv = document.createElement('canvas')
+    cv.width = w; cv.height = h
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    const frames: { data: Uint8ClampedArray }[] = []
+    setGifBusy('GIF 0%')
+    const startedAt = performance.now()
+    try {
+      await new Promise<void>(resolve => {
+        const off = eng.onFrameRendered(canvas => {
+          // frame k is due at k/total of the span: pace by clock, not by render count
+          if (frames.length > (performance.now() - startedAt) / (seconds * 1000) * total) return
+          ctx.drawImage(canvas, 0, 0, w, h)
+          frames.push({ data: ctx.getImageData(0, 0, w, h).data })
+          setGifBusy(`GIF ${Math.round(frames.length / total * 50)}%`)
+          if (frames.length >= total) { off(); resolve() }
+        })
+      })
+      const bytes = await encodeGif(frames, {
+        width: w, height: h, delayCs, dither: true,
+        onProgress: (d, t) => setGifBusy(`GIF ${50 + Math.round(d / t * 50)}%`),
+      })
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/gif' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.gif`
+      a.click()
+      URL.revokeObjectURL(url)
+      pushToast(`GIF salvata · ${seconds.toFixed(1)} s${useBars ? ` (${bars} ${bars === 1 ? 'battuta' : 'battute'} a ${Math.round(bpmNow)} BPM)` : ''} · ${w}×${h} · ${(bytes.length / 1048576).toFixed(1)} MB`, 'gif')
+    } catch (e) {
+      pushToast(`GIF non riuscita: ${(e as Error).message}`, 'gif')
+    } finally {
+      setGifBusy(null)
+    }
+  }, [gifBusy, gifOpt])
 
   // I4 — reel: the last 15–30 s of the preview in 9:16, armed in the Outputs
   // panel, saved by V, the toolbar chip or (opt-in) the Auto VJ's drop. The
@@ -635,6 +703,7 @@ export function App() {
     const missing = list.filter(o => o.displayId !== null && !displays.some(d => d.id === o.displayId))
     setOutputs(list.map(o => missing.includes(o) ? { ...o, displayId: null } : o))
     engine.setRenderSize(list[0].width, list[0].height)
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes to the new aspect
 
     engine.setBrightness(v.brightness); setBrightness(v.brightness)
     if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
@@ -860,6 +929,8 @@ export function App() {
         case 'grade': engine.setGrade({ [v.key]: v.value }); break
         case 'motionBlur': engine.setMotionBlur(v); break
         case 'intensity': setIntensity(v); engine.setIntensity(v); break
+        case 'lineBoost': engine.setLineBoost(v); break
+        case 'presence': engine.setPresence(v); break
         case 'camera': engine.setCamera(v); break
         case 'cameraReset': engine.resetCamera(); break
         case 'blendMode': engine.setBlendMode(v); break
@@ -955,7 +1026,7 @@ export function App() {
   const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout mode-${mode}`}>
       {showOnboarding && <Onboarding onDone={finishOnboarding} />}
       {showRemote && <RemoteModal onClose={() => setShowRemote(false)} />}
       {showSoundcheck && <Soundcheck engine={engine} outputRes={outputRes} onClose={() => setShowSoundcheck(false)} />}
@@ -980,6 +1051,9 @@ export function App() {
             className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
             title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
           />
+          <span className="tb-bpm" title="BPM rilevato (la modalita' BPM si cambia dal pannello Audio)">
+            <b>{audioStatus === 'running' && bpm > 0 ? bpm : '—'}</b> BPM
+          </span>
         </div>
 
         {/* Simple / Pro / Live switch */}
@@ -1015,6 +1089,7 @@ export function App() {
             className="tb-master"
             type="range" min={0} max={1} step={0.01}
             value={intensity}
+            style={{ '--p': `${intensity * 100}%` } as React.CSSProperties}
             onChange={e => {
               const v = parseFloat(e.target.value)
               setIntensity(v)
@@ -1030,6 +1105,7 @@ export function App() {
             className="tb-master"
             type="range" min={0} max={1} step={0.01}
             value={brightness}
+            style={{ '--p': `${brightness * 100}%` } as React.CSSProperties}
             onChange={e => {
               const v = parseFloat(e.target.value)
               setBrightness(v)
@@ -1038,7 +1114,7 @@ export function App() {
             title="Luminosità master ([ / ])"
           />
           <button
-            className={`btn btn-sm ${blackout ? 'btn-danger' : 'btn-secondary'}`}
+            className={`btn btn-sm btn-black${blackout ? ' on' : ''}`}
             onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
             title="Blackout (B)"
           >
@@ -1062,19 +1138,51 @@ export function App() {
 
         <div className="spacer" />
 
-        <div className="tb-group">
+        <div className="tb-group tb-right">
           <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
             <IconCamera />
           </button>
           <button
-            className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary'}`}
+            className={`btn btn-sm tb-extra ${recording ? 'btn-danger' : 'btn-secondary'}`}
             onClick={toggleRecording}
             title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
            aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
             {recording ? <IconStop /> : <IconRecord />}
           </button>
+          <span className="tb-extra" style={{ position: 'relative', display: 'inline-flex' }}>
+            <button className="btn btn-secondary btn-sm" disabled={!!gifBusy}
+              onClick={() => setGifMenu(m => !m)}
+              title="Esporta una GIF in loop dalla preview" aria-label="Esporta una GIF in loop dalla preview"
+              aria-expanded={gifMenu}>
+              {gifBusy ?? 'GIF'}
+            </button>
+            {gifMenu && (
+              <div role="menu" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 50, padding: 'var(--s3)',
+                display: 'flex', flexDirection: 'column', gap: 'var(--s2)', background: 'var(--bg-panel, #1a1a1f)',
+                border: '1px solid var(--border, #333)', borderRadius: 6, minWidth: 190 }}>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Durata
+                  <select value={gifOpt.secs} disabled={gifOpt.bars && bpm > 0}
+                    onChange={e => setGifOpt(o => ({ ...o, secs: +e.target.value }))}>
+                    {[3, 5, 8].map(s => <option key={s} value={s}>{s} s</option>)}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Larghezza
+                  <select value={gifOpt.width} onChange={e => setGifOpt(o => ({ ...o, width: +e.target.value }))}>
+                    {[320, 480, 640].map(s => <option key={s} value={s}>{s} px</option>)}
+                  </select>
+                </label>
+                <label title={bpm > 0 ? 'Cattura 1-2 battute esatte al BPM corrente: il loop non scatta' : 'BPM non rilevato: usa i secondi'}
+                  style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input type="checkbox" checked={gifOpt.bars} disabled={!(bpm > 0)}
+                    onChange={e => setGifOpt(o => ({ ...o, bars: e.target.checked }))} />
+                  Loop a battuta
+                </label>
+                <button className="btn btn-sm btn-danger" onClick={startGif}>Cattura GIF</button>
+              </div>
+            )}
+          </span>
           {reelArmed && (
-            <button className="btn btn-secondary btn-sm" onClick={() => reelRef.current?.save()}
+            <button className="btn btn-secondary btn-sm tb-extra" onClick={() => reelRef.current?.save()}
               title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)"
               aria-label="Salva il reel degli ultimi 15–30 s">
               <span style={{ color: 'var(--accent)' }}>●</span> Reel
@@ -1104,6 +1212,7 @@ export function App() {
           ))}
           {displays.length > 1 && (
             <select
+              className="tb-extra tb-select"
               value={primaryOut.displayId ?? ''}
               onChange={e => {
                 const id = parseInt(e.target.value)
@@ -1118,10 +1227,12 @@ export function App() {
             </select>
           )}
           <select
+            className="tb-extra tb-select"
             value={outputRes}
             onChange={e => {
               const [w, h] = e.target.value.split('x').map(Number)
               engine?.setRenderSize(w, h)
+              requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes
               setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
             }}
             title="Risoluzione di uscita del proiettore"
@@ -1199,11 +1310,10 @@ export function App() {
                 onVJToggle={toggleVJ}
                 onVJGenre={changeVJGenre}
               />
-              {engine && <LookBank engine={engine} />}
             </>
           ) : (
             <>
-              <EffectPanel engine={engine} />
+              {!fxCenter && <EffectPanel engine={engine} />}
               <AutoVJPanel
                 engine={engine}
                 vj={vjRef.current}
@@ -1219,8 +1329,9 @@ export function App() {
         )}
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
-        <div className="center-area">
-          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}>
+        <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
+          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
+               style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
             {mode !== 'live' && (
               <button
@@ -1236,21 +1347,22 @@ export function App() {
             <span className="preview-label">PREVIEW</span>
           </div>
           {mode === 'pro' && <DeckPanel engine={engine} />}
-          {mode === 'live' && engine && (
+          {engine && (
             <div className="live-lookbank">
               <LookBank engine={engine} />
             </div>
           )}
+          {fxCenter && <div className="center-fx"><EffectPanel engine={engine} /></div>}
         </div>
 
         {/* Right sidebar — pro only */}
         {mode === 'pro' && (
           <div className="sidebar-right">
-            {engine && <LookBank engine={engine} />}
             <OverlayPanel engine={engine} />
             <PresetPanel engine={engine} player={seqPlayer} />
             <ShaderEditor engine={engine} />
             <CameraPanel engine={engine} />
+            <ImpactPanel engine={engine} />
             <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
               selected={mappingOut} onSelect={setMappingOut} />
             <DmxPanel key={panelEpoch} engine={engine} />
@@ -1269,7 +1381,7 @@ export function App() {
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}
         {frozen && <><span>|</span><span style={{ color: 'var(--accent)' }}>FROZEN</span></>}
         <div className="spacer" />
-        <label className="beatflash-toggle" title="Flash del bordo preview a ogni beat">
+        <label className="beatflash-toggle tb-extra" title="Flash del bordo preview a ogni beat">
           <input
             type="checkbox"
             checked={beatFlash}
@@ -1280,7 +1392,7 @@ export function App() {
           />
           flash beat
         </label>
-        <span>B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · I intensità · Space tap · tieni premuto = momentaneo</span>
+        <span className="bb-keys tb-extra" title="Scorciatoie da tastiera">B blackout · F freeze · P panic · [ ] master · 1-0 effetti · QWER post · I intensità · Space tap · tieni premuto = momentaneo</span>
       </div>
 
       <Toasts />

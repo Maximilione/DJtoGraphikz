@@ -1,0 +1,7 @@
+{
+  "name": "Acid tunnel",
+  "effect": "tunnel",
+  "post": ["bloom"],
+  "postAmounts": { "bloom": 0.5 },
+  "colors": ["#ccff00", "#00ffaa", "#220033"]
+}

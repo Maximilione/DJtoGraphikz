@@ -51,7 +51,8 @@ void main() {
   // slow orbit; angles are periodic, so half an hour in is as good as minute one
   float a = mod(uBeatClock * 0.02 * drift + uTime * 0.03 * drift, 6.2831853);
   float b = 0.35 + 0.25 * sin(mod(uBeatClock * 0.013 * drift, 6.2831853));
-  vec3 ro = orbit(a, b) * vec3(0.0, 0.0, 3.2);
+  // the kick pushes the camera into the gas
+  vec3 ro = orbit(a, b) * vec3(0.0, 0.0, 3.2 * (1.0 - 0.1 * uBassHit));
   vec3 fw = normalize(-ro);
   vec3 rt = normalize(cross(fw, vec3(0.0, 1.0, 0.0)));
   vec3 up = cross(rt, fw);
@@ -67,11 +68,14 @@ void main() {
     t += exp(-c * 2.0) * (0.14 + 0.06 * uBass);
     c = field(ro + rd * t, n, k);
     float cc = c * c;
-    vec3 layer = uColor1 * cc * 2.2 + uColor2 * cc * c * 1.4 + uColor3 * c * 0.25;
-    col = layer * 0.16 + col * 0.95;
+    vec3 layer = uColor1 * cc * 2.6 + uColor2 * cc * c * 1.6 + uColor3 * c * 0.45;
+    col = layer * 0.3 + col * 0.95;
   }
   // log compresses the hot cores into glow instead of white; the floor keeps
   // a dim nebula in a silent room
-  col = log(col * (1.0 + 0.6 * uBassHit) + 1.0) * 0.55 + uColor3 * 0.015;
+  // 1/(1+k r^2): the linear falloff went negative on wide frames (LED strip, ultrawide)
+  float vig = 1.0 / (1.0 + 0.9 * dot(p, p));
+  col = log(col * (1.0 + 1.4 * uBassHit + 0.5 * uBeat) + 1.0) * 0.75 * vig;
+  col += mix(uColor3, uColor2, 0.4) * (0.035 + 0.05 * exp(-dot(p, p) * 3.0)) * (0.7 + 0.6 * uEnergy);
   gl_FragColor = vec4(col, 1.0);
 }

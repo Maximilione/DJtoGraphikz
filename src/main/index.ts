@@ -19,7 +19,7 @@ import { setupProDjLink } from './prodjlink'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
-import { VIDEO_RE } from '../shared/mediaFormats'
+import { VIDEO_RE, SEQ_RE } from '../shared/mediaFormats'
 
 let controlWindow: BrowserWindow | null = null
 let quitting = false
@@ -192,10 +192,29 @@ const overlays = new Map<string, Record<string, unknown>>()
  */
 const SELFTEST = !!process.env.DJG_SELFTEST
 
+/**
+ * Headless-ish tests: under the self-test every window is fully transparent,
+ * click-through and unfocusable, so a 5-minute sweep no longer takes over a
+ * screen. It stays on screen to the compositor (real GPU frames, no
+ * occlusion throttling), the user just cannot see or touch it.
+ * DJG_VISIBLE=1 brings the windows back for debugging.
+ */
+function ghost(win: BrowserWindow): void {
+  if (!SELFTEST || process.env.DJG_VISIBLE === '1') return
+  win.setOpacity(0)
+  win.setIgnoreMouseEvents(true)
+  win.setFocusable(false)
+}
+
 function createControlWindow(): BrowserWindow {
+  // Open almost full screen on the display the user is on (work area: below the
+  // menu bar and above the Dock). Not macOS fullscreen: no Space transition.
+  // Under the self-test the old fixed size stays, the captures depend on it.
+  const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(SELFTEST
+      ? { width: 1280, height: 800 }
+      : { x: wa.x, y: wa.y, width: wa.width, height: wa.height }),
     minWidth: 900,
     minHeight: 600,
     title: 'DJtoGraphikz',
@@ -208,6 +227,7 @@ function createControlWindow(): BrowserWindow {
       backgroundThrottling: false,
     }
   })
+  ghost(win)
   // Keep audio/rendering alive when control window loses focus
   win.webContents.setBackgroundThrottling(false)
   win.once('ready-to-show', () => {
@@ -268,6 +288,7 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
       backgroundThrottling: false,
     }
   })
+  ghost(win)
   // Prevent throttling when output window loses focus (critical for dual-window VJ)
   win.webContents.setBackgroundThrottling(false)
 
@@ -416,7 +437,7 @@ app.whenReady().then(async () => {
 
   protocol.handle('djg-media', req => {
     const path = new URL(req.url).searchParams.get('p')
-    if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path))) return new Response('', { status: 400 })
+    if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path) || SEQ_RE.test(path))) return new Response('', { status: 400 })
     return net.fetch(pathToFileURL(path).toString())
   })
 

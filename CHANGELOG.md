@@ -2,6 +2,78 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.71.0-beta] — 2026-10-06
+
+### Added
+- **Maschere** (`faces`): lanterna di volti di porcellana fusi attorno a un asse, su un pavimento di lamelle radiali di rame e una parete di teste di vetro con occhi incandescenti (raymarch con ripetizione polare). Kick = la struttura pulsa e le lamelle si illuminano a onda dal mozzo; parametri `faces`, `spin`, `glow`.
+- **Presenza proiettore**: macro 0–1 (pannello Camera, telefono, OSC `/djg/presence`) che alza i dettagli scuri, la saturazione e il bloom morbido sulle alte luci, con tetto a 0.96, per fumo e luci di sala. A 0 l'output e' identico. `check:presence`.
+- **GIF export**: pulsante «GIF» accanto alla registrazione WebM; 3/5/8 secondi o loop a N battute esatte, larghezza 320/480/640. Encoder in TypeScript puro, senza dipendenze. `check:gif` (round-trip col decoder dell'app).
+- **Plugin dichiarativi**: cartelle in `~/.djtographikz/plugins/` con `plugin.json` che portano shader ISF, palette, look, scalette e mapping, mai codice. Manifest validato (path traversal, symlink, id duplicati, dimensioni). Tab «Plugin» in Preset & Scalette, `docs/PLUGINS.md`, esempio in `docs/plugin-example/`. `check:plugins`.
+- **Gamepad**: pulsanti e assi di un controller assegnabili con learn agli stessi comandi del MIDI (tap = latch, hold = momentaneo), sezione «Gamepad» nel pannello MIDI. `check:gamepad`.
+- **Installer dmg con grafica**: sfondo con titolo e freccia, icone posizionate, titolo del volume (`scripts/make-dmg-background.py`).
+- `check:glsl`: compila tutti gli shader con glslang come fa three su WebGL2 (serve `brew install glslang`, altrimenti salta).
+
+### Changed
+- **Effetti rifatti su feedback**: `downpour` (Rain: 5 strati di pioggia, lampioni, suolo bagnato, ripple), `snowride` (Snow: discesa stilizzata con pista, abeti, porte da slalom), `ps2towers` (torri di vetro sul blu notte, come lo schermo di avvio), `static` (curvatura CRT, barre SMPTE, volto fantasma, glitch a blocchi), `cage` (reattivita' su kick, medi e alti; raymarch a 64 step), `warehouse` (Bunker: lampade, neon e fasci, piu' contrastato), `android` (forme organiche, normali lisce), `hexagons` (mai scuro in silenzio).
+- **Pannello effetti**: tab Effetti/Post FX/Colori sempre visibili in cima mentre si scorre, e nel Pro il pannello passa sotto il Look Bank con griglia a piu' colonne e parametri in una colonna a lato (sotto 1100 px torna nella sidebar). Il Look Bank mostra le due righe da 8 slot.
+- **Scalette live** rigenerate con i nuovi effetti (galaxy, cathedral, chrome, crystals, mandelbulb, storm, ribbons, beamfield, android, monolith, mesh) e i post Cinema per fase; l'Anyma pesa soprattutto nel Live 3.
+- **Audio piu' robusto**: se l'id del dispositivo sparisce il riavvio riprova con la scheda esterna; il pannello mostra il dispositivo realmente attivo e propone «Usa <scheda>» se si ascolta quello integrato; backoff con log meno rumoroso. Le schede integrate di Windows (Realtek) e le cuffie Bluetooth non vengono piu' scambiate per schede esterne. `check:audiorecovery`.
+- Slider INTENS., MASTER e del deck con traccia riempita.
+
+### Fixed
+- `camera.frag` non compilava (`c` dichiarata due volte): con la camera o l'Impatto attivi il passaggio falliva e lo schermo andava nero.
+- Lo slider «Spessore linee» non aveva effetto sulle `scanlines` (la uniform era sul materiale `filmgrain`).
+- Audio: due `start()` sovrapposti lasciavano due `AudioContext`; uno Stop premuto durante l'avvio o un retry veniva annullato; un permesso microfono negato veniva ritentato all'infinito.
+
+## [0.70.0-beta] — 2026-10-06
+
+### Added
+- **Immagine a tempo** (`imgbeat`): fino a 8 immagini tue (logo, flyer, foto) che entrano a scatti a ritmo di musica e si alternano a uno sfondo generativo. Ritmo (ogni beat, 2 beat, battuta, 3-3-2, solo kick) e 7 stili (pulso, negativo, duotone, glitch a fette, specchio, tunnel, strobo). Senza immagini mostra un glifo procedurale.
+- **Spessore linee**: controllo globale (pannello Camera, telefono, OSC `/djg/lineboost`) che ispessisce le linee di 21 effetti e dei post `outline` e `scanlines`, con un minimo in pixel e alone, per restare leggibili su proiettore con luci e fumo. `check:lineboost`.
+
+### Changed
+- **UI di controllo rifatta**: slider a tutta larghezza con traccia riempita, cursore da 18 px e area da 28 px; preview piccola con il rapporto d'aspetto dell'uscita (letterbox, prima veniva stirata); Look Bank sotto la preview, in tutte le modalita'; sidebar piu' larghe; font minimi 11-13 px; bottoni da 28 px; focus, scrollbar e toggle piu' visibili; griglia effetti a 2 colonne con categorie comprimibili; barra superiore responsiva con BPM sempre visibile, BLACK e PANIC distinguibili; Live con controlli grandi; messaggi d'errore audio con istruzioni e «Riprova». La finestra di controllo si apre quasi a schermo intero.
+- **Test headless**: sotto self-test le finestre sono trasparenti, click-through e senza focus (`DJG_VISIBLE=1` per vederle). Sweep: tempo massimo 20 minuti.
+
+### Fixed
+- `galaxy` (590k punti) quasi nera in silenzio: l'hash dell'indice in float32 collassava la nuvola a circa 10k stelle. `storm`: ora un fulmine ogni ~2 s anche senza bassi.
+- `strobegrid` e `outline` non vanno piu' a nero in silenzio.
+
+## [0.69.0-beta] — 2026-10-06
+
+### Changed
+- **Piu' cazzima su 19 effetti non aggiornati di recente**, ognuno riscritto da un agente e controllato da un secondo agente indipendente: mandala, sacred, tunnel, moire, voronoi, neonpoly, orbits, pulsecity, caustics, quasicrystal, reaction, truchet, pulsar, particles, dna, terrain, grid, cracks, spaceghost. Piu' livelli e profondita', aloni per il bloom, kick come evento fisico (onde d'urto, flash, zoom), tone-map morbido e fondo sempre vivo. Id, parametri e uniform invariati: preset e scalette salvate restano validi.
+- `check-sweep.py`: tempo massimo portato a 20 minuti (lo sweep ora ha oltre 150 misure).
+
+### Fixed
+- `caustics`: usava `uBassHit` e `uBeatClock` senza dichiararle (errore di compilazione), e il nucleo caldo spingeva troppi pixel oltre 0.95.
+- `spaceghost`: il vignette diventava negativo sugli schermi molto larghi (striscia LED, ultrawide) e restava solo il pavimento scuro.
+
+### Added
+- Test headless: sotto `DJG_SELFTEST` le finestre sono trasparenti, click-through e senza focus (`DJG_VISIBLE=1` per vederle).
+
+## [0.68.0-beta] — 2026-10-05
+
+### Added
+- **Stile Anyma**: effetto `android` (busto umanoide cromato procedurale con pannelli biomeccanici, visiera luminosa, dissolvenza in particelle sul kick), effetto `monolith` (portale monumentale con fessura di luce, nebbia volumetrica, pavimento a specchio), look `hologram` e `dissolve` per `mesh` (caricando un modello umanoide ottieni lo stesso stile), Look di fabbrica "Anyma" (si semina solo a Look Bank vuoto) e palette dedicata nell'Auto VJ.
+
+## [0.67.0-beta] — 2026-10-05
+
+### Added
+- **Mesh 3D**: effetto `mesh` che carica modelli GLB/GLTF, OBJ, STL, PLY, FBX (dialog dal pannello parametri o dalla libreria Media). Tre look (filo neon, punti, metallo con riflessi), kick = esplosione dei vertici, bassi = scala, alti = scintillio. Senza modello mostra un toro-nodo procedurale. Il modello viaggia nello snapshot, la finestra output lo rilegge. I `.gltf` funzionano solo con buffer incorporati.
+- **Sequenze di immagini**: cartella di frame numerati (PNG, JPG, WebP, AVIF; EXR/DPX/TIFF convertiti in PNG a 8 bit con `sips` su macOS) come overlay animato (fps o loop da 1–32 battute) e come clip del Deck B agganciata al BPM. Finestra scorrevole con tetto di RAM per le sequenze 4K. `check:sequenza`.
+- **4 effetti**: `mandelbulb` (frattale 3D con dive ciclico), `storm` (fulmini ramificati su cielo di nuvole), `ribbons` (nastri tipo aurora), `beamfield` (rig laser da palco nella nebbia). Inseriti nelle scene dell'Auto VJ.
+
+## [0.66.0-beta] — 2026-10-05
+
+### Added
+- **4 effetti 3D**: `galaxy` (590k particelle GPU a bracci di spirale, onda d'urto sul kick), `cathedral` (navata gotica raymarched con god rays veri), `chrome` (goccia di mercurio liquido con riflessi e iridescenza), `crystals` (tunnel di cristalli con rifrazione e dispersione). Inseriti nelle scene dell'Auto VJ.
+- **5 post cinema** (categoria Cinema): `anamorphic` (streak orizzontale), `halation`, `godrays`, `cinegrade` (curva S, split-toning dalla palette, vignette), `tiltshift` (bokeh). Tre catene pronte C1–C3 per le scalette.
+- **Strato Impatto** (pannello sotto Camera): shake sul kick, punch-zoom elastico sul beat, flash su colpi alti e sul drop, risposta per banda (bassi shake/zoom, medi distorsione, alti chromatic/scintillio), inseguitore d'energia per fase. Logica pura in `src/engine/impact.ts`, `check:reactivity`.
+
+### Fixed
+- `camera.frag`: `mirrorFold` ribaltava l'immagine di 180 gradi (mancava `1.0 -`).
+
 ## [0.65.0-beta] — 2026-10-05
 
 ### Added

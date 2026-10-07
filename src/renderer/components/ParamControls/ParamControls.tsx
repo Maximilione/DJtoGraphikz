@@ -64,8 +64,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
             al cambio
           </label>
           <button
-            className="btn"
-            style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            className="btn btn-sm"
             title="Mapping consigliato per questo effetto — Annulla dal toast"
             onClick={() => {
               const prev = defs.map(d => ({ key: d.key, ...engine.getParamState(d.key) }))
@@ -81,8 +80,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
             Auto
           </button>
           <button
-            className="btn"
-            style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            className="btn btn-sm"
             title="Collega i parametri all'audio, e abbassa quelli gia' al massimo per lasciare spazio al movimento — Annulla dal toast"
             onClick={() => {
               const r = smartMap(engine)
@@ -94,6 +92,58 @@ export function ParamControls({ engine }: ParamControlsProps) {
           </button>
         </div>
       </div>
+      {engine.getCurrentEffect() === 'mesh' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button className="btn btn-sm"
+            title="GLB, GLTF, OBJ, STL, PLY, FBX — il modello viene copiato nella libreria e va anche sull'uscita"
+            onClick={async () => {
+              const f = (await window.api?.pickModels())?.[0]
+              if (!f) return
+              try {
+                const saved = await window.api.librarySaveCopy(f.name, f.path)
+                engine.setMeshModelFile({ name: saved.name, path: saved.path })
+                force()
+              } catch (err) {
+                console.error('[Mesh] import fallito:', err)
+                pushToast(`Non riesco a caricare ${f.name}`, undefined, undefined, 'err')
+              }
+            }}>
+            Carica modello 3D…
+          </button>
+          <span className="micro">{engine.getMeshModel()?.name ?? 'modello di default'}</span>
+          {engine.getMeshModel() && (
+            <button className="btn btn-sm"
+              onClick={() => { engine.setMeshModelFile(null); force() }}>Default</button>
+          )}
+        </div>
+      )}
+      {engine.getCurrentEffect() === 'imgbeat' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button className="btn" style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+            title="PNG, JPG, WebP, SVG, GIF (primo fotogramma) — fino a 8, copiate nella libreria e anche sull'uscita"
+            onClick={async () => {
+              const picked = (await window.api?.pickImages()) ?? []
+              if (!picked.length) return
+              try {
+                const saved = await Promise.all(picked.map(f => window.api.librarySaveCopy(f.name, f.path)))
+                engine.setImgbeatImages([...engine.getImgbeatImages(), ...saved.map(s => ({ name: s.name, path: s.path }))].slice(0, 8))
+                force()
+              } catch (err) {
+                console.error('[Imgbeat] import fallito:', err)
+                pushToast('Non riesco a caricare le immagini', undefined, undefined, 'err')
+              }
+            }}>
+            Carica immagini…
+          </button>
+          <span className="micro">
+            {engine.getImgbeatImages().length ? engine.getImgbeatImages().map(i => i.name).join(', ') : 'immagine di default'}
+          </span>
+          {engine.getImgbeatImages().length > 0 && (
+            <button className="btn" style={{ fontSize: 'var(--fs-xs)', padding: '2px 8px' }}
+              onClick={() => { engine.setImgbeatImages([]); force() }}>Default</button>
+          )}
+        </div>
+      )}
       {defs.map(def => {
         const st = engine.getParamState(def.key)
         const step = (def.max - def.min) / 100
@@ -133,22 +183,16 @@ export function ParamControls({ engine }: ParamControlsProps) {
                 </div>
                 {mapped && (
                   <>
-                    <div className="pm-depth">
-                      <span className="micro">Profondità</span>
-                      <input
-                        type="range" min={-1} max={1} step={0.05}
-                        value={st.depth}
-                        onChange={e => { engine.setParamMapping(def.key, st.source, parseFloat(e.target.value)); force() }}
-                        title="Quanto la sorgente muove il parametro (negativa = inverte)"
-                      />
-                      <span className="u-value" style={{ width: 44, flexShrink: 0 }}>
-                        {st.depth > 0 ? '+' : ''}{Math.round(st.depth * 100)}%
-                      </span>
-                    </div>
+                    <SliderRow
+                      label="Profondità" percent
+                      labelTitle="Quanto la sorgente muove il parametro (negativa = inverte)"
+                      value={st.depth} min={-1} max={1} step={0.05}
+                      onChange={v => { engine.setParamMapping(def.key, st.source, v); force() }}
+                    />
                     {st.source.startsWith('lfo-') && (
-                      <div className="pm-depth">
+                      <div className="pm-depth col">
                         <span className="micro" title="Quante battute dura un giro completo">
-                          Ogni · battute
+                          Giro ogni · battute
                         </span>
                         <div className="pm-rates">
                           {LFO_RATES.map(r => (

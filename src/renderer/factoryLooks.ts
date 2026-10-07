@@ -4,7 +4,7 @@ import { loadLooks, persistLooks } from './looks'
 
 const GRADE = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
 
-// ponytail: hand-curated seeds, no generator — 8 looks is content, not code
+// ponytail: hand-curated seeds, no generator — 9 looks is content, not code
 const FACTORY: Preset[] = [
   {
     name: 'Tunnel Acid',
@@ -79,10 +79,23 @@ const FACTORY: Preset[] = [
     colors: ['#f72585', '#7209b7', '#3a0ca3'],
     grade: { ...GRADE, contrast: 1, saturation: 1.05 },
   },
+  {
+    name: 'Anyma',
+    effect: 'android',
+    post: ['cinegrade', 'halation', 'anamorphic', 'godrays'],
+    colors: ['#7fb2ff', '#0b1a3d', '#d6ecff'],
+    grade: { ...GRADE, contrast: 1.15, saturation: 0.9, vignette: 0.45, exposure: 1 },
+    effectParams: {
+      android: {
+        dissolve: { value: 0.3, source: 'bass', depth: 0.4 },
+        glow: { value: 1, source: 'energy', depth: 0.4 },
+      },
+    },
+  },
 ]
 
 /**
- * Seed the Look Bank with 8 factory looks (slots 0-7) on first run.
+ * Seed the Look Bank with the factory looks (slots 0-8) on first run.
  * No-op if the bank already holds anything. Returns true if seeded.
  */
 export function seedFactoryLooks(): boolean {

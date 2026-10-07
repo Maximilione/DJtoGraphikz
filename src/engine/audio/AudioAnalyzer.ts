@@ -4,6 +4,7 @@ import { KeyDetector, type Key } from './KeyDetector'
 import { BeatTracker } from './BeatTracker'
 import { MidiClock } from './MidiClock'
 import { ProDjLinkClock } from './ProDjLinkClock'
+import { findExternal, isBuiltInLabel, restartPlan } from '../../shared/audioInput'
 
 export interface AudioData {
   sub: number
@@ -119,6 +120,41 @@ export class AudioAnalyzer {
   get isRunning() { return this.running }
   /** Device the graph is actually on — a caller cannot tell from isRunning alone. */
   get currentDeviceId() { return this.lastDeviceId }
+  /** Label of the track actually delivering audio ('' when none) — what the OS really opened. */
+  get currentLabel() { return this.activeLabel }
+  private activeLabel = ''
+  private devChangeBound = false
+  /**
+   * Bumped by every start()/startFile()/stop(). An async start that finds it changed
+   * after an await has been superseded (another start, or the user's Stop): it releases
+   * what it opened and quits instead of resurrecting the graph.
+   */
+  private gen = 0
+  get generation() { return this.gen }
+  /** Why automatic recovery gave up (permission denied), '' otherwise. */
+  private fatal = ''
+  get lastError() { return this.fatal }
+
+  /** Id of an external (non built-in) card plugged in now, if any. */
+  private async externalInputId(): Promise<string | undefined> {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      return findExternal(all.filter(d => d.kind === 'audioinput'))?.deviceId
+    } catch { return undefined }
+  }
+
+  /** A card (re)appearing while we are on the room mic, or while recovering: go to it. */
+  private onDeviceChange = async () => {
+    if (this.userStopped || this.sourceKind === 'file') return
+    const recovering = !!this.restartTimer
+    if (!recovering && !(this.running && isBuiltInLabel(this.activeLabel))) return
+    const id = await this.externalInputId()
+    if (!id || this.userStopped) return
+    console.log('[AudioAnalyzer] external card available — switching to it')
+    this.start(id).then(() => { this.restartAttempts = 0 }).catch(err => {
+      if (!this.giveUp(err)) this.scheduleRestart('switch failed')
+    })
+  }
 
   getStatus(): 'running' | 'reconnecting' | 'stopped' {
     if (this.restartTimer) return 'reconnecting'
@@ -139,78 +175,141 @@ export class AudioAnalyzer {
     if (this.userStopped || this.restartTimer) return
     // A file has no device to come back: restarting would re-open the mic.
     if (this.sourceKind === 'file') return
-    console.warn(`[AudioAnalyzer] audio device lost (${reason}) — restarting in ${delayMs}ms`)
-    this.restartTimer = window.setTimeout(() => {
+    if (restartPlan(this.restartAttempts).log) {
+      console.warn(`[AudioAnalyzer] audio device lost (${reason}) — restarting in ${delayMs}ms`)
+    }
+    this.restartTimer = window.setTimeout(async () => {
       this.restartTimer = 0
-      this.start(this.lastDeviceId)
+      // After enough failures the remembered id is not the way back: one try on the default
+      const plan = restartPlan(this.restartAttempts)
+      // No remembered id (we fell back before): prefer a card over the room mic
+      const id = plan.tryDefault ? undefined : (this.lastDeviceId ?? await this.externalInputId())
+      // Stop (or another start) may have come in while the cards were being listed
+      if (this.userStopped || this.restartTimer) return
+      this.start(id)
         .then(() => { this.restartAttempts = 0 })
         .catch(err => {
+          if (this.userStopped || this.giveUp(err)) return
           // A USB interface can take seconds to re-enumerate — keep trying
           // with backoff instead of going silent for the rest of the night
           this.restartAttempts++
-          console.error('[AudioAnalyzer] restart failed (attempt ' + this.restartAttempts + '):', err)
-          this.userStopped = false
-          this.scheduleRestart('retry', Math.min(30_000, 1000 * 2 ** this.restartAttempts))
+          const next = restartPlan(this.restartAttempts)
+          if (next.log) console.error('[AudioAnalyzer] restart failed (attempt ' + this.restartAttempts + '):', err)
+          this.scheduleRestart('retry', next.delayMs)
         })
     }, delayMs)
   }
 
+  /** Permission denied will not fix itself: stop retrying and keep the reason for the UI. */
+  private giveUp(err: unknown): boolean {
+    const name = (err as DOMException)?.name
+    if (name !== 'NotAllowedError' && name !== 'SecurityError') return false
+    console.error('[AudioAnalyzer] microphone access denied — automatic recovery stopped')
+    this.fatal = `${name}: ${(err as Error)?.message ?? ''}`
+    this.restartAttempts = 0
+    return true
+  }
+
   async start(deviceId?: string): Promise<void> {
     this.stop()
+    const gen = this.gen
     this.userStopped = false
+    this.fatal = ''
     this.lastDeviceId = deviceId
+    if (!this.devChangeBound) {
+      this.devChangeBound = true
+      navigator.mediaDevices.addEventListener?.('devicechange', this.onDeviceChange)
+    }
+    const opened: MediaStream[] = []
+    try {
+      await this.open(deviceId, gen, st => { opened.push(st) })
+    } catch (err) {
+      // Superseded: whoever superseded us owns the graph now. Current: do not leave
+      // a half-built graph (context, analyser) behind a failure.
+      opened.forEach(o => o.getTracks().forEach(t => t.stop()))
+      if (gen !== this.gen) return
+      this.teardown()
+      throw err
+    }
+    // Superseded while the last await was in flight: the stream we opened is ours to drop.
+    if (gen !== this.gen) opened.forEach(o => o.getTracks().forEach(t => t.stop()))
+  }
+
+  private async open(deviceId: string | undefined, gen: number, got: (s: MediaStream) => void): Promise<void> {
+    const stale = () => gen !== this.gen
 
     // Native device rate — forcing 44100 on 48k hardware goes through a
     // resampler that is a known source of AudioContext device errors
-    this.context = new AudioContext()
-    this.context.onstatechange = () => {
-      if (!this.context) return
-      if (this.context.state === 'suspended' && this.running) {
-        this.context.resume().catch(() => {})
-      } else if ((this.context.state as string) === 'closed' && this.running) {
+    const context = new AudioContext()
+    this.context = context
+    context.onstatechange = () => {
+      if (this.context !== context) return
+      if (context.state === 'suspended' && this.running) {
+        context.resume().catch(() => {})
+      } else if ((context.state as string) === 'closed' && this.running) {
         this.scheduleRestart('context closed')
       }
     }
 
-    if (this.context.state === 'suspended') {
-      await this.context.resume()
+    if (context.state === 'suspended') {
+      await context.resume()
+      if (stale()) return
     }
 
     this.makeAnalyser()
 
+    const raw = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     const constraints: MediaStreamConstraints = {
-      audio: deviceId
-        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      audio: deviceId ? { deviceId: { exact: deviceId }, ...raw } : raw
     }
 
     console.log('[AudioAnalyzer] Requesting getUserMedia with constraints:', JSON.stringify(constraints))
+    let stream: MediaStream
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints)
+      stream = await navigator.mediaDevices.getUserMedia(constraints)
     } catch (err) {
       console.error('[AudioAnalyzer] getUserMedia failed:', err)
       // Stale deviceId (card replugged → new id): retrying the same exact id
       // loops forever. Fall back to the system default and forget the id.
+      // A denied permission is not a stale id: no fallback, the error goes up.
       const name = (err as DOMException)?.name
-      if (!deviceId || (name !== 'OverconstrainedError' && name !== 'NotFoundError')) throw err
-      console.warn('[AudioAnalyzer] device id gone — falling back to default input')
-      this.lastDeviceId = undefined
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-      })
+      if (stale() || !deviceId || (name !== 'OverconstrainedError' && name !== 'NotFoundError')) throw err
+      // Another card may be plugged in under a new id: take it over the room mic
+      const extId = await this.externalInputId()
+      let fallback: MediaStream | null = null
+      if (extId && !stale()) {
+        try {
+          fallback = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: extId }, ...raw } })
+          got(fallback)
+          if (!stale()) this.lastDeviceId = extId
+          console.warn('[AudioAnalyzer] device id gone — using the external card found')
+        } catch (e2) { console.warn('[AudioAnalyzer] external card failed:', e2) }
+      }
+      if (stale()) return
+      if (!fallback) {
+        console.warn('[AudioAnalyzer] device id gone — falling back to default input')
+        this.lastDeviceId = undefined
+        fallback = await navigator.mediaDevices.getUserMedia({ audio: raw })
+        got(fallback)
+      }
+      stream = fallback
     }
-    console.log('[AudioAnalyzer] Got stream, tracks:', this.stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
+    got(stream)
+    if (stale()) return   // start() drops the stream we opened
+    this.stream = stream
+    console.log('[AudioAnalyzer] Got stream, tracks:', stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
 
     // Device yanked / OS revoked the track → recover instead of going silent
-    const track = this.stream.getAudioTracks()[0]
-    if (track) track.onended = () => this.scheduleRestart('track ended')
+    const track = stream.getAudioTracks()[0]
+    this.activeLabel = track?.label ?? ''
+    if (track) track.onended = () => { if (this.stream === stream) this.scheduleRestart('track ended') }
 
-    this.source = this.context.createMediaStreamSource(this.stream)
+    this.source = context.createMediaStreamSource(stream)
     await this.wireGraph()
 
     console.log('[AudioAnalyzer] Started with device:', deviceId || 'default',
-      'sample rate:', this.context.sampleRate,
-      'bins:', this.analyser!.frequencyBinCount)
+      'sample rate:', context.sampleRate,
+      'bins:', this.analyser?.frequencyBinCount)
   }
 
   /**
@@ -223,12 +322,15 @@ export class AudioAnalyzer {
    */
   async startFile(file: File): Promise<void> {
     this.stop()
+    const gen = this.gen
     this.userStopped = false
+    this.fatal = ''
     this.sourceKind = 'file'
     this.fileName = file.name
 
     this.context = new AudioContext()
     if (this.context.state === 'suspended') await this.context.resume()
+    if (gen !== this.gen) return
     this.makeAnalyser()
 
     this.mediaUrl = URL.createObjectURL(file)
@@ -242,8 +344,10 @@ export class AudioAnalyzer {
       el.onerror = () => reject(new Error(`Non riesco a leggere ${file.name}`))
     })
 
+    if (gen !== this.gen) return
     this.source = this.context.createMediaElementSource(el)
     await this.wireGraph()
+    if (gen !== this.gen) return
     // You have to hear it: this is a rehearsal, not a measurement.
     this.gainNode!.connect(this.context.destination)
 
@@ -272,6 +376,7 @@ export class AudioAnalyzer {
 
   /** gain → analyser → BPM library, and the buffers that read them. */
   private async wireGraph(): Promise<void> {
+    const gen = this.gen
     // Add gain node for input amplification (useful for weak mic signals)
     this.gainNode = this.context!.createGain()
     this.gainNode.gain.value = this.inputGain
@@ -280,10 +385,12 @@ export class AudioAnalyzer {
 
     // Initialize realtime-bpm-analyzer
     try {
-      this.bpmAnalyzer = await createRealtimeBpmAnalyzer(this.context!, {
+      const created = await createRealtimeBpmAnalyzer(this.context!, {
         continuousAnalysis: true,
         stabilizationTime: 10000,
       })
+      if (gen !== this.gen) { try { created.stop() } catch (_) {} return }   // stopped meanwhile
+      this.bpmAnalyzer = created
       this.bpmAnalyzerNode = this.bpmAnalyzer.node
 
       // Connect gain → bpmAnalyzer (parallel to analyser)
@@ -331,10 +438,16 @@ export class AudioAnalyzer {
   }
 
   stop(): void {
-    this.running = false
+    this.gen++
     this.userStopped = true
     clearTimeout(this.restartTimer)
     this.restartTimer = 0
+    this.teardown()
+  }
+
+  /** Release everything the graph holds; says nothing about whether recovery may follow. */
+  private teardown(): void {
+    this.running = false
     if (this.context) this.context.onstatechange = null
 
     if (this.bpmAnalyzer) {
@@ -356,6 +469,7 @@ export class AudioAnalyzer {
     // set is 100 MB of wav.
     if (this.mediaUrl) { URL.revokeObjectURL(this.mediaUrl); this.mediaUrl = '' }
     this.fileName = ''
+    this.activeLabel = ''
     this.sourceKind = 'device'
     if (this.context && this.context.state !== 'closed') {
       this.context.close().catch(() => {})

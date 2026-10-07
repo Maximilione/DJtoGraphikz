@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.65.0-beta",
+  "version": "0.71.0-beta",
   "private": true,
   "license": "UNLICENSED",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
@@ -14,6 +14,8 @@
     "package:win": "electron-builder --win",
     "package:linux": "electron-builder --linux",
     "check:output": "python3 scripts/check-output.py",
+    "check:audiorecovery": "node scripts/check-audiorecovery.mjs",
+    "check:glsl": "sh scripts/check-glsl.sh",
     "check:sweep": "python3 scripts/check-sweep.py",
     "check:colorsync": "node scripts/check-colorsync.mjs",
     "check:audiodevice": "node scripts/check-audiodevice.mjs",
@@ -22,17 +24,23 @@
     "check:midiclock": "node scripts/check-midiclock.mjs",
     "check:prodjlink": "node scripts/check-prodjlink.mjs",
     "check:dryrun": "python3 scripts/check-dryrun.py",
+    "check:gamepad": "node scripts/check-gamepad.mjs",
+    "check:gif": "node scripts/check-gif.mjs",
+    "check:plugins": "node scripts/check-plugins.mjs",
     "check:momentary": "node scripts/check-momentary.mjs",
     "check:intensity": "node scripts/check-intensity.mjs",
+    "check:presence": "node scripts/check-presence.mjs",
+    "check:lineboost": "node scripts/check-lineboost.mjs",
     "check:mappings": "node scripts/check-mappings.mjs",
+    "check:sequenza": "node scripts/check-sequenza.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
     "check:phone": "node scripts/check-phone.mjs",
-    "check:phoneseq": "node scripts/check-phoneseq.mjs",
     "check:phoneseq": "node scripts/check-phoneseq.mjs",
     "check:loaders": "node scripts/check-loaders.mjs",
     "check:storage": "node scripts/check-storage.mjs",
     "check:venues": "node scripts/check-venues.mjs",
     "check:outputs": "node scripts/check-outputs.mjs",
+    "check:reactivity": "node scripts/check-reactivity.mjs",
     "check:autovj": "node scripts/check-autovj.mjs",
     "check:phases": "node scripts/check-phases.mjs",
     "check:key": "node scripts/check-key.mjs",
@@ -88,6 +96,29 @@
     "publish": {
       "provider": "github",
       "releaseType": "release"
+    },
+    "dmg": {
+      "title": "DJtoGraphikz ${version}",
+      "background": "build/dmg-background.png",
+      "icon": "build/icon.icns",
+      "iconSize": 96,
+      "window": {
+        "width": 660,
+        "height": 400
+      },
+      "contents": [
+        {
+          "x": 165,
+          "y": 200,
+          "type": "file"
+        },
+        {
+          "x": 495,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   },
   "dependencies": {

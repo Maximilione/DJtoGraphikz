@@ -309,13 +309,14 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   const searchLower = search.toLowerCase()
 
   return (
-    <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+    <div className="panel fx-panel" style={{ padding: 0 }}>
       {/* Section tabs — always visible */}
-      <div className="tab-bar">
+      <div className="tab-bar fx-sticky-tabs">
         {[
-          { id: 'fx' as Section, label: 'Effetti', count: EFFECT_COUNT },
-          { id: 'post' as Section, label: `Post FX`, count: activePosts.size },
-          { id: 'color' as Section, label: 'Colori', count: null },
+          { id: 'fx' as Section, label: 'Effetti', count: EFFECT_COUNT, on: false, hint: `${EFFECT_COUNT} effetti` },
+          // lit only when filters are running: that is the number worth a glance
+          { id: 'post' as Section, label: `Post FX`, count: activePosts.size, on: activePosts.size > 0, hint: `${activePosts.size} filtri attivi` },
+          { id: 'color' as Section, label: 'Colori', count: null, on: false, hint: '' },
         ].map(tab => (
           <button
             key={tab.id}
@@ -324,7 +325,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             title={`Mostra sezione ${tab.label}`}
           >
             {tab.label}
-            {tab.count !== null && <span className="tab-count">{tab.count}</span>}
+            {(tab.id === 'fx' || tab.on) && <span className={`tab-count${tab.on ? ' on' : ''}`} title={tab.hint}>{tab.count}</span>}
           </button>
         ))}
       </div>
@@ -334,21 +335,29 @@ export function EffectPanel({ engine }: EffectPanelProps) {
         {section === 'fx' && (
           <div className="u-col">
             {/* Search */}
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cerca effetti…"
-              title="Filtra gli effetti per nome"
-              style={{ width: '100%', fontSize: 'var(--fs-xs)' }}
-            />
+            <div className="u-row fx-search">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Cerca effetti…"
+                title="Filtra gli effetti per nome"
+                style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
+              />
+              {search && (
+                <button className="btn btn-sm" onClick={() => setSearch('')} title="Cancella la ricerca" aria-label="Cancella la ricerca">×</button>
+              )}
+            </div>
 
             {/* Active effect indicator */}
             <div className="active-banner">
               <div className="status-dot on" />
-              <span className="active-banner-label">{effectLabel(activeEffect)}</span>
+              <span className="active-banner-label" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                In onda · {isfActive ? isfActive.replace(/\.(fs|frag|glsl)$/i, '') : effectLabel(activeEffect)}
+              </span>
             </div>
 
+            <div className="fx-params u-col">
             {/* Per-effect params + audio mapping */}
             <ParamControls engine={engine} key={activeEffect} />
 
@@ -356,7 +365,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             <div className="sub-card">
               <div className="cat-label">Transizione</div>
               {/* Type selector */}
-              <div style={{ display: 'flex', gap: '2px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '3px', marginBottom: '4px', flexWrap: 'wrap' }}>
                 {TRANSITIONS.map(t => (
                   <button
                     key={t.id}
@@ -373,7 +382,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </div>
               {/* Duration */}
               <SliderRow
-                label="Tempo" suffix="s"
+                label="Durata" suffix="s"
                 value={transitionDuration} min={0} max={3} step={0.1}
                 title="Durata della transizione in secondi"
                 onChange={v => { setTransitionDuration(v); engine?.setTransitionDuration(v) }}
@@ -396,6 +405,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </button>
             </div>
 
+            </div>
+            <div className="fx-lib u-col">
             {/* Categories — the one shared grid */}
             <EffectGrid activeId={activeEffect} onPick={selectEffect} search={search} />
 
@@ -458,6 +469,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
             {isfBrowserOpen && (
               <IsfBrowser onClose={() => setIsfBrowserOpen(false)} onImported={onIsfImported} />
             )}
+            </div>
           </div>
         )}
 
@@ -469,25 +481,19 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               <div className="active-banner" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '3px' }}>
                 <div className="active-banner-label">Ordine dei filtri (dall'alto in basso)</div>
                 {postChain.map((entry, i) => (
-                  <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <span className="u-hint" style={{ width: '12px' }}>{i + 1}</span>
-                    <span className="u-hint" style={{
-                      color: 'var(--accent)', width: '54px',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {postLabel(entry.id)}
+                  <SliderRow
+                    key={entry.id}
+                    label={`${i + 1} · ${postLabel(entry.id)}`}
+                    value={entry.amount} min={0} max={1} step={0.05} percent
+                    title="Quanto si sente il filtro"
+                    onChange={v => setPostAmount(entry.id, v)}
+                  >
+                    <span className="chain-ctl">
+                      <button className="btn btn-ghost btn-sm" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0} aria-label="Sposta su nella catena">↑</button>
+                      <button className="btn btn-ghost btn-sm" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} aria-label="Sposta giù nella catena">↓</button>
+                      <button className="btn btn-ghost btn-sm danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)} aria-label="Disattiva effetto">×</button>
                     </span>
-                    <input
-                      type="range" min={0} max={1} step={0.05}
-                      value={entry.amount}
-                      onChange={e => setPostAmount(entry.id, parseFloat(e.target.value))}
-                      style={{ flex: 1 }}
-                      title="Quanto si sente il filtro"
-                    />
-                    <button className="btn btn-ghost btn-sm" title="Sposta su nella catena" onClick={() => movePost(entry.id, -1)} disabled={i === 0} aria-label="Sposta su nella catena">↑</button>
-                    <button className="btn btn-ghost btn-sm" title="Sposta giù nella catena" onClick={() => movePost(entry.id, 1)} disabled={i === postChain.length - 1} aria-label="Sposta giù nella catena">↓</button>
-                    <button className="btn btn-ghost btn-sm danger" title="Disattiva effetto" onClick={() => togglePost(entry.id)} aria-label="Disattiva effetto">×</button>
-                  </div>
+                  </SliderRow>
                 ))}
               </div>
             )}
@@ -565,7 +571,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
             {/* Transition speed */}
             <SliderRow
-              label="Trans."
+              label="Velocità cambio"
               value={transitionSpeed} min={0} max={1} step={0.05}
               title="Velocità della transizione colore"
               onChange={handleTransitionSpeed}
@@ -573,7 +579,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
 
             {/* Master colour grade — the pass that makes it look graded, not raw */}
             <div>
-              <div className="cat-label">Colore</div>
+              <div className="cat-label">Regolazione colore</div>
               {([
                 { key: 'exposure' as const, label: 'Esposiz.', min: 0.2, max: 2, step: 0.05 },
                 { key: 'contrast' as const, label: 'Contrasto', min: 0.5, max: 2, step: 0.05 },
@@ -610,7 +616,7 @@ export function EffectPanel({ engine }: EffectPanelProps) {
               </div>
 
               <SliderRow
-                label={cycleBeatSync ? 'Beat' : 'Intrvl'}
+                label={cycleBeatSync ? 'Ogni (beat)' : 'Intervallo'}
                 suffix={cycleBeatSync ? '' : 's'}
                 value={cycleBeatSync ? cycleBeats : cycleInterval}
                 min={cycleBeatSync ? 1 : 2}
