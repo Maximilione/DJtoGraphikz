@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.71.1-beta] — 2026-10-07
+
+### Fixed
+- **Sezione Media**: lo slider di scala delle immagini/video/sequenze/testo deformava le sorgenti non quadrate (uOverlayScale uguale su entrambi gli assi, ignorando l'aspect ratio reale e quello dello schermo). Ora la larghezza segue l'aspect ratio della sorgente. (`659f516`)
+- **imgbeat**: il picker immagini accettava solo i formati nativi Chromium; ora converte HEIC/TIFF/PSD/RAW con `sips` su macOS come il resto della libreria. (`bb9de0a`)
+
 ## [0.71.0-beta] — 2026-10-06
 
 ### Added
