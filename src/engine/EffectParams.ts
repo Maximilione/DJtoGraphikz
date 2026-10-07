@@ -378,6 +378,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
     { key: 'width', label: 'Fessura', min: 0.4, max: 2, default: 1 },
   ],
+  datacenter: [
+    { key: 'speed', label: 'Velocità', min: 0.3, max: 2.5, default: 1 },
+    { key: 'alarm', label: 'Allarme', min: 0, max: 2, default: 1 },
+    { key: 'density', label: 'Densità', min: 0.6, max: 1.8, default: 1 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
