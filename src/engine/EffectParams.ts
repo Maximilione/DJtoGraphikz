@@ -378,6 +378,11 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'haze', label: 'Nebbia', min: 0.3, max: 2, default: 1 },
     { key: 'width', label: 'Fessura', min: 0.4, max: 2, default: 1 },
   ],
+  truss: [
+    { key: 'strobe', label: 'Strobo', min: 0, max: 2, default: 1 },
+    { key: 'fixtures', label: 'Fari', min: 3, max: 12, default: 6 },
+    { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.6 },
+  ],
   crystals: [
     { key: 'facets', label: 'Settori', min: 5, max: 12, default: 7 },
     { key: 'dispersion', label: 'Dispersione', min: 0, max: 2, default: 1 },
