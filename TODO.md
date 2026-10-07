@@ -67,7 +67,7 @@ Post-effetti sul frame — dallo studio "Effetti VJ: i preset migliori altrove" 
 - [x] **Q5 Tonalita' → palette** — fatto in v0.52.0: `KeyDetector.ts` (croma + Krumhansl, 8 s), palette del genere piu' vicina sul cerchio delle quinte, calde/fredde per modo; `check:key` · **M**
 - [x] **Q2 Palette da un'immagine** — fatto in v0.53.0: k-means++ su miniatura, dominante + due piu' lontani, slot nella griglia, palette tue in un solo spazio di indici; `check:palette` · **S**
 - [x] **Q3 Maschere fra i deck** — fatto in v0.54.0: split/radiale/luma/audio in `deckmix.frag`, crossfader = bordo, SOFT, `check:deckmix` · **M**
-- [x] **Q4 Loop video come sorgente di deck** — fatto in v0.56.0: `videoDeck.ts`, deck B = playlist a tempo, `check:videodeck`. Solo formati Chromium (niente HAP/ProRes) · **M/L**
+- [x] **Q4 Loop video come sorgente di deck** — fatto in v0.56.0: `videoDeck.ts`, deck B = playlist a tempo, `check:videodeck`. Formati Chromium + **HAP (Hap1/Hap5)** da v0.72.0 (`hap.ts`/`hapContainer.ts`, texture compressa diretta in GPU, `check:hap`); restano fuori HapY/HapM/HapA/Hap7/HapH e ProRes · **M/L**
 
 Integrazione:
 
