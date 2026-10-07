@@ -61,27 +61,27 @@ export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, onToggle
 
         {/* The user's own scenes for this genre */}
         <div className="u-col" style={{ gap: 4 }}>
-          <div className="slider-row">
+          <div className="u-col" style={{ gap: 4 }}>
             <button type="button" className="btn" onClick={addCurrent} disabled={!engine}
               title="Salva l'effetto corrente con parametri, mapping audio e post-FX come scena di questo genere">
               + Look corrente come scena
             </button>
-            <select value={savePhase} onChange={e => setSavePhase(e.target.value as Phase | '')} title="In quale momento del pezzo va questa scena">
+            <select style={{ width: '100%' }} value={savePhase} onChange={e => setSavePhase(e.target.value as Phase | '')} title="In quale momento del pezzo va questa scena">
               <option value="">fase: {PHASE_LABEL[vjStatus.phase].toLowerCase()} (attuale)</option>
               {(['break', 'build', 'groove', 'peak'] as Phase[]).map(ph => <option key={ph} value={ph}>{PHASE_LABEL[ph]}</option>)}
             </select>
           </div>
           {mineHere.length > 0 && (
             <>
-              <label className="slider-row" style={{ cursor: 'pointer' }}>
+              <label className="u-row" style={{ cursor: 'pointer', minHeight: 28 }}>
                 <input type="checkbox" checked={onlyMine} onChange={e => toggleOnlyMine(e.target.checked)} />
                 <span className="label">Solo le mie (dove ne ho)</span>
               </label>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
                 {mineHere.map(m => (
-                  <li key={m.id} className="slider-row" style={{ gap: 6 }}>
-                    <span style={{ flex: 1 }}>{effectLabel(m.effect)} · {PHASE_LABEL[m.phase].toLowerCase()}{m.posts.length ? ` · ${m.posts.join('+')}` : ''}</span>
-                    <button type="button" className="btn" onClick={() => remove(m.id)} aria-label={`Rimuovi la scena ${m.name}`} title="Rimuovi">×</button>
+                  <li key={m.id} className="u-row" style={{ minHeight: 28 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}>{effectLabel(m.effect)} · {PHASE_LABEL[m.phase].toLowerCase()}{m.posts.length ? ` · ${m.posts.join('+')}` : ''}</span>
+                    <button type="button" className="btn btn-sm" onClick={() => remove(m.id)} aria-label={`Rimuovi la scena ${m.name}`} title="Rimuovi">×</button>
                   </li>
                 ))}
               </ul>

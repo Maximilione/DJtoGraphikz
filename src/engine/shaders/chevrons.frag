@@ -12,6 +12,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -42,7 +43,9 @@ void main() {
   float y = uv.y * 4.0 + v + travel * dir;
 
   // stripe edges one pixel soft: the diagonals are what the eye reads
-  float th = clamp(thickness, 0.1, 0.95);
+  // stripe thickness in lane-period units: widened, floored at lminPx pixels (one period = uResolution.y / 4 px)
+  float lminPx = 3.0 + 4.0 * uLineBoost;
+  float th = clamp(max(thickness * (1.0 + 0.8 * uLineBoost), lminPx * 4.0 / uResolution.y), 0.1, 0.95);
   float fy = fract(y);
   float ay = fwidth(y);
   float stripe = smoothstep(1.0 - th - ay, 1.0 - th, fy) * (1.0 - smoothstep(1.0 - ay, 1.0, fy));

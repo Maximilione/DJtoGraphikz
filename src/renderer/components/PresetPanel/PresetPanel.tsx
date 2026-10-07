@@ -8,6 +8,7 @@ import {
   usesHold, HOLD_LIMITS, MODE_LABELS, type Sequence, type SequenceStep, type SequenceMode, type StepOverlay,
 } from './sequences'
 import type { SequencePlayer } from './useSequencePlayer'
+import { PluginPanel } from './PluginPanel'
 import { enterStep, clearStepOverlays, paramsFromScreen } from './sequencePlayer'
 import { readLibraryImage, IMAGE_RE, type LibraryItem } from '../OverlayPanel/OverlayPanel'
 import { pushToast } from '../Toasts/Toasts'
@@ -37,7 +38,7 @@ function savePresetsToStorage(presets: Preset[]): boolean {
 
 export function PresetPanel({ engine, player }: PresetPanelProps) {
   const { sequences, persist, playingSeq, stepIndex, playing, step, stop: stopSequence, next: seqNext, prev: seqPrev } = player
-  const [tab, setTab] = useState<'presets' | 'playlist'>('presets')
+  const [tab, setTab] = useState<'presets' | 'playlist' | 'plugin'>('presets')
 
   // Presets
   const [presets, setPresets] = useState<Preset[]>(loadPresets)
@@ -331,7 +332,12 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
           <button className={`pill${tab === 'playlist' ? ' active' : ''}`} title="Mostra le scalette" onClick={() => setTab('playlist')}>
             Scalette ({sequences.length})
           </button>
+          <button className={`pill${tab === 'plugin' ? ' active' : ''}`} title="Plugin di terze parti (solo dati)" onClick={() => setTab('plugin')}>
+            Plugin
+          </button>
         </div>
+
+        {tab === 'plugin' && <PluginPanel engine={engine} sequences={sequences} persist={persist} />}
 
         {tab === 'presets' && (
           <div className="u-col">
@@ -487,7 +493,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                             value={st.hold}
                             title={draft.mode === 'timer' ? 'Secondi su questo passo' : 'Beat su questo passo'}
                             onChange={e => updateStep(i, { hold: clampHold(parseInt(e.target.value), draft.mode) })}
-                            style={{ flex: 1 }}
+                            style={{ flex: 1, minWidth: 0, '--p': `${((st.hold - HOLD_LIMITS[draft.mode].min) / (HOLD_LIMITS[draft.mode].max - HOLD_LIMITS[draft.mode].min)) * 100}%` } as React.CSSProperties}
                           />
                           <span className="u-value" style={{ width: '32px', flexShrink: 0 }}>
                             {st.hold}{HOLD_LIMITS[draft.mode].unit}

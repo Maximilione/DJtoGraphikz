@@ -12,11 +12,23 @@ await build({ entryPoints: ['src/engine/livePostSets.ts'], bundle: true, format:
 const { GENRE_CONFIGS, FAMILY } = await import(pathToFileURL(out).href)
 const { LIVE_POSTS } = await import(pathToFileURL(out2).href)
 
+// Effetti nuovi: ogni blocco di 10 passi ne riserva 2-3 (slots = posizioni nel blocco).
+// Le scene sono prese da TUTTI i genere (stessi parametri dell'Auto VJ); `only` limita effetto -> fasi,
+// `cap` il numero massimo di passi. Anyma (android/monolith) pesa su Live 3; imgbeat escluso (serve immagini).
+const NEW = new Set(['galaxy', 'cathedral', 'chrome', 'crystals', 'mandelbulb', 'storm', 'ribbons', 'beamfield', 'android', 'monolith', 'mesh'])
+const NOT = (...e) => Object.fromEntries(e.map(x => [x, []]))
 const LIVES = [
-  { name: 'Live 1 — Hard Tekno', genre: 'hard-tekno' },
-  { name: 'Live 2 — Bounce Techno', genre: 'bounce' },
-  { name: 'Live 3 — Techno', genre: 'dark-industrial' },
+  { name: 'Live 1 — Hard Tekno', genre: 'hard-tekno', slots: [3, 7], only: { ...NOT('android', 'ribbons'), monolith: ['peak'], cathedral: ['break'] }, cap: { monolith: 2 } },
+  { name: 'Live 2 — Bounce Techno', genre: 'bounce', slots: [2, 6, 9], only: { ...NOT('android', 'monolith'), cathedral: ['break', 'build'] }, cap: {} },
+  { name: 'Live 3 — Techno', genre: 'dark-industrial', slots: [1, 4, 7], only: {}, cap: {} },
 ]
+const MESH = [
+  { effect: 'mesh', phase: 'groove', posts: ['bloom'], params: { look: { value: 3 }, spin: { value: 1 }, burst: { value: 0.8, source: 'beat', depth: 0.6 } } },
+  { effect: 'mesh', phase: 'peak', posts: ['bloom'], params: { look: { value: 0 }, spin: { value: 1.6 }, burst: { value: 1.2, source: 'beat', depth: 0.6 } } },
+]
+// effetti dove i post Cinema (godrays/anamorphic/halation) rendono: scene luminose con raggi e metalli
+const CINEMA_FX = new Set(['cathedral', 'beamfield', 'monolith', 'android', 'chrome', 'galaxy', 'crystals', 'mandelbulb'])
+const CINE_SET = { break: 'C1', groove: 'C2', peak: 'C3' }
 const TOTAL = 80 * 60
 // arco: [fase, secondi per passo, passi]; si ripete a onde, poi chiusura
 const WARM = [['break', 45, 2], ['groove', 60, 3]]
@@ -26,9 +38,17 @@ const CLOSE = [['groove', 60, 3], ['break', 60, 3]]
 const CUTS = { break: ['crossfade', 'dissolve'], build: ['wipe-down', 'wipe-left'], groove: ['wipe-left', 'radial', 'dissolve', 'wipe-down'], peak: ['dissolve', 'radial', 'wipe-left'] }
 const cutFor = (phase, i) => CUTS[phase][i % CUTS[phase].length]
 
-function steps(cfg) {
+function steps(cfg, live) {
   const pool = { break: [], build: [], groove: [], peak: [] }
-  for (const sc of cfg.scenes) pool[sc.phase].push(sc)
+  const fresh = { break: [], build: [], groove: [], peak: [] }
+  for (const sc of cfg.scenes) if (!NEW.has(sc.effect)) pool[sc.phase].push(sc)
+  const seen = new Set()
+  for (const c of Object.values(GENRE_CONFIGS)) for (const sc of [...c.scenes, ...MESH]) {
+    const ok = NEW.has(sc.effect) && (live.only[sc.effect] ?? [sc.phase]).includes(sc.phase)
+    const key = sc.effect + sc.phase + JSON.stringify(sc.params)
+    if (ok && !seen.has(key)) { seen.add(key); fresh[sc.phase].push(sc) }
+  }
+  const fx = {}
   const used = { break: 0, build: 0, groove: 0, peak: 0, sets: 0 }
   const closeSecs = CLOSE.reduce((t, [, h, n]) => t + h * n, 0)
   const plan = []
@@ -45,19 +65,27 @@ function steps(cfg) {
   let prev = null, pal = 0, k = 0
   for (const [phase, hold] of plan) {
     const list = pool[phase]
+    const okPrev = x => !prev || (x.effect !== prev.effect && FAMILY[x.effect] !== FAMILY[prev.effect])
     let sc
-    for (let tries = 0; tries < list.length; tries++) {
+    // slot dei nuovi: il meno usato fra i compatibili (rispetta i tetti), altrimenti si ricade sul pool base
+    if (live.slots.includes(k % 10)) {
+      sc = fresh[phase].filter(x => okPrev(x) && (fx[x.effect] ?? 0) < (live.cap[x.effect] ?? 99))
+        .sort((p, q) => (fx[p.effect] ?? 0) - (fx[q.effect] ?? 0))[0]
+    }
+    if (!sc) for (let tries = 0; tries < list.length; tries++) {
       sc = list[used[phase]++ % list.length]
       // niente stesso effetto ne' stessa famiglia due volte di fila
-      if (!prev || (sc.effect !== prev.effect && FAMILY[sc.effect] !== FAMILY[prev.effect])) break
+      if (okPrev(sc)) break
     }
+    fx[sc.effect] = (fx[sc.effect] ?? 0) + 1
     prev = sc
     if (k % 2 === 0 && k) pal++
     const colors = cfg.palettes[pal % cfg.palettes.length]
     // catene di post pesanti per fase (le stesse misurate da check:sweep); i piu' luminosi non ne accumulano
     const bright = ['flash', 'strobegrid', 'lasers'].includes(sc.effect)
     const sets = bright ? LIVE_POSTS.bright : LIVE_POSTS[phase]
-    const ps = sets[used.sets++ % sets.length]
+    const cine = !bright && CINEMA_FX.has(sc.effect) && sets.find(x => x.name === CINE_SET[phase])
+    const ps = cine || sets[used.sets++ % sets.length]
     const post = Object.keys(ps.amounts)
     const effectParams = {}
     if (sc.params) effectParams[sc.effect] = Object.fromEntries(Object.entries(sc.params).map(([key, p]) =>
@@ -77,7 +105,7 @@ function steps(cfg) {
   return res
 }
 
-const seqs = LIVES.map(l => ({ name: l.name, steps: steps(GENRE_CONFIGS[l.genre]), loop: false, mode: 'timer', defaultHold: 90 }))
+const seqs = LIVES.map(l => ({ name: l.name, steps: steps(GENRE_CONFIGS[l.genre], l), loop: false, mode: 'timer', defaultHold: 90 }))
 mkdirSync('docs/scalette', { recursive: true })
 writeFileSync('docs/scalette/live-4h.json', JSON.stringify(seqs, null, 1))
 for (const s of seqs) console.log(s.name, s.steps.length, 'passi', Math.round(s.steps.reduce((t, x) => t + x.hold, 0) / 60), 'min')

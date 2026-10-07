@@ -3,7 +3,8 @@ import type { Engine, OverlayItem, GifSyncMode } from '@engine/Engine'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
-import { IMAGE_RE, imageMime } from '../../../shared/mediaFormats'
+import { IMAGE_RE, MODEL_RE, imageMime } from '../../../shared/mediaFormats'
+import { SEQ_DEFAULT_FPS, SEQ_BEAT_CHOICES } from '../../../shared/imageSequence'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -20,6 +21,7 @@ function mediaBadge(overlay: OverlayItem): string {
   if (overlay.source?.kind === 'webcam') return 'WEBCAM'
   if (overlay.source?.kind === 'text') return 'TXT'
   if (overlay._isVideo) return 'VIDEO'
+  if (overlay._seq) return 'SEQ'
   return 'IMG'
 }
 
@@ -107,11 +109,32 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     loadLibrary()
   }, [engine, refresh, loadLibrary])
 
-  const addFromLibrary = useCallback(async (item: LibraryItem) => {
+  const importSequence = useCallback(async () => {
+    if (!engine) return
+    const seq = await window.api?.pickSequence()
+    if (!seq) return
+    if (seq.note) pushToast(seq.note, undefined, undefined, seq.paths.length ? undefined : 'err')
+    if (!seq.paths.length) return
+    setBusy('video')
+    try {
+      await engine.addSequenceOverlay(seq.name, { kind: 'sequence', paths: seq.paths, fps: SEQ_DEFAULT_FPS, beats: 0 })
+    } catch (err) {
+      console.error('[Overlay] import sequenza fallito:', err)
+      pushToast(`Non riesco a caricare la sequenza ${seq.name}`, undefined, undefined, 'err')
+    }
+    setBusy(null)
+    refresh()
+  }, [engine, refresh])
+
+  const addFromLibrary =useCallback(async (item: LibraryItem) => {
     if (!engine) return
     try {
       if (IMAGE_RE.test(item.name)) {
         await engine.addOverlay(item.name, await readLibraryImage(item.path, item.name))
+      } else if (MODEL_RE.test(item.name)) {
+        // a 3D model is not an overlay: it becomes the `mesh` effect's model
+        engine.setMeshModelFile({ name: item.name, path: item.path })
+        engine.setEffect('mesh')
       } else {
         await engine.addVideoOverlay(item.name, { kind: 'video', path: item.path })
       }
@@ -201,7 +224,7 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
     refresh()
   }, [engine, refresh])
 
-  const updateOverlay = useCallback((id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace'>>) => {
+  const updateOverlay = useCallback((id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace' | 'seqFps' | 'seqBeats'>>) => {
     if (!engine) return
     engine.updateOverlay(id, updates)
     refresh()
@@ -216,6 +239,9 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
           </button>
           <button onClick={importVideo} disabled={busy !== null} title="Importa un video come overlay">
             {busy === 'video' ? 'Carico…' : '🎬 Video'}
+          </button>
+          <button onClick={importSequence} disabled={busy !== null} title="Importa una cartella di frame numerati (PNG/JPG/WebP/AVIF, con alpha) come overlay animato">
+            🎞 Sequenza
           </button>
           <button onClick={onWebcamClick} title="Aggiungi la webcam come overlay">📷 Webcam</button>
         </div>
@@ -319,6 +345,27 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
                   ))}
                 </div>
               </div>
+            )}
+
+            {overlay._seq && (
+              <>
+                <SliderRow
+                  label={`FPS (${overlay._seq.count} frame)`}
+                  value={overlay.seqFps ?? SEQ_DEFAULT_FPS}
+                  min={1} max={120} step={1}
+                  onChange={v => updateOverlay(overlay.id, { seqFps: v })}
+                />
+                <div>
+                  <div className="label">Loop</div>
+                  <select
+                    value={overlay.seqBeats ?? 0}
+                    title="Durata di un giro della sequenza: libera (a FPS) o agganciata al beat"
+                    onChange={e => updateOverlay(overlay.id, { seqBeats: parseInt(e.target.value, 10) })}
+                  >
+                    {SEQ_BEAT_CHOICES.map(n => <option key={n} value={n}>{n === 0 ? 'libero (FPS)' : `${n} ${n === 1 ? 'battuta' : 'battute'}`}</option>)}
+                  </select>
+                </div>
+              </>
             )}
 
             <SliderRow

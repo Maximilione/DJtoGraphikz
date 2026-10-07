@@ -336,10 +336,76 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     dotsize: { source: 'energy', depth: 0.3, value: 3 },
     drag: { source: 'high', depth: 0.2, value: 0.3 },
   },
+  imgbeat: {
+    punch: { source: 'bass', depth: 0.5, value: 1 },
+    size: { source: 'energy', depth: 0.2, value: 0.8 },
+    spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 64 },
+  },
+  mesh: {
+    burst: { source: 'beat', depth: 0.6, value: 0.8 },
+    spin: { source: 'energy', depth: 0.3, value: 1 },
+    dotsize: { source: 'high', depth: 0.3, value: 3 },
+    dissolve: { source: 'energy', depth: 0.3, value: 0.35 },
+  },
   pulsar: {
     peaks: { source: 'bass', depth: 0.5, value: 0.9 },
     flow: { source: 'energy', depth: 0.4, value: 0.3 },
     lines: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 40 },
+  },
+  cathedral: {
+    rays: { source: 'bass', depth: 0.5, value: 0.8 },
+    density: { source: 'energy', depth: 0.3, value: 0.8 },
+    sway: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+  },
+  chrome: {
+    morph: { source: 'bass', depth: 0.5, value: 0.8 },
+    shine: { source: 'high', depth: 0.3, value: 0.9 },
+    blobs: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
+  mandelbulb: {
+    glow: { source: 'bass', depth: 0.5, value: 0.8 },
+    zoom: { source: 'energy', depth: 0.3, value: 0.9 },
+    power: { source: 'lfo-sine', depth: 0.3, lfoRate: 64 },
+  },
+  storm: {
+    fog: { source: 'bass', depth: 0.5, value: 0.9 },
+    branches: { source: 'energy', depth: 0.3, value: 1 },
+    bolts: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
+  ribbons: {
+    curl: { source: 'bass', depth: 0.4, value: 0.9 },
+    twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+    count: { source: 'energy', depth: 0.3, value: 8 },
+  },
+  beamfield: {
+    haze: { source: 'bass', depth: 0.4, value: 0.9 },
+    scan: { source: 'energy', depth: 0.4, value: 1 },
+    beams: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+  },
+  android: {
+    dissolve: { source: 'bass', depth: 0.4, value: 0.3 },
+    glow: { source: 'energy', depth: 0.4, value: 0.9 },
+    panels: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
+  },
+  faces: {
+    glow: { source: 'bass', depth: 0.4, value: 0.9 },
+    spin: { source: 'energy', depth: 0.3, value: 1 },
+    faces: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+  },
+  monolith: {
+    pulse: { source: 'bass', depth: 0.4, value: 0.9 },
+    haze: { source: 'energy', depth: 0.3, value: 1 },
+    width: { source: 'lfo-sine', depth: 0.25, lfoRate: 64 },
+  },
+  crystals: {
+    size: { source: 'bass', depth: 0.4, value: 0.9 },
+    dispersion: { source: 'energy', depth: 0.4, value: 0.8 },
+    facets: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
+  },
+  galaxy: {
+    burst: { source: 'bass', depth: 0.5, value: 0.8 },
+    twist: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
+    arms: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
   },
   // Non ancora in EFFECT_PARAMS su main: la voce aspetta l'effetto, il check
   // la valida senza pretendere le chiavi (e senza `value`, range ignoto).

@@ -1,13 +1,19 @@
 import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
+import { LINE_BOOST_DEFAULT, sanitizeLineBoost } from './lineBoost'
+import { PRESENCE_DEFAULT, sanitizePresence } from './presence'
+import { IMPACT_DEFAULT, IMPACT_NEUTRAL, impactActive, newImpactRuntime, sanitizeImpact, stepImpact, type ImpactOut, type ImpactState } from './impact'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
 import type { Phase } from './AutoVJ'
 import { COMMON_PARAMS, EFFECT_PARAMS, type EffectParam, type ParamState, type AudioSource, intensityValue, intensityWet } from './EffectParams'
 import { recommendedFor } from './recommendedMappings'
 import { GifDecoder, GifFrame } from './GifDecoder'
 import { splitCustomPasses } from './customPasses'
-import { type VideoDeck, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
+import { SequencePlayer } from './SequencePlayer'
+import { imageMime } from '../shared/mediaFormats'
+import { frameAtTime, frameAtBeat, frameAtDeck, SEQ_DEFAULT_FPS } from '../shared/imageSequence'
+import { type VideoDeck, type VideoClip, VIDEO_DECK_DEFAULT, playbackRate, barWrapped, onBar, clipTime, loopDrift, clampClip } from './videoDeck'
 
 import tunnelFrag from './shaders/tunnel.frag?raw'
 import kaleidoscopeFrag from './shaders/kaleidoscope.frag?raw'
@@ -50,6 +56,7 @@ import reactionSimFrag from './shaders/reaction.sim.frag?raw'
 import swarmSimFrag from './shaders/swarm.sim.frag?raw'
 import swarmVert from './shaders/swarm.vert?raw'
 import swarmFrag from './shaders/swarm.frag?raw'
+import { buildMesh, releaseMesh, setMeshModel, parseModel } from './meshModel'
 import spectrumFrag from './shaders/spectrum.frag?raw'
 import truchetFrag from './shaders/truchet.frag?raw'
 import causticsFrag from './shaders/caustics.frag?raw'
@@ -77,12 +84,30 @@ import bounceballFrag from './shaders/bounceball.frag?raw'
 import pumpFrag from './shaders/pump.frag?raw'
 import rollFrag from './shaders/roll.frag?raw'
 import spaceghostFrag from './shaders/spaceghost.frag?raw'
+import galaxyVert from './shaders/galaxy.vert?raw'
+import galaxyFrag from './shaders/galaxy.frag?raw'
+import cathedralFrag from './shaders/cathedral.frag?raw'
+import chromeFrag from './shaders/chrome.frag?raw'
+import crystalsFrag from './shaders/crystals.frag?raw'
+import imgbeatFrag from './shaders/imgbeat.frag?raw'
+import beamfieldFrag from './shaders/beamfield.frag?raw'
+import monolithFrag from './shaders/monolith.frag?raw'
+import androidFrag from './shaders/android.frag?raw'
+import facesFrag from './shaders/faces.frag?raw'
+import ribbonsFrag from './shaders/ribbons.frag?raw'
+import stormFrag from './shaders/storm.frag?raw'
+import mandelbulbFrag from './shaders/mandelbulb.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
 import rgbdelayFrag from './shaders/rgbdelay.frag?raw'
 import chromaticFrag from './shaders/chromatic.frag?raw'
 import filmgrainFrag from './shaders/filmgrain.frag?raw'
+import halationFrag from './shaders/halation.frag?raw'
+import godraysFrag from './shaders/godrays.frag?raw'
+import cinegradeFrag from './shaders/cinegrade.frag?raw'
+import tiltshiftFrag from './shaders/tiltshift.frag?raw'
+import anamorphicFrag from './shaders/anamorphic.frag?raw'
 import scanlinesFrag from './shaders/scanlines.frag?raw'
 import pixelateFrag from './shaders/pixelate.frag?raw'
 import mirrorFrag from './shaders/mirror.frag?raw'
@@ -158,7 +183,13 @@ export interface OverlayItem {
     | { kind: 'video'; path: string }
     | { kind: 'webcam'; deviceId?: string }
     | { kind: 'text'; text: string; font?: string; color?: string; size?: number }
+    | { kind: 'sequence'; paths: string[]; fps: number; beats: number }
+  /** Image sequence: frames per second, and beats per loop (0 = free-running at fps). */
+  seqFps?: number
+  seqBeats?: number
   // Internal — managed by engine
+  _seq?: SequencePlayer
+  _seqStart?: number
   _texture?: THREE.Texture
   _canvas?: HTMLCanvasElement
   _isGif?: boolean
@@ -176,16 +207,24 @@ export type EffectId =
   | 'hexagons' | 'dna'
   | 'lasers' | 'strobegrid' | 'vortex' | 'terrain' | 'orbits' | 'shatter'
   | 'moire' | 'pulsecity' | 'neonpoly' | 'inkflow' | 'raymarch' | 'ripples'
-  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm'
+  | 'ps2towers' | 'snowride' | 'pulsar' | 'reaction' | 'swarm' | 'mesh'
   | 'spectrum' | 'truchet' | 'caustics' | 'quasicrystal' | 'gyroid'
   | 'stringart' | 'ascii' | 'smoke'
   | 'flash' | 'halftone' | 'spiral' | 'warehouse' | 'impact' | 'barcode'
   | 'static' | 'cage' | 'downpour' | 'cracks' | 'tribal'
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
-  | 'spaceghost'
+  | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'faces' | 'monolith' | 'imgbeat'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
+  | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
+
+/** Cinema posts built on the half-res highlight buffer: prefilter threshold + blur passes [dirX, dirY, radius] */
+const CINEMA_BLOOM: Partial<Record<PostId, { threshold: number; blurs: [number, number, number][] }>> = {
+  'halation': { threshold: 0.55, blurs: [[1, 0, 3], [0, 1, 3]] },
+  'godrays': { threshold: 0.5, blurs: [[1, 0, 2], [0, 1, 2]] },
+  anamorphic: { threshold: 0.6, blurs: [[1, 0, 5], [1, 0, 12]] },
+}
 
 export type TransitionType = 'crossfade' | 'wipe-left' | 'wipe-down' | 'radial' | 'dissolve'
 const TRANSITION_TYPE_INDEX: Record<TransitionType, number> = {
@@ -238,6 +277,12 @@ export interface EngineState {
   intensity?: number
   /** Master camera. The projector applies it itself, on its own resolution. */
   camera?: CameraState
+  /** Audio impact layer (shake / punch / flash / bands / energy chaser) */
+  impact?: ImpactState
+  /** Spessore linee globale, 0..1 (uniform uLineBoost) */
+  lineBoost?: number
+  /** Presenza proiettore, 0..1 (uniform uPresence del passaggio master) */
+  presence?: number
   cycle?: {
     enabled: boolean
     palettes: [string, string, string][]
@@ -253,6 +298,10 @@ export interface EngineState {
   maskSoft?: number
   /** Deck B as a video playlist (Q4): the output mirrors clip + clipStartBeat */
   videoDeck?: VideoDeck
+  /** 3D model of the `mesh` effect: the output loads the same file from the library */
+  meshModel?: { name: string; path: string } | null
+  /** Pictures of the `imgbeat` effect (max 8): the output loads the same library files */
+  imgbeatImages?: { name: string; path: string }[]
   brightness?: number
   blackout?: boolean
   frozen?: boolean
@@ -448,6 +497,23 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
     passes: [{ frag: swarmSimFrag, buffer: 'P', rows: 192, cols: 192, nearest: true }],
     build: (u) => buildPointCloud(u, 192, swarmVert, swarmFrag),
   },
+  // 768x768 = 589,824 points, positioned analytically in the vertex shader:
+  // no simulation buffer, so the cost is vertex ALU plus additive fill. The
+  // count is the ceiling on integrated GPUs; the sprites are 1.5-8 px.
+  cathedral: cathedralFrag,
+  chrome: chromeFrag,
+  crystals: crystalsFrag,
+  imgbeat: imgbeatFrag,
+  beamfield: beamfieldFrag,
+  android: androidFrag,
+  faces: facesFrag,
+  monolith: monolithFrag,
+  ribbons: ribbonsFrag,
+  storm: stormFrag,
+  mandelbulb: mandelbulbFrag,
+  galaxy: { build: (u) => buildPointCloud(u, 768, galaxyVert, galaxyFrag) },
+  // a loaded 3D model (or the procedural default); see meshModel.ts
+  mesh: { build: buildMesh },
 }
 
 const DEFAULT_COLORS: [string, string, string] = ['#00ff88', '#ff00ff', '#4444ff']
@@ -484,6 +550,12 @@ export class Engine {
   private cameraMaterial: THREE.ShaderMaterial
   /** Master camera. Neutral means the pass does not run at all. */
   private cameraState: CameraState = { ...CAMERA_NEUTRAL }
+  /** Audio impact layer: state travels in the snapshot, the runtime is per-window */
+  private impactState: ImpactState = { ...IMPACT_DEFAULT }
+  private lineBoost = LINE_BOOST_DEFAULT
+  private presence = PRESENCE_DEFAULT
+  private impactRt = newImpactRuntime()
+  private impactOut: ImpactOut = IMPACT_NEUTRAL
 
   // Current state
   private currentEffect: EffectId = 'tunnel'
@@ -515,10 +587,18 @@ export class Engine {
   // Deck B as video (Q4). One <video> per window; the control decides the clip,
   // the output mirrors it from the snapshot and seeks to the beat grid.
   private videoDeck: VideoDeck = { ...VIDEO_DECK_DEFAULT }
+  private meshModel: { name: string; path: string } | null = null
+  private meshLoading = ''
+  private imgbeatImages: { name: string; path: string }[] = []
+  private imgbeatLoading = ''
+  // one uniform pair shared by every imgbeat material: swapping .value reaches them all
+  private imgbeatU: { tImgs: THREE.IUniform; uImgCount: THREE.IUniform } = { tImgs: { value: null }, uImgCount: { value: 0 } }
   private deckVideo: HTMLVideoElement | null = null
   private deckVideoTex: THREE.VideoTexture | null = null
   private deckVideoPath = ''        // what the <video> is loading/playing
-  private deckVideoSeek = false     // clipStartBeat changed: seek on the next ready frame
+  private deckSeq: SequencePlayer | null = null   // deck B clip that is an image sequence
+  private deckSeqKey = ''
+  private deckVideoSeek = false    // clipStartBeat changed: seek on the next ready frame
   private prevBarPhase = 0
 
   // Master stage (always on)
@@ -740,6 +820,13 @@ export class Engine {
         uTile: { value: 1 },
         uPushAmt: { value: 0 },
         uBeat: { value: 0 },
+        uShake: { value: new THREE.Vector2(0, 0) },
+        uPunch: { value: 1 },
+        uWarp: { value: 0 },
+        uChroma: { value: 0 },
+        uSparkle: { value: 0 },
+        uFlash: { value: 0 },
+        uTime: { value: 0 },
       },
     })
 
@@ -805,6 +892,7 @@ export class Engine {
         uSrcScale: { value: new THREE.Vector2(1, 1) },
         uGamma: { value: 1 },
         uOutBright: { value: 1 },
+        uPresence: { value: 0 },
       }
     })
 
@@ -908,7 +996,20 @@ export class Engine {
     // out, display just woken) would set a 0x0 drawing buffer and the preview
     // stays black until some later resize event happens to fire
     if (!(parent.clientWidth > 1) || !(parent.clientHeight > 1)) return
-    this.renderer.setSize(parent.clientWidth, parent.clientHeight)
+    // Letterbox the preview too: biggest rect with the OUTPUT aspect inside the
+    // container's content box, so a 21:9 wall or a LED strip is shown in its
+    // real shape instead of being stretched to the panel.
+    const cs = getComputedStyle(parent)
+    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)
+    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+    const boxW = Math.max(2, parent.clientWidth - padX)
+    const boxH = Math.max(2, parent.clientHeight - padY)
+    const aspect = this.outputWidth > 0 && this.outputHeight > 0 ? this.outputWidth / this.outputHeight : boxW / boxH
+    let pw = boxW
+    let ph = boxH
+    if (pw / ph > aspect) pw = Math.round(ph * aspect)
+    else ph = Math.round(pw / aspect)
+    this.renderer.setSize(Math.max(2, pw), Math.max(2, ph))
     // Preview keeps the OUTPUT resolution in uResolution, so what you see on the
     // preview is the same framing/scale that goes to the projector.
     this.setRenderSize(this.outputWidth, this.outputHeight)
@@ -996,6 +1097,7 @@ export class Engine {
         uSub: { value: 0 },
         uPresence: { value: 0 },
         uBassHit: { value: 0 },
+        uLineBoost: { value: this.lineBoost },
         uMidHit: { value: 0 },
         uHighHit: { value: 0 },
         uBassTime: { value: 0 },
@@ -1006,6 +1108,7 @@ export class Engine {
       uResolution: { value: size },
       uFrame: { value: 0 },
       ...paramUniforms,
+      ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
     }
   }
 
@@ -1152,6 +1255,7 @@ export class Engine {
     }
     const geo = this.geometries.get(mat)
     if (geo) {
+      releaseMesh(geo.object)
       geo.scene.remove(geo.object)
       geo.object.traverse(o => (o as THREE.Mesh).geometry?.dispose())
       this.geometries.delete(mat)
@@ -1242,6 +1346,7 @@ export class Engine {
         uWet: { value: 1 },
         uTime: { value: 0 },
         uEnergy: { value: 0 },
+        uLineBoost: { value: this.lineBoost },
         uResolution: { value: this.resolution },
       }
     }))
@@ -1308,6 +1413,65 @@ export class Engine {
         uWet: { value: 1 },
         uBeat: { value: 0 },
         uColor1: { value: this.colors[0] },
+        uLineBoost: { value: this.lineBoost },
+        uResolution: { value: this.resolution },
+      }
+    }))
+
+    this.postMaterials.set('anamorphic', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: anamorphicFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        tBloom: { value: null },
+        uWet: { value: 1 },
+        uEnergy: { value: 0 },
+        uBeat: { value: 0 },
+        uColor2: { value: this.colors[1] },
+      }
+    }))
+    this.postMaterials.set('halation', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: halationFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        tBloom: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+      }
+    }))
+    this.postMaterials.set('godrays', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: godraysFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        tBloom: { value: null },
+        uWet: { value: 1 },
+        uTime: { value: 0 },
+        uEnergy: { value: 0 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+      }
+    }))
+    this.postMaterials.set('cinegrade', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: cinegradeFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uBeat: { value: 0 },
+        uColor1: { value: this.colors[0] },
+        uColor3: { value: this.colors[2] },
+      }
+    }))
+    this.postMaterials.set('tiltshift', new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: tiltshiftFrag,
+      uniforms: {
+        tDiffuse: { value: null },
+        uWet: { value: 1 },
+        uEnergy: { value: 0 },
         uResolution: { value: this.resolution },
       }
     }))
@@ -1842,7 +2006,7 @@ export class Engine {
   private cameraActive(): boolean {
     const c = this.cameraState
     return c.zoom !== 1 || c.rotation !== 0 || c.panX !== 0 || c.panY !== 0
-      || c.tile > 1 || c.push !== 0
+      || c.tile > 1 || c.push !== 0 || impactActive(this.impactOut)
   }
 
   setCamera(patch: Partial<CameraState>) {
@@ -1857,6 +2021,28 @@ export class Engine {
   }
 
   getCamera(): CameraState { return { ...this.cameraState } }
+
+  setImpact(patch: Partial<ImpactState>) {
+    this.impactState = sanitizeImpact({ ...this.impactState, ...patch })
+    this.emitState()
+  }
+  getImpact(): ImpactState { return { ...this.impactState } }
+
+  setLineBoost(v: number) {
+    const next = sanitizeLineBoost(v)
+    if (next === this.lineBoost) return
+    this.lineBoost = next
+    this.emitState()
+  }
+  getLineBoost(): number { return this.lineBoost }
+
+  setPresence(v: number) {
+    const next = sanitizePresence(v)
+    if (next === this.presence) return
+    this.presence = next
+    this.emitState()
+  }
+  getPresence(): number { return this.presence }
 
   /** Back to the identity — the camera's own panic. */
   resetCamera() {
@@ -1892,6 +2078,105 @@ export class Engine {
   setMaskSoft(v: number) { this.maskSoft = Math.max(0, Math.min(1, v)); this.emitState() }
   getMaskSoft(): number { return this.maskSoft }
 
+  // ---- 3D model of the `mesh` effect ----
+
+  getMeshModel() { return this.meshModel }
+
+  /** Control window: choose the model (a library path) and tell the output */
+  setMeshModelFile(m: { name: string; path: string } | null) {
+    this.loadMeshModel(m)
+    this.emitState()
+  }
+
+  /** Both windows: read + parse the file; a bad file leaves the current model alone */
+  private loadMeshModel(m: { name: string; path: string } | null) {
+    const path = m?.path ?? ''
+    this.meshModel = m
+    if (path === this.meshLoading) return
+    this.meshLoading = path
+    if (!m) { setMeshModel(null); return }
+    window.api.readFile(m.path)
+      .then(buf => parseModel(buf instanceof ArrayBuffer ? buf : new Uint8Array(buf as any).buffer, m.name))
+      .then(model => { if (this.meshLoading === path) setMeshModel(model) })
+      .catch(err => console.error('[Engine] modello 3D illeggibile:', m.name, err))
+  }
+
+  // ---- pictures of the `imgbeat` effect ----
+
+  getImgbeatImages() { return this.imgbeatImages }
+
+  /** Control window: choose the pictures (library paths, max 8) and tell the output */
+  setImgbeatImages(list: { name: string; path: string }[]) {
+    this.loadImgbeat(list)
+    this.emitState()
+  }
+
+  private imgbeatUniforms() {
+    if (!this.imgbeatU.tImgs.value) this.imgbeatU.tImgs.value = this.getWhiteTexture()
+    return this.imgbeatU
+  }
+
+  /** Both windows: read the files and pack them in one atlas (4x2 cells, each picture letterboxed) */
+  private loadImgbeat(list: { name: string; path: string }[]) {
+    list = list.slice(0, 8)
+    const key = list.map(i => i.path).join('|')
+    this.imgbeatImages = list
+    if (key === this.imgbeatLoading) return
+    this.imgbeatLoading = key
+    const u = this.imgbeatUniforms()
+    if (!list.length) {
+      u.uImgCount.value = 0
+      const old = u.tImgs.value as THREE.Texture | null
+      u.tImgs.value = this.getWhiteTexture()
+      if (old && old !== this.whiteTexture) old.dispose()
+      return
+    }
+    const CELL = 768
+    Promise.all(list.map(async (it) => {
+      let url = ''
+      try {
+        const buf = await window.api.readFile(it.path)
+        url = URL.createObjectURL(new Blob([buf as any], { type: imageMime(it.name) }))
+        const img = new Image()
+        img.src = url
+        await img.decode()
+        return img
+      } catch (err) {
+        console.error('[Engine] immagine illeggibile:', it.name, err)
+        return null
+      } finally {
+        if (url) URL.revokeObjectURL(url)
+      }
+    })).then(all => {
+      if (this.imgbeatLoading !== key) return
+      // unreadable pictures are skipped: the readable ones fill consecutive cells
+      const imgs = all.filter((i): i is HTMLImageElement => !!i)
+      const old = u.tImgs.value as THREE.Texture | null
+      if (!imgs.length) {
+        u.uImgCount.value = 0
+        u.tImgs.value = this.getWhiteTexture()
+        if (old && old !== this.whiteTexture) old.dispose()
+        return
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = CELL * 4
+      canvas.height = CELL * 2
+      const ctx = canvas.getContext('2d')!
+      imgs.forEach((img, i) => {
+        const w = img.naturalWidth || CELL, h = img.naturalHeight || CELL   // an SVG without size
+        const s = Math.min(CELL / w, CELL / h)
+        ctx.drawImage(img, (i % 4) * CELL + (CELL - w * s) / 2, Math.floor(i / 4) * CELL + (CELL - h * s) / 2, w * s, h * s)
+      })
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.flipY = false
+      tex.generateMipmaps = false
+      tex.minFilter = tex.magFilter = THREE.LinearFilter
+      u.tImgs.value = tex
+      u.uImgCount.value = imgs.length
+      if (old && old !== this.whiteTexture) old.dispose()
+    })
+  }
+
   // ---- Deck B as video playlist (Q4) ----
 
   getVideoDeck(): VideoDeck { return this.videoDeck }
@@ -1913,6 +2198,29 @@ export class Engine {
     const bpm = Math.round(this.audioAnalyzer.getData().bpm || 128)
     const clips = [...this.videoDeck.clips, ...files.map(f => ({ path: f.path, name: f.name, bpm }))]
     this.setVideoDeck({ clips, enabled: true })
+  }
+
+  /** A frame folder as a clip; plays at `fps`, tempo-locked through the clip's native BPM like a video. */
+  addSequenceClip(seq: { name: string; dir: string; paths: string[] }, fps = SEQ_DEFAULT_FPS) {
+    const bpm = Math.round(this.audioAnalyzer.getData().bpm || 128)
+    const clips = [...this.videoDeck.clips, { path: seq.dir, name: seq.name, bpm, frames: seq.paths, fps }]
+    this.setVideoDeck({ clips, enabled: true })
+  }
+
+  /** Sequence clip on deck B: the player lives while the clip is current. */
+  private tickDeckSeq(clip: VideoClip & { frames: string[] }): THREE.Texture | null {
+    if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
+    if (!this.deckSeq || this.deckSeqKey !== clip.path) {
+      this.deckSeq?.dispose()
+      const p = new SequencePlayer(clip.frames)
+      this.deckSeq = p
+      this.deckSeqKey = clip.path
+      p.ready().catch(err => console.error('[Engine] sequenza deck illeggibile:', clip.path, err))
+    }
+    const p = this.deckSeq
+    if (!p.hasFrame) return null
+    p.show(frameAtDeck(this.beatClock, this.videoDeck.clipStartBeat, clip.bpm, clip.fps || SEQ_DEFAULT_FPS, p.count))
+    return p.texture
   }
 
   private syncDeckVideo(state: VideoDeck) {
@@ -1953,8 +2261,11 @@ export class Engine {
     const clip = d.enabled ? d.clips[d.clip] : undefined
     if (!clip) {
       if (this.deckVideo && this.deckVideoPath) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideoPath = '' }
+      if (this.deckSeq) { this.deckSeq.dispose(); this.deckSeq = null; this.deckSeqKey = '' }
       return null
     }
+    if (clip.frames) return this.tickDeckSeq(clip as VideoClip & { frames: string[] })
+    if (this.deckSeq) { this.deckSeq.dispose(); this.deckSeq = null; this.deckSeqKey = '' }
     if (clip.path !== this.deckVideoPath) this.loadDeckClip(clip.path)
     const v = this.deckVideo!
     const rate = playbackRate(bpm, clip.bpm)
@@ -2037,6 +2348,8 @@ export class Engine {
     if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (state.videoDeck) this.videoDeck = clampClip({ ...VIDEO_DECK_DEFAULT, ...state.videoDeck, clip: 0, clipStartBeat: 0, bars: 0 })
+    if (state.meshModel !== undefined) this.loadMeshModel(state.meshModel)
+    if (state.imgbeatImages) this.loadImgbeat(state.imgbeatImages)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
     if (state.grade) this.setGrade(state.grade)
@@ -2046,6 +2359,9 @@ export class Engine {
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
+    if (state.impact) this.impactState = sanitizeImpact(state.impact)
+    this.lineBoost = sanitizeLineBoost(state.lineBoost)
+    this.presence = sanitizePresence(state.presence)
     if (state.cycle) {
       this.cyclePalettes = state.cycle.palettes || []
       this.cycleIntervalMs = state.cycle.intervalMs
@@ -2062,7 +2378,7 @@ export class Engine {
   // ---- Remote (output window) API ----
 
   /** Feed audio received over IPC. Beats are latched so each one is consumed exactly once. */
-  setAudioData(data: { bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number; spectrum?: Uint8Array }) {
+  setAudioData(data: { phase?: Phase; bass: number; mid: number; high: number; energy: number; beatPulse: number; bpm: number; beatDetected: boolean; beatPhase?: number; barPhase?: number; sub?: number; presence?: number; bassHit?: number; midHit?: number; highHit?: number; beatClock?: number; effectTime?: number; spectrum?: Uint8Array }) {
     this.smoothBass = data.bass || 0
     this.smoothMid = data.mid || 0
     this.smoothHigh = data.high || 0
@@ -2082,6 +2398,7 @@ export class Engine {
       if (this.spectrumTex) this.spectrumTex.needsUpdate = true
     }
     if (typeof data.effectTime === 'number') this.effectTime = data.effectTime
+    if (data.phase) this.phase = data.phase
     if (data.beatDetected) this.pendingBeat = true
   }
 
@@ -2109,6 +2426,9 @@ export class Engine {
     if (typeof state.colorSpeed === 'number') this.setColorTransitionSpeed(state.colorSpeed)
     if (typeof state.intensity === 'number') this.intensity = state.intensity
     if (state.camera) this.cameraState = { ...CAMERA_NEUTRAL, ...state.camera }
+    if (state.impact) this.impactState = sanitizeImpact(state.impact)
+    this.lineBoost = sanitizeLineBoost(state.lineBoost)
+    this.presence = sanitizePresence(state.presence)
     if (state.activePost) this.setActivePosts(state.activePost, state.postAmounts)
     if (state.colors) this.setColors(state.colors[0], state.colors[1], state.colors[2])
 
@@ -2117,6 +2437,8 @@ export class Engine {
     if (state.blendMode && BLEND_MODES.includes(state.blendMode)) this.blendMode = state.blendMode
     if (typeof state.maskSoft === 'number') this.maskSoft = state.maskSoft
     if (state.videoDeck) this.syncDeckVideo(state.videoDeck)
+    if (state.meshModel !== undefined) this.loadMeshModel(state.meshModel)
+    if (state.imgbeatImages) this.loadImgbeat(state.imgbeatImages)
     if (typeof state.brightness === 'number') this.brightness = state.brightness
     if (typeof state.blackout === 'boolean') this.blackout = state.blackout
     if (typeof state.motionBlur === 'number') this.motionBlur = state.motionBlur
@@ -2336,6 +2658,43 @@ export class Engine {
     return overlay
   }
 
+  /**
+   * A folder of numbered frames as an overlay. Both windows build their own
+   * SequencePlayer from the path list (streamed over djg-media, nothing big
+   * over IPC); beat-locked loops read the shared beatClock.
+   */
+  async addSequenceOverlay(
+    name: string,
+    source: { kind: 'sequence'; paths: string[]; fps: number; beats: number },
+    existingId?: string
+  ): Promise<OverlayItem> {
+    const id = existingId || `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const seq = new SequencePlayer(source.paths)
+    try { await seq.ready() } catch (err) { seq.dispose(); throw err }
+
+    const overlay: OverlayItem = {
+      id, name, dataUrl: '',
+      opacity: 1.0, scale: 1.0, offsetX: 0, offsetY: 0,
+      visible: true, gifSync: 'free', displace: 0,
+      source, seqFps: source.fps, seqBeats: source.beats,
+      _texture: seq.texture!,
+      _seq: seq,
+      _seqStart: performance.now(),
+    }
+    this.overlays.push(overlay)
+
+    if (!this.remote) {
+      try {
+        window.api?.sendOverlayAdd({
+          id, name, dataUrl: '', opacity: overlay.opacity, scale: overlay.scale,
+          offsetX: overlay.offsetX, offsetY: overlay.offsetY, visible: overlay.visible,
+          gifSync: overlay.gifSync, displace: overlay.displace, source,
+        })
+      } catch (_) {}
+    }
+    return overlay
+  }
+
   /** Text rendered to a canvas, then straight into the normal overlay pipeline. */
   addTextOverlay(
     text: string,
@@ -2401,6 +2760,7 @@ export class Engine {
       if (video.src.startsWith('blob:')) URL.revokeObjectURL(video.src)
       video.removeAttribute('src')
     }
+    overlay._seq?.dispose()
     overlay._texture?.dispose()
   }
 
@@ -2417,7 +2777,7 @@ export class Engine {
     return this.overlays
   }
 
-  updateOverlay(id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace'>>) {
+  updateOverlay(id: string, updates: Partial<Pick<OverlayItem, 'opacity' | 'scale' | 'offsetX' | 'offsetY' | 'visible' | 'gifSync' | 'displace' | 'seqFps' | 'seqBeats'>>) {
     const overlay = this.overlays.find(o => o.id === id)
     if (overlay) {
       Object.assign(overlay, updates)
@@ -2551,6 +2911,8 @@ export class Engine {
       blendMode: this.blendMode,
       maskSoft: this.maskSoft,
       videoDeck: this.videoDeck,
+      meshModel: this.meshModel,
+      imgbeatImages: this.imgbeatImages,
       brightness: this.brightness,
       blackout: this.blackout,
       frozen: this.frozen,
@@ -2562,6 +2924,9 @@ export class Engine {
       // to travel: without it the projector shows the un-boosted scene.
       intensity: this.intensity,
       camera: { ...this.cameraState },
+      impact: { ...this.impactState },
+      lineBoost: this.lineBoost,
+      presence: this.presence,
       // Custom shader must ride the snapshot: any emit without it used to
       // revert the output window to the stock effect (show-breaking)
       customShader: this.usingCustom ? this.customShaderSource : undefined,
@@ -2805,6 +3170,12 @@ export class Engine {
       this.beatPulse *= 0.88
     }
 
+    // Impact layer: same maths in both windows, driven by the audio each has
+    this.impactOut = stepImpact(this.impactRt, this.impactState, {
+      dt, beat: beatDetected, mid: this.smoothMid, high: this.smoothHigh,
+      highHit: this.highHit, phase: this.phase,
+    })
+
     // Gated clocks: advance only while the band is actually playing, so a
     // breakdown freezes bass-driven motion and the drop restarts it
     this.bassTime += dt * this.smoothBass
@@ -2992,6 +3363,13 @@ export class Engine {
           }
         }
 
+        if (overlay._seq) {
+          const n = overlay._seq.count
+          overlay._seq.show(overlay.seqBeats
+            ? frameAtBeat(this.beatClock, overlay.seqBeats, n)
+            : frameAtTime(performance.now() - (overlay._seqStart || 0), overlay.seqFps || SEQ_DEFAULT_FPS, n))
+        }
+
         const ou = this.overlayMaterial.uniforms
         ou.tDiffuse.value = src.texture
         ou.tOverlay.value = overlay._texture
@@ -3020,6 +3398,14 @@ export class Engine {
       cu.uTile.value = this.cameraState.tile
       cu.uPushAmt.value = this.cameraState.push
       cu.uBeat.value = this.beatPulse
+      const io = this.impactOut
+      cu.uShake.value.set(io.shakeX, io.shakeY)
+      cu.uPunch.value = io.zoom
+      cu.uWarp.value = io.warp
+      cu.uChroma.value = io.chroma
+      cu.uSparkle.value = io.sparkle
+      cu.uFlash.value = io.flash
+      cu.uTime.value = this.beatClock
       this.renderPass(this.cameraMaterial, this.rtB)
       this.blit(this.rtB.texture, this.rtA)
     }
@@ -3038,6 +3424,8 @@ export class Engine {
 
       if (entry.id === 'bloom') {
         this.renderBloom(read, write, wet)
+      } else if (CINEMA_BLOOM[entry.id]) {
+        this.renderBloomPost(entry.id, read, write, wet)
       } else {
         const pu = mat.uniforms
         pu.tDiffuse.value = read.texture
@@ -3048,6 +3436,7 @@ export class Engine {
         if (pu.uEnergy) pu.uEnergy.value = this.smoothEnergy
         if (pu.uBeat) pu.uBeat.value = this.beatPulse
         if (pu.uHighHit) pu.uHighHit.value = this.highHit
+        if (pu.uLineBoost) pu.uLineBoost.value = this.lineBoost
         if (pu.uTime) pu.uTime.value = time
         if (entry.id === 'rgb-delay') this.feedRgbDelay(read, wet)
         // amount grezzo, senza la macro intensita': chi lo legge sceglie un
@@ -3117,6 +3506,7 @@ export class Engine {
     if (u.uSub) u.uSub.value = this.smoothSub * k
     if (u.uPresence) u.uPresence.value = this.smoothPresence * k
     if (u.uBassHit) u.uBassHit.value = this.bassHit * k
+    if (u.uLineBoost) u.uLineBoost.value = this.lineBoost
     if (u.uMidHit) u.uMidHit.value = this.midHit * k
     if (u.uHighHit) u.uHighHit.value = this.highHit * k
     if (u.uBassTime) u.uBassTime.value = this.bassTime
@@ -3138,8 +3528,12 @@ export class Engine {
     if (geo) {
       // geometry leaves gaps where a fullscreen quad would have overwritten
       // every pixel, so this one does need a clear
+      // targets carry no depth buffer (fullscreen quads never need one): a
+      // model that depth-tests gets one on first use
+      if (geo.object.userData.depth && !target.depthBuffer) { target.depthBuffer = true; target.dispose() }
+      this.renderer.setRenderTarget(target)
       this.renderer.setClearColor(0x000000, 1)
-      this.renderer.clear(true, false, false)
+      this.renderer.clear(true, true, false)
       this.renderer.render(geo.scene, this.camera)
     } else {
       this.quad.material = mat
@@ -3208,10 +3602,44 @@ export class Engine {
     this.renderPass(this.postMaterials.get('bloom')!, write)
   }
 
+  /**
+   * Cinema posts that read a half-res highlight buffer (prefilter, then the
+   * blur passes listed in CINEMA_BLOOM) and composite it over the image.
+   */
+  private renderBloomPost(id: PostId, read: THREE.WebGLRenderTarget, write: THREE.WebGLRenderTarget, wet: number) {
+    const spec = CINEMA_BLOOM[id]!
+    const pu = this.bloomPrefilterMaterial.uniforms
+    pu.tDiffuse.value = read.texture
+    pu.uThreshold.value = spec.threshold
+    this.renderPass(this.bloomPrefilterMaterial, this.rtBloomA)
+    pu.uThreshold.value = 0.55
+
+    const bu = this.blurMaterial.uniforms
+    let src = this.rtBloomA, dst = this.rtBloomB
+    for (const [dx, dy, radius] of spec.blurs) {
+      bu.tDiffuse.value = src.texture
+      bu.uDirection.value.set(dx, dy)
+      bu.uRadius.value = radius
+      this.renderPass(this.blurMaterial, dst)
+      const t = src; src = dst; dst = t
+    }
+    bu.uRadius.value = 1.5
+
+    const u = this.postMaterials.get(id)!.uniforms
+    u.tDiffuse.value = read.texture
+    u.tBloom.value = src.texture
+    u.uWet.value = wet
+    u.uEnergy && (u.uEnergy.value = this.smoothEnergy)
+    u.uBeat && (u.uBeat.value = this.beatPulse)
+    u.uTime && (u.uTime.value = this.effectTime)
+    this.renderPass(this.postMaterials.get(id)!, write)
+  }
+
   private renderMaster(texture: THREE.Texture) {
     const mu = this.masterMaterial.uniforms
     mu.tDiffuse.value = texture
     mu.uBrightness.value = this.blackout ? 0 : this.brightness
+    mu.uPresence.value = this.presence
     this.renderPass(this.masterMaterial, null)
     this.renderer.setRenderTarget(null)
     this.samplePixelMap()
@@ -3319,6 +3747,7 @@ export class Engine {
         spectrum: this.spectrumPixels,
         bpm,
         beatDetected,
+        phase: this.phase,
       })
     } catch (_) {}
   }
@@ -3351,6 +3780,7 @@ export class Engine {
     this.deckMixMaterial.dispose()
     if (this.deckVideo) { this.deckVideo.pause(); this.deckVideo.removeAttribute('src'); this.deckVideo = null }
     this.deckVideoTex?.dispose(); this.deckVideoTex = null
+    this.deckSeq?.dispose(); this.deckSeq = null
     this.masterMaterial.dispose()
     this.pixelRT?.dispose()
     this.motionBlurMaterial.dispose()

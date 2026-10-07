@@ -20,8 +20,15 @@ interface EffectGridProps {
  * had already drifted (only one of them had live thumbnails on the buttons),
  * which is what a second copy always does.
  */
+// Folded categories survive a tab switch (the panel unmounts the grid).
+const folded = new Set<string>()
+
 export function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: EffectGridProps) {
   const q = search.trim().toLowerCase()
+
+  if (q && !EFFECT_CATEGORIES.some(c => c.effects.some(fx => fx.label.toLowerCase().includes(q) || fx.id.includes(q)))) {
+    return <div className="u-hint">Nessun effetto per «{search.trim()}»</div>
+  }
 
   return (
     <>
@@ -30,10 +37,8 @@ export function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: Effec
           ? cat.effects.filter(fx => fx.label.toLowerCase().includes(q) || fx.id.includes(q))
           : cat.effects
         if (shown.length === 0) return null
-        return (
-          <div key={cat.name}>
-            <div className="cat-label">{cat.name}</div>
-            <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
+        const grid = (
+          <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
               {shown.map(fx => {
                 const isActive = activeId === fx.id
                 const thumb = getThumb(fx.id)
@@ -50,8 +55,26 @@ export function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: Effec
                   </button>
                 )
               })}
-            </div>
           </div>
+        )
+        // Simple mode: always open, no folding to get lost in
+        if (size === 'lg') return <div key={cat.name}><div className="cat-label">{cat.name}</div>{grid}</div>
+        const activeHere = cat.effects.find(fx => fx.id === activeId)
+        return (
+          <details
+            key={cat.name} className="fx-cat"
+            open={!!q || !folded.has(cat.name)}
+            onToggle={e => {
+              if (q) return // a search forces every match open: not the user's choice
+              if ((e.currentTarget as HTMLDetailsElement).open) folded.delete(cat.name); else folded.add(cat.name)
+            }}
+          >
+            <summary>
+              {cat.name} <span className="fx-cat-n">{shown.length}</span>
+              {activeHere && <span className="fx-cat-on">● {activeHere.label}</span>}
+            </summary>
+            {grid}
+          </details>
         )
       })}
     </>

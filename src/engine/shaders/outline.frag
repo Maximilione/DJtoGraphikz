@@ -6,11 +6,15 @@ uniform float uWet;
 uniform float uBeat;
 uniform vec3 uColor1;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 varying vec2 vUv;
 
 float lum(vec2 o) {
-  // spessore costante a ogni risoluzione: ~1px a 540p, ~2px a 1080p
-  vec2 px = o * (uResolution.y / 540.0) / uResolution;
+  // spessore costante a ogni risoluzione: ~1px a 540p, ~2px a 1080p, poi
+  // moltiplicato da uLineBoost (x1 .. x3.5) con minimo in pixel (banda ~2x l'offset)
+  float base = uResolution.y / 540.0;
+  float w = max(base * (1.0 + 2.5 * uLineBoost), 0.5 * (3.0 + 4.0 * uLineBoost) * uLineBoost);
+  vec2 px = o * w / uResolution;
   return dot(texture2D(tDiffuse, vUv + px).rgb, vec3(0.299, 0.587, 0.114));
 }
 
@@ -25,6 +29,9 @@ void main() {
   // black. Lower floor, and the original never goes below a fifth.
   float edge = smoothstep(0.02, 0.35, length(vec2(gx, gy)));
   vec3 src = texture2D(tDiffuse, vUv).rgb;
-  vec3 neon = max(uColor1, vec3(0.15)) * edge * (1.2 + uBeat * 0.8);
-  gl_FragColor = vec4(src * (1.0 - 0.8 * uWet) + neon * uWet, 1.0);
+  vec3 col = max(uColor1, vec3(0.15));
+  // nucleo piu' chiaro (mai bianco pieno: resta nella palette)
+  col = mix(col, col + vec3(0.25), 0.6 * uLineBoost * edge);
+  vec3 neon = col * edge * (1.2 + 0.6 * uLineBoost + uBeat * 0.8);
+  gl_FragColor = vec4(src * (1.0 - 0.65 * uWet) + neon * uWet, 1.0);
 }

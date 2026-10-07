@@ -79,18 +79,18 @@ Integrazione:
 - [x] **I3 Pro DJ Link / StagelinQ** — Pioneer fatto in v0.55.0 (`prodjlink.ts`, `ProDjLinkClock.ts`, modo BPM, `check:prodjlink`), **mai provato su CDJ vero**; StagelinQ Denon e titolo del brano (dbserver TCP) restano aperti · **L**
 - [x] **I4 Reel automatico** — fatto in v0.54.0: due MediaRecorder sfalsati, tasto `V` o drop, 9:16 in Download, `check:reel` · **M**
 
-- [ ] **Installer .dmg con grafica personalizzata** — oggi `electron-builder` (`package.json` > `build.mac`, target `dmg`) produce il dmg di default: sfondo bianco, icona e cartella Applicazioni senza stile. Da fare: immagine di sfondo del dmg col logo e la freccia "trascina in Applicazioni", posizione delle icone, dimensione finestra, icona del volume e del dmg (`build.dmg`: `background`, `contents`, `window`, `icon`), asset in `build/`; stessa identita' visiva anche per l'installer Windows (nsis: header/sidebar) se serve. Va provato su un pacchetto vero, non solo in CI · **S**
+- [x] **Installer .dmg con grafica personalizzata** — oggi `electron-builder` (`package.json` > `build.mac`, target `dmg`) produce il dmg di default: sfondo bianco, icona e cartella Applicazioni senza stile. Da fare: immagine di sfondo del dmg col logo e la freccia "trascina in Applicazioni", posizione delle icone, dimensione finestra, icona del volume e del dmg (`build.dmg`: `background`, `contents`, `window`, `icon`), asset in `build/`; stessa identita' visiva anche per l'installer Windows (nsis: header/sidebar) se serve. Va provato su un pacchetto vero, non solo in CI · **S** — fatto: `build.dmg` + `scripts/make-dmg-background.py` (sfondo 1x/@2x in `build/`); verificato dmg locale montato (finestra 660x400, tiff 1x+2x, icona volume). Resta da vedere in Finder; nsis non toccato
 
-- [ ] **GIF export** — retrocesso: il recording WebM (v0.8.0) copre quasi tutti gli usi · ½g
+- [x] **GIF export** — pulsante GIF in toolbar: 3/5/8 s o loop a battuta al BPM corrente, 320/480/640 px, encoder TypeScript puro (`gifEncoder.ts`), `check:gif` · ½g
 
 ## PARCHEGGIO — native addon veri, restano parcheggiati
 
 - [ ] **Syphon/Spout output** — condivisione texture GPU (native addon macOS/Win)
 - [ ] **NDI output** — video via rete (SDK nativo). Vedi **I2 uscita OBS**: copre lo stesso uso senza SDK
 - [ ] **Ableton Link** — sync BPM via rete (native addon). Vedi **I1 MIDI Clock**: stessa resa su un canale già aperto
-- [ ] **3D geometry scenes** — mesh audio-reattive
-- [ ] **Plugin architecture** — sistema plugin terze parti
-- [ ] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
+- [x] **3D geometry scenes** — mesh audio-reattive — fatto in v0.67.0: effetto `mesh` (GLB/OBJ/STL/PLY/FBX, look filo/punti/metallo/ologramma/dissolvenza), piu' `galaxy`, `mandelbulb`, `android`
+- [x] **Plugin architecture** — sistema plugin terze parti — fatto: plugin dichiarativi in `~/.djtographikz/plugins/` (effetti shader, palette, preset, scalette, mapping consigliati), **solo contributi dichiarativi, niente codice**. Vedi `docs/PLUGINS.md`
+- [x] **Gamepad/HID support** — Web Gamepad API (facile) ma MIDI learn copre l'uso reale
 
 Studio completo con confronto Resolume/Synesthesia/VDMX: artifact "DJtoGraphikz — Studio di sistema v0.5.2".
 

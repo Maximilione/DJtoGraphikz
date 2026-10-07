@@ -50,7 +50,7 @@ export function PaletteGrid({ isActive, onPick, title, size = 'md' }: PaletteGri
             className={`btn pal-btn${active ? ' active' : ''}`}
             onClick={() => onPick(i)}
             onContextMenu={mine ? (e => { e.preventDefault(); removeUserPalette(i) }) : undefined}
-            title={title ? title(i, preset.label) : mine ? `Palette ${preset.label} (tua — tasto destro per rimuoverla)` : `Palette ${preset.label}`}
+            title={title ? title(i, preset.label) : preset.plugin ? `Palette ${preset.label} (plugin)` : mine ? `Palette ${preset.label} (tua — tasto destro per rimuoverla)` : `Palette ${preset.label}`}
           >
             <span className="pal-swatches">
               {preset.colors.map((c, j) => <span key={j} className="pal-sw" style={{ background: c }} />)}

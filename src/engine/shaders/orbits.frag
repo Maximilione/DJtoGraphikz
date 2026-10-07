@@ -17,6 +17,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -36,11 +37,30 @@ void main() {
   float t = uTime;
   vec3 color = vec3(0.0);
 
-  // faint orbit rings
+  float rad = length(uv);
+
+  // deep space: two parallax star layers drifting slowly, hats twinkle them
+  for (int L = 0; L < 2; L++) {
+    float fl = float(L);
+    vec2 sp = uv * (9.0 + fl * 7.0) + vec2(t * (0.03 + fl * 0.05), fl * 13.0);
+    vec2 sc = floor(sp);
+    vec2 sf = fract(sp) - 0.5;
+    float sh = hash(sc + fl * 3.1);
+    vec2 off = (vec2(hash(sc + 1.7), hash(sc + 5.3)) - 0.5) * 0.6;
+    float sd = length(sf - off);
+    float tw = 0.5 + 0.5 * sin(uHighTime * 6.0 + sh * TAU);
+    color += mix(uColor3, vec3(1.0), 0.5) * step(0.8, sh) * (0.0025 / (sd * sd + 0.003)) * (0.35 + tw * (0.3 + uHigh * 0.6)) * (0.6 - fl * 0.25);
+  }
+  color += uColor1 * 0.03 * (1.0 - rad * 0.6) + uColor2 * 0.012;
+
+  float lkb = 1.0 + 2.5 * uLineBoost;
+  float lminW = (3.0 + 4.0 * uLineBoost) / uResolution.y;
+  // orbit rings with a kick shockwave running through them
   for (int k = 0; k < 3; k++) {
     float rr = orbitr * (0.45 + float(k) * 0.35) * (1.0 + uBass * 0.15);
-    float d = abs(length(uv) - rr);
-    color += uColor3 * smoothstep(0.004, 0.0, d - fwidth(d)) * 0.18;
+    float d = abs(rad - rr);
+    float wv = smoothstep(0.1, 0.0, abs(rad - (1.0 - uBassHit) * 1.1)) * uBassHit;
+    color += uColor3 * (smoothstep(max(0.004 * lkb, lminW), 0.0, d - fwidth(d)) * (0.22 * (1.0 + uLineBoost) + wv * 1.2) + 0.0012 * (1.0 + uLineBoost) / (d + 0.01) * (0.4 + uBass));
   }
 
   for (float i = 0.0; i < 16.0; i++) {
@@ -57,7 +77,8 @@ void main() {
     float size = 0.010 + h * 0.014 + (ring == 2.0 ? uBassHit * 0.02 : 0.0);
     vec3 c = mix(uColor1, uColor2, h);
     float tw = ring == 0.0 ? (0.6 + 0.4 * step(0.6, fract(uHighTime * 3.0 + h))) : 1.0;
-    color += c * (size * size) / (d * d + size * size * 0.25) * tw;
+    float core = (size * size) / (d * d + size * size * 0.25);
+    color += (c + vec3(0.35) * core * core) * core * tw * (1.0 + uBassHit * 0.8);
 
     // comet trail: sample a few past positions
     for (int s = 1; s <= 5; s++) {
@@ -69,10 +90,14 @@ void main() {
     }
   }
 
-  // gravity well at the center breathing with the bar
-  float cd = length(uv);
-  color += mix(uColor3, uColor1, uBarPhase) * 0.015 / (cd * cd + 0.02) * (0.5 + uBass);
+  // gravity well: bright star core breathing with the bar, flares on kick
+  float cd = rad;
+  vec3 wc = mix(uColor3, uColor1, uBarPhase);
+  color += wc * 0.015 / (cd * cd + 0.02) * (0.6 + uBass * 1.2 + uBassHit);
+  color += mix(wc, vec3(1.0), 0.6) * 0.0025 / (cd * cd + 0.0025) * (0.5 + uBassHit * 1.5);
 
-  color = min(color, vec3(2.2));
+  color *= 1.0 + uBeat * 0.3;
+
+  color = min(color, vec3(2.0));
   gl_FragColor = vec4(color, 1.0);
 }

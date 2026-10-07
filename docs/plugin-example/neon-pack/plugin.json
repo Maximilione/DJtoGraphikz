@@ -1,0 +1,29 @@
+{
+  "id": "neon-pack",
+  "name": "Neon Pack",
+  "version": "1.0.0",
+  "author": "Esempio",
+  "description": "Esempio completo: un effetto, due palette, un preset, una scaletta, un mapping consigliato.",
+  "effects": [
+    { "id": "neon-rings", "name": "Neon Rings", "file": "shaders/neon-rings.fs", "description": "Anelli che pulsano" }
+  ],
+  "palettes": [
+    { "id": "acid", "name": "Acid", "colors": ["#ccff00", "#00ffaa", "#220033"] },
+    { "id": "sunset", "name": "Sunset", "colors": ["#ff5e3a", "#ff2a68", "#2b0a3d"] }
+  ],
+  "presets": [
+    { "id": "acid-tunnel", "file": "data/acid-tunnel.json" }
+  ],
+  "sequences": [
+    { "id": "warmup", "file": "data/warmup.json" }
+  ],
+  "mappings": [
+    {
+      "effect": "neon-rings",
+      "params": {
+        "rings": { "source": "bass", "depth": 0.3, "value": 8 },
+        "speed": { "source": "lfo-sine", "depth": 0.4, "lfoRate": 8 }
+      }
+    }
+  ]
+}

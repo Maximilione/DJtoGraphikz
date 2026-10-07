@@ -9,6 +9,10 @@ const api = {
   libraryList: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('library:list'),
   libraryDelete: (name: string): Promise<void> => ipcRenderer.invoke('library:delete', name),
 
+  // Plugin dichiarativi (~/.djtographikz/plugins)
+  listPlugins: (): Promise<import('../shared/plugins').LoadedPlugin[]> => ipcRenderer.invoke('plugins:list'),
+  openPluginsFolder: (): Promise<void> => ipcRenderer.invoke('plugins:open-folder'),
+
   // ISF folder (~/.djtographikz/isf)
   listIsf: (): Promise<{ name: string; source: string }[]> => ipcRenderer.invoke('isf:list'),
   browseIsf: (force?: boolean): Promise<{ id: string; title: string; user: string; thumb: string; stars: number }[]> =>
@@ -19,7 +23,10 @@ const api = {
 
   // Asset operations
   importAssets: () => ipcRenderer.invoke('asset:import'),
+  pickSequence: (): Promise<{ name: string; dir: string; paths: string[]; note?: string } | null> => ipcRenderer.invoke('asset:pick-sequence'),
   pickVideos: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-video'),
+  pickModels: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-model'),
+  pickImages: (): Promise<{ name: string; path: string }[]> => ipcRenderer.invoke('asset:pick-image'),
   readFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('asset:read-file', path),
 
   // Update check (notification-only: unsigned builds can't self-install)
