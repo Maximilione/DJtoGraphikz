@@ -1540,6 +1540,17 @@ export class Engine {
     // Always cancel existing transition first
     this.cancelCurrentTransition()
 
+    // perfScale is global, not per-effect: a heavy effect can crash it to 30%
+    // and the slow climb-back (updatePerfScale) leaves the NEXT effect stuck
+    // at that resolution for up to a minute even if it's cheap. Give every
+    // new effect a clean shot at near-full res; the crash-detector re-engages
+    // within a couple of frames if this one turns out to be heavy too.
+    if (this.perfScale < 1) {
+      this.perfScale = Math.min(1, this.perfScale * 1.6)
+      this.perfCooldown = 0
+      this.setRenderSize(this.outputWidth, this.outputHeight)
+    }
+
     const fromEffect = this.currentEffect
 
     if (this.transitionDuration <= 0 || id === this.currentEffect) {
