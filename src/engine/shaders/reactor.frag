@@ -96,7 +96,10 @@ float march(vec3 ro, vec3 rd, float tmax) {
     if (t > tmax) break;
     vec3 p = ro + rd * t;
     float d = map(p);
-    float shock = exp(-pow((p.z - gShockZ) / 1.1, 2.0));
+    // the gaussian is negligible past ~3.5 units from the front — skip the
+    // transcendentals on the 100-step march for every step that isn't near it
+    float dz = p.z - gShockZ;
+    float shock = abs(dz) < 3.5 ? exp(-pow(dz / 1.1, 2.0)) : 0.0;
     float st = clamp(d, 0.03, 0.6);
     gGlow += st * 0.05 * (0.4 + 2.2 * shock);
     if (d < 0.003) return t;
