@@ -116,7 +116,7 @@ vec3 bgCol(vec3 rd) {
   return c;
 }
 
-vec3 shade(vec3 ro, vec3 rd, float t) {
+vec3 shade(vec3 ro, vec3 rd, float t, bool cheap) {
   vec3 p = ro + rd * t;
   vec3 n = normalAt(p);
   bool isRack = dRack(p) < dCeil(p);
@@ -129,8 +129,12 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
     surf = steel * (0.5 + 0.5 * max(n.y, 0.0));
     surf += uColor1 * topEdge * 0.12;
     surf += uColor1 * pow(1.0 - max(dot(n, -rd), 0.0), 3.0) * 0.1;
-    vec4 led = ledPanel(p);
-    surf += led.rgb * led.a * faceFront * (1.4 + 1.0 * gKick * gAlarm);
+    // the floor reflection already dampens this with fres/grime/scratch — the
+    // LED grid's per-cell hash work is wasted precision there, skip it
+    if (!cheap) {
+      vec4 led = ledPanel(p);
+      surf += led.rgb * led.a * faceFront * (1.4 + 1.0 * gKick * gAlarm);
+    }
   } else {
     // ceiling: dark metal panel, the fluorescent strip (always on, the
     // corridor's baseline light) and the cable conduit as a duller band.
@@ -164,9 +168,9 @@ float march(vec3 ro, vec3 rd, float tmax, int maxSteps) {
   return -1.0;
 }
 
-vec3 scene(vec3 ro, vec3 rd, float tmax, int steps) {
+vec3 scene(vec3 ro, vec3 rd, float tmax, int steps, bool cheap) {
   float t = march(ro, rd, tmax, steps);
-  vec3 c = (t > 0.0) ? shade(ro, rd, t) : bgCol(rd);
+  vec3 c = (t > 0.0) ? shade(ro, rd, t, cheap) : bgCol(rd);
   return mix(bgCol(rd), c, exp(-max(t, 0.0) * 0.05));
 }
 
@@ -193,13 +197,13 @@ void main() {
 
   vec3 col;
   if (t > 0.0) {
-    col = shade(ro, rd, t);
+    col = shade(ro, rd, t, false);
     col = mix(bgCol(rd), col, exp(-t * 0.05));
   } else if (tf < 42.0) {
     vec3 pf = ro + rd * tf;
     vec3 rr = vec3(rd.x, -rd.y, rd.z);
     float g0 = gBeaconGlow;
-    vec3 refl = scene(pf + vec3(0.0, 0.01, 0.0), rr, 42.0, 40);
+    vec3 refl = scene(pf + vec3(0.0, 0.01, 0.0), rr, 42.0, 40, true);
     gBeaconGlow = g0 + (gBeaconGlow - g0) * 0.6;
     float fres = 0.3 + 0.45 * pow(1.0 - abs(rd.y), 2.0);
     float grime = hash21(floor(pf.xz * 3.1)) * 0.05;
