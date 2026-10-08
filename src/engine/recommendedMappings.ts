@@ -430,11 +430,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   turbine: {
     speed: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 1.1 },
     strobe: { source: 'bass', depth: 0.5, value: 0.9 },
-    blades: { source: 'energy', depth: 0.2, value: 1 },
+    blades: { source: 'energy', depth: 0.2, value: 5 },
   },
   reactor: {
     speed: { source: 'energy', depth: 0.3, value: 0.9 },
-    rings: { source: 'lfo-square', depth: 0.2, lfoRate: 32, value: 1 },
+    rings: { source: 'lfo-square', depth: 0.2, lfoRate: 32, value: 5 },
     glow: { source: 'bass', depth: 0.4, value: 1 },
   },
   crystals: {
