@@ -178,28 +178,6 @@ void main() {
   vec3 up = cross(fwd, rgt);
   vec3 rd = normalize(fwd * 1.6 + rgt * uv.x + up * uv.y);
 
-  // wall of glass heads, far layer under the near one
-  vec2 buv = uv + vec2(0.03 * sin(uTime * 0.1), 0.0);
-  vec4 far = headLayer(buv, 1.0);
-  vec4 near = headLayer(buv, 0.0);
-  vec3 col = mix(vec3(0.002, 0.002, 0.004) + far.rgb * far.a, near.rgb, near.a);
-  col *= smoothstep(1.5, 0.15, length(uv * vec2(0.8, 1.1))) * 0.9 + 0.1;
-  // warm backlight behind the lantern
-  vec2 hc = uv - vec2(0.0, 0.12);
-  col += gCop * exp(-dot(hc, hc) * 2.6) * 0.1 * g * (0.65 + 0.35 * gBreath + 0.5 * gKick);
-
-  // dark glossy disc under the fins
-  if (rd.y < -0.01) {
-    float tp = (FLOOR_Y - ro.y) / rd.y;
-    vec3 fp = ro + rd * tp;
-    float fr = length(fp.xz);
-    if (fr < 3.5) {
-      float fade = smoothstep(3.5, 3.0, fr);
-      vec3 disc = vec3(0.004, 0.002, 0.001) + gCop * finWave(fr) * 0.07 * g;
-      col = mix(col, disc, fade * 0.97);
-    }
-  }
-
   float t = 2.0;
   bool hit = false;
   for (int i = 0; i < 64; i++) {
@@ -207,6 +185,37 @@ void main() {
     if (d < 0.0015 + 0.0008 * t) { hit = true; break; }
     t += d;
     if (t > 16.0) break;
+  }
+
+  // the lantern fills most of the frame at close range: when it's hit within
+  // 5 units, `fog` below is exactly 0 and the background never actually
+  // shows through (mix weight 0, not an approximation) — skip paying for the
+  // glass-head wall (2x headLayer) and the floor disc on those pixels
+  vec3 col;
+  if (!hit || t > 5.0) {
+    // wall of glass heads, far layer under the near one
+    vec2 buv = uv + vec2(0.03 * sin(uTime * 0.1), 0.0);
+    vec4 far = headLayer(buv, 1.0);
+    vec4 near = headLayer(buv, 0.0);
+    col = mix(vec3(0.002, 0.002, 0.004) + far.rgb * far.a, near.rgb, near.a);
+    col *= smoothstep(1.5, 0.15, length(uv * vec2(0.8, 1.1))) * 0.9 + 0.1;
+    // warm backlight behind the lantern
+    vec2 hc = uv - vec2(0.0, 0.12);
+    col += gCop * exp(-dot(hc, hc) * 2.6) * 0.1 * g * (0.65 + 0.35 * gBreath + 0.5 * gKick);
+
+    // dark glossy disc under the fins
+    if (rd.y < -0.01) {
+      float tp = (FLOOR_Y - ro.y) / rd.y;
+      vec3 fp = ro + rd * tp;
+      float fr = length(fp.xz);
+      if (fr < 3.5) {
+        float fade = smoothstep(3.5, 3.0, fr);
+        vec3 disc = vec3(0.004, 0.002, 0.001) + gCop * finWave(fr) * 0.07 * g;
+        col = mix(col, disc, fade * 0.97);
+      }
+    }
+  } else {
+    col = vec3(0.0); // unused: fog below is exactly 0 for t <= 5
   }
 
   if (hit) {
