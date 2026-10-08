@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.74.0-beta] — 2026-10-08
+
+### Added
+- **✨ Magic Mapping**: i due pulsanti "Auto" (mapping consigliato) e "⚡ Collega all'audio" (euristica smart map) diventano un solo pulsante — applica il preset dedicato dove esiste per l'effetto e l'euristica sull'uso del parametro per tutto il resto, invece di far scegliere all'utente quale lanciare.
+
+### Fixed
+- **Scale di rendering globale**: `perfScale` e' condiviso da tutti gli effetti; un effetto pesante lo schiantava e il recupero lento (fino a un minuto) lasciava l'effetto successivo — anche uno leggero come Maschere o Android — bloccato a bassa risoluzione per gran parte del suo turno. Ora ogni cambio effetto riparte vicino alla risoluzione piena; il rilevatore di sovraccarico la riabbassa in pochi frame se serve ancora.
+- **Reactor/Hypercube/Datacenter/Maschere**: costo per-pixel ridotto nei punti piu' pesanti — shock del reattore e bagliore dei nodi dell'hypercube non piu' ricalcolati ad ogni passo della marcia, shading della riflessione a pavimento di Datacenter senza il pattern LED, sfondo di Maschere saltato quando comunque invisibile dietro la lanterna.
+- **Mapping consigliato fuori range**: `turbine.blades` e `reactor.rings` avevano un valore iniziale (1) fuori dal range del parametro (3-8), bloccava `check:mappings`.
+
 ## [0.73.0-beta] — 2026-10-07
 
 ### Added
