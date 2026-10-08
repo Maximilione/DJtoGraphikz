@@ -2,8 +2,7 @@ import React, { useEffect, useReducer, useRef, useState } from 'react'
 import type { Engine } from '@engine/Engine'
 import { AUDIO_SOURCES, type AudioSource } from '@engine/EffectParams'
 import { SliderRow } from '../SliderRow/SliderRow'
-import { smartMap } from '../../smartMap'
-import { autoMappingEnabled, setAutoMappingEnabled } from '../../autoMapping'
+import { autoMappingEnabled, setAutoMappingEnabled, magicMap } from '../../autoMapping'
 import { pushToast } from '../Toasts/Toasts'
 
 interface ParamControlsProps {
@@ -65,30 +64,15 @@ export function ParamControls({ engine }: ParamControlsProps) {
           </label>
           <button
             className="btn btn-sm"
-            title="Mapping consigliato per questo effetto — Annulla dal toast"
+            title="Mappa tutti i parametri all'audio: preset dedicato dove esiste, euristica per gli altri — Annulla dal toast"
             onClick={() => {
-              const prev = defs.map(d => ({ key: d.key, ...engine.getParamState(d.key) }))
-              const n = engine.applyRecommendedMapping(engine.getCurrentEffect(), false)
+              const r = magicMap(engine)
               force()
-              if (!n) { pushToast('Nessun mapping consigliato per questo effetto', 'automap'); return }
-              pushToast(`Mapping consigliato: ${n} parametri`, 'automap', { label: 'Annulla', fn: () => {
-                for (const p of prev) { engine.setParamValue(p.key, p.value); engine.setParamMapping(p.key, p.source, p.depth, p.lfoRate) }
-                force()
-              } })
+              const detail = r.curated ? `, ${r.curated} con preset dedicato` : ''
+              pushToast(`Magic Mapping: ${r.count} parametri${detail}`, 'magicmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
             }}
           >
-            Auto
-          </button>
-          <button
-            className="btn btn-sm"
-            title="Collega i parametri all'audio, e abbassa quelli gia' al massimo per lasciare spazio al movimento — Annulla dal toast"
-            onClick={() => {
-              const r = smartMap(engine)
-              force()
-              pushToast(`Collegati ${r.count} parametri all'audio`, 'smartmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
-            }}
-          >
-            ⚡ Collega all'audio
+            ✨ Magic Mapping
           </button>
         </div>
       </div>

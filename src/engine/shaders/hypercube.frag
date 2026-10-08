@@ -143,7 +143,10 @@ void main() {
     p = ro + rd * t;
     float d = map(p);
     haloGlow += gEdgeR * gEdgeR * 3.0 / (d * d * 40.0 + 0.03) * 0.02 * gl;
-    nodeGlow += nodeGlowAt(p) * 0.018;
+    // nodeGlowAt loops the 8 corners — too costly to pay every one of the 72
+    // steps for an accumulator this smooth; sample every 3rd step and scale
+    // up to keep the same total contribution
+    if (i % 3 == 0) nodeGlow += nodeGlowAt(p) * 0.018 * 3.0;
     if (d < 0.0015) { hit = true; break; }
     t += clamp(d * 0.9, 0.01, 0.5);
     if (t > 14.0) break;
