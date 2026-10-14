@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.75.1-beta] — 2026-10-14
+
+### Fixed
+- **Pipes**: la prima versione renderizzava un groviglio di palloncini invece di tubi — il giunto sferico era 1.6x il raggio del tubo, troppo grande. Il parametro `density` ridimensionava anche il lato della cella del reticolo, quindi un LFO su `density` ri-hashava l'orientamento di ogni cella in blocco (l'intero labirinto "bolliva" ad ogni variazione continua); ora `density` sceglie solo se una cella è piena o vuota, lasciando fisso il reticolo. Il passo della marcia non era limitato: una cella con geometria solo locale può restituire una distanza maggiore di quella reale verso il tubo del vicino, e lo step poteva saltare dritto attraverso una parete sottile (si vedeva come un pulviscolo scuro sullo sfondo) — ora il passo è limitato a una costante (come già fanno truss/reactor), non più proporzionale alla distanza stimata.
+
 ## [0.75.0-beta] — 2026-10-14
 
 ### Added
