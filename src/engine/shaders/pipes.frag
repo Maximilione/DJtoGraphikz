@@ -21,15 +21,36 @@ uniform float density;
 uniform float glow;
 
 // Pipes: the classic "3D Pipes" screensaver, raymarched. Space is cut into a
-// lattice of cells (domain repeat, same trick as reactor's rings); each cell
-// hashes to one of three axis-aligned tube directions and gets a rounded
-// joint sphere at its centre, so neighbouring cells read as a tangled maze
-// of elbowed pipework with no per-pipe path to walk or store. The camera
-// flies straight through it. A travelling brightness band (like reactor's
-// idle flow) keeps the metal looking alive, and one cell in ~14 hashes into
-// a stubby valve body instead of a joint — the nod to the screensaver's
-// teapots, without an actual teapot SDF (ponytail: three smin'd spheres,
-// not Utah-teapot geometry — upgrade only if a real teapot is ever wanted).
+// fixed lattice of cells (domain repeat, same trick as reactor's rings);
+// each cell hashes to one of three axis-aligned tube directions with a
+// rounded joint at its centre, so neighbouring cells read as a tangled maze
+// of elbowed pipework with no per-pipe path to walk or store. `density` is
+// the chance a cell is filled at all (empty cells are just void the camera
+// flies through) rather than the lattice spacing itself — changing the
+// spacing under audio/LFO would re-hash every cell's orientation at once
+// and the whole maze would boil; flipping individual cells' fill in and out
+// stays calm under continuous modulation.
+//
+// Each cell's SDF only has local knowledge — a point near a shared face can
+// be closer to the NEIGHBOUR's geometry than to this cell's, so `map()`'s
+// return value isn't always a trustworthy lower bound near boundaries. The
+// standard fix (shrinking it to the cell's own face distance) was tried
+// first and stalls the march to a crawl at every single cell crossing,
+// empty or not. Instead, like truss/reactor, the *step* is capped to a
+// small constant (MAX_STEP, comfortably above a joint's radius) so a bad
+// bound can only ever be worth one short, safe hop.
+//
+// A travelling brightness band (like reactor's idle flow) runs along each
+// tube's own axis and keeps the metal looking alive; one cell in ~14 hashes
+// into a stubby valve body instead of a joint — the nod to the
+// screensaver's teapots, without an actual teapot SDF (ponytail: three
+// smin'd spheres, not Utah-teapot geometry — upgrade only if a real teapot
+// is ever wanted).
+
+const float CELL = 2.4;
+const float TUBE_R = CELL * 0.09;
+const float JOINT_R = TUBE_R * 1.2;
+const float MAX_STEP = 0.3;
 
 float gFlow;
 float gKick;
@@ -43,13 +64,13 @@ float smin(float a, float b, float k) {
   return mix(b, a, h) - k * h * (1.0 - h);
 }
 
-float CELL;
-float TUBE_R;
-float JOINT_R;
-
 float map(vec3 p) {
   vec3 ic = floor(p / CELL + 0.5);
   vec3 pl = p - ic * CELL;
+
+  float fillH = hash31(ic + vec3(3.3, -7.1, 5.5));
+  float fillChance = clamp(0.35 + 0.3 * clamp(density, 0.0, 2.0), 0.35, 0.95);
+  if (fillH > fillChance) return MAX_STEP + 0.2;
 
   float h = hash31(ic);
   float axisF = floor(h * 3.0);
@@ -58,20 +79,17 @@ float map(vec3 p) {
              :               length(pl.xy) - TUBE_R;
 
   float valveH = hash31(ic + vec3(91.3, 17.7, 53.1));
-  float d;
   if (valveH > 0.93) {
-    float body = length(pl) - JOINT_R * 1.7;
-    vec3 sp = vec3(JOINT_R * 1.5, JOINT_R * 0.25, 0.0);
-    float spout = length(pl - sp) - JOINT_R * 0.5;
-    vec3 hd = vec3(-JOINT_R * 1.3, JOINT_R * 0.1, 0.0);
-    float handle = length(pl - hd) - JOINT_R * 0.42;
-    float valve = smin(smin(body, spout, 0.08), handle, 0.08);
-    d = min(tube, valve);
-  } else {
-    float joint = length(pl) - JOINT_R;
-    d = smin(tube, joint, 0.1);
+    float body = length(pl) - JOINT_R * 1.5;
+    vec3 sp = vec3(JOINT_R * 1.4, JOINT_R * 0.25, 0.0);
+    float spout = length(pl - sp) - JOINT_R * 0.45;
+    vec3 hd = vec3(-JOINT_R * 1.2, JOINT_R * 0.1, 0.0);
+    float handle = length(pl - hd) - JOINT_R * 0.38;
+    float valve = smin(smin(body, spout, 0.06), handle, 0.06);
+    return min(tube, valve);
   }
-  return d;
+  float joint = length(pl) - JOINT_R;
+  return smin(tube, joint, 0.05);
 }
 
 vec3 normalAt(vec3 p) {
@@ -87,10 +105,9 @@ float march(vec3 ro, vec3 rd, float tmax) {
     if (t > tmax) break;
     vec3 p = ro + rd * t;
     float d = map(p);
-    float st = clamp(d, 0.03, 0.5);
-    gFlow += st * 0.06;
+    gFlow += clamp(d, 0.03, 0.5) * 0.06;
     if (d < 0.003) return t;
-    t += d * 0.9;
+    t += clamp(d * 0.9, 0.02, MAX_STEP);
   }
   return -1.0;
 }
@@ -99,7 +116,10 @@ vec3 shade(vec3 p, vec3 rd) {
   vec3 n = normalAt(p);
   vec3 ic = floor(p / CELL + 0.5);
   vec3 pl = p - ic * CELL;
-  float along = max(max(abs(pl.x), abs(pl.y)), abs(pl.z)) / (CELL * 0.5);
+  float h = hash31(ic);
+  float axisF = floor(h * 3.0);
+  float alongCoord = axisF < 0.5 ? pl.x : axisF < 1.5 ? pl.y : pl.z;
+  float along = alongCoord / (CELL * 0.5);
 
   vec3 L = normalize(vec3(0.4, 1.0, -0.3));
   float diff = max(dot(n, L), 0.0);
@@ -109,7 +129,7 @@ vec3 shade(vec3 p, vec3 rd) {
   float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
   c += uColor1 * rim * 0.25;
 
-  // flow band travels along each cell's long axis, pulsing on the beat
+  // flow band travels along the tube's own axis, pulsing on the beat
   float band = 0.5 + 0.5 * sin(along * 6.28 - uBeatClock * 6.28);
   c += mix(uColor2, uColor1, band) * (0.15 + 0.5 * glow) * (0.4 + gKick);
 
@@ -125,10 +145,6 @@ void main() {
   gKick = clamp(uBassHit, 0.0, 1.0);
   gFlow = 0.0;
 
-  CELL = mix(2.8, 1.5, clamp(density, 0.3, 2.0) / 2.0);
-  TUBE_R = CELL * 0.14;
-  JOINT_R = TUBE_R * 1.6;
-
   float spd = clamp(speed, 0.1, 3.0) * (0.7 + 0.5 * uEnergy);
   vec3 ro = vec3(0.6 * sin(uTime * 0.07), 0.5 * sin(uTime * 0.05 + 1.3), uTime * spd * 1.4);
   float drift = 0.1 * sin(uTime * 0.09);
@@ -136,7 +152,7 @@ void main() {
   vec3 rd = normalize(vec3(uv, 1.3));
   rd.xy = mat2(cs, -sn, sn, cs) * rd.xy;
 
-  float t = march(ro, rd, 32.0);
+  float t = march(ro, rd, 28.0);
   vec3 col;
   if (t > 0.0) {
     vec3 p = ro + rd * t;
