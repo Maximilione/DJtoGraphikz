@@ -101,6 +101,7 @@ import datacenterFrag from './shaders/datacenter.frag?raw'
 import chainfenceFrag from './shaders/chainfence.frag?raw'
 import turbineFrag from './shaders/turbine.frag?raw'
 import reactorFrag from './shaders/reactor.frag?raw'
+import pipesFrag from './shaders/pipes.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
 import ribbonsFrag from './shaders/ribbons.frag?raw'
@@ -226,7 +227,7 @@ export type EffectId =
   | 'chevrons' | 'eclipse' | 'blinds'
   | 'bounceball' | 'pump' | 'roll'
   | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'faces' | 'monolith' | 'imgbeat' | 'truss' | 'hypercube' | 'vaultdoor' | 'pistons'
-  | 'datacenter' | 'chainfence' | 'turbine' | 'reactor'
+  | 'datacenter' | 'chainfence' | 'turbine' | 'reactor' | 'pipes'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -528,6 +529,7 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   chainfence: chainfenceFrag,
   turbine: turbineFrag,
   reactor: reactorFrag,
+  pipes: pipesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
   mandelbulb: mandelbulbFrag,
