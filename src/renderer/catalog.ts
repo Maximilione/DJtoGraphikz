@@ -33,6 +33,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'vaultdoor', label: 'Vaultdoor', icon: '⬭' },
       { id: 'turbine', label: 'Turbine', icon: '⚙' },
       { id: 'reactor', label: 'Reactor', icon: '☢' },
+      { id: 'pipes', label: 'Pipes', icon: '⟲' },
       { id: 'android', label: 'Android', icon: '☤' },
       { id: 'faces', label: 'Maschere', icon: '☺' },
       { id: 'mandelbulb', label: 'Mandelbulb', icon: '❂' },

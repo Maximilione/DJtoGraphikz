@@ -114,6 +114,7 @@ export const FAMILY: Record<EffectId, Family> = {
   chainfence: 'tunnel',
   turbine: 'object',
   reactor: 'radial',
+  pipes: 'tunnel',
 }
 
 // shorthand builders keep the tables readable

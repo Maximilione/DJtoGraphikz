@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.75.0-beta] — 2026-10-14
+
+### Added
+- **Pipes**: nuovo effetto raymarch ispirato al classico screensaver "3D Pipes" — tubature a gomito in un reticolo 3D (domain repeat per cella, nessun percorso memorizzato), camera che vola dentro il labirinto, banda di luce che scorre lungo i tubi a tempo col beat. Una cella su ~14 nasconde una valvola panciuta al posto del giunto, l'omaggio alla teiera dello screensaver originale. Catalogo portato a 86 effetti.
+
 ## [0.74.0-beta] — 2026-10-08
 
 ### Added
