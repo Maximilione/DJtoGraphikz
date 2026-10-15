@@ -309,7 +309,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
       try {
         const imported = migrateAll(JSON.parse(await file.text()))
         if (imported.length) {
-          persist([...sequences, ...imported])
+          if (!persist([...sequences, ...imported])) return
           pushToast(`${imported.length} scalette importate`, undefined, undefined, 'ok')
         } else {
           pushToast('Nessuna scaletta nel file', undefined, undefined, 'err')
