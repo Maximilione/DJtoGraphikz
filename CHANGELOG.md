@@ -2,6 +2,21 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.75.2-beta] — 2026-10-15
+
+### Fixed
+- **"Torna al vivo"**: il pulsante nel pannello Audio tornava a mostrare l'ingresso in diretta solo nell'etichetta — in realtà si limitava a fermare l'ascolto, lasciando l'utente a premere "Avvia audio" a parte. Ora riprende davvero l'ascolto dal device selezionato.
+- **Salvataggi non verificati**: due punti del codice (importazione scalette, salvataggio uscite) mostravano "salvato" senza controllare se la scrittura su disco fosse davvero riuscita — stesso tipo di difetto gia' corretto altrove a settembre, ripresentatosi in codice nuovo. Aggiunto un helper `saveAndToast()` condiviso per chiudere il buco alla radice.
+- **Poll a intervallo fisso**: i controlli periodici di stato audio (ogni 1s/10s/500ms) giravano anche a finestra di controllo minimizzata o in background. Ora si fermano quando la finestra non e' visibile e ripartono al suo ritorno; il poll del telecomando da telefono resta volutamente sempre attivo.
+- **Hexagons**: il riempimento a pallini mostrava striature diagonali da interferenza in alcune celle — sostituita la formula (prodotto di due onde) con una SDF di pallini isolati, che non puo' produrre quell'artefatto.
+- **Tooltip su "Tetto"**: ultimo dei tre termini gergali segnalati senza spiegazione sul controllo stesso.
+
+### Changed
+- **Pattern "chip"**: `pm-chip`, `seq-chip` e `output-chip` condividono ora una base CSS unica invece di ridefinire la stessa forma (pillola etichettata) tre volte.
+
+### Tooling
+- `check:glsl` valida ora anche i file `.vert` (prima solo `.frag`) — ha scoperto due vertex shader mai validati automaticamente (`galaxy.vert`, `swarm.vert`) oltre a `mesh.vert`.
+
 ## [0.75.1-beta] — 2026-10-14
 
 ### Fixed

@@ -309,7 +309,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
       try {
         const imported = migrateAll(JSON.parse(await file.text()))
         if (imported.length) {
-          persist([...sequences, ...imported])
+          if (!persist([...sequences, ...imported])) return
           pushToast(`${imported.length} scalette importate`, undefined, undefined, 'ok')
         } else {
           pushToast('Nessuna scaletta nel file', undefined, undefined, 'err')
@@ -522,7 +522,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                       <span className="u-hint" style={{ flexShrink: 0 }}>grafica</span>
                       <div className="seq-chips">
                         {(st.overlays ?? []).map((ov, k) => (
-                          <span key={k} className="seq-chip" title={ov.kind === 'text' ? `Testo: ${ov.text}` : ov.path ?? ov.name}>
+                          <span key={k} className="chip seq-chip" title={ov.kind === 'text' ? `Testo: ${ov.text}` : ov.path ?? ov.name}>
                             <span>{ov.kind === 'text' ? '"' + ov.name + '"' : ov.name}</span>
                             <button className="btn btn-ghost btn-sm danger" title="Togli questa grafica dal passo" aria-label="Togli questa grafica dal passo" onClick={() => removeStepOverlay(i, k)}>✕</button>
                           </span>

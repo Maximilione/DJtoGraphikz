@@ -63,6 +63,19 @@ export function writeJson(key: string, value: unknown): boolean {
   }
 }
 
+/**
+ * writeJson + pushToast in one call that cannot lie: the toast only fires
+ * when writeJson actually returns true. The manual version of this —
+ * `if (!writeJson(...)) return; pushToast(...)` — has already been skipped
+ * by mistake twice (an unconditional toast slipped in after a write nobody
+ * checked); this is the version that cannot skip the check.
+ */
+export function saveAndToast(key: string, value: unknown, msg: string, toastKey?: string): boolean {
+  if (!writeJson(key, value)) return false
+  pushToast(msg, toastKey, undefined, 'ok')
+  return true
+}
+
 export function readString(key: string): string | null {
   return localStorage.getItem(key)
 }

@@ -87,9 +87,15 @@ void main() {
   // faint tint on every cell: the lattice never reads as black on a wall
   color += cellColor * (1.0 - edge) * 0.2 * (0.5 + 0.5 * wave);
 
-  // Fill with pattern
-  float innerPattern = sin(gv.x * 20.0 + t * 3.0) * sin(gv.y * 20.0 - t * 2.0);
-  innerPattern = smoothstep(0.5, 1.0, innerPattern);
+  // Fill with pattern — isolated round dots on a small sub-grid, drifting
+  // slowly. The previous version thresholded sin(x)*sin(y): a product of
+  // two waves has diagonal interference fringes baked into its math at any
+  // sampling rate (not a resolution/aliasing problem, fwidth() couldn't
+  // touch it) — a dot SDF can't produce that artifact by construction.
+  vec2 dotCell = fract(gv * 6.0 + vec2(0.12 * sin(t * 0.5), 0.12 * cos(t * 0.4))) - 0.5;
+  float dotDist = length(dotCell);
+  float dotAA = max(fwidth(dotDist), 0.02);
+  float innerPattern = smoothstep(0.32 + dotAA, 0.32 - dotAA, dotDist);
   color += cellColor * fill * innerPattern * (1.0 - edge) * 0.3;
 
   // Beat flash
