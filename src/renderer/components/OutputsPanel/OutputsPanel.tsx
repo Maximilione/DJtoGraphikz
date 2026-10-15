@@ -156,6 +156,7 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
               <SliderRow label="Gamma" value={o.gamma} min={0.4} max={2.4} step={0.05}
                 onChange={v => set(open, { gamma: v })} />
               <SliderRow label="Tetto" value={o.brightness} min={0} max={1} step={0.01} percent
+                title="Luminosità massima di questa uscita — il LED schiaccia i neri e a bianco pieno è inguardabile"
                 onChange={v => set(open, { brightness: v })} />
 
               <div className="u-row" style={{ gap: 4 }}>
