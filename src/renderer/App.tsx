@@ -184,6 +184,10 @@ export function App() {
   const [vjEnabled, setVjEnabled] = useState(false)
   const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
   const [vjStatus, setVjStatus] = useState<{ current: string; count: number; phase: Phase }>({ current: '', count: 0, phase: 'groove' })
+  // hold: picture stays put, phase detection keeps running underneath — the
+  // on/off toggle was the only way to pin a look, and it also surrendered
+  // phase-driven palette/post automation and reset scheduling memory
+  const [vjHeld, setVjHeld] = useState(false)
 
   // Displays for the output-monitor picker
   const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean }[]>([])
@@ -655,8 +659,15 @@ export function App() {
     vjRef.current.setEnabled(on)
     setVjEnabled(on)
     if (on) setVjStatus({ current: '', count: 0, phase: 'groove' })
+    // held is meaningless with the Auto VJ off; don't carry it into the next enable
+    if (!on) { vjRef.current.setHeld(false); setVjHeld(false) }
     // Keep the phone remote honest — hotkeys/effect cmds disable AutoVJ silently
     try { window.api?.sendRemoteVj({ enabled: on, genre: vjRef.current.getGenre() }) } catch (_) {}
+  }, [])
+
+  const toggleVJHold = useCallback((held: boolean) => {
+    vjRef.current.setHeld(held)
+    setVjHeld(held)
   }, [])
 
   const changeVJGenre = useCallback((g: Genre) => {
@@ -1309,8 +1320,10 @@ export function App() {
                 vjEnabled={vjEnabled}
                 vjGenre={vjGenre}
                 vjStatus={vjStatus}
+                vjHeld={vjHeld}
                 onVJToggle={toggleVJ}
                 onVJGenre={changeVJGenre}
+                onVJHold={toggleVJHold}
               />
             </>
           ) : (
@@ -1322,8 +1335,10 @@ export function App() {
                 vjEnabled={vjEnabled}
                 vjGenre={vjGenre}
                 vjStatus={vjStatus}
+                vjHeld={vjHeld}
                 onToggle={toggleVJ}
                 onGenre={changeVJGenre}
+                onHold={toggleVJHold}
               />
             </>
           )}

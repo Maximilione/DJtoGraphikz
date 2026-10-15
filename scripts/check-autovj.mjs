@@ -26,7 +26,15 @@ const load = async (entry) => {
 const { AutoVJ, GENRE_CONFIGS, FAMILY, BREAK_CUT, DROP_CUT } = await load('src/engine/AutoVJ.ts')
 const { EFFECT_PARAMS, COMMON_PARAMS } = await load('src/engine/EffectParams.ts')
 
-const POSTS = new Set(['bloom', 'rgb-split', 'chromatic', 'feedback', 'filmgrain', 'scanlines', 'pixelate', 'mirror', 'invert', 'rgb-delay'])
+// keep in sync with PostId in src/engine/Engine.ts — this list is a literal
+// copy (the type itself is erased at runtime) and had drifted silently: it
+// was missing 8 of 18 posts, so nothing ever caught that those 8 sat unused
+// in every genre config until a manual audit found it (2026-10-15)
+const POSTS = new Set([
+  'bloom', 'rgb-split', 'chromatic', 'feedback', 'filmgrain', 'scanlines', 'pixelate', 'mirror', 'invert',
+  'rgb-delay', 'displace', 'frame-glitch', 'outline',
+  'anamorphic', 'tiltshift', 'cinegrade', 'godrays', 'halation',
+])
 const COMMON = new Set(COMMON_PARAMS.map(p => p.key))
 
 let checks = 0

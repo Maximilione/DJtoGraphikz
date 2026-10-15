@@ -13,12 +13,14 @@ interface SimplePanelProps {
   vjEnabled: boolean
   vjGenre: Genre
   vjStatus: { current: string; count: number; phase: Phase }
+  vjHeld: boolean
   onVJToggle: (on: boolean) => void
   onVJGenre: (g: Genre) => void
+  onVJHold: (held: boolean) => void
 }
 
 /** Simple mode: the few controls a first-time VJ actually needs, big enough to hit in the dark. */
-export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, onVJGenre }: SimplePanelProps) {
+export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, vjHeld, onVJToggle, onVJGenre, onVJHold }: SimplePanelProps) {
   const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
   const [activePalette, setActivePalette] = useState(0)
 
@@ -57,6 +59,7 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, onVJToggle, 
         size="lg"
         enabled={vjEnabled} genre={vjGenre} status={vjStatus}
         onToggle={onVJToggle} onGenre={onVJGenre}
+        held={vjHeld} onHold={onVJHold}
       />
 
       {/* Effects — big grid, no tabs, no search */}

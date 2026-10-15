@@ -7,6 +7,9 @@ interface AutoVJControlProps {
   status: { current: string; count: number; phase: Phase }
   onToggle: (on: boolean) => void
   onGenre: (g: Genre) => void
+  /** picture stays put, phase detection keeps tracking the music underneath */
+  held?: boolean
+  onHold?: (held: boolean) => void
   /** 'lg' is Simple mode: the same row and the same select, with more air. */
   size?: 'sm' | 'lg'
 }
@@ -23,7 +26,7 @@ interface AutoVJControlProps {
  */
 const PHASE_LABEL: Record<Phase, string> = { break: 'pausa', build: 'salita', groove: 'groove', peak: 'picco' }
 
-export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, size = 'sm' }: AutoVJControlProps) {
+export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, held = false, onHold, size = 'sm' }: AutoVJControlProps) {
   const lg = size === 'lg'
   return (
     <>
@@ -42,6 +45,15 @@ export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, size 
           </div>
         </div>
       </button>
+      {enabled && onHold && (
+        <button type="button" aria-pressed={held}
+          className={`btn btn-sm${lg ? ' lg' : ''}${held ? ' active' : ''}`}
+          onClick={() => onHold(!held)}
+          title="Tiene fermo il look attuale — fasi e palette continuano a seguire la musica sotto, pronte a ripartire"
+        >
+          {held ? '⏸ In pausa' : '⏸ Ferma qui'}
+        </button>
+      )}
       <select
         className={`vj-genre${lg ? ' lg' : ''}`}
         value={genre}
