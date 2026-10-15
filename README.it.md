@@ -48,7 +48,7 @@ Opzionale: **📱** nella barra in alto → inquadra il QR → codice a 6 cifre,
 
 ### Auto VJ
 
-**11 generi** — Acid Techno, Hard Tekno, Dark Industrial, Minimal, Trance, Drum & Bass, Ambient, Gabber, Tech House, Psytrance, Bounce Techno — circa **350 scene curate** in tutto (effetto, parametri accordati, mapping audio e i post-FX che ci stanno). Segue il pezzo, non un timer: sente **pausa / salita / groove / picco**, sul primo kick del **drop** taglia su una scena di picco, nel groove tiene una scena per una frase. La **tonalità sceglie la palette** (calda per le maggiori, fredda per le minori), così lo stesso pezzo ha gli stessi colori ogni sera. Salva i tuoi look come scene di un genere e di una fase: entrano in rotazione, o la sostituiscono.
+**11 generi** — Acid Techno, Hard Tekno, Dark Industrial, Minimal, Trance, Drum & Bass, Ambient, Gabber, Tech House, Psytrance, Bounce Techno — circa **370 scene curate** in tutto (effetto, parametri accordati, mapping audio e i post-FX che ci stanno). Segue il pezzo, non un timer: sente **pausa / salita / groove / picco**, sul primo kick del **drop** taglia su una scena di picco, nel groove tiene una scena per una frase. La **tonalità sceglie la palette** (calda per le maggiori, fredda per le minori), così lo stesso pezzo ha gli stessi colori ogni sera. Salva i tuoi look come scene di un genere e di una fase: entrano in rotazione, o la sostituiscono. Il bottone **"Ferma qui"** tiene fermo il look attuale senza spegnere l'automazione — fase e palette continuano a seguire la musica sotto.
 
 ### Tempo e audio
 

@@ -48,7 +48,7 @@ Optional: **📱** in the top bar → scan the QR → 6-digit code, and the phon
 
 ### Auto VJ
 
-**11 genres** — Acid Techno, Hard Tekno, Dark Industrial, Minimal, Trance, Drum & Bass, Ambient, Gabber, Tech House, Psytrance, Bounce Techno — about **350 curated scenes** in all (effect, tuned parameters, audio mappings and the post-FX that fit). It follows the track, not a timer: it hears **break / build / groove / peak**, cuts to a peak scene on the first kick of a **drop**, and in the groove holds a scene for a phrase. The track's **key picks the palette** (warm for major, cool for minor), so the same track gets the same colours every night. Save your own looks as scenes of a genre and a phase: they join the rotation, or replace it.
+**11 genres** — Acid Techno, Hard Tekno, Dark Industrial, Minimal, Trance, Drum & Bass, Ambient, Gabber, Tech House, Psytrance, Bounce Techno — about **370 curated scenes** in all (effect, tuned parameters, audio mappings and the post-FX that fit). It follows the track, not a timer: it hears **break / build / groove / peak**, cuts to a peak scene on the first kick of a **drop**, and in the groove holds a scene for a phrase. The track's **key picks the palette** (warm for major, cool for minor), so the same track gets the same colours every night. Save your own looks as scenes of a genre and a phase: they join the rotation, or replace it. The **"Hold here"** button pins the current look without turning the automation off — phase and palette keep following the music underneath.
 
 ### Tempo and audio
 

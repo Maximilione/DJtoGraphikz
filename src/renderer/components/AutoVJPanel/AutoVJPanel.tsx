@@ -14,15 +14,17 @@ interface AutoVJPanelProps {
   vjEnabled: boolean
   vjGenre: Genre
   vjStatus: { current: string; count: number; phase: Phase }
+  vjHeld: boolean
   onToggle: (on: boolean) => void
   onGenre: (g: Genre) => void
+  onHold: (held: boolean) => void
 }
 
 
 const PHASE_LABEL: Record<Phase, string> = { break: 'Pausa', build: 'Salita', groove: 'Groove', peak: 'Picco' }
 
 
-export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, onToggle, onGenre }: AutoVJPanelProps) {
+export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, vjHeld, onToggle, onGenre, onHold }: AutoVJPanelProps) {
   const config = GENRE_CONFIGS[vjGenre]
   const [mine, setMine] = useState<UserScene[]>(loadUserScenes)
   const [onlyMine, setOnlyMine] = useState<boolean>(() => readJson<boolean>(ONLY_MINE_KEY, false))
@@ -57,6 +59,7 @@ export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, onToggle
         <AutoVJControl
           enabled={vjEnabled} genre={vjGenre} status={vjStatus}
           onToggle={onToggle} onGenre={onGenre}
+          held={vjHeld} onHold={onHold}
         />
 
         {/* The user's own scenes for this genre */}
