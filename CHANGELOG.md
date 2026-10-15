@@ -2,6 +2,19 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.76.0-beta] — 2026-10-15
+
+### Added
+- **AutoVJ — controllo "Ferma qui"**: tiene fermo il look attuale senza spegnere l'Auto VJ — fase e palette continuano a seguire la musica sotto, pronte a ripartire da dove il live le ha lasciate invece che da un reset. Prima l'unico modo di fissare un look era il toggle acceso/spento intero.
+- **AutoVJ — 9 effetti ora raggiungibili**: truss, hypercube, vaultdoor, pistons, datacenter, chainfence, turbine, reactor, pipes erano classificati ma assenti da ogni genere — il 100% degli ultimi due batch di effetti spediti. Cablati in 2-3 generi ciascuno.
+- **AutoVJ — 12 post-FX ora usati**: displace, frame-glitch, outline, mirror, rgb-delay, pixelate, invert, anamorphic, tiltshift, cinegrade, godrays, halation non comparivano mai in nessuna scena.
+
+### Fixed
+- **AutoVJ — varietà per famiglia**: due effetti della stessa famiglia potevano tornare dopo un solo cambio invece che tre, come già vale per l'effetto singolo.
+- **AutoVJ — peso delle scene utente**: non più proporzionale alla dimensione della fase (una fase piccola faceva "pesare" di più le scene salvate dall'utente) ma una quota fissa.
+- **AutoVJ — cambio genere**: non azzera più fase e rilevamento kick/inviluppo a metà di un picco; resetta solo ciò che è davvero specifico del genere (memoria recente, palette).
+- **check:autovj**: l'elenco dei post-FX validi nello script era fermo a 10 valori su 18 — non avrebbe mai potuto accorgersi dei 12 mai usati sopra.
+
 ## [0.75.2-beta] — 2026-10-15
 
 ### Fixed
