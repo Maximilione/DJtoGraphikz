@@ -1197,7 +1197,7 @@ export function App() {
             Soundcheck
           </button>
           {outputInfo && (outputInfo.open ? (
-            <span className="output-chip" title="Stato della finestra di output">
+            <span className="chip output-chip" title="Stato della finestra di output">
               <IconMonitor size={14} />
               Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
               {(outputInfo.count ?? 1) > 1 ? ` +${(outputInfo.count ?? 1) - 1}` : ''}
