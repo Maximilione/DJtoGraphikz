@@ -2,6 +2,7 @@ import './styles/features.css'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { AudioPanel } from './components/AudioPanel/AudioPanel'
 import { Toasts, pushToast } from './components/Toasts/Toasts'
+import { useVisibleInterval } from './components/useVisibleInterval'
 import { encodeGif, gifTiming, barsSeconds } from './gifEncoder'
 import { EffectPanel } from './components/EffectPanel/EffectPanel'
 import { AutoVJPanel } from './components/AutoVJPanel/AutoVJPanel'
@@ -455,14 +456,11 @@ export function App() {
   }, [engine, beatFlash])
 
   // U1.2 — poll audio status: 'reconnecting' shows the banner, a user stop is fine
-  useEffect(() => {
+  useVisibleInterval(() => {
     if (!engine) return
-    const id = window.setInterval(() => {
-      setAudioStatus(engine.audioAnalyzer.getStatus())
-      setBpm(Math.round(engine.audioAnalyzer.getData().bpm) || 0)
-    }, 1000)
-    return () => clearInterval(id)
-  }, [engine])
+    setAudioStatus(engine.audioAnalyzer.getStatus())
+    setBpm(Math.round(engine.audioAnalyzer.getData().bpm) || 0)
+  }, engine ? 1000 : null)
 
   // U1.3 — output window status: on mount + whenever main signals a change
   useEffect(() => {
@@ -881,6 +879,10 @@ export function App() {
   }, [engine])
   useEffect(() => {
     if (!engine) return
+    // deliberately NOT gated on document.visibilityState like the other
+    // polls below: the phone remote is meant to keep working while the
+    // control window is minimized or backgrounded (that's the point of a
+    // remote), so pausing this one on hide would silently break it
     pushPhoneExt()
     const t = window.setInterval(pushPhoneExt, 1000)
     return () => clearInterval(t)
