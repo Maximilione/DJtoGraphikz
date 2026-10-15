@@ -301,6 +301,23 @@ input[type="range"]:active::-webkit-slider-thumb {
   margin-top: var(--s1);
 }
 
+/* ---- Chips ---- small labeled pill: seq-chip (PresetPanel) and
+   output-chip (App toolbar) each used to redefine
+   display/border/radius/background/font-size from scratch for the same
+   shape; this is that shared base, each keeps only its own color/size.
+   pm-chip (ParamControls) is a <button>, not a chip-shaped span — it
+   already gets its shape from .btn, so it doesn't use this class. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  font-size: var(--fs-xs);
+}
+
 /* ---- Buttons ---- */
 .btn {
   display: inline-flex;
@@ -1333,15 +1350,8 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
 /* Sequence editor: the graphics attached to one step */
 .seq-chips { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }
 .seq-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
   max-width: 120px;
-  padding: 0 2px 0 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--bg2);
-  font-size: var(--fs-xs);
+  padding-right: 2px;
   color: var(--text-primary);
 }
 .seq-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

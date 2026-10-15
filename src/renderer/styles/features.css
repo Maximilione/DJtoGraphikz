@@ -33,11 +33,14 @@
   padding: var(--s2) var(--s5);
 }
 
-/* U1.3 — chip stato output */
+/* U1.3 — chip stato output (shape from .chip in global.css; was split
+   across three rules in this file, merged here) */
 .output-chip {
   color: var(--text-muted);
-  font-size: var(--fs-xs);
   white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .output-reopen {
   background: transparent;
@@ -103,13 +106,6 @@
 
 /* master slider (era inline width:90px) */
 .tb-master { width: 90px; min-height: 28px; min-width: 60px; flex-shrink: 1; }
-
-/* chip output con icona */
-.output-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-}
 
 /* U4.1 — modalità live: preview massima + striscia Look Bank sotto */
 .live-layout .preview-container { padding: var(--s5); }
@@ -234,9 +230,6 @@
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.3px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-  background: var(--bg2);
   color: var(--text-muted);
   cursor: pointer;
   transition: border-color var(--t-fast), color var(--t-fast);
@@ -332,7 +325,6 @@
 .top-bar .spacer { flex: 0 0 0; }
 .top-bar .btn, .top-bar select, .mode-switch button { min-height: 28px; }
 .tb-select { max-width: 150px; text-overflow: ellipsis; }
-.output-chip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 
 /* BPM sempre visibile accanto al beat dot */
 .beat-dot { width: 12px; height: 12px; }
