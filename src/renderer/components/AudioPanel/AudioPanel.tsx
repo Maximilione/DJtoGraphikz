@@ -12,6 +12,7 @@ import { loadIdleSettings, saveIdleSettings, type IdleSettings } from '../../idl
 import { ALL_EFFECTS } from '../../catalog'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { Panel } from '../Panel/Panel'
+import { useVisibleInterval } from '../useVisibleInterval'
 // one source of truth: a venue profile rewrites this very store (P2)
 import { AUDIO_STORE_KEY } from '../../venues'
 
@@ -86,9 +87,9 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     if (!engine) return
     setLastChange(engine.getLastTrackChange())
     const off = engine.onTrackChange(setLastChange)
-    const id = window.setInterval(() => tick(n => n + 1), 10000)   // keeps "N min fa" honest
-    return () => { off(); clearInterval(id) }
+    return off
   }, [engine])
+  useVisibleInterval(() => tick(n => n + 1), engine ? 10000 : null)   // keeps "N min fa" honest
   /** file transport, polled with the rest of the panel */
   const [file, setFile] = useState({ name: '', playing: false, at: 0, len: 0, loop: true })
   const [dragOver, setDragOver] = useState(false)
@@ -211,9 +212,8 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
 
   // Audio and BPM mode can change from outside this panel (onboarding, Space
   // hotkey) — keep local state in sync
-  useEffect(() => {
-    if (!engine) return
-    const id = window.setInterval(() => {
+  useVisibleInterval(() => {
+      if (!engine) return
       const running = engine.audioAnalyzer.isRunning
       if (running !== audioActive) {
         setAudioActive(running)
@@ -251,9 +251,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       } else if (file.name) {
         setFile({ name: '', playing: false, at: 0, len: 0, loop: true })
       }
-    }, 500)
-    return () => clearInterval(id)
-  }, [engine, audioActive, bpmMode, manualBpm, file.name])
+  }, engine ? 500 : null)
 
   const loadFile = useCallback(async (f: File) => {
     if (!engine) return
@@ -484,8 +482,8 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
               </span>
               <button
                 className="btn btn-ghost btn-sm"
-                onClick={stopAudio}
-                title="Chiudi il file e torna all'ingresso dal vivo"
+                onClick={startAudio}
+                title="Chiudi il file e riprende l'ascolto dal vivo"
               >
                 Torna al vivo
               </button>

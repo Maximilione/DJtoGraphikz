@@ -23,10 +23,11 @@ function loadOutputs(): OutputCfg[] {
   return list
 }
 
-/** Saves and tells main in one move — the two must never disagree. */
-function saveOutputs(list: OutputCfg[]): OutputCfg[] {
+/** Saves and tells main in one move — the two must never disagree, so main
+ * only hears about it once the write actually succeeded. */
+function saveOutputs(list: OutputCfg[]): OutputCfg[] | null {
   const clean = sanitizeOutputs(list)
-  writeJson(OUTPUTS_KEY, clean)
+  if (!writeJson(OUTPUTS_KEY, clean)) return null
   try { window.api?.setOutputs?.(clean) } catch { /* no api under a test page */ }
   return clean
 }
@@ -155,6 +156,7 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
               <SliderRow label="Gamma" value={o.gamma} min={0.4} max={2.4} step={0.05}
                 onChange={v => set(open, { gamma: v })} />
               <SliderRow label="Tetto" value={o.brightness} min={0} max={1} step={0.01} percent
+                title="Luminosità massima di questa uscita — il LED schiaccia i neri e a bianco pieno è inguardabile"
                 onChange={v => set(open, { brightness: v })} />
 
               <div className="u-row" style={{ gap: 4 }}>
@@ -194,6 +196,7 @@ export function useOutputs(): [OutputCfg[], (list: OutputCfg[]) => void] {
   const [outputs, setOutputs] = useState<OutputCfg[]>(loadOutputs)
   const change = (list: OutputCfg[]) => {
     const clean = saveOutputs(list)
+    if (!clean) return
     setOutputs(clean)
     if (clean.length > 1 && clean.length !== outputs.length) pushToast(`${clean.length} uscite attive`, 'outputs-count')
   }
