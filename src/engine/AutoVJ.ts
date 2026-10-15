@@ -165,7 +165,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'tribal', ['filmgrain'], { blades: v(8), spikes: a(0.6, 'high', 0.3), turn: v(1) }),
       s('groove', 'chevrons', [], { lanes: v(5), thickness: v(0.5), drift: v(1.5) }),
       s('groove', 'cage', ['bloom', 'chromatic'], { size: v(1.1), thickness: v(1.8), spin: v(1.2) }),
-      s('groove', 'tunnel', ['bloom'], { speed: v(1.6), sides: v(6), twist: a(0.8, 'bass', 0.5), ringdensity: v(10) }),
+      s('groove', 'tunnel', ['bloom', 'mirror'], { speed: v(1.6), sides: v(6), twist: a(0.8, 'bass', 0.5), ringdensity: v(10) }),
       s('groove', 'cracks', ['bloom'], { cells: v(8), width: v(1), glow: a(1, 'bass', 0.6) }),
       s('groove', 'barcode', ['scanlines'], { bars: v(56), gap: v(0.4), jitter: a(1, 'high', 0.6) }),
       s('groove', 'moire', ['chromatic'], { speed: v(1.3), density: v(75), moireoff: a(0.18, 'bass', 0.4), rotspeed: v(0.9) }),
@@ -178,13 +178,16 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'strobegrid', ['bloom'], { cells: v(10), litratio: a(0.35, 'energy', 0.4), chaos: v(0.7) }),
       s('peak', 'lasers', ['bloom'], { beams: v(9), spread: v(1.1), sweep: a(1.3, 'energy', 0.5) }),
       s('peak', 'shatter', ['bloom', 'chromatic'], { shards: v(14), burst: v(1.6), edgeglow: a(1, 'high', 0.6) }),
-      s('peak', 'glitch', ['rgb-split', 'scanlines'], { blocks: v(18), intensity: a(0.55, 'high', 0.6), fps: v(18) }),
+      s('peak', 'glitch', ['rgb-split', 'scanlines', 'frame-glitch'], { blocks: v(18), intensity: a(0.55, 'high', 0.6), fps: v(18) }),
       s('peak', 'vortex', ['bloom', 'feedback'], { speed: v(1.4), arms: v(5), twist: v(2), pull: a(1.2, 'bass', 0.5) }),
       s('peak', 'fire', ['bloom'], { falloff: v(0.7), turbulence: a(0.7, 'mid', 0.5), sparks: v(12) }),
       s('peak', 'rings', ['bloom'], { speed: v(1.6), ringcount: v(14), spacing: a(0.06, 'bass', 0.5), gapfreq: v(8) }),
-      s('peak', 'neonpoly', ['bloom'], { speed: v(1.4), sides: v(3), layers: v(7), thickness: a(1.5, 'bass', 0.6) }),
+      s('peak', 'neonpoly', ['bloom', 'outline'], { speed: v(1.4), sides: v(3), layers: v(7), thickness: a(1.5, 'bass', 0.6) }),
       s('peak', 'storm', ['bloom', 'chromatic'], { bolts: v(3), branches: v(1.4), fog: a(1.2, 'bass', 0.5) }),
       s('groove', 'beamfield', ['bloom'], { beams: v(8), scan: a(1, 'energy', 0.4), haze: v(1.1) }),
+      s('peak', 'vaultdoor', ['bloom'], { apertura: a(0.5, 'bass', 0.4), rings: v(6), glow: a(1.4, 'bass', 0.5) }),
+      s('peak', 'truss', ['bloom'], { strobe: a(1.2, 'bass', 0.5), fixtures: v(8), spin: v(0.8) }),
+      s('peak', 'turbine', ['bloom'], { speed: v(1.5), strobe: a(1.4, 'bass', 0.5), blades: v(6) }),
     ],
     palettes: [MONO, BLOOD, REDWHITE, AMBER],
     phraseBars: 8,
@@ -210,7 +213,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'tunnel', ['bloom'], { speed: v(2), sides: v(4), twist: v(1), ringdensity: v(12) }),
       s('groove', 'pulsecity', ['bloom'], { speed: v(1.6), columns: v(12), gapw: v(0.08), punch: v(2) }),
       s('groove', 'raymarch', ['bloom', 'chromatic'], { speed: v(1.8), repscale: v(3.2), glowk: v(1.5), camfov: v(0.85) }),
-      s('peak', 'flash', [], { decay: v(5), scan: v(0.6), tint: v(0) }),
+      s('peak', 'flash', ['invert'], { decay: v(5), scan: v(0.6), tint: v(0) }),
       s('peak', 'impact', ['bloom'], { rings: v(6), width: v(1.5), fade: v(1.6) }),
       s('peak', 'strobegrid', ['bloom'], { cells: v(8), litratio: v(0.5), chaos: v(1) }),
       s('peak', 'glitch', ['rgb-split', 'scanlines'], { blocks: v(24), intensity: a(0.7, 'high', 0.6), fps: v(30) }),
@@ -222,6 +225,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'fractal', ['bloom', 'chromatic'], { speed: v(1.7), iterations: v(40), zoom: a(1.6, 'bass', 0.5), morph: v(0.3) }),
       s('peak', 'particles', ['bloom'], { speed: v(1.8), count: v(40), size: a(0.015, 'bass', 0.6), spread: v(1.2) }),
       s('peak', 'storm', ['bloom', 'rgb-split'], { bolts: v(4), branches: v(1.6), fog: a(1, 'bass', 0.5) }),
+      s('groove', 'pistons', ['bloom'], { speed: a(2.2, 'bass', 0.5), haze: v(0.8), stagger: v(0.6) }),
+      s('groove', 'chainfence', ['bloom'], { rotSpeed: v(1.2), beamIntensity: a(1.8, 'bass', 0.5), haze: v(0.8) }),
+      s('peak', 'truss', ['bloom'], { strobe: v(1.6), fixtures: v(10), spin: v(1.2) }),
+      s('peak', 'turbine', ['bloom'], { speed: v(2), strobe: v(1.8), blades: v(5) }),
     ],
     palettes: [BLOOD, MONO, LAVA, REDWHITE],
     phraseBars: 4,
@@ -246,7 +253,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'cracks', ['bloom'], { cells: v(8), width: v(1), glow: a(1, 'bass', 0.6) }),
       s('groove', 'blinds', ['filmgrain'], { slats: v(14), open: a(0.5, 'bass', 0.5), tilt: v(0.2) }),
       s('groove', 'cage', ['bloom', 'chromatic'], { size: v(1), thickness: v(2), spin: v(0.6) }),
-      s('groove', 'cathedral', ['bloom'], { density: v(1.4), rays: a(1, 'bass', 0.5), sway: v(0.6) }),
+      s('groove', 'cathedral', ['bloom', 'godrays'], { density: v(1.4), rays: a(1, 'bass', 0.5), sway: v(0.6) }),
       s('groove', 'pulsar', ['bloom'], { lines: v(40), peaks: a(1.3, 'bass', 0.5), flow: v(0.5) }),
       s('groove', 'matrix', ['bloom', 'scanlines'], { cols: v(48), fallspeed: a(1, 'bass', 0.4), trailfade: v(0.85) }),
       s('groove', 'grid', ['bloom', 'scanlines'], { density: v(1.6), fogamt: a(0.25, 'energy', 0.3), wavefreq: a(2, 'bass', 0.35) }),
@@ -277,6 +284,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'monolith', ['bloom', 'filmgrain'], { pulse: a(1, 'bass', 0.5), haze: v(1.2), width: v(0.9) }),
       s('break', 'faces', ['bloom', 'filmgrain'], { faces: v(8), spin: v(0.5), glow: a(0.9, 'energy', 0.5) }),
       s('peak', 'faces', ['bloom', 'chromatic'], { faces: v(10), spin: a(1.2, 'bass', 0.4), glow: a(1.2, 'bass', 0.4) }),
+      s('build', 'vaultdoor', ['bloom', 'filmgrain'], { apertura: a(0.3, 'energy', 0.6), rings: v(7), glow: v(1) }),
+      s('groove', 'pistons', ['bloom', 'filmgrain'], { speed: a(1.5, 'bass', 0.4), haze: v(1.1), stagger: v(1) }),
+      s('groove', 'datacenter', ['bloom', 'filmgrain'], { speed: v(0.8), alarm: a(1, 'bass', 0.5), density: v(1.2) }),
+      s('groove', 'chainfence', ['bloom', 'filmgrain'], { rotSpeed: v(0.7), beamIntensity: a(1.3, 'bass', 0.4), haze: v(1.1) }),
     ],
     palettes: [BLOOD, MONO, LAVA, STEEL],
     phraseBars: 8,
@@ -378,6 +389,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'android', ['bloom'], { dissolve: a(0.4, 'bass', 0.4), panels: v(2), glow: a(1, 'bass', 0.4) }),
       s('break', 'monolith', ['bloom'], { pulse: v(0.6), haze: v(1.5), width: v(0.7) }),
       s('groove', 'faces', ['bloom'], { faces: v(9), spin: v(0.7), glow: a(1, 'energy', 0.4) }),
+      s('groove', 'hypercube', ['bloom'], { rotspeed: a(0.6, 'lfo-sine', 0.3, 32), glow: v(1), scale: v(1) }),
     ],
     palettes: [ICE, VAPOR, FOREST, MONO, ANYMA],
     phraseBars: 16,
@@ -391,7 +403,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'spaceghost', ['bloom'], { folds: v(3), glow: v(40), drift: v(0.6) }),
       s('break', 'caustics', ['bloom'], { causticscale: v(1.8), sharpness: v(0.75), depthk: v(1) }),
       s('break', 'orbits', ['bloom', 'feedback'], { bodies: v(10), orbitr: a(0.6, 'lfo-sine', 0.25, 32), trail: v(0.8) }),
-      s('break', 'fluid', ['bloom'], { zoom: v(1.3), swirl: a(1.4, 'lfo-sine', 0.35, 16) }),
+      s('break', 'fluid', ['bloom', 'displace'], { zoom: v(1.3), swirl: a(1.4, 'lfo-sine', 0.35, 16) }),
       s('break', 'waves', ['bloom'], { count: v(7), amp: a(0.1, 'bass', 0.4), freq: v(3) }),
       s('break', 'lissajous', ['bloom', 'feedback'], { freqa: v(3), freqb: a(5, 'lfo-sine', 0.25, 32), size: v(0.45) }),
       s('break', 'ripples', ['bloom'], { spreadv: v(1.6), heightk: a(1.1, 'bass', 0.4), sheen: v(1.4) }),
@@ -400,7 +412,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('build', 'starfield', ['bloom'], { speed: a(0.6, 'energy', 0.9), tile: v(6), density: v(0.5) }),
       s('build', 'eclipse', ['bloom'], { radius: v(0.24), corona: a(1.4, 'energy', 0.7), wobble: v(0.4) }),
       s('build', 'sacred', ['bloom'], { speed: a(0.5, 'energy', 0.7), zoom: v(1.4), radius: v(0.32), ringfreq: v(9) }),
-      s('build', 'cathedral', ['bloom'], { density: v(1.1), rays: a(1.2, 'energy', 0.5), sway: v(1) }),
+      s('build', 'cathedral', ['bloom', 'halation'], { density: v(1.1), rays: a(1.2, 'energy', 0.5), sway: v(1) }),
       s('groove', 'stringart', ['bloom'], { nodes: v(96), multiplier: a(3.2, 'lfo-saw', 0.3, 64), linew: v(0.8) }),
       s('groove', 'kaleidoscope', ['bloom', 'chromatic'], { segments: v(12), zoom: a(1.1, 'lfo-sine', 0.35, 16), detail: v(2.4) }),
       s('groove', 'mandala', ['bloom', 'feedback'], { symmetry: v(12), ringfreq: a(6, 'bass', 0.35) }),
@@ -412,7 +424,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'starfield', ['bloom'], { speed: v(1), tile: v(8), density: a(0.6, 'energy', 0.4) }),
       s('groove', 'spiral', ['bloom'], { arms: v(4), twist: v(6), pulse: v(0.3) }),
       s('groove', 'gyroid', ['bloom'], { cells: v(2), shell: v(0.4), travel: v(0.9) }),
-      s('peak', 'starfield', ['bloom'], { speed: v(1.8), tile: v(10), density: v(0.6) }),
+      s('peak', 'starfield', ['bloom', 'anamorphic'], { speed: v(1.8), tile: v(10), density: v(0.6) }),
       s('peak', 'tunnel', ['bloom'], { speed: v(1.3), sides: v(8), twist: a(0.4, 'lfo-sine', 0.4, 8), ringdensity: v(9) }),
       s('peak', 'lasers', ['bloom'], { beams: v(7), spread: v(1), sweep: a(1.2, 'energy', 0.4) }),
       s('peak', 'impact', ['bloom'], { rings: v(3), width: v(2), fade: v(0.8) }),
@@ -433,6 +445,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'faces', ['bloom'], { faces: v(7), spin: v(0.6), glow: a(1, 'energy', 0.5) }),
       s('peak', 'faces', ['bloom', 'chromatic'], { faces: v(11), spin: a(1.3, 'bass', 0.4), glow: a(1.3, 'bass', 0.4) }),
       s('peak', 'monolith', ['bloom', 'chromatic'], { pulse: a(1.4, 'bass', 0.5), haze: a(1.2, 'bass', 0.4), width: v(1.3) }),
+      s('groove', 'reactor', ['bloom', 'chromatic'], { speed: a(0.9, 'lfo-sine', 0.3, 16), rings: v(6), glow: a(1, 'bass', 0.4) }),
+      s('groove', 'hypercube', ['bloom', 'chromatic'], { rotspeed: a(1, 'lfo-sine', 0.35, 16), glow: a(1.2, 'bass', 0.4), scale: v(1.1) }),
     ],
     palettes: [AURORA, VAPOR, ICE, PASTEL, ANYMA],
     phraseBars: 8,
@@ -463,7 +477,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'barcode', ['scanlines'], { bars: v(64), gap: v(0.45), jitter: a(1.2, 'high', 0.6) }),
       s('groove', 'cage', ['bloom', 'chromatic'], { size: v(1), thickness: v(1.5), spin: v(1.5) }),
       s('groove', 'cracks', ['bloom'], { cells: v(10), width: v(0.8), glow: a(1.2, 'bass', 0.6) }),
-      s('peak', 'glitch', ['rgb-split', 'scanlines'], { blocks: v(16), intensity: a(0.45, 'high', 0.7), fps: v(24) }),
+      s('peak', 'glitch', ['rgb-split', 'scanlines', 'pixelate'], { blocks: v(16), intensity: a(0.45, 'high', 0.7), fps: v(24) }),
       s('peak', 'lasers', ['bloom'], { beams: v(8), spread: v(0.9), sweep: a(1.5, 'high', 0.4) }),
       s('peak', 'shatter', ['bloom', 'chromatic'], { shards: v(20), burst: a(1.3, 'bass', 0.5), edgeglow: v(1) }),
       s('peak', 'strobegrid', ['bloom'], { cells: v(14), litratio: v(0.25), chaos: a(0.8, 'high', 0.3) }),
@@ -475,6 +489,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'downpour', ['filmgrain'], { density: v(100), streak: v(0.15), wind: v(0.6) }),
       s('peak', 'storm', ['bloom', 'chromatic'], { bolts: v(3), branches: v(1.2), fog: a(1, 'bass', 0.5) }),
       s('groove', 'beamfield', ['bloom', 'chromatic'], { beams: v(10), scan: a(1.2, 'energy', 0.4), haze: v(1) }),
+      s('groove', 'chainfence', ['bloom'], { rotSpeed: v(1.4), beamIntensity: a(1.6, 'high', 0.5), haze: v(0.9) }),
     ],
     palettes: [NEON, FIRE, ACID, CYBER],
     phraseBars: 4,
@@ -488,7 +503,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
     label: 'Ambient',
     scenes: [
       s('break', 'spaceghost', ['bloom'], { speed: v(0.5), folds: v(4), glow: v(45), drift: v(0.4) }),
-      s('break', 'caustics', ['bloom'], { causticscale: v(1.3), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.2) }),
+      s('break', 'caustics', ['bloom', 'cinegrade'], { causticscale: v(1.3), sharpness: a(0.7, 'lfo-sine', 0.25, 64), depthk: v(1.2) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.7), swirl: v(1), dissipate: v(0.4) }),
       s('break', 'reaction', ['bloom'], { feed: v(0.038), kill: v(0.061), inject: v(0.5) }),
       s('break', 'pulsar', ['bloom'], { lines: v(64), peaks: a(0.7, 'lfo-sine', 0.3, 32), flow: v(0.15) }),
@@ -500,14 +515,14 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'orbits', ['bloom', 'feedback'], { speed: v(0.55), bodies: v(5), orbitr: v(0.55), trail: v(0.85) }),
       s('break', 'terrain', ['bloom', 'scanlines'], { speed: v(0.6), ridges: v(8), horizon: v(0.55), glowamt: v(0.8) }),
       s('break', 'plasma', ['bloom'], { speed: v(0.6), zoom: v(1), ringfreq: a(12, 'lfo-sine', 0.25, 32) }),
-      s('break', 'ps2towers', ['bloom', 'filmgrain'], { speed: v(0.5), towers: v(16), foglevel: v(1.6), orbit: v(0.3) }),
+      s('break', 'ps2towers', ['bloom', 'filmgrain', 'tiltshift'], { speed: v(0.5), towers: v(16), foglevel: v(1.6), orbit: v(0.3) }),
       s('break', 'lissajous', ['bloom', 'feedback'], { speed: v(0.5), freqa: v(2), freqb: v(3), size: v(0.5) }),
       s('break', 'eclipse', ['bloom'], { speed: v(0.6), radius: v(0.3), corona: v(0.8), wobble: v(0.2) }),
       s('break', 'downpour', ['filmgrain'], { speed: v(0.7), density: v(40), streak: v(0.3), wind: v(0.1) }),
       s('build', 'caustics', ['bloom'], { speed: a(0.5, 'energy', 0.6), causticscale: v(1.2), sharpness: v(0.8), depthk: v(1.3) }),
       s('build', 'eclipse', ['bloom'], { speed: v(0.5), radius: v(0.3), corona: a(0.9, 'energy', 0.6), wobble: v(0.2) }),
       s('build', 'starfield', ['bloom'], { speed: a(0.4, 'energy', 0.7), tile: v(4), density: v(0.5) }),
-      s('groove', 'metaballs', ['bloom'], { count: v(6), size: a(0.1, 'bass', 0.3), threshold: v(1.1) }),
+      s('groove', 'metaballs', ['bloom', 'rgb-delay'], { count: v(6), size: a(0.1, 'bass', 0.3), threshold: v(1.1) }),
       s('groove', 'sacred', ['bloom'], { speed: v(0.5), zoom: v(1.1), radius: v(0.35), ringfreq: a(6, 'lfo-sine', 0.2, 32) }),
       s('groove', 'mandala', ['bloom', 'feedback'], { speed: v(0.5), symmetry: v(10), ringfreq: a(6, 'lfo-sine', 0.2, 32) }),
       s('groove', 'gyroid', ['bloom'], { speed: v(0.6), cells: v(1.6), shell: v(0.4), travel: v(0.4) }),
@@ -523,6 +538,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('break', 'mandelbulb', ['bloom'], { power: v(6), zoom: v(0.8), glow: v(0.9) }),
       s('break', 'ribbons', ['bloom'], { count: v(7), curl: v(0.8), twist: v(0.8) }),
       s('groove', 'ribbons', ['bloom'], { count: v(9), curl: a(1, 'bass', 0.3), twist: v(1) }),
+      s('groove', 'pipes', ['bloom', 'filmgrain'], { speed: v(0.5), density: v(0.8), glow: v(0.8) }),
     ],
     palettes: [OCEAN, FOREST, PASTEL, GOLD],
     phraseBars: 16,
@@ -565,6 +581,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'vortex', ['bloom', 'feedback'], { arms: v(3), twist: v(1.5), pull: a(0.8, 'bass', 0.4) }),
       s('groove', 'ribbons', ['bloom'], { count: v(6), curl: a(0.9, 'bass', 0.4), twist: v(0.9) }),
       s('peak', 'beamfield', ['bloom'], { beams: v(10), scan: v(1), haze: a(1, 'bass', 0.4) }),
+      s('groove', 'datacenter', ['bloom'], { speed: v(1.2), alarm: a(0.6, 'bass', 0.4), density: v(1) }),
+      s('groove', 'pipes', ['bloom'], { speed: v(1.1), density: v(1), glow: a(1, 'bass', 0.4) }),
     ],
     palettes: [SUNSET, GOLD, VAPOR, OCEAN],
     phraseBars: 8,
@@ -612,6 +630,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'mandelbulb', ['bloom', 'chromatic'], { power: v(9), zoom: v(1.3), glow: a(1.2, 'bass', 0.5) }),
       s('groove', 'ribbons', ['bloom', 'chromatic'], { count: v(11), curl: a(1.2, 'bass', 0.4), twist: v(1.4) }),
       s('peak', 'beamfield', ['bloom', 'chromatic'], { beams: v(12), scan: a(1.3, 'energy', 0.4), haze: v(1.2) }),
+      s('groove', 'reactor', ['bloom', 'chromatic'], { speed: v(1.3), rings: v(7), glow: a(1.3, 'bass', 0.5) }),
     ],
     palettes: [TOXIC, ACID, AURORA, CYBER],
     phraseBars: 8,
@@ -709,6 +728,12 @@ export const PHASE = {
 const PALETTE_EVERY = 4
 /** no beats for this long and the phrase clock free-runs at the genre's BPM */
 const BEAT_TIMEOUT_MS = 2000
+/** how often a user-saved scene is picked over a built-in one, when the phase
+ * has both — fixed, not proportional to either pool's size. A flat combined
+ * pool let 2 scenes saved against a 5-scene break pool take ~29% of picks,
+ * the same 2 against a 20-scene groove pool only ~12.5% — same save, very
+ * different presence depending on which phase happened to be thin. */
+const USER_SCENE_SHARE = 0.3
 
 const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 
@@ -810,7 +835,10 @@ export class AutoVJ {
 
   // history for the rules
   private recent: EffectId[] = []
-  private lastFamily: Family | null = null
+  // same 3-switch window as `recent` — a single slot let a same-family effect
+  // back in after just one switch, while the doc comment on pick() promised
+  // "not a family shown in the last three switches" like the effect rule does
+  private recentFamilies: Family[] = []
   private switchesOnPalette = 0
   private palette = 0
   private key: Key | null = null
@@ -819,6 +847,13 @@ export class AutoVJ {
   // rotation for the phases where the user has some
   private userScenes: Partial<Record<Genre, Scene[]>> = {}
   private onlyMine = false
+
+  // the "hold" control: picture stays put, but phase detection and the phase
+  // lamps keep tracking the real music — the old way to pin a look was the
+  // on/off toggle, which also surrendered phase-driven palette/post automation
+  // and, on re-enable, lost all scheduling memory (reset() rolls a fresh
+  // palette and clears recency); holding changes nothing about that state
+  private held = false
 
   public onSceneChange: ((scene: Scene, cut: SceneCut, phase: Phase) => void) | null = null
   public onPostChange: ((posts: PostId[]) => void) | null = null
@@ -831,6 +866,8 @@ export class AutoVJ {
     if (enabled) this.reset()
   }
   isEnabled(): boolean { return this.enabled }
+  setHeld(held: boolean) { this.held = held }
+  isHeld(): boolean { return this.held }
   getGenre(): Genre { return this.genre }
   getPhase(): Phase { return this.phase }
   getKey(): Key | null { return this.key }
@@ -845,7 +882,13 @@ export class AutoVJ {
 
   setGenre(genre: Genre) {
     this.genre = genre
-    this.reset()
+    // scheduling/palette only — see resetScheduling(). Switching genre mid-set
+    // used to call the full reset() below: phase snapped to 'groove' and
+    // every kick/envelope timer was wiped, even if the track was mid-peak at
+    // that exact moment, so the detector had to re-acquire from scratch right
+    // when continuity mattered most. The music's state didn't change just
+    // because the VJ picked a different genre.
+    this.resetScheduling()
   }
 
   private setPhase(phase: Phase) {
@@ -854,15 +897,20 @@ export class AutoVJ {
     this.onPhaseChange?.(phase)
   }
 
-  private reset() {
-    this.phase = 'groove'
-    this.breakLoud = 0
+  /** recency memory + palette: the part of reset() that is genuinely genre-specific */
+  private resetScheduling() {
     this.beatsSinceSwitch = 0
     this.armed = false
     this.recent = []
-    this.lastFamily = null
+    this.recentFamilies = []
     this.switchesOnPalette = 0
     this.palette = Math.floor(Math.random() * GENRE_CONFIGS[this.genre].palettes.length)
+  }
+
+  private reset() {
+    this.phase = 'groove'
+    this.breakLoud = 0
+    this.resetScheduling()
     this.bassSmooth = -1
     this.swingRing = []
     this.swing = 0
@@ -1001,12 +1049,12 @@ export class AutoVJ {
   }
 
   private switchTo(config: GenreConfig, phase: Phase, cut: SceneCut) {
-    if (!this.enabled) return
+    if (!this.enabled || this.held) return
     const scene = this.pick(config, phase)
     if (!scene) return
     this.beatsSinceSwitch = 0
     this.recent = [scene.effect, ...this.recent].slice(0, 3)
-    this.lastFamily = FAMILY[scene.effect]
+    this.recentFamilies = [FAMILY[scene.effect], ...this.recentFamilies].slice(0, 3)
     this.onSceneChange?.(scene, cut, phase)
     this.onPostChange?.(scene.posts)
     // the palette block counts groove and peak scenes; a break keeps its colour
@@ -1030,24 +1078,30 @@ export class AutoVJ {
 
   /**
    * A scene for the phase that is not one of the last three effects and not
-   * the family just shown. If the phase has none left under those rules the
-   * rules relax one at a time; if the phase has no scenes at all, the
-   * neighbouring phase stands in.
+   * one of the last three families. If the phase has none left under those
+   * rules the rules relax one at a time; if the phase has no scenes at all,
+   * the neighbouring phase stands in.
    */
   private pick(config: GenreConfig, phase: Phase): Scene | null {
     const mine = this.userScenes[this.genre] ?? []
     const mineInPhase = mine.filter(sc => sc.phase === phase)
+    const builtinInPhase = config.scenes.filter(sc => sc.phase === phase)
     // "solo le mie" holds for the phases the user has written; the others
-    // still need a picture, so the factory covers them
-    const all = this.onlyMine && mineInPhase.length ? mine : [...config.scenes, ...mine]
-    const inPhase = all.filter(sc => sc.phase === phase)
-    // a genre with no build scenes rides the build on its break scenes
-    const pool = inPhase.length ? inPhase
-      : phase === 'build' ? all.filter(sc => sc.phase === 'break')
-      : all.filter(sc => sc.phase === 'groove')
+    // still need a picture, so the factory covers them. Otherwise, when both
+    // sides have scenes for this phase, USER_SCENE_SHARE decides the source
+    // first instead of pooling scenes of very different pool sizes together.
+    let pool: Scene[] = this.onlyMine && mineInPhase.length ? mineInPhase
+      : mineInPhase.length && builtinInPhase.length ? (Math.random() < USER_SCENE_SHARE ? mineInPhase : builtinInPhase)
+      : [...builtinInPhase, ...mineInPhase]
+    // a genre with no scenes at all in this phase (from either source) rides
+    // the build on its break scenes, or the peak on its groove
+    if (!pool.length) {
+      const all = [...config.scenes, ...mine]
+      pool = phase === 'build' ? all.filter(sc => sc.phase === 'break') : all.filter(sc => sc.phase === 'groove')
+    }
     if (!pool.length) return null
     const notRecent = (sc: Scene) => !this.recent.includes(sc.effect)
-    const otherFamily = (sc: Scene) => FAMILY[sc.effect] !== this.lastFamily
+    const otherFamily = (sc: Scene) => !this.recentFamilies.includes(FAMILY[sc.effect])
     const candidates =
       pool.filter(sc => notRecent(sc) && otherFamily(sc)).length ? pool.filter(sc => notRecent(sc) && otherFamily(sc))
       : pool.filter(notRecent).length ? pool.filter(notRecent)
