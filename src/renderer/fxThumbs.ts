@@ -38,27 +38,43 @@ function frameIsClean(engine: Engine): boolean {
     && !engine.isFrozen()
 }
 
+// One 128x72 canvas reused for every capture
+let thumbCanvas: HTMLCanvasElement | null = null
+
+/**
+ * Downscale the next live frame straight off the WebGL canvas, inside the
+ * frame callback while its pixels are still readable. The old route went
+ * through engine.screenshot(): a full-res PNG encode plus a decode to an
+ * ImageBitmap, 20-80 ms of main thread and a few MB, just to shrink it.
+ */
+function grabFrame(engine: Engine): Promise<string | null> {
+  return new Promise(resolve => {
+    let off = () => {}
+    const timer = setTimeout(() => { off(); resolve(null) }, 2000) // renderer idle: give up, next effect change retries
+    off = engine.onFrameRendered(src => {
+      off(); clearTimeout(timer)
+      try {
+        const c = thumbCanvas ??= Object.assign(document.createElement('canvas'), { width: W, height: H })
+        const ctx = c.getContext('2d')
+        if (!ctx) return resolve(null)
+        ctx.drawImage(src, 0, 0, W, H)
+        resolve(c.toDataURL('image/jpeg', 0.6))
+      } catch { resolve(null) }
+    })
+  })
+}
+
 export async function captureThumb(engine: Engine): Promise<void> {
   if (!frameIsClean(engine)) return
   const id = engine.getCurrentEffect()
-  const blob = await engine.screenshot()
-  if (!blob) return
+  const url = await grabFrame(engine)
+  if (!url) return
   // state may have moved while waiting for the frame — don't save a wrong look
   if (!frameIsClean(engine) || engine.getCurrentEffect() !== id) return
-  try {
-    const bmp = await createImageBitmap(blob)
-    const canvas = document.createElement('canvas')
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(bmp, 0, 0, W, H)
-    bmp.close()
-    thumbs[id] = canvas.toDataURL('image/jpeg', 0.6)
-    capturedThisSession.add(id)
-    writeString(KEY, JSON.stringify(thumbs)) // false = quota; the in-memory copy still works
-    listeners.forEach(fn => fn())
-  } catch { /* decode failed — skip, next effect change retries */ }
+  thumbs[id] = url
+  capturedThisSession.add(id)
+  writeString(KEY, JSON.stringify(thumbs)) // false = quota; the in-memory copy still works
+  listeners.forEach(fn => fn())
 }
 
 /**

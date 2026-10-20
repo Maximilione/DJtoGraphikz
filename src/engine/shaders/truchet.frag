@@ -83,7 +83,9 @@ void main() {
   vec2 pk = p0 * (1.0 - 0.05 * uBassHit);
 
   float n = max(2.0, floor(tiles));
-  float gen = floor(uBeatClock * flip);
+  // wrapped like strobegrid's seed: after hours gen*7.31 reaches ~1e5 and the
+  // hash loses its low bits; the wrap is just one more generation change
+  float gen = mod(floor(uBeatClock * flip), 256.0);
 
   // far layer: half the density, thicker, slower, dim
   vec2 pf = pk + vec2(uTime * 0.012, uTime * 0.007) + 3.7;

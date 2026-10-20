@@ -66,7 +66,6 @@ void main() {
 
   float d = box(vec2(fx, fy), vec2(w, h), 0.07);
   float inside = 1.0 - smoothstep(-aa * 2.0, 0.0, d);
-  float rim = exp(-abs(d + 0.03) * 70.0) * inside;
   float glow = exp(-max(d, 0.0) * 9.0);
 
   // offbeat light wave running along the lanes (screen space, loops per bar)
@@ -75,22 +74,28 @@ void main() {
   float waveL = exp(-abs(dx) * 22.0) + step(dx, 0.0) * step(-0.45, dx) * exp(dx * 6.0) * 0.25;
   waveL *= 0.4 + 0.9 * exp(-abs(ph - 0.5) * 6.0);
 
-  float hot = step(0.88, hash(cell * 5.3 + lane * 2.9 + floor(beat / 4.0)));
   float accentLane = mod(floor(beat), n);
   float accent = step(abs(lane - accentLane), 0.1);
   float kick = exp(-ph * 6.0) * (0.5 + 0.7 * uBassHit);
 
-  // glass fill: dark body, brighter top edge, sheen band
-  float gy = fy / max(h, 0.01);
-  vec3 body = mix(uColor3, uColor2, 0.5 + 0.5 * hash(cell + lane * 0.37)) * (0.10 + 0.10 * (0.5 - gy * 0.5));
-  body += vec3(0.07) * smoothstep(0.5, 1.0, -gy) ;            // top sheen
-  body *= 0.8 + 0.6 * uEnergy;
-  vec3 col = body * inside;
-  col += uColor1 * rim * (0.55 + 0.5 * uMid);
-  col += uColor2 * glow * (1.0 - inside) * (0.10 + 0.35 * uBass) * (0.4 + waveL);
-  col += uColor1 * inside * hot * (0.45 + 0.9 * uBassHit);
-  col += mix(uColor1, vec3(1.0), 0.35) * inside * waveL * (0.5 + 0.6 * uHigh);
-  col += uColor1 * rim * waveL * 0.8;
+  vec3 col = uColor2 * glow * (1.0 - inside) * (0.10 + 0.35 * uBass) * (0.4 + waveL);
+  // everything below is weighted by `inside`, which is 0 on about half the
+  // pixels (gaps between blocks, lane margins): the hashes, the rim and the
+  // body only run inside a block. No derivatives in here.
+  if (inside > 0.0) {
+    float rim = exp(-abs(d + 0.03) * 70.0) * inside;
+    float hot = step(0.88, hash(cell * 5.3 + lane * 2.9 + floor(beat / 4.0)));
+    // glass fill: dark body, brighter top edge, sheen band
+    float gy = fy / max(h, 0.01);
+    vec3 body = mix(uColor3, uColor2, 0.5 + 0.5 * hash(cell + lane * 0.37)) * (0.10 + 0.10 * (0.5 - gy * 0.5));
+    body += vec3(0.07) * smoothstep(0.5, 1.0, -gy);            // top sheen
+    body *= 0.8 + 0.6 * uEnergy;
+    col += body * inside;
+    col += uColor1 * rim * (0.55 + 0.5 * uMid);
+    col += uColor1 * inside * hot * (0.45 + 0.9 * uBassHit);
+    col += mix(uColor1, vec3(1.0), 0.35) * inside * waveL * (0.5 + 0.6 * uHigh);
+    col += uColor1 * rim * waveL * 0.8;
+  }
 
   // accent lane strobes with the kick
   col = mix(col, uColor1 * (0.5 + 0.9 * uBeat) * (inside * 0.9 + 0.15 * glow), accent * 0.6 * kick);

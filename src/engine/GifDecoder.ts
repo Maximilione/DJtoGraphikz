@@ -49,6 +49,16 @@ export class GifDecoder {
       outCtx = outCanvas.getContext('2d', { willReadFrequently: true })!
     }
 
+    // One patch canvas for the whole decode, resized only when the patch size changes
+    const patchCanvas = document.createElement('canvas')
+    const pctx = patchCanvas.getContext('2d')!
+    // A frame's disposalType says what happens AFTER it was shown, within its
+    // own rect: 2 clears that rect to background, 3 restores what was there
+    // before the frame. Both apply before the NEXT frame is drawn.
+    let prevDisposal = 0
+    let prevDims: { left: number; top: number; width: number; height: number } | null = null
+    let saved: ImageData | null = null
+
     for (const frame of rawFrames) {
       if (this.frames.length >= MAX_FRAMES) {
         console.warn(
@@ -56,42 +66,34 @@ export class GifDecoder {
         )
         break
       }
-      // Draw patch onto composite
-      const patch = new ImageData(
-        new Uint8ClampedArray(frame.patch),
-        frame.dims.width,
-        frame.dims.height
-      )
+      if (prevDisposal === 2 && prevDims) ctx.clearRect(prevDims.left, prevDims.top, prevDims.width, prevDims.height)
+      else if (prevDisposal === 3 && saved) ctx.putImageData(saved, 0, 0)
+      saved = frame.disposalType === 3 ? ctx.getImageData(0, 0, nativeW, nativeH) : null
 
-      // Create temp canvas for the patch
-      const patchCanvas = document.createElement('canvas')
-      patchCanvas.width = frame.dims.width
-      patchCanvas.height = frame.dims.height
-      const pctx = patchCanvas.getContext('2d')!
-      pctx.putImageData(patch, 0, 0)
-
-      // Handle disposal
-      if (frame.disposalType === 2) {
-        ctx.clearRect(0, 0, nativeW, nativeH)
+      // Draw patch onto composite: putImageData overwrites the whole patch rect
+      // (transparent texels included), drawImage then composites it with alpha
+      if (patchCanvas.width !== frame.dims.width || patchCanvas.height !== frame.dims.height) {
+        patchCanvas.width = frame.dims.width
+        patchCanvas.height = frame.dims.height
       }
-
+      // gifuct-js builds the patch over a plain ArrayBuffer; the cast only narrows the lib's ArrayBufferLike typing
+      pctx.putImageData(new ImageData(frame.patch as Uint8ClampedArray<ArrayBuffer>, frame.dims.width, frame.dims.height), 0, 0)
       ctx.drawImage(patchCanvas, frame.dims.left, frame.dims.top)
 
-      // Capture full composited frame (downscaled when over the dimension cap)
+      // Capture full composited frame (downscaled when over the dimension cap).
+      // getImageData already hands back a fresh buffer — no second copy.
       if (scale < 1) {
         outCtx.clearRect(0, 0, this.width, this.height)
         outCtx.drawImage(canvas, 0, 0, this.width, this.height)
       }
-      const composited = outCtx.getImageData(0, 0, this.width, this.height)
       this.frames.push({
-        imageData: new ImageData(
-          new Uint8ClampedArray(composited.data),
-          this.width,
-          this.height
-        ),
+        imageData: outCtx.getImageData(0, 0, this.width, this.height),
         delay: frame.delay || 100,
       })
+      prevDisposal = frame.disposalType
+      prevDims = frame.dims
     }
+    patchCanvas.width = patchCanvas.height = 0
 
     const estBytes = this.frames.length * this.width * this.height * 4
     if (estBytes > 100 * 1024 * 1024) {

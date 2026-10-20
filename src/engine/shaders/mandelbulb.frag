@@ -43,8 +43,9 @@ float map(vec3 p) {
     if (r > 2.0) break;
     float th = acos(clamp(z.z / max(r, 1e-4), -1.0, 1.0));
     float ph = atan(z.y, z.x);
-    dr = pow(r, gPow - 1.0) * gPow * dr + 1.0;
-    float zr = pow(r, gPow);
+    float rp = pow(r, gPow - 1.0);   // one pow: r^gPow is rp*r
+    dr = rp * gPow * dr + 1.0;
+    float zr = rp * r;
     th *= gPow;
     ph *= gPow;
     z = zr * vec3(sin(th) * cos(ph), sin(ph) * sin(th), cos(th)) + p;
@@ -81,6 +82,9 @@ void main() {
     t += d * 0.9;
     if (t > 6.0) break;
   }
+  // on a hit the loop broke right after map(ro + rd*t): this is the trap at
+  // the hit point itself, kept before the normal taps overwrite it
+  vec3 trapHit = gTrap;
 
   float rr = length(uv);
   vec3 col = mix(uColor2 * 0.10, uColor1 * 0.06, smoothstep(0.0, 1.0, rr)) * (1.0 + 0.4 * uBass);
@@ -92,8 +96,7 @@ void main() {
     vec2 k = vec2(1.0, -1.0);
     vec3 n = normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e) +
                        k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-    map(p); // refresh the orbit trap at the hit point
-    vec3 w = exp(-gTrap * vec3(2.2, 3.0, 4.2));
+    vec3 w = exp(-trapHit * vec3(2.2, 3.0, 4.2));
     w /= (w.x + w.y + w.z + 1e-3);
     vec3 base = uColor1 * w.x * 1.2 + uColor2 * w.y * 1.4 + uColor3 * w.z * 1.2 + uColor2 * 0.12;
     float ao = clamp(1.0 - float(steps) / 64.0, 0.0, 1.0);

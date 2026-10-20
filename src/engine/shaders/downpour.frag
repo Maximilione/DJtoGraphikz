@@ -42,23 +42,25 @@ float rain(float x, float y, float cols, float speed, float len, float wpx,
   float xs = x + (y - 0.5) * shear;
   float cx = xs * cols;
   float col = floor(cx);
-  float f = fract(cx);
   float h = hash(vec2(col, seed));
   float k = 0.8 + 0.2 * floor(hash(vec2(col, seed + 2.0)) * 3.0); // P*speed*k integral: seamless wrap
   float ph = y + h * 7.0 + fall * speed * k;
-  float cyc = floor(ph);
   float yy = fract(ph);
-  float on = step(hash(vec2(col + cyc * 13.0, seed + 1.0)), dens);
-  float head = smoothstep(0.0, 0.01, yy);
-  float tail = pow(1.0 - clamp(yy / len, 0.0, 1.0), 1.6);
+  // above the tail and beside the streak the result is exactly 0 (tail =
+  // pow(0, 1.6), thin = 0): leave before the remaining hashes and the pow
+  if (yy >= len) return 0.0;
   float hw = min(wpx * cols / uResolution.y, 0.28);
-  float cen = 0.5 + (hash(vec2(col, seed + 5.0)) - 0.5) * 0.3;
-  float thin = smoothstep(hw, hw * 0.2, abs(f - cen));
-  return on * head * tail * thin;
+  float dc = abs(fract(cx) - (0.5 + (hash(vec2(col, seed + 5.0)) - 0.5) * 0.3));
+  if (dc >= hw) return 0.0;
+  float on = step(hash(vec2(col + floor(ph) * 13.0, seed + 1.0)), dens);
+  return on * smoothstep(0.0, 0.01, yy) * pow(1.0 - yy / len, 1.6) * smoothstep(hw, hw * 0.2, dc);
 }
 
 // blurred city light in the cell of q.x, sitting just above the horizon
 vec3 bokeh(vec2 q, float scale, float seed, float kick) {
+  // the lights sit at c.y <= 0.062 with r <= 0.016: above q.y = 0.078 the
+  // coverage is exactly 0, so the sky never pays the three hashes
+  if (q.y > 0.08) return vec3(0.0);
   float cell = floor(q.x * scale);
   float h = hash(vec2(cell, seed));
   float h2 = hash(vec2(cell + 9.1, seed));
@@ -83,13 +85,14 @@ float ripples(vec2 P, float s, float T, float dens, float px, float dd) {
   float t = T * (0.8 + 0.2 * s) + h;
   float cyc = floor(t);
   float ph = fract(t);
-  vec2 c = cell + 0.35 + 0.3 * vec2(hash(cell + cyc * 3.1), hash(cell.yx + cyc * 5.7));
   float act = step(hash(cell * 1.3 + cyc + s), dens);
+  if (act == 0.0) return 0.0; // inactive cell: no centre, no rings
+  vec2 c = cell + 0.35 + 0.3 * vec2(hash(cell + cyc * 3.1), hash(cell.yx + cyc * 5.7));
   float dist = length(p - c);
   float w = 0.03 + 4.0 * px * s / dd;
   float ring = smoothstep(w, 0.0, abs(dist - ph * 0.3)) * (1.0 - ph) * (1.0 - ph);
   float splash = smoothstep(0.09, 0.0, dist) * smoothstep(0.22, 0.0, ph);
-  return act * (ring + 1.6 * splash);
+  return ring + 1.6 * splash;
 }
 
 void main() {
@@ -114,7 +117,8 @@ void main() {
   bool street = uv.y < hz;
   float vy = street ? (2.0 * hz - uv.y) : uv.y;
   float d = clamp((hz - uv.y) / hz, 0.0, 1.0);        // 0 at the curb, 1 at the bottom
-  float wob = vnoise(vec2(x * 30.0, d * 60.0 - uTime * 0.6));
+  float wob = 0.5; // only the street reads it
+  if (street) wob = vnoise(vec2(x * 30.0, d * 60.0 - uTime * 0.6));
   float xr = street ? x + (wob - 0.5) * 0.05 * (0.3 + d) : x; // wet-street distortion
 
   // --- sky: dark gradient + clouds lit by the lightning
@@ -140,10 +144,13 @@ void main() {
   float hNear = hz + skyline(xr, 5.0 * sw, sd + 1.0, 0.0, 0.12);
   float mFar = smoothstep(aa, -aa, vy - hFar);
   float mNear = smoothstep(aa, -aa, vy - hNear);
-  vec2 wc = vec2(xr * 9.0 * sw * 4.0, (vy - hz) * 40.0);
-  float win = step(0.78, hash(floor(wc) + sd)) * step(0.15, fract(wc.x)) * step(0.15, fract(wc.y)) * step(0.0, hFar - vy - 0.01);
   vec3 fcol = uColor1 * 0.05 + uColor3 * 0.4 * bolt + uColor1 * 0.15 * kick;
-  fcol += mix(uColor2, uColor3, hash(floor(wc))) * win * (0.15 + 0.9 * uHigh + 1.2 * bolt);
+  if (vy <= hFar - 0.01) { // windows only below the far skyline (== step(0.0, hFar - vy - 0.01))
+    vec2 wc = vec2(xr * 36.0 * sw, (vy - hz) * 40.0);
+    vec2 wf = floor(wc);
+    float win = step(0.78, hash(wf + sd)) * step(0.15, fract(wc.x)) * step(0.15, fract(wc.y));
+    fcol += mix(uColor2, uColor3, hash(wf)) * win * (0.15 + 0.9 * uHigh + 1.2 * bolt);
+  }
   col = mix(col, fcol, mFar);
   col = mix(col, uColor2 * 0.3 * bolt * bolt, mNear);
   col += uColor3 * bolt * 0.7 * exp(-abs(vy - hNear) * 220.0) * step(hz, vy);

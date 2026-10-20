@@ -58,52 +58,46 @@ void main() {
   float wave = sin(distFromCenter * wavefreq - t * 2.0 - uBass * 3.0);
   float fill = smoothstep(0.0, 0.3, wave);
 
+  // Analytic anti-aliasing: in gv space one pixel is zm / uResolution.y, and
+  // hexDist / dotDist have gradient norm 1 / 6 — the same footprint fwidth()
+  // measured, without forcing uniform flow (so the dots can sit in a branch)
+  float px = zm / uResolution.y;
+
   // Edge glow
-  float hw = max(fwidth(hexDist) * 1.5, 0.03);
+  float hw = max(1.9 * px, 0.03);   // ~ fwidth(hexDist) * 1.5
   float edge = smoothstep(0.48 - hw, 0.48, hexDist);
-  float innerEdge = smoothstep(0.40 - hw, 0.40, hexDist);
 
   // Beat: random cells flash — a third of them at most, or it is a strobe
   float beatFlash = step(0.9 - uBeat * 0.25, cellHash) * uBeat;
 
   // Color per cell
-  float colorIndex = mod(cellHash * 3.0, 3.0);
-  vec3 cellColor;
-  if (colorIndex < 1.0) cellColor = uColor1;
-  else if (colorIndex < 2.0) cellColor = uColor2;
-  else cellColor = uColor3;
+  vec3 cellColor = cellHash < 0.3333333 ? uColor1 : (cellHash < 0.6666667 ? uColor2 : uColor3);
 
   // Shift color with wave
   cellColor = mix(cellColor, uColor2, wave * 0.3);
-
-  vec3 color = vec3(0.0);
-
-  // Hex edges
-  color += cellColor * edge * (0.8 + uEnergy * 0.2);
-
-  // Idle floor: the wave tints the cells it passes, so the lattice reads in silence
-  color += cellColor * fill * (1.0 - edge) * 0.3;
-
-  // faint tint on every cell: the lattice never reads as black on a wall
-  color += cellColor * (1.0 - edge) * 0.2 * (0.5 + 0.5 * wave);
 
   // Fill with pattern — isolated round dots on a small sub-grid, drifting
   // slowly. The previous version thresholded sin(x)*sin(y): a product of
   // two waves has diagonal interference fringes baked into its math at any
   // sampling rate (not a resolution/aliasing problem, fwidth() couldn't
   // touch it) — a dot SDF can't produce that artifact by construction.
-  vec2 dotCell = fract(gv * 6.0 + vec2(0.12 * sin(t * 0.5), 0.12 * cos(t * 0.4))) - 0.5;
-  float dotDist = length(dotCell);
-  float dotAA = max(fwidth(dotDist), 0.02);
-  float innerPattern = smoothstep(0.32 + dotAA, 0.32 - dotAA, dotDist);
-  color += cellColor * fill * innerPattern * (1.0 - edge) * 0.3;
+  // Dots and centre dot are weighted by fill, which is 0 on about half the
+  // screen (wave <= 0) in coherent blocks: only computed where it is not.
+  float innerPattern = 0.0;
+  float centerDot = 0.0;
+  if (fill > 0.0) {
+    vec2 dotCell = fract(gv * 6.0 + vec2(0.12 * sin(t * 0.5), 0.12 * cos(t * 0.4))) - 0.5;
+    float dotAA = max(7.6 * px, 0.02);   // ~ fwidth(dotDist)
+    innerPattern = 1.0 - smoothstep(0.32 - dotAA, 0.32 + dotAA, length(dotCell));
+    // Center dot per hex
+    centerDot = 0.01 / (length(gv) + 0.01);
+  }
 
-  // Beat flash
-  color += cellColor * beatFlash * (1.0 - edge) * 1.0;
-
-  // Center dot per hex
-  float centerDot = 0.01 / (length(gv) + 0.01);
-  color += cellColor * centerDot * 0.1 * fill;
+  // one cellColor multiply: edges; inside the cell the idle floor (wave
+  // tint), the faint tint every cell gets so the lattice never reads as
+  // black on a wall, the dots and the beat flash; plus the centre dot
+  float body = fill * 0.3 + (0.1 + 0.1 * wave) + fill * innerPattern * 0.3 + beatFlash;
+  vec3 color = cellColor * (edge * (0.8 + uEnergy * 0.2) + (1.0 - edge) * body + centerDot * 0.1 * fill);
 
   // Vignette, relaxed along a LED strip
   float aspect = uResolution.x / uResolution.y;

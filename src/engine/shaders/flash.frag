@@ -48,39 +48,54 @@ void main() {
   float b = floor(uBarPhase * 4.0 + 0.1);
   b = mod(b, 4.0);
 
+  // Only the shape of this beat is evaluated: b comes from a uniform, so the
+  // branches are coherent and the fwidth inside aa() stays in uniform flow.
+  // The blades also ride on top of a hard kick, so they run then too.
+  float rays = 0.0, slats = 0.0, bars = 0.0, ringShape = 0.0;
+
   // --- shape 0: radial blades, rotating one turn per bar, random lengths
-  float n = 16.0;
-  float fa = atan(q.y, q.x) / 6.2831853 * n + uBarPhase * 4.0;
-  float fw = ps / max(r, 0.02) * n / 6.2831853 * 1.2;
-  float tri = abs(fract(fa) - 0.5);
-  float bladeW = 0.20 - 0.10 * p;
-  float blade = smoothstep(-fw, fw, bladeW - tri);
-  float len = 0.45 + 0.9 * hash(vec2(floor(fa), 3.0));
-  float rays = blade * smoothstep(len, len * 0.55, r) * (0.5 + 0.5 * smoothstep(0.0, 0.12, r));
+  if (b < 0.5 || strong > 0.0) {
+    float n = 16.0;
+    float fa = atan(q.y, q.x) / 6.2831853 * n + uBarPhase * 4.0;
+    float fw = ps / max(r, 0.02) * n / 6.2831853 * 1.2;
+    float tri = abs(fract(fa) - 0.5);
+    float bladeW = 0.20 - 0.10 * p;
+    float blade = smoothstep(-fw, fw, bladeW - tri);
+    float len = 0.45 + 0.9 * hash(vec2(floor(fa), 3.0));
+    rays = blade * (1.0 - smoothstep(len * 0.55, len, r)) * (0.5 + 0.5 * smoothstep(0.0, 0.12, r));
+  }
 
   // --- shape 1: LED slats, random heights, shrinking as the hit dies
-  float cols = floor(aspect * 14.0);
-  float cx = uv.x * cols;
-  float cid = floor(cx);
-  float slatH = hash(vec2(cid, 5.0)) * (1.1 - 0.5 * p);
-  float slats = aa(0.40 - abs(fract(cx) - 0.5)) * aa(slatH - abs(uv.y - 0.5) * 2.0);
+  if (b > 0.5 && b < 1.5) {
+    float cols = floor(aspect * 14.0);
+    float cx = uv.x * cols;
+    float cid = floor(cx);
+    float slatH = hash(vec2(cid, 5.0)) * (1.1 - 0.5 * p);
+    slats = aa(0.40 - abs(fract(cx) - 0.5)) * aa(slatH - abs(uv.y - 0.5) * 2.0);
+  }
 
   // --- shape 2: shutter bars, sliding in from alternating sides
-  float rows = 9.0;
-  float ry = uv.y * rows;
-  float rid = floor(ry);
-  float side = mod(rid, 2.0) < 0.5 ? uv.x : 1.0 - uv.x;
-  float ext = (0.35 + 0.65 * hash(vec2(rid, 9.0))) * (1.15 - 0.55 * p);
-  float bars = aa(0.06 + 0.22 * (1.0 - p) - abs(fract(ry) - 0.5)) * aa(ext - side);
+  if (b > 1.5 && b < 2.5) {
+    float rows = 9.0;
+    float ry = uv.y * rows;
+    float rid = floor(ry);
+    float side = mod(rid, 2.0) < 0.5 ? uv.x : 1.0 - uv.x;
+    float ext = (0.35 + 0.65 * hash(vec2(rid, 9.0))) * (1.15 - 0.55 * p);
+    bars = aa(0.06 + 0.22 * (1.0 - p) - abs(fract(ry) - 0.5)) * aa(ext - side);
+  }
 
   // --- shape 3: shock ring over an LED dot grid
-  float R = p * 1.1;
-  float wave = exp(-pow((r - R) * 7.0, 2.0));
-  vec2 g = q * 16.0;
-  float dd = length(fract(g) - 0.5);
-  float dots = aa(0.10 + 0.32 * wave + 0.12 * (1.0 - p) - dd) * (0.35 + 0.65 * wave + 0.2 * (1.0 - r));
-  float ring = aa(2.5 * ps - abs(r - R)) * (1.0 - p);
-  float ringShape = max(dots, ring);
+  if (b > 2.5) {
+    float R = p * 1.1;
+    // wv * wv, not pow(wv, 2.0): the base is negative inside the ring (undefined)
+    float wv = (r - R) * 7.0;
+    float wave = exp(-wv * wv);
+    vec2 g = q * 16.0;
+    float dd = length(fract(g) - 0.5);
+    float dots = aa(0.10 + 0.32 * wave + 0.12 * (1.0 - p) - dd) * (0.35 + 0.65 * wave + 0.2 * (1.0 - r));
+    float ring = aa(2.5 * ps - abs(r - R)) * (1.0 - p);
+    ringShape = max(dots, ring);
+  }
 
   float mask = b < 0.5 ? rays : (b < 1.5 ? slats : (b < 2.5 ? bars : ringShape));
   mask = max(mask, rays * strong * 0.3);
@@ -90,19 +105,26 @@ void main() {
   lamp = mix(lamp, mix(uColor3, vec3(1.0), 0.35), b < 0.5 ? 0.7 : 0.0);
 
   float vig = max(1.0 - dot(c, c) * 0.9, 0.0);
-  float halo = exp(-r * 2.4);
-  vec3 col = lamp * flash * vig * (mask * 1.1 + halo * 0.3 * (0.5 + uBass));
-  // palette edge colour in the beam
-  col += mix(uColor2, uColor3, 0.5 + 0.5 * sin(r * 6.0)) * flash * vig * mask * 0.25;
+  vec3 col = vec3(0.0);
+  // the lamp is off for three quarters of every beat (gate): nothing it lights
+  // needs computing then — halo, palette edge and dust included
+  if (flash > 0.0) {
+    float halo = exp(-r * 2.4);
+    col = lamp * flash * vig * (mask * 1.1 + halo * 0.3 * (0.5 + uBass));
+    // palette edge colour in the beam
+    col += mix(uColor2, uColor3, 0.5 + 0.5 * sin(r * 6.0)) * flash * vig * mask * 0.25;
 
-  // dust hanging in the beam: drifts up one cell-row loop per bar
-  vec2 gd = vec2(uv.x * aspect, uv.y) * 34.0;
-  gd.y += uBarPhase * 34.0;
-  vec2 id = vec2(floor(gd.x), mod(floor(gd.y), 34.0));
-  float jx = hash(id + 1.7), jy = hash(id + 8.3);
-  float spark = step(0.86, hash(id));
-  float mote = smoothstep(0.16, 0.0, length(fract(gd) - vec2(jx, jy) * 0.6 - 0.2));
-  col += lamp * mote * spark * flash * vig * (0.45 + uHigh);
+    // dust hanging in the beam: drifts up one cell-row loop per bar
+    vec2 gd = vec2(uv.x * aspect, uv.y) * 34.0;
+    gd.y += uBarPhase * 34.0;
+    vec2 id = vec2(floor(gd.x), mod(floor(gd.y), 34.0));
+    float spark = step(0.86, hash(id));
+    if (spark > 0.0) {   // per cell (~30 px), so the branch is coherent
+      float jx = hash(id + 1.7), jy = hash(id + 8.3);
+      float mote = 1.0 - smoothstep(0.0, 0.16, length(fract(gd) - vec2(jx, jy) * 0.6 - 0.2));
+      col += lamp * mote * flash * vig * (0.45 + uHigh);
+    }
+  }
 
   // faint ghost of the shape and the filament: dark, not off
   col += lamp * vig * (0.035 + mask * 0.035);
