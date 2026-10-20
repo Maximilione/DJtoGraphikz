@@ -88,15 +88,32 @@ export function clampHold(hold: number, mode: SequenceMode): number {
   return Math.min(max, Math.max(min, Math.round(hold)))
 }
 
+/**
+ * A preset applyPreset can take: it reads `post` and `colors` as arrays. A
+ * step without one used to reach the engine from a useEffect, and a throw
+ * there unmounted the whole control window mid-show.
+ */
+const okPreset = (p: unknown): p is Preset => {
+  const x = p as Preset
+  return !!x && typeof x === 'object' && Array.isArray(x.post) && Array.isArray(x.colors) && x.colors.length >= 3
+}
+
 /** One stored entry → a sequence, whatever version wrote it */
 export function migrate(raw: StoredSequence): Sequence {
   const stored = raw.mode ?? raw.advanceMode
   const mode: SequenceMode = stored && MODES.has(stored) ? stored : 'timer'
   const defaultHold = clampHold(raw.defaultHold ?? raw.advanceInterval ?? 8, mode)
-  const steps: SequenceStep[] = raw.steps?.length
-    ? raw.steps.map(s => ({ ...s, hold: clampHold(s.hold ?? defaultHold, mode) }))
+  const steps: SequenceStep[] = Array.isArray(raw.steps) && raw.steps.length
+    ? raw.steps
+      .filter((s): s is SequenceStep => !!s && typeof s === 'object' && okPreset(s.preset))
+      .map(s => ({
+        ...s,
+        name: typeof s.name === 'string' ? s.name : (s.preset.name ?? 'Senza nome'),
+        overlays: Array.isArray(s.overlays) ? s.overlays : undefined,
+        hold: clampHold(s.hold ?? defaultHold, mode),
+      }))
     // legacy playlist: every preset held for the one list-wide interval
-    : (raw.presets ?? []).map(p => ({ name: p.name, preset: p, hold: defaultHold }))
+    : (Array.isArray(raw.presets) ? raw.presets : []).filter(okPreset).map(p => ({ name: p.name, preset: p, hold: defaultHold }))
   return {
     name: raw.name ?? 'Senza nome',
     steps,

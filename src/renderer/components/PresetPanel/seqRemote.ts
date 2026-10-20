@@ -24,15 +24,25 @@ export interface SeqStatus {
 const NONE: SeqStatus = { available: false, list: [], playing: false, index: 0, total: 0, name: '', stepName: '' }
 let handlers: SeqHandlers | null = null
 
+// the last payload sent: the editor persists on every keystroke and the hook
+// re-pushes the whole list each time, identical or not. The main keeps the
+// last status for phones that reconnect, so skipping a repeat loses nothing.
+let last = ''
+
 export function pushSeqStatus(s: SeqStatus) {
+  const j = JSON.stringify(s)
+  if (j === last) return
+  last = j
   try { window.api?.sendRemoteSeq(s) } catch (_) {}
 }
 
 export function registerSeqHandlers(h: SeqHandlers): () => void {
   handlers = h
+  last = ''
   return () => {
     if (handlers !== h) return
     handlers = null
+    last = ''
     pushSeqStatus(NONE)
   }
 }

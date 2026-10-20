@@ -7,20 +7,21 @@ import { Panel } from '../Panel/Panel'
 
 interface MidiPanelProps {
   engine: Engine | null
-  dispatchCmd: (cmd: { type: string; value?: unknown }) => void
 }
 
-/** MIDI learn: arm a target, touch a knob/pad, done. Bindings persist. */
-export function MidiPanel({ engine, dispatchCmd }: MidiPanelProps) {
+/**
+ * MIDI learn: arm a target, touch a knob/pad, done. Bindings persist.
+ * The controllers themselves are started by App with the engine — this panel
+ * is Pro-only, and starting them here left MIDI and pads dead in Live mode.
+ */
+export function MidiPanel({ engine }: MidiPanelProps) {
   const [, force] = useReducer((x: number) => x + 1, 0)
 
   useEffect(() => {
     if (!engine) return
-    midi.start(engine, dispatchCmd)
-    gamepad.start(engine, dispatchCmd)
     const offs = [midi.onChange(force), gamepad.onChange(force)]
     return () => offs.forEach(f => f())
-  }, [engine, dispatchCmd])
+  }, [engine])
 
   if (!engine) return null
 

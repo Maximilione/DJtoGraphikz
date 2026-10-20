@@ -47,18 +47,27 @@ export async function enterStep(
   // left must only ever remove itself, never the next step's overlay
   const entry = ++entries
   const list = step?.overlays ?? []
+  // read every file at once: the step's graphics used to come up after the
+  // SUM of the reads (IPC + base64 each). Added in order below, so the
+  // z-order is the one the user set; a failed read is an empty url
+  const urls = list.map(ov => ov.kind !== 'text' && !ov.dataUrl && ov.path
+    ? Promise.resolve().then(() => readPath(ov.path!, ov.name)).catch(() => '') : null)
   for (let j = 0; j < list.length; j++) {
+    // a step already left must add nothing more, not even a text overlay
+    // after an image of its own failed
+    if (!alive()) return
     const ov = list[j]
     const id = `${SEQ_PREFIX}${entry}:${j}`
     try {
       if (ov.kind === 'text') {
         host.addTextOverlay(ov.text ?? ov.name, { color: ov.color }, id)
       } else {
-        const dataUrl = ov.dataUrl ?? (ov.path ? await readPath(ov.path, ov.name) : '')
+        const dataUrl = ov.dataUrl ?? (urls[j] ? await urls[j] : '')
         if (!dataUrl) continue
         await host.addOverlay(ov.name, dataUrl, id)
       }
     } catch {
+      if (!alive()) return
       continue   // a missing file must not take the rest of the step down
     }
     if (!alive()) { host.removeOverlay(id); return }

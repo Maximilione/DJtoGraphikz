@@ -1,119 +1,34 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { readJson, writeJson } from '../../storage'
+import React, { useRef, useState } from 'react'
 import type { Engine } from '@engine/Engine'
 import { Panel } from '../Panel/Panel'
-import { DMX_STORE_KEY as STORAGE_KEY } from '../../venues'
-import { PIXEL_MAP_DEFAULTS, packUniverses, sanitizePixelMap, universesFor, type PixelMapConfig } from '../../pixelmap'
+import { universesFor, type PixelMapConfig } from '../../pixelmap'
+import { loadDmxConfig, saveDmxConfig, type DmxConfig } from '../../useDmxOutput'
 
 interface DmxPanelProps {
   engine: Engine | null
 }
 
-// One simple fixture model covers the common club rig: RGB PAR with optional
-// master dimmer channel before the RGB. More exotic rigs can offset with
-// the base channel. ponytail: no fixture library — add if someone asks.
-interface DmxConfig {
-  enabled: boolean
-  host: string        // '' = broadcast
-  universe: number
-  fixtures: number    // how many identical fixtures in a row
-  baseChannel: number // 1-based DMX address of the first fixture
-  hasDimmer: boolean  // ch layout: [dimmer,] R, G, B
-  dimmerSource: 'energy' | 'bass' | 'beat' | 'full'
-  strobeOnBeat: boolean
-  /** I6: the frame on a LED panel, stored with the DMX config so a venue profile carries it */
-  pixelMap: PixelMapConfig
-}
-
-const DEFAULTS: DmxConfig = {
-  enabled: false, host: '', universe: 0,
-  fixtures: 4, baseChannel: 1, hasDimmer: true,
-  dimmerSource: 'energy', strobeOnBeat: false,
-  pixelMap: PIXEL_MAP_DEFAULTS,
-}
-
-function load(): DmxConfig {
-  const raw = readJson<Partial<DmxConfig>>(STORAGE_KEY, {})
-  return { ...DEFAULTS, ...raw, pixelMap: sanitizePixelMap(raw.pixelMap) }
-}
-
-/** Audio-reactive ArtNet DMX: palette color on RGB PARs, energy on the dimmer. */
+/**
+ * Audio-reactive ArtNet DMX: palette color on RGB PARs, energy on the dimmer.
+ * The sender itself is `useDmxOutput`, mounted in App with the engine — this
+ * panel is Pro-only, and sending from here froze the lights in Simple and Live.
+ */
 export function DmxPanel({ engine }: DmxPanelProps) {
-  const [cfg, setCfg] = useState<DmxConfig>(load)
+  const [cfg, setCfg] = useState<DmxConfig>(loadDmxConfig)
   const cfgRef = useRef(cfg)
   cfgRef.current = cfg
 
+  // the write stays out of the updater: StrictMode ran it twice, and a
+  // synchronous setItem per keystroke in the IP field was not a render concern
   const set = (patch: Partial<DmxConfig>) => {
-    setCfg(prev => {
-      const next = { ...prev, ...patch }
-      writeJson(STORAGE_KEY, next)
-      return next
-    })
+    const next = { ...cfgRef.current, ...patch }
+    cfgRef.current = next
+    setCfg(next)
+    saveDmxConfig(next)
   }
 
-  // 30Hz sender driven by the engine's audio frame (already ticking at 60)
-  useEffect(() => {
-    if (!engine) return
-    let last = 0
-    return engine.onAudioFrame((beat) => {
-      const c = cfgRef.current
-      if (!c.enabled) return
-      const now = performance.now()
-      if (now - last < 33 && !beat) return
-      last = now
-
-      // only palette colour 1 drives the fixtures
-      const n = parseInt(engine.getCurrentColors()[0].slice(1), 16)
-      const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
-
-      const audio = engine.getAudioLevels()
-      const dim = c.dimmerSource === 'full' ? 1
-        : c.dimmerSource === 'bass' ? audio.bass
-        : c.dimmerSource === 'beat' ? audio.beatPulse
-        : audio.energy
-      const strobe = c.strobeOnBeat && beat ? 1 : 0
-      const level = Math.min(1, Math.max(strobe, dim))
-
-      const chPerFixture = c.hasDimmer ? 4 : 3
-      const size = c.baseChannel - 1 + c.fixtures * chPerFixture
-      const values = new Array(Math.min(512, Math.max(2, size))).fill(0)
-      for (let f = 0; f < c.fixtures; f++) {
-        let ch = c.baseChannel - 1 + f * chPerFixture
-        if (ch + chPerFixture > 512) break
-        if (c.hasDimmer) {
-          values[ch++] = Math.round(level * 255)
-          values[ch++] = r; values[ch++] = g; values[ch++] = b
-        } else {
-          // no dimmer channel: bake the level into the color
-          values[ch++] = Math.round(r * level)
-          values[ch++] = Math.round(g * level)
-          values[ch++] = Math.round(b * level)
-        }
-      }
-      window.api?.sendDmxFrame?.({ host: c.host, universe: c.universe, values })
-    })
-  }, [engine])
-
-  // pixel map: the engine samples the master frame, this packs and sends it
   const pm = cfg.pixelMap
-  useEffect(() => {
-    if (!engine) return
-    if (!pm.enabled) { engine.setPixelMap(null); engine.onPixelFrame = null; return }
-    engine.setPixelMap({ cols: pm.cols, rows: pm.rows, fps: pm.fps })
-    engine.onPixelFrame = (rgba) => {
-      window.api?.sendPixelMap?.({ host: pm.host, protocol: pm.protocol, frames: packUniverses(rgba, pm) })
-    }
-    return () => { engine.onPixelFrame = null }
-  }, [engine, pm.enabled, pm.cols, pm.rows, pm.fps, pm.host, pm.protocol, pm.snake, pm.universe])
   const setPm = (patch: Partial<PixelMapConfig>) => set({ pixelMap: { ...pm, ...patch } })
-
-  // blackout on disable: one zero-frame so the lights don't stay stuck on
-  useEffect(() => {
-    if (!cfg.enabled) {
-      window.api?.sendDmxFrame?.({ host: cfg.host, universe: cfg.universe, values: new Array(64).fill(0) })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg.enabled])
 
   if (!engine) return null
 

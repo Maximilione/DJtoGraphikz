@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { allPalettes } from '../../palettes'
 import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
 import type { EffectParam } from '@engine/EffectParams'
@@ -27,6 +27,15 @@ function sameChain(a: { id: PostId; amount: number }[], b: { id: PostId; amount:
   return a.length === b.length && a.every((p, i) => p.id === b[i].id && p.amount === b[i].amount)
 }
 
+function sameGrade(a: Grade, b: Grade): boolean {
+  return (Object.keys(b) as (keyof Grade)[]).every(k => a[k] === b[k])
+}
+
+// Parsed ISF, keyed on file name and source: refreshIsf used to re-parse the
+// whole ~/.djtographikz/isf synchronously at mount and after every import,
+// hundreds of files with a library pulled from the online index.
+const isfCache = new Map<string, { source: string; res: ReturnType<typeof loadISF> }>()
+
 
 
 // the custom swatch is not in the palette list, so it cannot collide with the
@@ -36,7 +45,7 @@ const CUSTOM_INDEX = -1
 // Sub-sections as tabs
 type Section = 'fx' | 'post' | 'color'
 
-export function EffectPanel({ engine }: EffectPanelProps) {
+function EffectPanelImpl({ engine }: EffectPanelProps) {
   const [section, setSection] = useState<Section>('fx')
   const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
   const [activePosts, setActivePosts] = useState<Set<PostId>>(new Set(['bloom']))
@@ -76,7 +85,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       } else {
         // ponytail: mid-lerp colors can land here and repaint the custom swatch — cosmetic only
         setActiveColorPreset(CUSTOM_INDEX)
-        setCustomColors(colors)
+        // a fresh array per emit is a render of the whole panel per emit
+        setCustomColors(prev => prev[0] === colors[0] && prev[1] === colors[1] && prev[2] === colors[2] ? prev : colors)
       }
     }
     setActiveEffect(engine.getCurrentEffect())
@@ -100,7 +110,8 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       setActivePosts(prev => sameIds(prev, state.activePost) ? prev : new Set(state.activePost))
       const chain = engine.getPostChain()
       setPostChain(prev => sameChain(prev, chain) ? prev : chain)
-      if (state.grade) setGradeState(state.grade)
+      // state.grade is a new object on every snapshot: same guard as the chain
+      if (state.grade) setGradeState(prev => sameGrade(prev, state.grade!) ? prev : state.grade!)
       syncColors(state.colors)
       if (state.transitionType) setTransitionType(state.transitionType)
       if (state.transitionDuration !== undefined) setTransitionDuration(state.transitionDuration)
@@ -120,15 +131,24 @@ export function EffectPanel({ engine }: EffectPanelProps) {
   // Thumbnails: capture from the live engine ~1.5s after each effect change
   useFxThumbs(engine, activeEffect)
 
-  // ISF library: read ~/.djtographikz/isf, parse each file
+  // ISF library: read ~/.djtographikz/isf, parse each file (once per source,
+  // see isfCache). Two refreshes in flight used to land in either order.
+  const isfReq = useRef(0)
   const refreshIsf = useCallback(() => {
+    const my = ++isfReq.current
     window.api?.listIsf?.()
       .then(files => {
+        if (my !== isfReq.current) return
         const ok: { name: string; frag: string; params: EffectParam[]; imageInputs: string[] }[] = []
         const failed: string[] = []
         for (const f of files) {
           try {
-            const res = loadISF(f.source, f.name)
+            let c = isfCache.get(f.name)
+            if (!c || c.source !== f.source) {
+              c = { source: f.source, res: loadISF(f.source, f.name) }
+              isfCache.set(f.name, c)
+            }
+            const res = c.res
             if ('error' in res) failed.push(f.name)
             else ok.push({ name: f.name, frag: res.fragment, params: res.params, imageInputs: res.imageInputs })
           } catch {
@@ -140,7 +160,10 @@ export function EffectPanel({ engine }: EffectPanelProps) {
       })
       .catch(() => { /* IPC unavailable (old preload) — section stays hidden */ })
   }, [])
-  React.useEffect(() => { refreshIsf() }, [refreshIsf])
+  React.useEffect(() => {
+    refreshIsf()
+    return () => { isfReq.current++ }   // a response for an unmounted panel is dropped
+  }, [refreshIsf])
 
   // Import result (from file picker or online browser): refresh the list,
   // report parse errors right away instead of a silent "ignorato" at next boot
@@ -638,3 +661,6 @@ export function EffectPanel({ engine }: EffectPanelProps) {
     </div>
   )
 }
+
+/** Memoised: App re-renders on every slider tick and remote command; this panel only depends on the engine. */
+export const EffectPanel = React.memo(EffectPanelImpl)

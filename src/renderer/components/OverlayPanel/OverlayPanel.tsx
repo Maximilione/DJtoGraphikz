@@ -5,6 +5,7 @@ import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
 import { IMAGE_RE, MODEL_RE, imageMime } from '../../../shared/mediaFormats'
 import { SEQ_DEFAULT_FPS, SEQ_BEAT_CHOICES } from '../../../shared/imageSequence'
+import { useVisibleInterval } from '../useVisibleInterval'
 
 interface OverlayPanelProps {
   engine: Engine | null
@@ -43,7 +44,21 @@ export async function readLibraryImage(path: string, name: string): Promise<stri
 
 export interface LibraryItem { name: string; path: string }
 
-export function OverlayPanel({ engine }: OverlayPanelProps) {
+/**
+ * Library thumbnails come straight from disk over djg-media, the door the
+ * video overlays and the sequences already stream through: no file crosses
+ * IPC, no Blob or object URL in the renderer, and Chromium fetches and decodes
+ * only the rows on screen (`loading="lazy"`), off the UI thread. Every row
+ * used to read its whole file over IPC — tens of MB and a full GIF decode on
+ * the live thread for a 40 px picture.
+ * ponytail: a 114x64 thumbnail cached on disk by main (nativeImage) would make
+ * this a few KB per row instead of the file.
+ */
+const thumbUrl = (path: string) => `djg-media://f/?p=${encodeURIComponent(path)}`
+
+const sameList = <T,>(a: T[], b: T[]) => a.length === b.length && a.every((x, i) => x === b[i])
+
+function OverlayPanelImpl({ engine }: OverlayPanelProps) {
   const [overlays, setOverlays] = useState<OverlayItem[]>([])
   // When multiple cameras exist we show an inline picker instead of adding blindly
   // A big GIF or a long video takes seconds to decode: say so instead of
@@ -58,6 +73,16 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
   const refresh = useCallback(() => {
     if (engine) setOverlays([...engine.getOverlays()])
   }, [engine])
+  // The list used to start empty and change only after this panel's own
+  // actions: overlays added by a preset, the phone or a playlist step before
+  // the mount never showed. Synced at mount, then a light poll by identity —
+  // the engine mutates the items in place, so unchanged lists cost no render.
+  useEffect(() => { refresh() }, [refresh])
+  useVisibleInterval(() => {
+    if (!engine) return
+    const cur = engine.getOverlays()
+    setOverlays(p => (sameList(p, cur) ? p : [...cur]))
+  }, engine ? 1000 : null)
 
   const loadLibrary = useCallback(async () => {
     try {
@@ -68,62 +93,78 @@ export function OverlayPanel({ engine }: OverlayPanelProps) {
   // The library IS the persistence: nothing auto-loads at boot, re-adding is one tap
   useEffect(() => { loadLibrary() }, [loadLibrary])
 
+  // The pickers reject too (dialog torn down, IPC gone): the await sits
+  // inside the try, and the busy flag is cleared in a finally so a failure
+  // never leaves the three buttons disabled.
   const importImage = useCallback(async () => {
     if (!engine) return
-    const assets = await window.api?.importAssets()
-    if (!assets || assets.length === 0) return
     setBusy('img')
-    for (const asset of assets) {
-      // a corrupt image rejects; without this the failure is a silent
-      // unhandled rejection and the user sees nothing happen
-      try {
-        await engine.addOverlay(asset.name, asset.data)
-        await window.api?.librarySave(asset.name, asset.data).catch(() => {})
-      } catch (err) {
-        console.error('[Overlay] import immagine fallito:', err)
-        pushToast(`Non riesco a caricare ${asset.name}`, undefined, undefined, 'err')
+    try {
+      const assets = await window.api?.importAssets()
+      if (!assets || assets.length === 0) return
+      for (const asset of assets) {
+        // a corrupt image rejects; without this the failure is a silent
+        // unhandled rejection and the user sees nothing happen
+        try {
+          await engine.addOverlay(asset.name, asset.data)
+          await window.api?.librarySave(asset.name, asset.data).catch(() => {})
+        } catch (err) {
+          console.error('[Overlay] import immagine fallito:', err)
+          pushToast(`Non riesco a caricare ${asset.name}`, undefined, undefined, 'err')
+        }
       }
+    } catch (err) {
+      console.error('[Overlay] import immagine fallito:', err)
+      pushToast(`Import non riuscito: ${(err as Error).message}`, 'overlay-import', undefined, 'err')
+    } finally {
+      setBusy(null)
+      refresh()
+      loadLibrary()
     }
-    setBusy(null)
-    refresh()
-    loadLibrary()
   }, [engine, refresh, loadLibrary])
 
   const importVideo = useCallback(async () => {
     if (!engine) return
-    const files = await window.api?.pickVideos()
-    if (!files || files.length === 0) return
     setBusy('video')
-    for (const f of files) {
-      // rejects if the file moved or the drive was unplugged since the pick
-      try {
-        await engine.addVideoOverlay(f.name, { kind: 'video', path: f.path })
-        await window.api?.librarySaveCopy(f.name, f.path).catch(() => {})
-      } catch (err) {
-        console.error('[Overlay] import video fallito:', err)
-        pushToast(`Non riesco a caricare ${f.name}`, undefined, undefined, 'err')
+    try {
+      const files = await window.api?.pickVideos()
+      if (!files || files.length === 0) return
+      for (const f of files) {
+        // rejects if the file moved or the drive was unplugged since the pick
+        try {
+          await engine.addVideoOverlay(f.name, { kind: 'video', path: f.path })
+          await window.api?.librarySaveCopy(f.name, f.path).catch(() => {})
+        } catch (err) {
+          console.error('[Overlay] import video fallito:', err)
+          pushToast(`Non riesco a caricare ${f.name}`, undefined, undefined, 'err')
+        }
       }
+    } catch (err) {
+      console.error('[Overlay] import video fallito:', err)
+      pushToast(`Import non riuscito: ${(err as Error).message}`, 'overlay-import', undefined, 'err')
+    } finally {
+      setBusy(null)
+      refresh()
+      loadLibrary()
     }
-    setBusy(null)
-    refresh()
-    loadLibrary()
   }, [engine, refresh, loadLibrary])
 
   const importSequence = useCallback(async () => {
     if (!engine) return
-    const seq = await window.api?.pickSequence()
-    if (!seq) return
-    if (seq.note) pushToast(seq.note, undefined, undefined, seq.paths.length ? undefined : 'err')
-    if (!seq.paths.length) return
     setBusy('video')
     try {
+      const seq = await window.api?.pickSequence()
+      if (!seq) return
+      if (seq.note) pushToast(seq.note, undefined, undefined, seq.paths.length ? undefined : 'err')
+      if (!seq.paths.length) return
       await engine.addSequenceOverlay(seq.name, { kind: 'sequence', paths: seq.paths, fps: SEQ_DEFAULT_FPS, beats: 0 })
     } catch (err) {
       console.error('[Overlay] import sequenza fallito:', err)
-      pushToast(`Non riesco a caricare la sequenza ${seq.name}`, undefined, undefined, 'err')
+      pushToast(`Non riesco a caricare la sequenza: ${(err as Error).message}`, 'overlay-import', undefined, 'err')
+    } finally {
+      setBusy(null)
+      refresh()
     }
-    setBusy(null)
-    refresh()
   }, [engine, refresh])
 
   const addFromLibrary =useCallback(async (item: LibraryItem) => {
@@ -417,29 +458,15 @@ function LibraryRow({ item, onAdd, onDelete }: {
   onDelete: () => void
 }) {
   const isImage = IMAGE_RE.test(item.name)
-  const [thumb, setThumb] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!isImage) return
-    let alive = true
-    let url: string | null = null
-    window.api?.readFile(item.path).then(bytes => {
-      if (!alive) return
-      url = URL.createObjectURL(new Blob([bytes], { type: mimeFor(item.name) }))
-      setThumb(url)
-    }).catch(() => {})
-    return () => {
-      alive = false
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [item.path, item.name, isImage])
+  // a file that will not decode (moved, corrupt) shows the icon, not a broken image
+  const [broken, setBroken] = useState(false)
 
   return (
     <div className="media-lib-row">
       <button type="button" className="btn media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
-        {isImage
-          ? (thumb ? <img className="media-lib-thumb" src={thumb} /> : <span className="media-lib-icon">🖼</span>)
-          : <span className="media-lib-icon">🎬</span>}
+        {isImage && !broken
+          ? <img className="media-lib-thumb" src={thumbUrl(item.path)} loading="lazy" decoding="async" alt="" onError={() => setBroken(true)} />
+          : <span className="media-lib-icon">{isImage ? '🖼' : '🎬'}</span>}
         <span className="media-lib-name">{item.name}</span>
         <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
       </button>
@@ -467,3 +494,6 @@ function VideoThumb({ video }: { video: HTMLVideoElement }) {
 
   return <canvas ref={canvasRef} className="media-thumb" width={114} height={64} />
 }
+
+/** Memoised: App re-renders on every slider tick and remote command; this panel only depends on the engine. */
+export const OverlayPanel = React.memo(OverlayPanelImpl)

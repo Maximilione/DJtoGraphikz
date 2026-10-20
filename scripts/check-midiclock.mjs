@@ -57,12 +57,25 @@ check('174 BPM drum & bass, e 92 a mezza velocita', () => {
 check('la fase sta a 0 sul battito e a mezzo a meta battito', () => {
   const c = new MidiClock()
   c.onByte(MIDI_START, 1000)
-  const t = run(c, 120, 2)           // 2 beats = 48 ticks, we are ON a beat
+  // the first tick after Start is tick 0, the downbeat: 2 beats = 48 ticks
+  // later the 49th tick (index 48) opens the third beat and we are ON it
+  const t = run(c, 120, 2 + 1 / 24)
   const onBeat = c.read(t)
   assert.ok(onBeat.beatPhase < 0.02, `fase sul battito = ${onBeat.beatPhase}`)
   const t2 = run(c, 120, 0.5, t)     // +12 ticks = half a beat
   const half = c.read(t2)
   assert.ok(Math.abs(half.beatPhase - 0.5) < 0.02, `mezza fase = ${half.beatPhase}`)
+})
+
+check('il secondo battito scatta al 25° tick, non al 24°', () => {
+  const c = new MidiClock()
+  c.onByte(MIDI_START, 1000)
+  c.clearBeat()                       // the downbeat Start announced
+  const t = run(c, 120, 1)            // 24 ticks: indices 0..23, all inside beat 1
+  assert.equal(c.read(t).beatDetected, false, 'battito segnalato un tick in anticipo')
+  const t2 = run(c, 120, 1 / 24, t)   // the 25th tick (index 24) opens beat 2
+  assert.equal(c.read(t2).beatDetected, true)
+  assert.ok(c.read(t2).beatPhase < 0.02, `fase all'inizio del battito 2 = ${c.read(t2).beatPhase}`)
 })
 
 check('la fase scorre fra un tick e l\'altro', () => {
@@ -126,6 +139,42 @@ check('Stop spegne il clock, Continue lo riaccende', () => {
   c.onByte(MIDI_CONTINUE, t)
   t = run(c, 120, 1, t)
   assert.equal(c.read(t).running, true)
+})
+
+check('Stop con un device che continua a tickare resta fermo; Start riparte', () => {
+  const c = new MidiClock()
+  c.onByte(MIDI_START, 0)
+  let t = run(c, 120, 2, 0)
+  c.onByte(MIDI_STOP, t)
+  t = run(c, 120, 2, t)               // CDJ, mixer, Traktor: ticks never stop
+  assert.equal(c.read(t).running, false, 'un tick ha riacceso il transport dopo Stop')
+  assert.equal(c.read(t).beatDetected, false, 'battito fantasma a transport fermo')
+  assert.ok(Math.abs(c.read(t).bpm - 120) < 0.5, 'il tempo resta noto durante lo stop')
+  c.onByte(MIDI_START, t)
+  t = run(c, 120, 1, t)
+  assert.equal(c.read(t).running, true)
+})
+
+check('un battito passato subito prima di Stop non scatta al Continue', () => {
+  const c = new MidiClock()
+  c.onByte(MIDI_START, 0)
+  let t = run(c, 120, 1 + 1 / 24, 0)  // the 25th tick crossed into beat 2
+  assert.equal(c.read(t).beatDetected, true)
+  c.onByte(MIDI_STOP, t)
+  c.onByte(MIDI_CONTINUE, t + 5000)
+  t = run(c, 120, 0.5, t + 5000)
+  assert.equal(c.read(t).beatDetected, false, 'battito stantio alla ripresa')
+})
+
+check('due tick arrivati insieme (burst USB) non spengono il clock', () => {
+  const c = new MidiClock()
+  c.onByte(MIDI_START, 0)
+  let t = run(c, 128, 2, 0)
+  const tick = 60000 / (128 * 24)
+  t += tick; c.onByte(MIDI_CLOCK, t)
+  c.onByte(MIDI_CLOCK, t + 1)         // the driver delivered the next one with it
+  assert.equal(c.read(t + 1).running, true, 'un solo intervallo fuori range ha azzerato il tempo')
+  assert.ok(Math.abs(c.read(t + 1).bpm - 128) < 0.5)
 })
 
 check('un transport che sparisce non resta "in corso" per sempre', () => {

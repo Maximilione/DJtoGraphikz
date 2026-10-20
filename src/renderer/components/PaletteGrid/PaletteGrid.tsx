@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { addUserPalette, allPalettes, isUserPalette, onPalettes, pixelsFromImageFile, removeUserPalette } from '../../palettes'
-import { paletteFromImage } from '../../paletteFromImageBrowser'
+import { paletteFromPixels } from '../../paletteFromImage'
+import { pushToast } from '../Toasts/Toasts'
 
 interface PaletteGridProps {
   isActive: (i: number) => boolean
@@ -31,10 +32,15 @@ export function PaletteGrid({ isActive, onPick, title, size = 'md' }: PaletteGri
 
   const fromFile = async (file: File | undefined) => {
     if (!file || !file.type.startsWith('image/')) return
-    const colors = paletteFromImage(await pixelsFromImageFile(file))
-    if (!colors) return
-    const idx = addUserPalette({ label: file.name.replace(/\.[^.]+$/, '').slice(0, 14) || 'Mia', colors })
-    onPick(idx)
+    try {
+      const colors = paletteFromPixels(await pixelsFromImageFile(file))
+      if (!colors) return
+      const idx = addUserPalette({ label: file.name.replace(/\.[^.]+$/, '').slice(0, 14) || 'Mia', colors })
+      onPick(idx)
+    } catch {
+      // an unreadable file used to be an unhandled rejection and no feedback
+      pushToast('Immagine non leggibile', 'palette-img', undefined, 'err')
+    }
   }
 
   return (

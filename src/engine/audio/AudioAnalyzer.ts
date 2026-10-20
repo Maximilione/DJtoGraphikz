@@ -94,14 +94,18 @@ export class AudioAnalyzer {
   private manualBpm = 128
   private tapTimes: number[] = []
 
-  // Beat decay for smooth pulse
-
   // Input gain
   private inputGain = 1.0
 
-  // Adaptive normalization — quiet tracks stay alive, loud ones stop clipping
+  // Adaptive normalization — quiet tracks stay alive, loud ones stop clipping.
+  // The peak decays per unit of time, not per call: at 144 Hz or under load the
+  // levels every visual is scaled to must not change with the frame rate.
   private peakEnergy = 0.2
+  private lastUpdateAt = 0
   private readonly NOISE_GATE = 0.015
+  // Scratch for the per-band flux the tracker fills each frame: no allocation in the hot path
+  private readonly bandFlux = [0, 0, 0]
+  private readonly bandFluxN = [0, 0, 0]
 
   private data: AudioData = {
     sub: 0, bass: 0, mid: 0, high: 0, presence: 0,
@@ -143,13 +147,31 @@ export class AudioAnalyzer {
     } catch { return undefined }
   }
 
-  /** A card (re)appearing while we are on the room mic, or while recovering: go to it. */
+  /**
+   * A card (re)appearing while we are on the room mic, or while recovering: go to it.
+   * A hotplug fires devicechange in a burst; the ones that arrive while the cards are
+   * being listed are folded into one re-read, so one hotplug is one restart, not three.
+   */
+  private devChangeBusy = false
+  private devChangeDirty = false
   private onDeviceChange = async () => {
+    if (this.devChangeBusy) { this.devChangeDirty = true; return }
+    this.devChangeBusy = true
+    try {
+      do {
+        this.devChangeDirty = false
+        await this.handleDeviceChange()
+      } while (this.devChangeDirty)
+    } finally { this.devChangeBusy = false }
+  }
+
+  private async handleDeviceChange(): Promise<void> {
     if (this.userStopped || this.sourceKind === 'file') return
     const recovering = !!this.restartTimer
     if (!recovering && !(this.running && isBuiltInLabel(this.activeLabel))) return
     const id = await this.externalInputId()
     if (!id || this.userStopped) return
+    if (id === this.lastDeviceId && this.running) return   // already on it
     console.log('[AudioAnalyzer] external card available — switching to it')
     this.start(id).then(() => { this.restartAttempts = 0 }).catch(err => {
       if (!this.giveUp(err)) this.scheduleRestart('switch failed')
@@ -305,7 +327,7 @@ export class AudioAnalyzer {
     if (track) track.onended = () => { if (this.stream === stream) this.scheduleRestart('track ended') }
 
     this.source = context.createMediaStreamSource(stream)
-    await this.wireGraph()
+    this.wireGraph()
 
     console.log('[AudioAnalyzer] Started with device:', deviceId || 'default',
       'sample rate:', context.sampleRate,
@@ -325,43 +347,53 @@ export class AudioAnalyzer {
     const gen = this.gen
     this.userStopped = false
     this.fatal = ''
-    this.sourceKind = 'file'
-    this.fileName = file.name
+    try {
+      this.sourceKind = 'file'
+      this.fileName = file.name
 
-    this.context = new AudioContext()
-    if (this.context.state === 'suspended') await this.context.resume()
-    if (gen !== this.gen) return
-    this.makeAnalyser()
+      this.context = new AudioContext()
+      if (this.context.state === 'suspended') await this.context.resume()
+      if (gen !== this.gen) return
+      this.makeAnalyser()
 
-    this.mediaUrl = URL.createObjectURL(file)
-    const el = new Audio(this.mediaUrl)
-    el.crossOrigin = 'anonymous'
-    el.loop = true
-    this.mediaEl = el
+      this.mediaUrl = URL.createObjectURL(file)
+      const el = new Audio(this.mediaUrl)
+      el.crossOrigin = 'anonymous'
+      el.loop = true
+      this.mediaEl = el
 
-    await new Promise<void>((resolve, reject) => {
-      el.onloadedmetadata = () => resolve()
-      el.onerror = () => reject(new Error(`Non riesco a leggere ${file.name}`))
-    })
+      await new Promise<void>((resolve, reject) => {
+        el.onloadedmetadata = () => resolve()
+        el.onerror = () => reject(new Error(`Non riesco a leggere ${file.name}`))
+      })
 
-    if (gen !== this.gen) return
-    this.source = this.context.createMediaElementSource(el)
-    await this.wireGraph()
-    if (gen !== this.gen) return
-    // You have to hear it: this is a rehearsal, not a measurement.
-    this.gainNode!.connect(this.context.destination)
+      if (gen !== this.gen) return
+      this.source = this.context.createMediaElementSource(el)
+      this.wireGraph()
+      // You have to hear it: this is a rehearsal, not a measurement.
+      this.gainNode!.connect(this.context.destination)
 
-    await el.play()
-    // A media element keeps playing on a suspended context, and the analyser
-    // then reads pure silence — indistinguishable from broken beat detection.
-    if (this.context.state !== 'running') {
-      await this.context.resume().catch(() => {})
-      if ((this.context.state as string) !== 'running') {
-        console.warn('[AudioAnalyzer] AudioContext sospeso: l\'analisi leggera\' silenzio')
+      await el.play()
+      if (gen !== this.gen) return
+      // A media element keeps playing on a suspended context, and the analyser
+      // then reads pure silence — indistinguishable from broken beat detection.
+      if (this.context.state !== 'running') {
+        await this.context.resume().catch(() => {})
+        if (gen !== this.gen) return
+        if ((this.context.state as string) !== 'running') {
+          console.warn('[AudioAnalyzer] AudioContext sospeso: l\'analisi leggera\' silenzio')
+        }
       }
+      console.log('[AudioAnalyzer] file:', file.name, `${el.duration.toFixed(1)}s`,
+        'sample rate:', this.context.sampleRate)
+    } catch (err) {
+      // Superseded (Stop, or a second file chosen while this one loaded): the
+      // graph belongs to whoever superseded us, and the user gets no false error.
+      // Current: a file that will not play must not leave half a graph behind.
+      if (gen !== this.gen) return
+      this.teardown()
+      throw err
     }
-    console.log('[AudioAnalyzer] file:', file.name, `${el.duration.toFixed(1)}s`,
-      'sample rate:', this.context.sampleRate)
   }
 
   /** The analyser settings, which are the same whatever feeds them. */
@@ -374,24 +406,55 @@ export class AudioAnalyzer {
     this.analyser.maxDecibels = -10
   }
 
-  /** gain → analyser → BPM library, and the buffers that read them. */
-  private async wireGraph(): Promise<void> {
+  /**
+   * gain → analyser, and the buffers that read them. Synchronous: bands, beats
+   * and hits are live the moment the stream is in. The BPM library loads its
+   * worklet in the background and joins the graph when it is ready — waiting
+   * for that addModule used to hold the whole analysis back on every start and
+   * every recovery, and a hung load left the audio dead.
+   */
+  private wireGraph(): void {
     const gen = this.gen
+    const ctx = this.context!
     // Add gain node for input amplification (useful for weak mic signals)
-    this.gainNode = this.context!.createGain()
+    this.gainNode = ctx.createGain()
     this.gainNode.gain.value = this.inputGain
     this.source!.connect(this.gainNode)
     this.gainNode.connect(this.analyser!)
 
-    // Initialize realtime-bpm-analyzer
+    this.freqData = new Uint8Array(this.analyser!.frequencyBinCount)
+    this.waveData = new Uint8Array(this.analyser!.fftSize)
+    this.specBuf = new Float32Array(this.analyser!.frequencyBinCount)
+
+    // Reset detection state
+    this.tracker.reset()
+    this.bandHits.reset()
+    this.keyDetector.reset()
+    this.data.key = null
+    this.libraryBpm = 0
+    this.libraryConfidence = 0
+    this.libraryStable = false
+    // A new source is a new loudness: the peak of the last one must not keep
+    // a quieter card or file dark for seconds.
+    this.peakEnergy = 0.2
+    this.lastUpdateAt = 0
+    this.running = true
+
+    void this.initBpmLibrary(gen, ctx)
+  }
+
+  /** realtime-bpm-analyzer, in parallel to the analyser. Optional: a failure is a warning. */
+  private async initBpmLibrary(gen: number, ctx: AudioContext): Promise<void> {
     try {
-      const created = await createRealtimeBpmAnalyzer(this.context!, {
+      const created = await createRealtimeBpmAnalyzer(ctx, {
         continuousAnalysis: true,
         stabilizationTime: 10000,
       })
-      if (gen !== this.gen) { try { created.stop() } catch (_) {} return }   // stopped meanwhile
+      // Stopped or restarted meanwhile: this graph is gone, and touching the
+      // live one from here would reset its trackers mid-flight.
+      if (gen !== this.gen || !this.gainNode) { try { created.stop() } catch (_) {} return }
       this.bpmAnalyzer = created
-      this.bpmAnalyzerNode = this.bpmAnalyzer.node
+      this.bpmAnalyzerNode = created.node
 
       // Connect gain → bpmAnalyzer (parallel to analyser)
       this.gainNode.connect(this.bpmAnalyzerNode!)
@@ -419,22 +482,8 @@ export class AudioAnalyzer {
 
       console.log('[AudioAnalyzer] realtime-bpm-analyzer connected')
     } catch (err) {
-      console.warn('[AudioAnalyzer] Failed to init realtime-bpm-analyzer, falling back to manual:', err)
+      if (gen === this.gen) console.warn('[AudioAnalyzer] realtime-bpm-analyzer non disponibile, resta l\'ACF interno:', err)
     }
-
-    this.freqData = new Uint8Array(this.analyser!.frequencyBinCount)
-    this.waveData = new Uint8Array(this.analyser!.fftSize)
-    this.specBuf = new Float32Array(this.analyser!.frequencyBinCount)
-    this.running = true
-
-    // Reset detection state
-    this.tracker.reset()
-    this.bandHits.reset()
-    this.keyDetector.reset()
-    this.data.key = null
-    this.libraryBpm = 0
-    this.libraryConfidence = 0
-    this.libraryStable = false
   }
 
   stop(): void {
@@ -462,6 +511,10 @@ export class AudioAnalyzer {
 
     if (this.mediaEl) {
       this.mediaEl.pause()
+      // Clearing src fires 'error' on an element still loading: that is us
+      // tearing down, not a file that cannot be read.
+      this.mediaEl.onerror = null
+      this.mediaEl.onloadedmetadata = null
       this.mediaEl.src = ''
       this.mediaEl = null
     }
@@ -509,7 +562,7 @@ export class AudioAnalyzer {
    */
   seek(seconds: number): void {
     const el = this.mediaEl
-    if (!el) return
+    if (!el || !Number.isFinite(seconds)) return
     el.currentTime = Math.max(0, Math.min(el.duration || 0, seconds))
     this.tracker.reset()
     this.resetBpm()
@@ -543,7 +596,10 @@ export class AudioAnalyzer {
 
   getBpmMode(): BpmMode { return this.bpmMode }
 
+  // Numbers from OSC, the phone and MIDI are not trusted: a NaN here would sit
+  // in data.bpm and poison the PLL phase until the next reset.
   setManualBpm(bpm: number) {
+    if (!Number.isFinite(bpm)) return
     this.manualBpm = Math.max(60, Math.min(300, bpm))
   }
 
@@ -584,9 +640,11 @@ export class AudioAnalyzer {
   }
 
   setInputGain(value: number) {
-    this.inputGain = value
+    if (!Number.isFinite(value)) return
+    // the panel's slider runs 1..10; nothing saved or remote gets to go past it
+    this.inputGain = Math.max(0, Math.min(10, value))
     if (this.gainNode) {
-      this.gainNode.gain.value = value
+      this.gainNode.gain.value = this.inputGain
     }
   }
 
@@ -614,10 +672,19 @@ export class AudioAnalyzer {
     // A MIDI clock is worth following even with no audio device: the cable
     // carries tempo and phase, and everything beat-driven runs off those.
     if (!this.analyser || !this.running) {
+      // No analysis (Stop, a device being reconnected, a card switch): the
+      // levels fade out instead of freezing on the last frame — a kick stuck
+      // on, or the energy pinned high, for the whole backoff is not "paused".
+      const d = this.data
+      d.sub *= 0.9; d.bass *= 0.9; d.mid *= 0.9; d.high *= 0.9; d.presence *= 0.9
+      d.energy *= 0.9; d.bassRaw *= 0.9; d.energyRaw *= 0.9
+      d.bassHit *= 0.85; d.midHit *= 0.85; d.highHit *= 0.85
+      d.spectrum = EMPTY_SPECTRUM
+      d.waveform = EMPTY_WAVEFORM
       const ext = this.externalClock()
       if (ext) this.applyClock(ext)
-      else this.data.beatDetected = false
-      return this.data
+      else d.beatDetected = false
+      return d
     }
 
     this.analyser.getByteFrequencyData(this.freqData)
@@ -642,10 +709,14 @@ export class AudioAnalyzer {
       count += weight
     }
     const rawEnergy = sum / count
+    const now = performance.now()
 
     // Adaptive normalization: track a slowly decaying peak and scale everything to it.
     // Quiet tracks don't look dead, loud ones don't sit pinned at 1.0.
-    this.peakEnergy = Math.max(rawEnergy, this.peakEnergy * 0.998, 0.05)
+    // 0.998 per 60 fps frame (half-life ~5.8 s), scaled by the real frame time.
+    const dtF = this.lastUpdateAt ? Math.min(6, (now - this.lastUpdateAt) / 16.667) : 1
+    this.lastUpdateAt = now
+    this.peakEnergy = Math.max(rawEnergy, this.peakEnergy * Math.pow(0.998, dtF), 0.05)
     const gain = 1 / this.peakEnergy
 
     // Noise gate — below this the signal is room noise, not music
@@ -653,16 +724,15 @@ export class AudioAnalyzer {
 
     this.data.bassRaw = gated * this.data.bass
     this.data.energyRaw = gated * rawEnergy
-    const norm = (v: number) => gated * Math.min(1, v * gain)
-    this.data.sub = norm(this.data.sub)
-    this.data.bass = norm(this.data.bass)
-    this.data.mid = norm(this.data.mid)
-    this.data.high = norm(this.data.high)
-    this.data.presence = norm(this.data.presence)
-    this.data.energy = norm(rawEnergy)
+    const g = gated * gain
+    this.data.sub = Math.min(1, this.data.sub * g)
+    this.data.bass = Math.min(1, this.data.bass * g)
+    this.data.mid = Math.min(1, this.data.mid * g)
+    this.data.high = Math.min(1, this.data.high * g)
+    this.data.presence = Math.min(1, this.data.presence * g)
+    this.data.energy = Math.min(1, rawEnergy * g)
 
     // --- Beat tracking (BeatTracker: log-flux, PLL, ACF tempo) ---
-    const now = performance.now()
     if (this.specBuf.length !== binCount) this.specBuf = new Float32Array(binCount)
     for (let i = 0; i < binCount; i++) this.specBuf[i] = this.freqData[i] / 255
 
@@ -671,16 +741,20 @@ export class AudioAnalyzer {
     this.tracker.externalBpm = this.bpmMode === 'auto'
       ? (this.libraryStable ? this.libraryBpm : 0)
       : this.manualBpm
-    const bandFlux = [0, 0, 0]
+    const bandFlux = this.bandFlux
+    bandFlux[0] = bandFlux[1] = bandFlux[2] = 0
     const bt = this.tracker.update(this.specBuf, binHz, now, bandFlux, gated === 1)
 
     this.data.beatDetected = bt.beat
     this.data.beatPhase = bt.beatPhase
     this.data.barPhase = bt.barPhase
-    this.data.bpm = this.getEffectiveBpm()
+    // with an external clock applyClock() below sets the tempo, once
+    if (!this.externalClock()) this.data.bpm = this.getEffectiveBpm()
 
     // Per-band hit pulses: adaptive threshold per band, decaying envelope
-    const hits = this.bandHits.update([bandFlux[0] / binCount, bandFlux[1] / binCount, bandFlux[2] / binCount], gated)
+    const bandFluxN = this.bandFluxN
+    bandFluxN[0] = bandFlux[0] / binCount; bandFluxN[1] = bandFlux[1] / binCount; bandFluxN[2] = bandFlux[2] / binCount
+    const hits = this.bandHits.update(bandFluxN, gated)
     this.data.bassHit = hits[0]
     this.data.midHit = hits[1]
     this.data.highHit = hits[2]
@@ -709,7 +783,9 @@ export class AudioAnalyzer {
   /** Overwrite tempo and phase from the clock, when it is running. */
   private applyClock(clock: MidiClock | ProDjLinkClock): void {
     const c = clock.read(performance.now())
-    this.data.bpm = this.getEffectiveBpm()
+    // Same rule as getEffectiveBpm, from the read we already have: a stopped
+    // transport keeps the tempo it last sent.
+    this.data.bpm = c.bpm > 0 ? Math.round(c.bpm) : this.manualBpm
     if (!c.running) {
       // Clock gone mid-set: keep the last tempo and stop claiming beats rather
       // than snapping the visuals back to whatever the microphone thinks.
@@ -746,12 +822,6 @@ export class AudioAnalyzer {
   }
 
   getData(): AudioData { return this.data }
-
-  getFrequencyData(): Uint8Array | null {
-    if (!this.analyser || !this.running) return null
-    this.analyser.getByteFrequencyData(this.freqData)
-    return this.freqData
-  }
 
   private bandAvg(lowHz: number, highHz: number, binHz: number): number {
     const lo = Math.max(0, Math.floor(lowHz / binHz))

@@ -6,9 +6,10 @@
   "description": "Real-time audio-reactive visual generator for tekno club nights",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "npx cross-env NODE_OPTIONS= electron-vite dev",
-    "build": "npx cross-env NODE_OPTIONS= electron-vite build && node scripts/obfuscate.mjs",
-    "preview": "npx cross-env NODE_OPTIONS= electron-vite preview",
+    "dev": "cross-env NODE_OPTIONS= electron-vite dev",
+    "build": "cross-env NODE_OPTIONS= electron-vite build && node scripts/obfuscate.mjs",
+    "preview": "cross-env NODE_OPTIONS= electron-vite preview",
+    "typecheck": "tsc -p tsconfig.web.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsc-web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsc-node.tsbuildinfo",
     "package": "electron-builder",
     "package:mac": "electron-builder --mac",
     "package:win": "electron-builder --win",

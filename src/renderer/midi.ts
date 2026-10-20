@@ -82,6 +82,8 @@ class MidiEngine {
   private lastCcValue = new Map<string, number>()
   /** a clock has ticked at least once — notify the UI the first time only */
   private clockSeen = false
+  private notifyQueued = false
+  private warned = false
 
   lastMessage = ''
   deviceNames: string[] = []
@@ -101,8 +103,14 @@ class MidiEngine {
       const wireAll = () => {
         this.deviceNames = []
         this.access!.inputs.forEach(input => {
-          this.deviceNames.push(input.name || 'MIDI in')
-          input.onmidimessage = this.onMessage
+          // Chromium keeps unplugged ports in the map, state 'disconnected':
+          // the panel must list what is here, not what was.
+          if (input.state === 'connected') {
+            this.deviceNames.push(input.name || 'MIDI in')
+            input.onmidimessage = this.onMessage
+          } else {
+            input.onmidimessage = null
+          }
         })
         this.notify()
       }
@@ -115,7 +123,22 @@ class MidiEngine {
     }
   }
 
+  /**
+   * An exception in a command, a preset or the clock parser must not escape
+   * onmidimessage: it would repeat on every message, hundreds a second during
+   * a fader sweep, and flood the global error handler mid-show.
+   */
   private onMessage = (e: MIDIMessageEvent) => {
+    try { this.handle(e) } catch (err) { this.warnOnce(err) }
+  }
+
+  private warnOnce(err: unknown) {
+    if (this.warned) return
+    this.warned = true
+    console.warn('[MIDI] handler error', err)
+  }
+
+  private handle(e: MIDIMessageEvent) {
     const data = e.data
     if (!data || data.length < 1) return
 
@@ -149,20 +172,21 @@ class MidiEngine {
     else if (status === 0x80 || status === 0x90) { kind = 'note'; value = 0 } // note-off
     else return
 
-    this.lastMessage = `${kind.toUpperCase()} ${num} ch${ch + 1}`
+    const msg = `${kind.toUpperCase()} ${num} ch${ch + 1}`
+    const changed = msg !== this.lastMessage
+    this.lastMessage = msg
 
     // Learn mode: bind and consume
     if (this.learnTarget && value > 0) {
-      this.bindings[this.learnTarget] = { kind, ch, num }
+      this.setBinding(this.learnTarget, { kind, ch, num })
       this.learnTarget = null
-      this.persist()
-      this.rebuildReverse()
       this.notify()
       return
     }
 
     const target = this.reverse.get(`${kind}:${ch}:${num}`)
-    this.notify()
+    // the panel shows the last message: a fader sweep repeats the same one
+    if (changed) this.notify()
     if (!target || !this.dispatch || !this.engine) return
 
     if (isTrigger(target)) {
@@ -184,15 +208,19 @@ class MidiEngine {
       if (target.hold === 'preset') {
         const before = this.engine.createPreset('prima del richiamo')
         const engine = this.engine
-        momentary.press(`midi:${bkey}`, () => engine.applyPreset(before))
+        momentary.press(`midi:${bkey}`, () => {
+          try { engine.applyPreset(before) } catch (err) { this.warnOnce(err) }
+        })
       } else if (target.hold === 'toggle') {
         const engine = this.engine
         const dispatch = this.dispatch
         // toCmd reads the state at release time, so running it again inverts
         // whatever the press did.
         momentary.press(`midi:${bkey}`, () => {
-          const back = target.toCmd(1, engine)
-          if (back) dispatch(back)
+          try {
+            const back = target.toCmd(1, engine)
+            if (back) dispatch(back)
+          } catch (err) { this.warnOnce(err) }
         })
       }
       this.dispatch(cmd)
@@ -221,6 +249,11 @@ class MidiEngine {
 
   // U3.4 — restore a binding removed by mistake (undo toast)
   setBinding(targetId: string, b: MidiBinding) {
+    // One message, one target: a second target learned on the same CC would
+    // show as bound in the panel and never fire (the reverse map keeps one).
+    for (const [id, o] of Object.entries(this.bindings)) {
+      if (id !== targetId && o.kind === b.kind && o.ch === b.ch && o.num === b.num) delete this.bindings[id]
+    }
     this.bindings[targetId] = b
     this.persist()
     this.rebuildReverse()
@@ -234,6 +267,8 @@ class MidiEngine {
 
   private rebuildReverse() {
     this.reverse.clear()
+    // a rebound CC starts from "not pressed": the old edge state is not its
+    this.lastCcValue.clear()
     for (const t of MIDI_TARGETS) {
       const b = this.bindings[t.id]
       if (b) this.reverse.set(`${b.kind}:${b.ch}:${b.num}`, t)
@@ -244,7 +279,19 @@ class MidiEngine {
     writeJson(STORAGE_KEY, this.bindings)
   }
 
-  private notify() { for (const fn of this.listeners) fn() }
+  /**
+   * At most one UI update per frame. The only listener re-renders the whole
+   * MidiPanel; a fader sweep is hundreds of messages a second on the same
+   * thread as the render loop. backgroundThrottling is off in main, so rAF
+   * keeps running with the window hidden.
+   */
+  private notify() {
+    if (this.notifyQueued || this.listeners.size === 0) return
+    this.notifyQueued = true
+    const flush = () => { this.notifyQueued = false; for (const fn of this.listeners) fn() }
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush)
+    else setTimeout(flush, 16)
+  }
 }
 
 export const midi = new MidiEngine()

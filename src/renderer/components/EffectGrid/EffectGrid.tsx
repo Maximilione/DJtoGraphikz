@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import type { EffectId } from '@engine/Engine'
 import { EFFECT_CATEGORIES } from '../../catalog'
 import { getThumb, thumbBackground } from '../../fxThumbs'
@@ -19,23 +20,33 @@ interface EffectGridProps {
  * markup trees, two class families, and two class names one letter apart. They
  * had already drifted (only one of them had live thumbnails on the buttons),
  * which is what a second copy always does.
+ *
+ * Memoised: the parent re-renders on every engine emit, and 46 buttons with
+ * thumbnails are the most expensive thing in the sidebar. The thumbnails
+ * themselves reach it through the parent's useFxThumbs subscription, which
+ * re-renders the parent (and so this) when one lands.
  */
 // Folded categories survive a tab switch (the panel unmounts the grid).
 const folded = new Set<string>()
 
-export function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: EffectGridProps) {
-  const q = search.trim().toLowerCase()
+const matches = (fx: { label: string; id: string }, q: string) => fx.label.toLowerCase().includes(q) || fx.id.includes(q)
 
-  if (q && !EFFECT_CATEGORIES.some(c => c.effects.some(fx => fx.label.toLowerCase().includes(q) || fx.id.includes(q)))) {
+export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: EffectGridProps) {
+  const q = search.trim().toLowerCase()
+  // the filter was computed twice per render (once for "no results", once per category)
+  const shownByCat = useMemo(
+    () => EFFECT_CATEGORIES.map(cat => (q ? cat.effects.filter(fx => matches(fx, q)) : cat.effects)),
+    [q],
+  )
+
+  if (q && shownByCat.every(list => list.length === 0)) {
     return <div className="u-hint">Nessun effetto per «{search.trim()}»</div>
   }
 
   return (
     <>
-      {EFFECT_CATEGORIES.map(cat => {
-        const shown = q
-          ? cat.effects.filter(fx => fx.label.toLowerCase().includes(q) || fx.id.includes(q))
-          : cat.effects
+      {EFFECT_CATEGORIES.map((cat, ci) => {
+        const shown = shownByCat[ci]
         if (shown.length === 0) return null
         const grid = (
           <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
@@ -79,4 +90,4 @@ export function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: Effec
       })}
     </>
   )
-}
+})

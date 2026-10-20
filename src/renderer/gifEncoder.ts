@@ -49,14 +49,16 @@ export function buildPalette(frames: GifFrameIn[], max = 256): Uint8Array {
     boxes.push({ c: z, n: b.n - na })
   }
   const pal = new Uint8Array(boxes.length * 3)
+  // 5-bit mean back to 8 bit over the full range: the old `*8+4` bucket centre
+  // turned pure black into (4,4,4) and pure white into (252,252,252)
+  const to8 = (sum: number, n: number) => Math.round((sum / n) * 255 / 31)
   boxes.forEach((b, i) => {
     let r = 0, g = 0, bl = 0
     for (const c of b.c) { const w = hist[c]; r += ch(c, 10) * w; g += ch(c, 5) * w; bl += ch(c, 0) * w }
     const n = b.n || 1
-    // 5-bit centre back to 8 bit
-    pal[i * 3] = Math.min(255, Math.round(r / n) * 8 + 4)
-    pal[i * 3 + 1] = Math.min(255, Math.round(g / n) * 8 + 4)
-    pal[i * 3 + 2] = Math.min(255, Math.round(bl / n) * 8 + 4)
+    pal[i * 3] = to8(r, n)
+    pal[i * 3 + 1] = to8(g, n)
+    pal[i * 3 + 2] = to8(bl, n)
   })
   return pal
 }
@@ -94,45 +96,93 @@ export function indexFrame(rgba: ArrayLike<number>, w: number, h: number, pal: U
   return out
 }
 
-/** LZW, min code size 8; returns the sub-block-framed image data (without min code size byte). */
-export function lzwEncode(idx: Uint8Array): number[] {
-  const bytes: number[] = []
+/**
+ * Growable byte buffer. The encoder used to accumulate `number[]`s (one per
+ * LZW pass, one for the sub-blocks, one for the file) and copy each into the
+ * next: tens of MB of boxed numbers and GC pauses on the thread that is also
+ * running the engine and the preview during an export.
+ */
+export class ByteSink {
+  private buf: Uint8Array
+  private n = 0
+  constructor(initial = 1 << 16) { this.buf = new Uint8Array(initial) }
+  push(b: number) {
+    if (this.n === this.buf.length) this.grow(this.n + 1)
+    this.buf[this.n++] = b
+  }
+  pushAll(src: ArrayLike<number>, len = src.length) {
+    if (this.n + len > this.buf.length) this.grow(this.n + len)
+    if (src instanceof Uint8Array) this.buf.set(len === src.length ? src : src.subarray(0, len), this.n)
+    else for (let i = 0; i < len; i++) this.buf[this.n + i] = src[i]
+    this.n += len
+  }
+  get length() { return this.n }
+  /** The bytes written so far — a view, valid until the next push */
+  done(): Uint8Array { return this.buf.subarray(0, this.n) }
+  private grow(min: number) {
+    let size = this.buf.length * 2
+    while (size < min) size *= 2
+    const nb = new Uint8Array(size)
+    nb.set(this.buf.subarray(0, this.n))
+    this.buf = nb
+  }
+}
+
+// LZW dictionary: open addressing over typed arrays instead of a Map rebuilt
+// on every CLEAR. Keys are prefix*256+c (< 2^20), at most 3838 live entries
+// between clears, so an 8192-slot table stays under half full.
+const HBITS = 13, HSIZE = 1 << HBITS, HMASK = HSIZE - 1
+
+/** LZW, min code size 8: appends the sub-block-framed image data (without the min code size byte) to `out`. */
+export function lzwEncode(idx: Uint8Array, out: ByteSink): void {
   let cur = 0, nbits = 0
   const CLEAR = 256, EOI = 257
   let size = 9, next = 258
+  // sub-blocks of 255 bytes, written straight into the sink
+  const blk = new Uint8Array(255)
+  let bn = 0
+  const emit = (b: number) => {
+    blk[bn++] = b
+    if (bn === 255) { out.push(255); out.pushAll(blk); bn = 0 }
+  }
   const put = (code: number) => {
     cur |= code << nbits; nbits += size
-    while (nbits >= 8) { bytes.push(cur & 255); cur >>>= 8; nbits -= 8 }
+    while (nbits >= 8) { emit(cur & 255); cur >>>= 8; nbits -= 8 }
   }
-  let dict = new Map<number, number>()
+  const hk = new Int32Array(HSIZE).fill(-1)
+  const hv = new Int16Array(HSIZE)
   put(CLEAR)
   let prefix = idx[0]
   for (let i = 1; i < idx.length; i++) {
     const c = idx[i], k = prefix * 256 + c
-    const hit = dict.get(k)
-    if (hit !== undefined) { prefix = hit; continue }
+    let h = (Math.imul(k, 0x9E3779B1) >>> 0) >>> (32 - HBITS)
+    let kk = hk[h]
+    while (kk !== k && kk !== -1) { h = (h + 1) & HMASK; kk = hk[h] }
+    if (kk === k) { prefix = hv[h]; continue }
     put(prefix)
-    dict.set(k, next++)
+    hk[h] = k; hv[h] = next++
     if (next > (1 << size) && size < 12) size++
-    if (next >= 4096) { put(CLEAR); dict = new Map(); size = 9; next = 258 }
+    if (next >= 4096) { put(CLEAR); hk.fill(-1); size = 9; next = 258 }
     prefix = c
   }
   put(prefix)
   // the decoder adds one entry for this last code too; keep its width in step
   if (next + 1 > (1 << size) && size < 12) size++
   put(EOI)
-  if (nbits > 0) bytes.push(cur & 255)
-  const out: number[] = []
-  for (let i = 0; i < bytes.length; i += 255) {
-    const len = Math.min(255, bytes.length - i)
-    out.push(len)
-    for (let j = 0; j < len; j++) out.push(bytes[i + j])
-  }
+  if (nbits > 0) emit(cur & 255)
+  if (bn > 0) { out.push(bn); out.pushAll(blk, bn) }
   out.push(0)
-  return out
 }
 
 const u16 = (v: number) => [v & 255, (v >> 8) & 255]
+
+// A real yield between frames. `setTimeout(0)` is clamped to 4 ms and more
+// once nested, and the export runs 75 of them in a row.
+const yieldNow = () => new Promise<void>(resolve => {
+  const { port1, port2 } = new MessageChannel()
+  port1.onmessage = () => { port1.close(); resolve() }
+  port2.postMessage(0)
+})
 
 /** Encodes frames (all width x height RGBA) to a looping GIF. Yields to the event loop between frames. */
 export async function encodeGif(frames: GifFrameIn[], o: GifOptions): Promise<Uint8Array> {
@@ -142,26 +192,28 @@ export async function encodeGif(frames: GifFrameIn[], o: GifOptions): Promise<Ui
   let bits = 1
   while ((1 << bits) < pal.length / 3) bits++
   const tableSize = 1 << bits
-  const out: number[] = [
+  // a rough size up front: indices compress to roughly a third, plus headers
+  const out = new ByteSink(Math.max(1 << 16, Math.ceil(frames.length * w * h / 3)))
+  out.pushAll([
     0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // GIF89a
     ...u16(w), ...u16(h), 0x80 | 0x70 | (bits - 1), 0, 0,
-  ]
+  ])
   for (let i = 0; i < tableSize * 3; i++) out.push(pal[i] ?? 0)
   // NETSCAPE2.0: loop forever
-  out.push(0x21, 0xff, 11, ...'NETSCAPE2.0'.split('').map(c => c.charCodeAt(0)), 3, 1, 0, 0, 0)
+  out.pushAll([0x21, 0xff, 11, ...'NETSCAPE2.0'.split('').map(c => c.charCodeAt(0)), 3, 1, 0, 0, 0])
   const cache = new Int16Array(32768).fill(-1)
   for (let f = 0; f < frames.length; f++) {
     const idx = indexFrame(frames[f].data, w, h, pal, cache, o.dither)
     // graphic control: disposal 1 (leave), no transparency
-    out.push(0x21, 0xf9, 4, 0x04, ...u16(Math.max(2, o.delayCs)), 0, 0)
-    out.push(0x2c, 0, 0, 0, 0, ...u16(w), ...u16(h), 0, 8) // LZW min code size 8, whatever the table size
-    const lz = lzwEncode(idx)
-    for (let i = 0; i < lz.length; i++) out.push(lz[i])
+    out.pushAll([0x21, 0xf9, 4, 0x04, ...u16(Math.max(2, o.delayCs)), 0, 0])
+    out.pushAll([0x2c, 0, 0, 0, 0, ...u16(w), ...u16(h), 0, 8]) // LZW min code size 8, whatever the table size
+    lzwEncode(idx, out)
     o.onProgress?.(f + 1, frames.length)
-    await new Promise(r => setTimeout(r, 0))
+    await yieldNow()
   }
   out.push(0x3b)
-  return Uint8Array.from(out)
+  // a copy, not the view: the sink's spare capacity must not travel with the file
+  return out.done().slice()
 }
 
 /** Frame count and per-frame delay (cs) for a capture of `seconds` at `fps`. */

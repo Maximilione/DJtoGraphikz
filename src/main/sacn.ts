@@ -45,6 +45,6 @@ export function sacnPacket(universe: number, data: Uint8Array, sequence: number,
   buf.writeUInt16BE(0x0001, 121)                    // address increment
   buf.writeUInt16BE(propCount, 123)
   buf.writeUInt8(0x00, 125)                         // DMX start code
-  Buffer.from(data.subarray(0, slots)).copy(buf, 126)
+  buf.set(data.subarray(0, slots), 126)
   return buf
 }
