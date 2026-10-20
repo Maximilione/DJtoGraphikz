@@ -102,6 +102,21 @@ import chainfenceFrag from './shaders/chainfence.frag?raw'
 import turbineFrag from './shaders/turbine.frag?raw'
 import reactorFrag from './shaders/reactor.frag?raw'
 import pipesFrag from './shaders/pipes.frag?raw'
+import isoblocksFrag from './shaders/isoblocks.frag?raw'
+import vegabulgeFrag from './shaders/vegabulge.frag?raw'
+import isocontourFrag from './shaders/isocontour.frag?raw'
+import myceliumFrag from './shaders/mycelium.frag?raw'
+import medusaeFrag from './shaders/medusae.frag?raw'
+import agateFrag from './shaders/agate.frag?raw'
+import macromoshFrag from './shaders/macromosh.frag?raw'
+import pixelsortFrag from './shaders/pixelsort.frag?raw'
+import typeslamFrag from './shaders/typeslam.frag?raw'
+import ringworldFrag from './shaders/ringworld.frag?raw'
+import escherFrag from './shaders/escher.frag?raw'
+import lampforestFrag from './shaders/lampforest.frag?raw'
+import plasmaglobeFrag from './shaders/plasmaglobe.frag?raw'
+import kickworksFrag from './shaders/kickworks.frag?raw'
+import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
 import ribbonsFrag from './shaders/ribbons.frag?raw'
@@ -229,6 +244,11 @@ export type EffectId =
   | 'bounceball' | 'pump' | 'roll'
   | 'spaceghost' | 'galaxy' | 'cathedral' | 'chrome' | 'crystals' | 'mandelbulb' | 'storm' | 'ribbons' | 'beamfield' | 'android' | 'faces' | 'monolith' | 'imgbeat' | 'truss' | 'hypercube' | 'vaultdoor' | 'pistons'
   | 'datacenter' | 'chainfence' | 'turbine' | 'reactor' | 'pipes'
+  | 'isoblocks' | 'vegabulge' | 'isocontour'
+  | 'mycelium' | 'medusae' | 'agate'
+  | 'macromosh' | 'pixelsort' | 'typeslam'
+  | 'ringworld' | 'escher' | 'lampforest'
+  | 'plasmaglobe' | 'kickworks' | 'fluxlines'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -535,6 +555,21 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   turbine: turbineFrag,
   reactor: reactorFrag,
   pipes: pipesFrag,
+  isoblocks: isoblocksFrag,
+  vegabulge: vegabulgeFrag,
+  isocontour: isocontourFrag,
+  mycelium: myceliumFrag,
+  medusae: medusaeFrag,
+  agate: agateFrag,
+  macromosh: macromoshFrag,
+  pixelsort: pixelsortFrag,
+  typeslam: typeslamFrag,
+  ringworld: ringworldFrag,
+  escher: escherFrag,
+  lampforest: lampforestFrag,
+  plasmaglobe: plasmaglobeFrag,
+  kickworks: kickworksFrag,
+  fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
   // drawn into a 75% buffer and upscaled: the raymarch crawls along the
