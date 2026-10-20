@@ -1,5 +1,5 @@
 import type { Engine } from '@engine/Engine'
-import { GENRE_CONFIGS, type Genre, type Phase, type Scene, type SceneParam } from '@engine/AutoVJ'
+import type { Genre, Phase, Scene, SceneParam } from '@engine/AutoVJ'
 import { COMMON_PARAMS, EFFECT_PARAMS } from '@engine/EffectParams'
 import { readJson, writeJson } from './storage'
 
@@ -53,21 +53,10 @@ export function setOnlyMine(on: boolean): boolean {
   return writeJson(ONLY_MINE_KEY, on)
 }
 
-const PHASES = new Set<string>(['break', 'build', 'groove', 'peak'])
-
-/**
- * A scene as this app writes it. A hand-edited or half-written one used to
- * reach setEffect on the wall; now it is dropped on load. The effect id is not
- * checked against the catalog on purpose: plugin effects register at runtime.
- */
 function isUserScene(x: unknown): x is UserScene {
   const s = x as UserScene
-  return !!s && typeof s === 'object'
-    && typeof s.id === 'string' && typeof s.effect === 'string'
-    && typeof s.genre === 'string' && s.genre in GENRE_CONFIGS
-    && typeof s.phase === 'string' && PHASES.has(s.phase)
-    && Array.isArray(s.posts) && s.posts.every(p => typeof p === 'string')
-    && (s.params === undefined || (!!s.params && typeof s.params === 'object' && !Array.isArray(s.params)))
+  return !!s && typeof s.id === 'string' && typeof s.effect === 'string'
+    && typeof s.genre === 'string' && typeof s.phase === 'string' && Array.isArray(s.posts)
 }
 
 /** The current look as a scene: effect, every curated param with its mapping, the post chain. */

@@ -434,9 +434,6 @@ export class AudioAnalyzer {
     this.libraryBpm = 0
     this.libraryConfidence = 0
     this.libraryStable = false
-    // A new source is a new loudness: the peak of the last one must not keep
-    // a quieter card or file dark for seconds.
-    this.peakEnergy = 0.2
     this.lastUpdateAt = 0
     this.running = true
 

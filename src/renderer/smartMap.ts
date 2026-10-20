@@ -79,7 +79,7 @@ export function smartMap(engine: Engine): SmartMapResult {
   const prev: { key: string; value: number; source: AudioSource; depth: number; lfoRate?: number }[] = []
 
   // Pass 1 — score and pick per param
-  const picks: { key: string; min: number; max: number; pick: Pick; impact: number; isBool: boolean }[] = []
+  const picks: { key: string; min: number; max: number; pick: Pick; impact: number }[] = []
   for (const def of engine.getParamDefs()) {
     if (SKIP.has(def.key)) continue
     const st = engine.getParamState(def.key)
@@ -96,7 +96,7 @@ export function smartMap(engine: Engine): SmartMapResult {
     // heavily-used uniforms swing the whole image — modulate them more gently
     const impact = usage ? usage.uses : 1
     if (impact >= 4) pick.depth = Math.max(0.25, pick.depth * 0.7)
-    picks.push({ key: def.key, min: def.min, max: def.max, pick, impact, isBool })
+    picks.push({ key: def.key, min: def.min, max: def.max, pick, impact })
   }
 
   // Pass 2 — role budget: max 2 params per audio band; extras (least impactful
@@ -105,9 +105,6 @@ export function smartMap(engine: Engine): SmartMapResult {
   const bandCount = new Map<AudioSource, number>()
   let li = 0
   for (const p of picks.sort((a, b) => b.impact - a.impact)) {
-    // a toggle on the beat is the only mapping that makes sense for it: it
-    // neither spends the band budget nor becomes a sine on an on/off switch
-    if (p.isBool) continue
     const s = p.pick.source
     if (AUDIO_BANDS.has(s)) {
       const n = (bandCount.get(s) || 0) + 1
@@ -125,9 +122,8 @@ export function smartMap(engine: Engine): SmartMapResult {
     for (const p of picks) {
       const st = engine.getParamState(p.key)
       const range = p.max - p.min
-      // the pass-1 notion of bool (integer default): every 0..1 float —
-      // opacity, amount, intensity — gets the headroom too
-      if (!p.isBool && st.value > p.min + 0.65 * range) {
+      const isBool = p.min === 0 && p.max === 1
+      if (!isBool && st.value > p.min + 0.65 * range) {
         engine.setParamValue(p.key, p.min + 0.35 * range)
       }
       engine.setParamMapping(p.key, p.pick.source, p.pick.depth, p.pick.lfoRate)

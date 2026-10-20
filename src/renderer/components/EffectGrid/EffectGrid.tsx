@@ -1,7 +1,7 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import type { EffectId } from '@engine/Engine'
 import { EFFECT_CATEGORIES } from '../../catalog'
-import { getThumb, thumbBackground } from '../../fxThumbs'
+import { getThumb, onThumbs, thumbBackground } from '../../fxThumbs'
 
 interface EffectGridProps {
   activeId: EffectId | null
@@ -22,9 +22,9 @@ interface EffectGridProps {
  * which is what a second copy always does.
  *
  * Memoised: the parent re-renders on every engine emit, and 46 buttons with
- * thumbnails are the most expensive thing in the sidebar. The thumbnails
- * themselves reach it through the parent's useFxThumbs subscription, which
- * re-renders the parent (and so this) when one lands.
+ * thumbnails are the most expensive thing in the sidebar. Being memoised, it
+ * no longer re-renders with the parent when a thumbnail lands: it listens for
+ * them itself.
  */
 // Folded categories survive a tab switch (the panel unmounts the grid).
 const folded = new Set<string>()
@@ -32,6 +32,8 @@ const folded = new Set<string>()
 const matches = (fx: { label: string; id: string }, q: string) => fx.label.toLowerCase().includes(q) || fx.id.includes(q)
 
 export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: EffectGridProps) {
+  const [, force] = useState(0)
+  useEffect(() => onThumbs(() => force(n => n + 1)), [])
   const q = search.trim().toLowerCase()
   // the filter was computed twice per render (once for "no results", once per category)
   const shownByCat = useMemo(

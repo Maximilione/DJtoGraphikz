@@ -28,13 +28,14 @@ function loadOutputs(): OutputCfg[] {
   return list
 }
 
-/** Saves and tells main in one move — the two must never disagree, so main
- * only hears about it once the write actually succeeded. */
+/** Saves and tells main in one move. Main hears about it even when the write
+ * is refused (quota full): the UI already shows the change, and the projector
+ * must follow it — only the next launch loses it. Null when not saved. */
 function saveOutputs(list: OutputCfg[]): OutputCfg[] | null {
   const clean = sanitizeOutputs(list)
-  if (!writeJson(OUTPUTS_KEY, clean)) return null
+  const saved = writeJson(OUTPUTS_KEY, clean)
   try { window.api?.setOutputs?.(clean) } catch { /* no api under a test page */ }
-  return clean
+  return saved ? clean : null
 }
 
 interface OutputsPanelProps {

@@ -76,7 +76,11 @@ const FEED_LAG_SKIP = 64 * 1024
 export function publishOutput(channel: string, ...args: unknown[]) {
   if (feedClients.size === 0) return
   const frame = encodeEvent(channel, args)
-  const droppable = channel === 'audio:data' || channel === 'engine:state-update'
+  // A state carrying the ISF images is never skipped: App sends them only when
+  // they change, so the next frame would not bring them back
+  const st = args[0] as Record<string, unknown> | null | undefined
+  const droppable = channel === 'audio:data' ||
+    (channel === 'engine:state-update' && !(st && typeof st === 'object' && 'customImages' in st))
   for (const res of feedClients) {
     if (res.writableLength > FEED_MAX_BACKLOG) { feedClients.delete(res); res.destroy(); continue }
     if (droppable && res.writableLength > FEED_LAG_SKIP) continue

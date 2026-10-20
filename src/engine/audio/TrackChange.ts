@@ -11,9 +11,6 @@
  *       stays there 20 s;
  *   (b) a confident key that changes and holds 20 s;
  *   (c) a break of 20 s or more ending in a drop — the classic blend.
- *   A candidate must be confirmed continuously: a 3 s hole in the data (no
- *   confident frames) drops it, so the first good frame after a long gap
- *   does not pass the hold on its own.
  *   One audio detection per minute at most: a mix changes track every 2–6
  *   minutes, and a second hit inside the minute is the same change heard
  *   twice. While Pro DJ Link is talking the audio side stays quiet for 30 s:
@@ -64,8 +61,6 @@ export const TRACK_CHANGE = {
   /** the key analyser must stand this far above the runner-up */
   keyConfidence: 0.5,
   keyHoldMs: 20000,
-  /** a candidate not confirmed for this long is forgotten */
-  candidateGapMs: 3000,
   /** a break shorter than this followed by a drop is the same track's drop */
   breakMinMs: 20000,
   audioCooldownMs: 60000,
@@ -80,11 +75,9 @@ export class TrackChangeDetector {
   private refBpmSince = 0
   private candBpm = 0
   private candBpmSince = 0
-  private candBpmSeen = 0
   private refKey: Key | null = null
   private candKey: Key | null = null
   private candKeySince = 0
-  private candKeySeen = 0
   private lastPhase: Phase = 'groove'
   private pauseSince = -1
   private quietUntil = -Infinity
@@ -127,9 +120,7 @@ export class TrackChangeDetector {
     // ponytail: an octave flip (128 → 64) is the tracker misreading the same
     // tempo, not a new track; a real halftime switch is lost with it
     if (near(f.bpm, this.refBpm * 2) || near(f.bpm, this.refBpm / 2)) return null
-    if (this.candBpm && f.t - this.candBpmSeen > TRACK_CHANGE.candidateGapMs) this.candBpm = 0
-    if (!this.candBpm || !near(f.bpm, this.candBpm)) { this.candBpm = f.bpm; this.candBpmSince = this.candBpmSeen = f.t; return null }
-    this.candBpmSeen = f.t
+    if (!this.candBpm || !near(f.bpm, this.candBpm)) { this.candBpm = f.bpm; this.candBpmSince = f.t; return null }
     if (f.t - this.candBpmSince < TRACK_CHANGE.bpmHoldMs) return null
     // the new tempo has held: it is the reference now. It is a track change
     // only if the old one had settled; an estimator still hunting is not news.
@@ -146,9 +137,7 @@ export class TrackChangeDetector {
     if (!k) return null
     if (!this.refKey) { this.refKey = k; return null }
     if (sameKey(k, this.refKey)) { this.candKey = null; return null }
-    if (this.candKey && f.t - this.candKeySeen > TRACK_CHANGE.candidateGapMs) this.candKey = null
-    if (!sameKey(k, this.candKey)) { this.candKey = k; this.candKeySince = this.candKeySeen = f.t; return null }
-    this.candKeySeen = f.t
+    if (!sameKey(k, this.candKey)) { this.candKey = k; this.candKeySince = f.t; return null }
     if (f.t - this.candKeySince < TRACK_CHANGE.keyHoldMs) return null
     const reason = `tonalità ${keyName(this.refKey)} → ${keyName(k)}`
     this.refKey = k
