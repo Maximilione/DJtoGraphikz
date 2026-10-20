@@ -489,12 +489,6 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.5 },
     { key: 'snap', label: 'Scatto', min: 0, max: 1, default: 1 },
   ],
-  lampforest: [
-    { key: 'density', label: 'Maglia', min: 0.5, max: 2, default: 1 },
-    { key: 'wave', label: 'Onda', min: 0.5, max: 4, default: 2 },
-    { key: 'mirror', label: 'Specchi', min: 0, max: 1, default: 1 },
-    { key: 'glow', label: 'Alone', min: 0, max: 2, default: 1 },
-  ],
   plasmaglobe: [
     { key: 'filaments', label: 'Filamenti', min: 4, max: 14, default: 9 },
     { key: 'chaos', label: 'Caos', min: 0, max: 1.5, default: 0.8 },
