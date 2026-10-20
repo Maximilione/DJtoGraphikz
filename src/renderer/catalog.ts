@@ -68,7 +68,6 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'mycelium', label: 'Mycelium', icon: '⟡' },
       { id: 'medusae', label: 'Medusae', icon: '☂' },
       { id: 'agate', label: 'Agate', icon: '◐' },
-      { id: 'lampforest', label: 'Lampade', icon: '✺' },
     ],
   },
   {

@@ -113,7 +113,6 @@ import pixelsortFrag from './shaders/pixelsort.frag?raw'
 import typeslamFrag from './shaders/typeslam.frag?raw'
 import ringworldFrag from './shaders/ringworld.frag?raw'
 import escherFrag from './shaders/escher.frag?raw'
-import lampforestFrag from './shaders/lampforest.frag?raw'
 import plasmaglobeFrag from './shaders/plasmaglobe.frag?raw'
 import kickworksFrag from './shaders/kickworks.frag?raw'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
@@ -247,7 +246,7 @@ export type EffectId =
   | 'isoblocks' | 'vegabulge' | 'isocontour'
   | 'mycelium' | 'medusae' | 'agate'
   | 'macromosh' | 'pixelsort' | 'typeslam'
-  | 'ringworld' | 'escher' | 'lampforest'
+  | 'ringworld' | 'escher'
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
@@ -566,7 +565,6 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   typeslam: typeslamFrag,
   ringworld: ringworldFrag,
   escher: escherFrag,
-  lampforest: lampforestFrag,
   plasmaglobe: plasmaglobeFrag,
   kickworks: kickworksFrag,
   fluxlines: fluxlinesFrag,
