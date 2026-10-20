@@ -36,27 +36,37 @@ float sdBoxFrame(vec3 p, vec3 b, float e) {
     length(max(vec3(q.x, q.y, p.z), 0.0)) + min(max(q.x, max(q.y, p.z)), 0.0));
 }
 
-vec2 map(vec3 p) {
+// the same rotations as rot() applied to .xz / .xy / .yz, as mat3 so the two
+// cubes' orientations can be composed once per pixel instead of in every step
+mat3 rxz(float a) { float c = cos(a), s = sin(a); return mat3(c, 0.0, -s,  0.0, 1.0, 0.0,  s, 0.0, c); }
+mat3 rxy(float a) { float c = cos(a), s = sin(a); return mat3(c, -s, 0.0,  s, c, 0.0,  0.0, 0.0, 1.0); }
+mat3 ryz(float a) { float c = cos(a), s = sin(a); return mat3(1.0, 0.0, 0.0,  0.0, c, -s,  0.0, s, c); }
+
+// everything in map() that depends on uniforms alone, set up once per pixel
+// (map runs up to 64 times per ray; only the twist depends on the point)
+float gS, gSi, gE, gTwK;
+mat3 gRo, gRi;
+
+void setupCage() {
   // breathes slowly in silence, swells with the bass, snaps on the kick
-  float s = size * (1.0 + 0.04 * sin(uTime * 0.8) + 0.12 * uBass + 0.12 * uBassHit);
+  gS = size * (1.0 + 0.04 * sin(uTime * 0.8) + 0.12 * uBass + 0.12 * uBassHit);
+  gSi = gS * (0.55 - 0.1 * uBassHit);
   // bar half-thickness: widened, floored at ~lminPx pixels (world units per pixel at the cube's depth)
   float pxW = 2.25 / (min(uResolution.x / uResolution.y, 1.0) * uResolution.y);
-  float e = max(0.012 * thickness * (1.0 + 2.5 * uLineBoost) * (1.0 + 0.7 * uBassHit), 0.5 * (3.0 + 4.0 * uLineBoost) * pxW);
+  gE = max(0.012 * thickness * (1.0 + 2.5 * uLineBoost) * (1.0 + 0.7 * uBassHit), 0.5 * (3.0 + 4.0 * uLineBoost) * pxW);
   // every rotation rate below is a multiple of 1/20 turn, so wrapping on
   // 20 turns is seamless and keeps the angle small after hours
   float t = mod(uBeatClock * 0.25 * spin + uTime * 0.2, 125.6637);
   // the mids twist the structure along its height (positional, never jumps)
-  float tw = (0.5 * uMid + 0.15 * sin(uTime * 0.4)) * p.y;
-  p.xz = rot(tw) * p.xz;
-  vec3 a = p;
-  a.xz = rot(t) * a.xz;
-  a.xy = rot(t * 0.7) * a.xy;
-  float outer = sdBoxFrame(a, vec3(s), e);
-  vec3 b = p;
-  b.xy = rot(-t * 1.3) * b.xy;
-  b.yz = rot(t * 0.9) * b.yz;
-  float inner = sdBoxFrame(b, vec3(s * (0.55 - 0.1 * uBassHit)), e * 0.8);
-  return vec2(outer, inner);
+  gTwK = 0.5 * uMid + 0.15 * sin(uTime * 0.4);
+  gRo = rxy(t * 0.7) * rxz(t);          // outer: xz first, then xy
+  gRi = ryz(t * 0.9) * rxy(-t * 1.3);   // inner: xy first, then yz
+}
+
+vec2 map(vec3 p) {
+  p.xz = rot(gTwK * p.y) * p.xz;
+  return vec2(sdBoxFrame(gRo * p, vec3(gS), gE),
+              sdBoxFrame(gRi * p, vec3(gSi), gE * 0.8));
 }
 
 void main() {
@@ -72,7 +82,8 @@ void main() {
   // sharp edge glow plus a wide soft haze: the haze is the idle floor that
   // keeps the cubes readable in silence, and it steps back as the music comes in
   float fall = 38.0 / (1.0 + uLineBoost);   // wider halo with the boost
-  float haze = 0.012 * (1.0 - 0.7 * uEnergy);
+  float hz14 = 0.012 * (1.0 - 0.7 * uEnergy) * 14.0;
+  setupCage();
   for (int i = 0; i < 64; i++) {
     vec3 pos = ro + rd * t;
     vec2 d = map(pos);
@@ -80,8 +91,8 @@ void main() {
     // weighted by the step so the glow is an integral along the ray, not a
     // count of how many tiny steps a grazing ray happened to take
     float dt = max(m * 0.7, 0.012);
-    gOuter += (exp(-d.x * fall) * 2.5 + exp(-d.x * 9.0) * haze * 14.0) * dt;
-    gInner += (exp(-d.y * fall) * 2.5 + exp(-d.y * 9.0) * haze * 14.0) * dt;
+    gOuter += (exp(-d.x * fall) * 2.5 + exp(-d.x * 9.0) * hz14) * dt;
+    gInner += (exp(-d.y * fall) * 2.5 + exp(-d.y * 9.0) * hz14) * dt;
     if (m < 0.001) {
       // on the bar itself: a solid core under the halo
       gOuter += step(d.x, 0.001) * 0.3;

@@ -33,6 +33,7 @@ const float TAU = 6.2831853;
 
 float gKick;
 float gLvl;
+float gEro;   // erosion noise at the last map() point: the hit reuses it for the rim
 vec3 gRotC;   // rotation (cos, sin) of the figure, shared by ray and reflections
 
 float h31(vec3 p) {
@@ -118,6 +119,7 @@ float map(vec3 p) {
   // far from the skin the carve cannot matter: skip the noise
   if (d > 0.12) return d;
   float e = erosion(p);
+  gEro = e;
   return max(d, (gLvl - e) * 0.3);
 }
 
@@ -154,22 +156,19 @@ void main() {
   vec3 ro = vec3(0.0, 0.0, 3.4);
   vec3 rd = normalize(vec3(uv, -1.5));
 
-  // night behind the figure: dark cold gradient, a halo that breathes with the bass
-  float rr = length(uv - vec2(0.0, 0.1));
-  vec3 col = uColor2 * (0.05 + 0.05 * (1.0 - uv.y))
-           + uColor1 * exp(-rr * rr * 7.0) * (0.12 + 0.2 * uBass + 0.25 * gKick)
-           + uColor3 * exp(-abs(uv.x) * 14.0) * 0.05 * (0.5 + uMid);
+  vec3 col;
 
   // bounding sphere: radius 1.25 around (0,-0.02,0)
   vec3 oc = ro - vec3(0.0, -0.02, 0.0);
   float bq = dot(oc, rd);
   float disc = bq * bq - (dot(oc, oc) - 1.56);
-  float ts = 0.0;
   bool hit = false;
   float t = 0.0;
   vec3 pO = vec3(0.0);
   if (disc > 0.0) {
-    ts = -bq - sqrt(disc);
+    float sq = sqrt(disc);
+    float ts = -bq - sq;
+    float tEnd = -bq + sq;   // where the ray leaves the sphere: grazing rays stop early
     t = max(ts, 0.0);
     // the figure is turned instead of the camera: ray in object space
     vec3 roO = rotY(ro, gRotC.x, -gRotC.y);
@@ -179,10 +178,14 @@ void main() {
       float d = map(roO + rdO * t);
       if (d < 0.002) { hit = true; break; }
       t += d;
-      if (t > ts + 2.6) break;
+      if (t > tEnd) break;
     }
     if (hit) {
       pO = roO + rdO * t;
+      // the last map() of the march ran at pO inside the carve band (d < 0.002
+      // implies body < 0.12), so its erosion is the hit's: keep it before the
+      // normal taps overwrite it
+      float eroHit = gEro;
       vec3 nO = normalAt(pO);
       vec3 n = rotY(nO, gRotC.x, gRotC.y);      // back to world, for the reflections
       vec3 r = reflect(rd, n);
@@ -199,15 +202,18 @@ void main() {
       float seam = (1.0 - smoothstep(0.008, 0.035, edgeD)) * mix(1.0, 0.3, smoothstep(0.25, 0.4, pO.y));
       float ph = hash21(cid);
       // each plate is a slightly different mirror: the studio is blurred on some
-      vec3 mir = studio(r);
-      vec3 rough = studio(normalize(r + (vec3(ph, hash21(cid + 3.0), hash21(cid + 7.0)) - 0.5) * 0.9));
-      vec3 metal = mix(mir, rough, 0.2 * step(0.6, ph));
+      vec3 metal = studio(r);
+      if (ph >= 0.6) {   // the blurred plates only (coherent per plate)
+        vec3 rough = studio(normalize(r + (vec3(ph, hash21(cid + 3.0), hash21(cid + 7.0)) - 0.5) * 0.9));
+        metal = mix(metal, rough, 0.2);
+      }
       vec3 surf = metal * (0.55 + 0.9 * fres) * mix(1.0, 0.45, seam);
       surf += uColor2 * 0.06;   // ambient: never a black body
 
-      // fine luminous veins running under the skin
-      float vein = (1.0 - smoothstep(0.0, 0.02, abs(vnoise(pO * 6.0 + vec3(0.0, uTime * 0.1, 0.0)) - 0.5)))
-                 * (0.3 + 0.7 * smoothstep(0.55, 0.8, vnoise(pO * 2.0 - uBassTime * 0.3)));
+      // fine luminous veins running under the skin; the slow pulse noise only
+      // where the vein mask is not already zero (most of the skin)
+      float vein = 1.0 - smoothstep(0.0, 0.02, abs(vnoise(pO * 6.0 + vec3(0.0, uTime * 0.1, 0.0)) - 0.5));
+      if (vein > 0.0) vein *= 0.3 + 0.7 * smoothstep(0.55, 0.8, vnoise(pO * 2.0 - uBassTime * 0.3));
       surf += uColor3 * vein * (0.3 + 0.6 * gKick + 0.4 * uMid) * glow;
 
       // seams carry light, a wave climbs the body with the bass
@@ -224,11 +230,19 @@ void main() {
       surf += mix(uColor3, vec3(1.0), 0.5) * slit * (0.9 + 1.2 * uHigh + 1.0 * gKick) * (0.6 + glow);
 
       // the eroded edge burns
-      float rim = 1.0 - smoothstep(0.0, 0.08, erosion(pO) - gLvl);
+      float rim = 1.0 - smoothstep(0.0, 0.08, eroHit - gLvl);
       surf += mix(uColor3, vec3(1.0), 0.3) * rim * (1.4 + 1.5 * uBass) * (0.4 + 0.6 * glow);
 
       col = surf;
     }
+  }
+
+  if (!hit) {
+    // night behind the figure: dark cold gradient, a halo that breathes with the bass
+    vec2 bd = uv - vec2(0.0, 0.1);
+    col = uColor2 * (0.05 + 0.05 * (1.0 - uv.y))
+        + uColor1 * exp(-dot(bd, bd) * 7.0) * (0.12 + 0.2 * uBass + 0.25 * gKick)
+        + uColor3 * exp(-abs(uv.x) * 14.0) * 0.05 * (0.5 + uMid);
   }
 
   // sparks: three layers of grains rising from the eroded body. A few are
@@ -243,14 +257,18 @@ void main() {
     q.y -= uTime * (0.9 + 0.7 * fl) * (1.0 + 0.6 * uBass);
     q.x += sin(uTime * 0.5 + fl * 2.0 + q.y * 0.3) * 0.6;
     vec2 id = floor(q);
-    vec2 f = fract(q) - 0.5;
     float h = hash21(id + fl * 17.0);
-    vec2 off = (vec2(hash21(id + 1.7), hash21(id + 4.1)) - 0.5) * 0.6;
-    float live = step(h, dens * halo);
-    float dd = length(f - off);
-    float size = 0.07 + 0.08 * hash21(id + 9.3);
-    float tw = 0.6 + 0.4 * sin(uTime * 6.0 + h * 40.0);
-    sp += mix(uColor1, uColor3, hash21(id + 2.2)) * live * smoothstep(size, 0.0, dd) * tw;
+    // only the live grains (step(h, dens*halo)) pay for their offset, size and twinkle
+    if (h <= dens * halo) {
+      vec2 f = fract(q) - 0.5;
+      vec2 off = (vec2(hash21(id + 1.7), hash21(id + 4.1)) - 0.5) * 0.6;
+      float dd = length(f - off);
+      float size = 0.07 + 0.08 * hash21(id + 9.3);
+      if (dd < size) {
+        float tw = 0.6 + 0.4 * sin(uTime * 6.0 + h * 40.0);
+        sp += mix(uColor1, uColor3, hash21(id + 2.2)) * (1.0 - smoothstep(0.0, size, dd)) * tw;
+      }
+    }
   }
   col += sp * (1.0 + 0.8 * uHigh) * (0.6 + 0.5 * glow);
 

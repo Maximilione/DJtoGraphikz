@@ -26,27 +26,29 @@ uniform float flicker;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 
-float sdBox(vec3 p, vec3 b) {
-  vec3 q = abs(p) - b;
-  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
-}
+float gSp, gInvSp;   // pillar bay and its reciprocal, set once in main()
 
+// box SDF on the two axes that matter: `e` is abs(p) - halfsize
+float sd2(vec2 e) { return length(max(e, 0.0)) + min(max(e.x, e.y), 0.0); }
+
+// map() runs ~70 times per pixel, so every box is 2D: the room is infinite
+// in z; the pillars span the full room height and the beam the full width,
+// so inside the room that axis never wins the max. The two pillars are
+// mirror images in x: one box on |x|.
 float map(vec3 p) {
-  float room = -sdBox(p, vec3(2.0, 1.3, 1e4));
-  float sp = max(0.5, pillars);
-  vec3 q = p;
-  q.z = mod(q.z, sp) - sp * 0.5;
-  float pil = min(sdBox(q - vec3(1.6, 0.0, 0.0), vec3(0.28, 1.3, 0.28)),
-                  sdBox(q + vec3(1.6, 0.0, 0.0), vec3(0.28, 1.3, 0.28)));
-  float beam = sdBox(q - vec3(0.0, 1.2, 0.0), vec3(2.0, 0.16, 0.16));
+  float room = -sd2(abs(p.xy) - vec2(2.0, 1.3));
+  float qz = abs(p.z - (floor(p.z * gInvSp) + 0.5) * gSp);
+  float pil = sd2(vec2(abs(abs(p.x) - 1.6) - 0.28, qz - 0.28));
+  float beam = sd2(vec2(abs(p.y - 1.2) - 0.16, qz - 0.16));
   return min(room, min(pil, beam));
 }
 
+// tetrahedron normal: 4 map() taps instead of 6
 vec3 normal(vec3 p) {
-  vec2 e = vec2(0.002, 0.0);
-  return normalize(vec3(map(p + e.xyy) - map(p - e.xyy),
-                        map(p + e.yxy) - map(p - e.yxy),
-                        map(p + e.yyx) - map(p - e.yyx)));
+  const vec2 k = vec2(1.0, -1.0);
+  const float h = 0.002;
+  return normalize(k.xyy * map(p + k.xyy * h) + k.yyx * map(p + k.yyx * h) +
+                   k.yxy * map(p + k.yxy * h) + k.xxx * map(p + k.xxx * h));
 }
 
 void main() {
@@ -57,6 +59,8 @@ void main() {
   // multiple of it: after hours of travel the raymarch and the normals
   // still run on small coordinates instead of drifting in float noise
   float sp = max(0.5, pillars);
+  gSp = sp;
+  gInvSp = 1.0 / sp;
   float z0 = mod(uBassTime * 2.2 + uTime * 0.3, sp * 32.0);
   vec3 ro = vec3(0.35 * sin(uTime * 0.31), -0.35 + 0.05 * sin(uTime * 0.7), z0);
   vec3 rd = normalize(vec3(p.x, p.y, 1.4));
@@ -73,7 +77,7 @@ void main() {
   for (int i = 0; i < 64; i++) {
     vec3 pp = ro + rd * t;
     d = map(pp);
-    float lz = (floor(pp.z / sp) + 0.5) * sp;
+    float lz = (floor(pp.z * gInvSp) + 0.5) * sp;
     vec3 dl = pp - vec3(0.0, 1.0, lz);
     float st = clamp(d * 0.9, 0.02, 0.6);
     shaft += st * 0.12 / (0.35 + dot(dl, dl)) * exp(-t * 0.08);
@@ -100,7 +104,7 @@ void main() {
     float kick = 1.0 + 0.8 * uBass;
     col = albedo * diff * fl * kick * tint * 1.6;
     // fixed bay lamp nearest to the hit: keeps every bay lit, kick drives it
-    float bz = (floor(pos.z / sp) + 0.5) * sp;
+    float bz = (floor(pos.z * gInvSp) + 0.5) * sp;
     vec3 L2 = vec3(0.0, 1.0, bz) - pos;
     float d2 = length(L2);
     L2 /= d2;
@@ -108,7 +112,9 @@ void main() {
     col += albedo * diff2 * lampOn * mix(vec3(1.0), uColor2, 0.5) * 0.8;
     // wet floor and wall sheen: lamp reflections
     vec3 r = reflect(rd, n);
-    float sheen = pow(max(dot(r, L2), 0.0), 18.0) * (0.4 + 0.6 * step(0.5, n.y));
+    float sx = max(dot(r, L2), 0.0);
+    float sx2 = sx * sx, sx4 = sx2 * sx2, sx8 = sx4 * sx4;
+    float sheen = sx8 * sx8 * sx2 * (0.4 + 0.6 * step(0.5, n.y));   // sx^18
     col += uColor2 * sheen * lampOn * 0.9 / (1.0 + d2 * 0.3);
     // neon tubes on the ceiling beams
     float neon = smoothstep(0.1, 0.0, abs(pos.y - 1.03)) * step(0.9, pos.y);

@@ -34,6 +34,7 @@ const float FLOOR_Y = -0.9;
 const float FINS = 36.0;
 
 float gKick, gR, gSec, gS, gCy, gBreath, gN;
+float gCs, gSn; // cos/sin of one sector: dFaces steps between neighbours by rotation
 vec3 gCop; // copper: the palette only tints it 35%
 vec2 gRot;
 
@@ -73,14 +74,17 @@ float dFaces(vec3 p) {
   q.xz = vec2(q.x * gRot.x + q.z * gRot.y, q.z * gRot.x - q.x * gRot.y);
   float i = floor(atan(q.z, q.x) / gSec + 0.5);
   float d = 1e5;
+  // the three neighbours sit at (i-1, i, i+1)*gSec: one cos/sin for the
+  // first, then rotate by a sector (this runs ~70 times per hit pixel)
+  float a0 = (i - 1.0) * gSec;
+  vec2 e = vec2(cos(a0), sin(a0));
   for (int j = -1; j <= 1; j++) {
-    float ak = (i + float(j)) * gSec;
-    vec2 e = vec2(cos(ak), sin(ak));
     vec3 f = vec3(dot(q.xz, vec2(-e.y, e.x)), q.y, dot(q.xz, e) - gR);
     float fi = (i + float(j));
     float hv = hash(vec2(mod(fi + gN, gN), 3.0));
     float fd = face(f, hv);
     d = (j == -1) ? fd : smin(d, fd, 0.12);
+    e = vec2(e.x * gCs - e.y * gSn, e.x * gSn + e.y * gCs);
   }
   return d * gS * 0.8;
 }
@@ -163,6 +167,7 @@ void main() {
   gBreath = 0.5 + 0.5 * sin(uTime * 0.6);
   float N = floor(clamp(faces, 5.0, 14.0) + 0.5);
   gSec = TAU / N;
+  gCs = cos(gSec); gSn = sin(gSec);
   gN = N;
   gCop = mix(vec3(1.0, 0.5, 0.18), uColor2, 0.35);
   gR = clamp(0.24 / sin(3.14159265 / N), 0.5, 1.2);
@@ -284,9 +289,11 @@ void main() {
   vec2 dp = uv * vec2(34.0, 19.0) + vec2(uTime * 0.05, -uTime * 0.12);
   vec2 di = floor(dp);
   float dh = hash(di);
-  vec2 df = fract(dp) - 0.5 - (vec2(hash(di + 3.1), hash(di + 7.7)) - 0.5) * 0.5;
-  col += gCop * step(0.96, dh) * exp(-dot(df, df) * 90.0) * (0.12 + 0.3 * uHigh) * g
-       * (0.5 + 0.5 * sin(uTime * 2.0 + dh * 80.0));
+  if (dh >= 0.96) { // one cell in 25 holds a mote (cells are ~57px: coherent)
+    vec2 df = fract(dp) - 0.5 - (vec2(hash(di + 3.1), hash(di + 7.7)) - 0.5) * 0.5;
+    col += gCop * exp(-dot(df, df) * 90.0) * (0.12 + 0.3 * uHigh) * g
+         * (0.5 + 0.5 * sin(uTime * 2.0 + dh * 80.0));
+  }
 
   col = col / (1.0 + 0.25 * col);
   col *= clamp(1.25 - dot(uv, uv) * 0.8, 0.5, 1.0);

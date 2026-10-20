@@ -40,19 +40,20 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 float gT;
 float gKick;
 float gN;
+float gSec, gInvSec; // sector angle and its reciprocal, once per pixel
 
 float map(vec3 p) {
-  float zc = floor(p.z / PZ + 0.5);
+  float zc = floor(p.z * (1.0 / PZ) + 0.5);
   float zl = p.z - zc * PZ;
-  float sec = TAU / gN;
-  float ang = atan(p.y, p.x);
-  float si = floor(ang / sec + 0.5);
-  float a = ang - si * sec;
-  float rad = length(p.xy);
+  float si = floor(atan(p.y, p.x) * gInvSec + 0.5);
   float h = hash(vec2(mod(si + gN, gN), mod(zc, SLICES)));
   float s = min(size * (0.34 + 0.34 * h) * (1.0 + 0.4 * gKick * h), 0.74);
   float R = 1.95 + 0.3 * h;
-  vec3 q = vec3((rad * cos(a) - R) * 0.55, rad * sin(a), zl);
+  // into the sector's frame: rad*(cos a, sin a) with a = ang - si*sec is p.xy
+  // rotated by -si*sec, so no length() and no division
+  float sa = si * gSec;
+  float ca = cos(sa), sb = sin(sa);
+  vec3 q = vec3((p.x * ca + p.y * sb - R) * 0.55, p.y * ca - p.x * sb, zl);
   // tilt every crystal differently around the radial axis
   float tw = h * TAU;
   float c = cos(tw), sn = sin(tw);
@@ -68,11 +69,18 @@ vec3 normalAt(vec3 p) {
 }
 
 // scalar studio: bands of light, a lamp at the end of the tunnel, a key light
+// (called four times per hit pixel: integer powers by squaring, key direction
+// pre-normalised)
 float studio(vec3 r) {
   float s = 0.5 + 0.5 * sin(dot(r, vec3(2.3, 1.7, 3.1)) * 3.2 + gT * 0.4);
-  s = pow(smoothstep(0.35, 1.0, s), 2.0);
-  s += 0.9 * pow(max(r.z, 0.0), 8.0) * (0.7 + 0.8 * gKick + 0.5 * uBass);
-  s += 1.8 * pow(max(dot(r, normalize(vec3(0.6, 0.7, 0.3))), 0.0), 28.0);
+  s = smoothstep(0.35, 1.0, s);
+  s *= s;
+  float z = max(r.z, 0.0);
+  float z2 = z * z, z4 = z2 * z2;
+  s += 0.9 * (z4 * z4) * (0.7 + 0.8 * gKick + 0.5 * uBass);
+  float k = max(dot(r, vec3(0.618853, 0.721995, 0.309426)), 0.0); // normalize(0.6, 0.7, 0.3)
+  float k2 = k * k, k4 = k2 * k2, k8 = k4 * k4, k16 = k8 * k8;
+  s += 1.8 * k16 * k8 * k4; // ^28
   return s;
 }
 
@@ -81,6 +89,8 @@ void main() {
   gKick = clamp(uBassHit, 0.0, 1.0);
   gT = uBassTime * 0.5 + uTime * 0.25;
   gN = floor(clamp(facets, 5.0, 12.0) + 0.5);
+  gSec = TAU / gN;
+  gInvSec = gN / TAU;
 
   float T = mod(uBassTime * 1.5 + uTime * 0.9, PZ * SLICES);
   vec3 ro = vec3(0.3 * sin(gT * 0.7), 0.3 * cos(gT * 0.5), T);
@@ -92,7 +102,9 @@ void main() {
   // empty space between the crystals: dark palette haze, spokes of light
   // radiating from the vanishing point, and the lamp at the end
   float rr = length(uv);
-  float spokes = pow(abs(sin(atan(uv.y, uv.x) * gN * 0.5 + gT * 0.3)), 24.0);
+  float sp = abs(sin(atan(uv.y, uv.x) * gN * 0.5 + gT * 0.3));
+  float sp2 = sp * sp, sp4 = sp2 * sp2, sp8 = sp4 * sp4;
+  float spokes = sp8 * sp8 * sp8; // ^24
   vec3 col = uColor2 * 0.05 * (1.0 + rr)
            + uColor1 * spokes * exp(-rr * 2.4) * (0.12 + 0.25 * uBass)
            + uColor3 * exp(-rr * 7.0) * (0.35 + 0.5 * gKick);
@@ -121,7 +133,8 @@ void main() {
     if (dot(rC, rC) < 0.5) rC = mir;
     vec3 trans = uColor1 * studio(rA) + uColor2 * studio(rB) + uColor3 * studio(rC);
 
-    float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+    float f1 = 1.0 - max(dot(n, -rd), 0.0);
+    float fres = f1 * f1 * f1;
     vec3 refl = mix(uColor3, vec3(1.0), 0.35) * studio(mir) * fres;
 
     // facet edges: the normal turns quickly across a small step

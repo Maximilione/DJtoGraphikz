@@ -94,7 +94,7 @@ export function sanitizeImpact(s: Partial<ImpactState> | undefined): ImpactState
 
 /** Is there anything to draw? Lets the caller skip the pass in a silent room. */
 export function impactActive(o: ImpactOut): boolean {
-  return o.shakeX !== 0 || o.shakeY !== 0 || Math.abs(o.zoom - 1) > 1e-4
+  return Math.abs(o.shakeX) > 1e-6 || Math.abs(o.shakeY) > 1e-6 || Math.abs(o.zoom - 1) > 1e-4
     || o.flash > 1e-4 || o.warp > 1e-5 || o.chroma > 1e-5 || o.sparkle > 1e-4
 }
 
@@ -116,10 +116,15 @@ export function stepImpact(rt: ImpactRuntime, st: ImpactState, inp: ImpactInput)
   // Kick: shake envelope + spring impulse
   if (inp.beat) { rt.shakeEnv = 1; rt.punchVel += 0.8 }
   rt.shakeEnv *= Math.exp(-dt * 14)
+  // Snap to exact rest once below what a pixel can show: an exponential never
+  // reaches 0 on its own (~50 s to underflow), and until it does the caller
+  // keeps a fullscreen camera pass alive in a silent room.
+  if (rt.shakeEnv < 1e-4) rt.shakeEnv = 0
   // underdamped spring (zeta ~0.5): overshoots, then settles back elastically
   const acc = -180 * rt.punchPos - 14 * rt.punchVel
   rt.punchVel += acc * dt
   rt.punchPos += rt.punchVel * dt
+  if (Math.abs(rt.punchPos) < 1e-5 && Math.abs(rt.punchVel) < 1e-4) { rt.punchPos = 0; rt.punchVel = 0 }
 
   // Flash: highs rising edge (soft) and the drop (build/break -> peak)
   const drop = inp.phase === 'peak' && (rt.prevPhase === 'build' || rt.prevPhase === 'break')
@@ -128,6 +133,7 @@ export function stepImpact(rt: ImpactRuntime, st: ImpactState, inp: ImpactInput)
   rt.prevHigh = inp.highHit
   rt.prevPhase = inp.phase
   rt.flashEnv *= Math.exp(-dt * 9)
+  if (rt.flashEnv < 1e-4) rt.flashEnv = 0
 
   const L = IMPACT_LIMITS
   const amp = clamp(rt.shakeEnv * st.shake * g * 0.02, 0, L.shake)

@@ -20,16 +20,15 @@ varying vec2 vUv;
 #define PI 3.14159265359
 #define TAU 6.28318530718
 
-// Distance to a segment: sampling the curve as POINTS left visible gaps at
-// higher frequencies (it looked like scattered dots, not a curve).
-float segDist(vec2 p, vec2 a, vec2 b) {
+// Squared distance to a segment: sampling the curve as POINTS left visible
+// gaps at higher frequencies (it looked like scattered dots, not a curve).
+// Squared because only the minimum is needed: one sqrt after the loop
+// instead of one per segment.
+float segDist2(vec2 p, vec2 a, vec2 b) {
   vec2 pa = p - a, ba = b - a;
   float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-  return length(pa - ba * h);
-}
-
-vec2 lissa(float s, float fa, float fb, float phase, float amp) {
-  return vec2(sin(fa * s + phase) * amp, sin(fb * s + phase * 0.7) * amp);
+  vec2 q = pa - ba * h;
+  return dot(q, q);
 }
 
 void main() {
@@ -50,23 +49,35 @@ void main() {
     float amplitude = (size + fc * 0.02 + uBeat * 0.05) * fit;
 
     // Walk the curve as a polyline and measure the distance to each segment
-    float minDist = 100.0;
-    float closestT = 0.0;
+    float minD2 = 1e4;
+    float closestI = 0.0;
     // segments follow the frequency: a fixed 72 showed its corners at the
     // high end, and burned them on the slow default curves for nothing
     float segs = clamp(ceil(max(freqA, freqB) * 20.0), 48.0, 160.0);
-    vec2 prev = lissa(0.0, freqA, freqB, phase, amplitude);
+    // the vertices are sin(f*s + ph) on a uniform s grid, so they are walked
+    // with the angle-addition recurrence: 4 trig per curve instead of 2 per
+    // segment (fp32 drift over 160 steps ~1e-5)
+    float ds = TAU / segs;
+    vec2 sn = sin(vec2(phase, phase * 0.7));
+    vec2 cs = cos(vec2(phase, phase * 0.7));
+    vec2 sd = sin(vec2(freqA, freqB) * ds);
+    vec2 cd = cos(vec2(freqA, freqB) * ds);
+    vec2 prev = sn * amplitude;
     for (int i = 1; i <= 160; i++) {
       if (float(i) > segs) break;
-      float s = float(i) / segs * TAU;
-      vec2 cur = lissa(s, freqA, freqB, phase, amplitude);
-      float d = segDist(uv, prev, cur);
-      if (d < minDist) {
-        minDist = d;
-        closestT = s / TAU;
+      vec2 sn2 = sn * cd + cs * sd;
+      cs = cs * cd - sn * sd;
+      sn = sn2;
+      vec2 cur = sn * amplitude;
+      float d2 = segDist2(uv, prev, cur);
+      if (d2 < minD2) {
+        minD2 = d2;
+        closestI = float(i);
       }
       prev = cur;
     }
+    float minDist = sqrt(minD2);
+    float closestT = closestI / segs;
 
     // Glow around the curve
     float glow = 0.004 * (1.0 + uLineBoost) / (minDist + 0.002);
@@ -77,10 +88,7 @@ void main() {
     float line = smoothstep(max(max(0.005 * lkb, lminW), fwidth(minDist) * 1.5), 0.0, minDist);
 
     // Color varies along curve parameter
-    vec3 cColor;
-    if (curve == 0 || curve == 3) cColor = uColor1;
-    else if (curve == 1 || curve == 4) cColor = uColor2;
-    else cColor = uColor3;
+    vec3 cColor = curve == 0 ? uColor1 : (curve == 1 ? uColor2 : uColor3);
 
     // Add rainbow shift along curve
     float hueShift = closestT + t * 0.1;

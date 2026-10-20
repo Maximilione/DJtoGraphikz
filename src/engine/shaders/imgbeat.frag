@@ -78,9 +78,14 @@ vec3 background(vec2 p, float variant) {
   vec3 c = base;
   if (variant < 0.5) {
     float z = 0.35 / (r + 0.06) + t * 0.5;
-    float ring = pow(abs(sin(z * 3.14159)), 14.0);
+    // |sin|^14 and |sin|^24 by squaring: even powers, no abs or pow needed
+    float sr = sin(z * 3.14159);
+    float sr2 = sr * sr, sr4 = sr2 * sr2, sr8 = sr4 * sr4;
+    float ring = sr8 * sr4 * sr2;
     float a = atan(p.y, p.x);
-    float spoke = pow(abs(sin(a * 8.0 + uTime * 0.2 + z * 0.4)), 24.0);
+    float ss = sin(a * 8.0 + uTime * 0.2 + z * 0.4);
+    float ss2 = ss * ss, ss4 = ss2 * ss2, ss8 = ss4 * ss4;
+    float spoke = ss8 * ss8 * ss8;
     c += uColor1 * ring * (0.55 + 0.5 * uBass) * smoothstep(0.0, 0.5, r);
     c += uColor2 * spoke * 0.35 * smoothstep(0.1, 0.9, r);
   } else if (variant < 1.5) {
@@ -145,48 +150,58 @@ void main() {
 
   vec4 im = vec4(0.0);
   float bgDim = 1.0 - 0.55 * vis;
-  if (sty < 0.5) {
-    im = getImg(q, idx);
-  } else if (sty < 1.5) {
-    im = getImg(q, idx);
-    if (mod(idx, 2.0) > 0.5) im.rgb = 1.0 - im.rgb;
-  } else if (sty < 2.5) {
-    im = getImg(q, idx);
-    float l = dot(im.rgb, vec3(0.299, 0.587, 0.114));
-    im.rgb = l < 0.5 ? mix(uColor3 * 0.25, uColor1, l * 2.0) : mix(uColor1, uColor2 * 1.1, l * 2.0 - 1.0);
-  } else if (sty < 3.5) {
-    // horizontal slices shifted per slice, RGB split, both riding the hit
-    float sl = floor(q.y * 11.0 + idx * 3.7);
-    float tt = floor(uTime * 12.0);
-    float h = hash11(sl + tt * 7.31);
-    float off = (hash11(sl * 1.7 + tt) - 0.5) * step(0.45, h) * 0.6 * env * punch;
-    float sp = 0.05 * env * punch + 0.006;
-    vec4 a = getImg(q + vec2(off + sp, 0.0), idx);
-    vec4 b = getImg(q + vec2(off, 0.0), idx);
-    vec4 c = getImg(q + vec2(off - sp, 0.0), idx);
-    im = vec4(a.r, b.g, c.b, max(a.a, max(b.a, c.a)));
-  } else if (sty < 4.5) {
-    // four mirrored copies, turning
-    vec2 k = 2.0 * abs(q) - 1.0;
-    im = getImg(k, idx);
-  } else if (sty < 5.5) {
-    // zoom-through: the picture repeats in perspective, each hit pulls one layer
-    float f = idx + (1.0 - pow(1.0 - ph, 3.0));
-    vec3 acc = bg * 0.6;
-    for (int i = 4; i >= -1; i--) {
-      float jd = floor(f) + float(i);
-      float d = jd - f;
-      float s = max(size, 0.2) * exp(-0.55 * d);
-      float al = smoothstep(-1.0, -0.3, d) * smoothstep(4.5, 3.0, d);
-      vec4 L = getImg(rot(p, ang) / s, jd);
-      acc = mix(acc, L.rgb * (0.55 + 0.45 * al), L.a * al);
+  // vis == 0 (the picture is away between hits) makes every style below a
+  // no-op (m = 0, bgDim = 1), except zoom-through which draws its own stack:
+  // skip the fetches then. Uniform-derived condition, no divergence.
+  if (vis > 0.0 || (sty > 4.5 && sty < 5.5)) {
+    if (sty < 0.5) {
+      im = getImg(q, idx);
+    } else if (sty < 1.5) {
+      im = getImg(q, idx);
+      if (mod(idx, 2.0) > 0.5) im.rgb = 1.0 - im.rgb;
+    } else if (sty < 2.5) {
+      im = getImg(q, idx);
+      float l = dot(im.rgb, vec3(0.299, 0.587, 0.114));
+      im.rgb = l < 0.5 ? mix(uColor3 * 0.25, uColor1, l * 2.0) : mix(uColor1, uColor2 * 1.1, l * 2.0 - 1.0);
+    } else if (sty < 3.5) {
+      // horizontal slices shifted per slice, RGB split, both riding the hit
+      float sl = floor(q.y * 11.0 + idx * 3.7);
+      float tt = floor(uTime * 12.0);
+      float h = hash11(sl + tt * 7.31);
+      float off = (hash11(sl * 1.7 + tt) - 0.5) * step(0.45, h) * 0.6 * env * punch;
+      float sp = 0.05 * env * punch + 0.006;
+      vec4 a = getImg(q + vec2(off + sp, 0.0), idx);
+      vec4 b = getImg(q + vec2(off, 0.0), idx);
+      vec4 c = getImg(q + vec2(off - sp, 0.0), idx);
+      im = vec4(a.r, b.g, c.b, max(a.a, max(b.a, c.a)));
+    } else if (sty < 4.5) {
+      // four mirrored copies, turning
+      vec2 k = 2.0 * abs(q) - 1.0;
+      im = getImg(k, idx);
+    } else if (sty < 5.5) {
+      // zoom-through: the picture repeats in perspective, each hit pulls one layer
+      float f = idx + (1.0 - pow(1.0 - ph, 3.0));
+      vec3 acc = bg * 0.6;
+      // layers i = 4..0, far to near; the old i = -1 layer had d <= -1, hence
+      // alpha 0: never visible. The rotation is shared and the per-layer scale
+      // exp(0.55 d) / size steps by exp(-0.55) instead of one exp per layer.
+      vec2 rp = rot(p, ang) / max(size, 0.2);
+      float fl = floor(f);
+      float zm = exp(0.55 * (fl - f)) * 9.0250135;   // exp(0.55 d) at i = 4 (e^2.2)
+      for (int i = 4; i >= 0; i--) {
+        float d = (fl - f) + float(i);
+        float al = smoothstep(-1.0, -0.3, d) * smoothstep(4.5, 3.0, d);
+        vec4 L = getImg(rp * zm, fl + float(i));
+        acc = mix(acc, L.rgb * (0.55 + 0.45 * al), L.a * al);
+        zm *= 0.57694981;   // exp(-0.55)
+      }
+      vis = 1.0;
+      bgDim = 1.0;
+      bg = acc;
+      im = vec4(0.0);
+    } else {
+      im = getImg(q, idx);
     }
-    vis = 1.0;
-    bgDim = 1.0;
-    bg = acc;
-    im = vec4(0.0);
-  } else {
-    im = getImg(q, idx);
   }
 
   vec3 col = bg * bgDim;

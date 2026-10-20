@@ -31,15 +31,18 @@ uniform float depthk;
 float causField(vec2 p, float t, float cnt) {
   vec2 i = p;
   float acc = 0.0;
-  float inten = 0.005;
+  const float inten = 0.005;
   for (int n = 0; n < 5; n++) {
     if (float(n) >= cnt) break;
     float tn = t * (1.0 - 3.5 / float(n + 1));
     i = p + vec2(cos(tn - i.x) + sin(tn + i.y), sin(tn - i.y) + cos(tn + i.x));
-    acc += 1.0 / length(vec2(p.x / (sin(i.x + tn) / inten),
-                             p.y / (cos(i.y + tn) / inten)));
+    // 1/length(p*inten/(s,c)) = (1/inten) * rsqrt(|p/(s,c)|^2): the constant
+    // factors out of the loop, two divisions and a sqrt become one rsqrt
+    // (sin = 0 still gives w = inf and a 0 contribution, as before)
+    vec2 w = p * vec2(1.0 / sin(i.x + tn), 1.0 / cos(i.y + tn));
+    acc += inversesqrt(dot(w, w));
   }
-  acc /= cnt;
+  acc *= (1.0 / inten) / cnt;
   return 1.17 - pow(acc, 1.4);
 }
 
@@ -77,7 +80,7 @@ void main() {
 
   // light shafts falling from the surface
   float sh = 0.5 + 0.5 * sin(q.x * 6.5 + sin(q.y * 2.2 + t * 0.8) * 1.6 + t * 0.4);
-  float shafts = pow(sh, 3.0) * smoothstep(0.0, 1.0, uvp.y) * (0.05 + 0.10 * uEnergy + 0.18 * uBassHit);
+  float shafts = (sh * sh * sh) * smoothstep(0.0, 1.0, uvp.y) * (0.05 + 0.10 * uEnergy + 0.18 * uBassHit);
 
   vec3 c = water * 0.35 + uColor3 * 0.035;
   c += uColor1 * light2 * (0.10 + 0.12 * uEnergy);
@@ -85,7 +88,7 @@ void main() {
   c += uColor2 * light * (0.22 + 0.40 * uEnergy + 0.35 * uBeat + 0.45 * uBassHit);
   c += uColor1 * pow(light, 1.6) * 0.22;
   // clean hot cores for the bloom to take
-  c += mix(uColor2, vec3(1.0), 0.6) * pow(light, 3.0) * (0.06 + 0.28 * uBassHit + 0.12 * uBeat);
+  c += mix(uColor2, vec3(1.0), 0.6) * (light * light * light) * (0.06 + 0.28 * uBassHit + 0.12 * uBeat);
   c += uColor2 * ring * 0.35;
 
   float vig = smoothstep(1.4, 0.3, length((uvp - 0.5) * vec2(1.5, 1.0)));

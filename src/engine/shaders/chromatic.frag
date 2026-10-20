@@ -16,10 +16,9 @@ void main() {
   float strength = uStrength * (1.0 + uBass * 2.0 + uBeat * 1.5);
   vec2 offset = dir * dist * strength;
 
-  float r = texture2D(tDiffuse, vUv + offset * 1.0).r;
-  float g = texture2D(tDiffuse, vUv).g;
-  float b = texture2D(tDiffuse, vUv - offset * 1.0).b;
-
-  vec3 wet = vec3(r, g, b);
-  gl_FragColor = vec4(mix(texture2D(tDiffuse, vUv).rgb, wet, uWet), 1.0);
+  // one fetch of the centre sample: it is both the green channel and the dry image
+  vec3 c = texture2D(tDiffuse, vUv).rgb;
+  float r = texture2D(tDiffuse, vUv + offset).r;
+  float b = texture2D(tDiffuse, vUv - offset).b;
+  gl_FragColor = vec4(mix(c, vec3(r, c.g, b), uWet), 1.0);
 }

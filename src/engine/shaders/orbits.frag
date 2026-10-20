@@ -46,10 +46,13 @@ void main() {
     vec2 sc = floor(sp);
     vec2 sf = fract(sp) - 0.5;
     float sh = hash(sc + fl * 3.1);
-    vec2 off = (vec2(hash(sc + 1.7), hash(sc + 5.3)) - 0.5) * 0.6;
-    float sd = length(sf - off);
-    float tw = 0.5 + 0.5 * sin(uHighTime * 6.0 + sh * TAU);
-    color += mix(uColor3, vec3(1.0), 0.5) * step(0.8, sh) * (0.0025 / (sd * sd + 0.003)) * (0.35 + tw * (0.3 + uHigh * 0.6)) * (0.6 - fl * 0.25);
+    // one cell in five holds a star; the cells are ~120px, the branch coherent
+    if (sh >= 0.8) {
+      vec2 off = (vec2(hash(sc + 1.7), hash(sc + 5.3)) - 0.5) * 0.6;
+      float sd = length(sf - off);
+      float tw = 0.5 + 0.5 * sin(uHighTime * 6.0 + sh * TAU);
+      color += mix(uColor3, vec3(1.0), 0.5) * (0.0025 / (sd * sd + 0.003)) * (0.35 + tw * (0.3 + uHigh * 0.6)) * (0.6 - fl * 0.25);
+    }
   }
   color += uColor1 * 0.03 * (1.0 - rad * 0.6) + uColor2 * 0.012;
 
@@ -63,6 +66,11 @@ void main() {
     color += uColor3 * (smoothstep(max(0.004 * lkb, lminW), 0.0, d - fwidth(d)) * (0.22 * (1.0 + uLineBoost) + wv * 1.2) + 0.0012 * (1.0 + uLineBoost) / (d + 0.01) * (0.4 + uBass));
   }
 
+  // the trail steps back by a constant angle: one cos/sin for the step,
+  // then each past position is the previous one rotated (no trig per sample)
+  float trA = 0.09 * (0.5 + trail);
+  float trC = cos(trA), trS = sin(trA);
+
   for (float i = 0.0; i < 16.0; i++) {
     if (i >= bodies) break;
     float h = hash(vec2(i, 7.0));
@@ -71,7 +79,8 @@ void main() {
     float speed = (0.4 + h * 0.9) * (ring == 0.0 ? 1.6 : ring == 1.0 ? 1.0 : 0.65);
     float dir = mod(i, 2.0) < 1.0 ? 1.0 : -1.0;
     float ang = t * speed * dir + h * TAU + uBarPhase * TAU * 0.1;
-    vec2 pos = vec2(cos(ang), sin(ang)) * rr;
+    vec2 dv = vec2(cos(ang), sin(ang));
+    vec2 pos = dv * rr;
 
     float d = length(uv - pos);
     float size = 0.010 + h * 0.014 + (ring == 2.0 ? uBassHit * 0.02 : 0.0);
@@ -80,13 +89,15 @@ void main() {
     float core = (size * size) / (d * d + size * size * 0.25);
     color += (c + vec3(0.35) * core * core) * core * tw * (1.0 + uBassHit * 0.8);
 
-    // comet trail: sample a few past positions
-    for (int s = 1; s <= 5; s++) {
-      float fs = float(s);
-      float ta = ang - dir * fs * 0.09 * (0.5 + trail);
-      vec2 pp = vec2(cos(ta), sin(ta)) * rr;
-      float td = length(uv - pp);
-      color += c * (size * size * 0.4) / (td * td + size * size) * (1.0 - fs / 6.0) * trail;
+    // comet trail: a few past positions, i.e. ang - dir*s*trA
+    if (trail > 0.0) {
+      float ts = dir * trS;
+      float sz2 = size * size;
+      for (int s = 1; s <= 5; s++) {
+        dv = vec2(dv.x * trC + ts * dv.y, dv.y * trC - ts * dv.x);
+        vec2 pp = dv * rr - uv;
+        color += c * (sz2 * 0.4) / (dot(pp, pp) + sz2) * (1.0 - float(s) / 6.0) * trail;
+      }
     }
   }
 

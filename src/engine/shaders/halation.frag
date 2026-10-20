@@ -13,6 +13,6 @@ void main() {
   float l = dot(texture2D(tBloom, vUv).rgb, vec3(0.333));
   vec3 warm = mix(vec3(1.0, 0.32, 0.08), uColor1 / (max(uColor1.r, max(uColor1.g, uColor1.b)) + 0.05), 0.2);
   vec3 halo = clamp(warm * l * 3.0 * (1.0 + uBeat * 0.4), 0.0, 1.0);
-  vec3 wet = 1.0 - (1.0 - base) * (1.0 - halo);
-  gl_FragColor = vec4(mix(base, wet, uWet), 1.0);
+  // screen then mix with the dry image, folded: mix(b, 1-(1-b)(1-h), w) = b + (1-b) h w
+  gl_FragColor = vec4(base + (1.0 - base) * (halo * uWet), 1.0);
 }

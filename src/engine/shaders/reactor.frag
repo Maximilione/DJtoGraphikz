@@ -38,13 +38,9 @@ const int SPOKES = 8;
 
 float gKick;
 float gRings;
+float gRingStep, gInvRingStep;
 float gShockZ;
 float gGlow;
-
-float sdTorusZ(vec3 p, float R, float r) {
-  vec2 q = vec2(length(p.xy) - R, p.z);
-  return length(q) - r;
-}
 
 float sdBox(vec3 p, vec3 b) {
   vec3 q = abs(p) - b;
@@ -55,37 +51,35 @@ float cellZ(float z) {
   return z - CELL * floor(z / CELL + 0.5);
 }
 
-float ringsField(vec3 p) {
-  float zc = cellZ(p.z);
-  float d = 1e5;
-  for (int i = 0; i < 8; i++) {
-    if (float(i) >= gRings) break;
-    float R = 0.9 + float(i) * (OUT_R - 0.9) / max(gRings - 1.0, 1.0);
-    d = min(d, sdTorusZ(vec3(p.xy, zc), R, 0.07));
-  }
-  return d;
+// map() runs up to ~105 times per pixel (march + normal + shade), so the
+// field is in closed form: the rings are concentric tori with the same zc and
+// equispaced radii, hence the nearest one is a round of the radius — no loop
+// over the tori. The 8 spokes sit at multiples of 45 degrees, so the lateral
+// distance comes from an octant fold (abs + swap), no atan/mod.
+float ringsField(float r, float zc) {
+  float i = clamp(floor((r - 0.9) * gInvRingStep + 0.5), 0.0, gRings - 1.0);
+  return length(vec2(r - (0.9 + i * gRingStep), zc)) - 0.07;
 }
 
-float spokesField(vec3 p) {
-  float zc = cellZ(p.z);
-  float r = length(p.xy);
-  float ang = atan(p.y, p.x);
-  float sector = TAU / float(SPOKES);
-  float a2 = mod(ang + sector * 0.5, sector) - sector * 0.5;
-  float arc = r * a2;
-  vec3 bp = vec3(r - (HUB_R + OUT_R) * 0.5, arc, zc);
+float spokesField(vec2 pxy, float r, float zc) {
+  vec2 q = abs(pxy);
+  q = q.y > q.x ? q.yx : q;                        // octant [0, 45deg]
+  float lat = min(q.y, (q.x - q.y) * 0.70710678);  // distance to the 0 / 45deg line
+  vec3 bp = vec3(r - (HUB_R + OUT_R) * 0.5, lat, zc);
   return sdBox(bp, vec3((OUT_R - HUB_R) * 0.5, 0.04, 0.05));
 }
 
-float hub(vec3 p) {
+float hub(float r, float z) {
   // capped just ahead of the camera (z <= 0.5): an infinite rod sitting right
   // where the camera lives would blow up into a huge near-field wedge instead
   // of reading as the tunnel's distant core
-  return max(length(p.xy) - HUB_R, p.z - 0.5);
+  return max(r - HUB_R, z - 0.5);
 }
 
 float map(vec3 p) {
-  return min(hub(p), min(ringsField(p), spokesField(p)));
+  float zc = cellZ(p.z);
+  float r = length(p.xy);
+  return min(hub(r, p.z), min(ringsField(r, zc), spokesField(p.xy, r, zc)));
 }
 
 // marches the shaft; gGlow collects fog brightness along the way, boosted
@@ -98,8 +92,8 @@ float march(vec3 ro, vec3 rd, float tmax) {
     float d = map(p);
     // the gaussian is negligible past ~3.5 units from the front — skip the
     // transcendentals on the 100-step march for every step that isn't near it
-    float dz = p.z - gShockZ;
-    float shock = abs(dz) < 3.5 ? exp(-pow(dz / 1.1, 2.0)) : 0.0;
+    float dz = (p.z - gShockZ) * (1.0 / 1.1);
+    float shock = abs(dz) < 3.1818 ? exp(-dz * dz) : 0.0;
     float st = clamp(d, 0.03, 0.6);
     gGlow += st * 0.05 * (0.4 + 2.2 * shock);
     if (d < 0.003) return t;
@@ -122,11 +116,16 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
   vec3 base = mix(uColor2, uColor1, flow) * 0.5;
   vec3 c = base * (0.3 + 0.5 * uEnergy);
 
-  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
+  // f^2.5 by hand: pow() on a base that rounds to -1e-7 is undefined (NaN on
+  // exp2/log2 backends) and the bloom would spread it
+  float f = clamp(1.0 - dot(n, -rd), 0.0, 1.0);
+  float rim = f * f * sqrt(f);
   c += uColor1 * rim * 0.25;
 
-  float shock = exp(-pow((p.z - gShockZ) / 1.1, 2.0));
-  float isHub = step(hub(p), min(ringsField(p), spokesField(p)));
+  float sz = (p.z - gShockZ) * (1.0 / 1.1);
+  float shock = exp(-sz * sz);
+  float zc = cellZ(p.z);
+  float isHub = step(hub(r, p.z), min(ringsField(r, zc), spokesField(p.xy, r, zc)));
   vec3 shockCol = mix(vec3(1.0), uColor3, 0.25);
   c += shockCol * shock * gKick * clamp(glow, 0.3, 2.0) * 2.6;
   c += shockCol * isHub * (0.4 + shock * gKick * 2.0) * 0.8;
@@ -137,6 +136,8 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   gKick = clamp(uBassHit, 0.0, 1.0);
   gRings = floor(clamp(rings, 3.0, 8.0) + 0.5);
+  gRingStep = (OUT_R - 0.9) / max(gRings - 1.0, 1.0);
+  gInvRingStep = 1.0 / gRingStep;
   // the shock is born at the camera (z=0) on the kick and races away as the
   // kick impulse itself decays — one uniform drives both position and fade
   gShockZ = -(1.0 - gKick) * 14.0;

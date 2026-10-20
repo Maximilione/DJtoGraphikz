@@ -31,12 +31,12 @@ uniform float sheen;
 
 // Liquid surface: the kick drops a stone in the center, hats rain at the
 // edges — expanding rings interfere like real water, lit from above.
+// birth is a floor of `now`, so age >= 0 always (and the smoothstep is 0 at
+// age <= 0 anyway); the two decays share one exp
 float ripple(vec2 uv, vec2 c, float birth, float now, float speed) {
   float age = now - birth;
-  if (age < 0.0) return 0.0;
   float r = length(uv - c);
-  float wave = sin((r - age * speed) * 30.0) * exp(-r * 2.2) * exp(-age * 1.4);
-  return wave * smoothstep(0.0, 0.08, age);
+  return sin((r - age * speed) * 30.0) * exp(-r * 2.2 - age * 1.4) * smoothstep(0.0, 0.08, age);
 }
 
 void main() {
@@ -71,9 +71,14 @@ void main() {
   vec3 nrm = normalize(vec3(-grad * 0.6, 1.0));
 
   // lighting: deep base, wavelength tint by height, specular sheen
-  vec3 lightDir = normalize(vec3(0.4, 0.6, 0.8));
-  float diff = max(dot(nrm, lightDir), 0.0);
-  float spec = pow(max(dot(reflect(-lightDir, nrm), vec3(0.0, 0.0, 1.0)), 0.0), 24.0);
+  // normalize(vec3(0.4, 0.6, 0.8)); the specular only needs reflect(-L, n).z
+  // = 2 (n.L) n.z - L.z, raised to 24 by squaring
+  const vec3 L = vec3(0.37139068, 0.55708601, 0.74278135);
+  float nl = dot(nrm, L);
+  float diff = max(nl, 0.0);
+  float rz = max(2.0 * nl * nrm.z - L.z, 0.0);
+  float r2 = rz * rz, r4 = r2 * r2, r8 = r4 * r4;
+  float spec = r8 * r8 * r8;
 
   vec3 deep = uColor3 * 0.2;
   vec3 color = mix(deep, uColor1, clamp(hgt * 2.0 + 0.35, 0.0, 1.0));

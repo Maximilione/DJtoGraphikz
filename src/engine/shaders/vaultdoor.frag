@@ -48,16 +48,21 @@ float sdBox(vec3 p, vec3 b) {
 float sdSphere(vec3 p, float r) { return length(p) - r; }
 
 // door disc: a flat annulus (capped cylinder minus the centre hole)
-float doorSdf(vec3 p) {
-  float r = length(p.xy);
+// (r = length(p.xy), shared by the three SDFs that need it)
+float doorSdf(vec3 p, float r) {
   float cyl = max(r - R, abs(p.z - ZDOOR) - THICK * 0.5);
   float hole = r - gAper; // standard SDF convention: negative inside the hole
   return max(cyl, -hole); // CSG subtract: carves the hole out of the disc
 }
 
 // rivets: one ring of bumps just inside the rim, angularly repeated
-float rivetSdf(vec3 p) {
-  float r = length(p.xy);
+float rivetSdf(vec3 p, float r) {
+  // the torus through the rivet centres contains every rivet, so its distance
+  // is a lower bound on the rivet distance: away from it (> 0.1) return the
+  // bound and skip atan/cos/sin — the march stays conservative, and near the
+  // surface (where hits and normals are read) the exact rivet SDF is used
+  float db = length(vec2(r - (R - 0.14), p.z - (ZDOOR + THICK * 0.5))) - 0.055;
+  if (db > 0.1) return db;
   float a = atan(p.y, p.x);
   float n = 20.0;
   float ai = floor(a / TAU * n + 0.5);
@@ -68,9 +73,8 @@ float rivetSdf(vec3 p) {
 
 // the recessed frame wall the door sits in: a flat slab with a circular
 // hole matched to the door radius, so the door alone fills that opening
-float wallSdf(vec3 p) {
+float wallSdf(vec3 p, float r) {
   float slab = sdBox(p - vec3(0.0, 0.0, ZDOOR - 0.05), vec3(5.0, 3.2, 0.06));
-  float r = length(p.xy);
   return max(slab, -(r - R));
 }
 
@@ -79,7 +83,8 @@ float wallSdf(vec3 p) {
 float backSdf(vec3 p) { return p.z - ZBACK; }
 
 float map(vec3 p) {
-  return min(min(min(doorSdf(p), rivetSdf(p)), wallSdf(p)), backSdf(p));
+  float r = length(p.xy);
+  return min(min(min(doorSdf(p, r), rivetSdf(p, r)), wallSdf(p, r)), backSdf(p));
 }
 
 vec3 glowColor() {

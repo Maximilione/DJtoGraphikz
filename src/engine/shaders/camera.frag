@@ -3,7 +3,7 @@ precision highp float;
 uniform sampler2D tDiffuse;
 uniform vec2  uResolution;
 uniform float uZoom;        // 1 = untouched; >1 closer, <1 further away
-uniform float uRotation;    // radians
+uniform vec2  uRotCS;       // cos, sin of the rotation: once per frame in the engine, not per pixel
 uniform vec2  uPan;         // in screen widths, 0 = centred
 uniform float uTile;        // 1 = off; 2+ = mirrored grid of that many
 uniform float uPushAmt;     // how much a kick pushes in
@@ -50,12 +50,13 @@ void main() {
   float zoom = max(0.05, uZoom * uPunch * (1.0 + uPushAmt * uBeat));
   uv /= zoom;
 
-  float c = cos(uRotation), s = sin(uRotation);
-  uv = mat2(c, -s, s, c) * uv;
+  uv = mat2(uRotCS.x, -uRotCS.y, uRotCS.y, uRotCS.x) * uv;
 
   uv.x /= aspect;
   uv += 0.5 + uPan + uShake;
-  uv += uWarp * vec2(sin(uv.y * 9.0 + uTime * 2.3), cos(uv.x * 7.0 - uTime * 1.9));
+  // impact wobble and glitter are 0 most of the time (impact off, quiet room):
+  // uniform branches, so the full-res pass skips their trig then
+  if (uWarp != 0.0) uv += uWarp * vec2(sin(uv.y * 9.0 + uTime * 2.3), cos(uv.x * 7.0 - uTime * 1.9));
 
   // Tiling is the same fold, run at a higher frequency.
   uv = mirrorFold(uv * max(1.0, uTile));
@@ -68,9 +69,11 @@ void main() {
     col = texture2D(tDiffuse, uv).rgb;
   }
   // glitter: sparse hash-noise, only where it is already lit a little
-  vec2 g = floor(vUv * uResolution * 0.5);
-  float h = fract(sin(dot(g, vec2(12.9898, 78.233)) + uTime * 7.0) * 43758.5453);
-  col += step(0.985, h) * uSparkle * 4.0 * (0.3 + dot(col, vec3(0.333)));
+  if (uSparkle > 0.0) {
+    vec2 g = floor(vUv * uResolution * 0.5);
+    float h = fract(sin(dot(g, vec2(12.9898, 78.233)) + uTime * 7.0) * 43758.5453);
+    col += step(0.985, h) * uSparkle * 4.0 * (0.3 + dot(col, vec3(0.333)));
+  }
   // soft flash: lifts towards white, never reaches it
   col += uFlash * (1.0 - col);
   gl_FragColor = vec4(col, 1.0);

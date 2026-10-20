@@ -57,7 +57,7 @@ void main() {
   float fgap = step(1.0 - gapw * 1.5, fract(fcolf));
   float ftower = step(uv.y, fheight) * (1.0 - fgap);
   color = mix(color, mix(uColor2, uColor1, 0.3) * (0.12 + uv.y * 0.12), ftower);
-  color += uColor2 * ftower * step(0.7, hash(floor(vec2(fcolf * 4.0, uv.y * 30.0)) + fcol)) * 0.15;
+  if (ftower > 0.0) color += uColor2 * step(0.7, hash(floor(vec2(fcolf * 4.0, uv.y * 30.0)) + fcol)) * 0.15;
 
   float colf = uv.x * columns;
   float col = floor(colf);
@@ -76,17 +76,18 @@ void main() {
   float inGap = step(1.0 - gapw, f);
   float tower = step(uv.y, height) * (1.0 - inGap);
 
-  // windows: flickering grid inside the tower
-  vec2 wg = vec2(f * 4.0, uv.y * 40.0);
-  vec2 wc = floor(wg);
-  float win = step(0.35, hash(wc + col * 7.0 + floor(uHighTime * 4.0) * 0.13));
-  float winMask = step(0.25, fract(wg.x)) * step(0.3, fract(wg.y));
-
   vec3 towerC = mix(uColor2, uColor1, uv.y / max(height, 0.01));
   // tower body: dark glass, lighter toward the right edge
   vec3 body = towerC * (0.2 + 0.25 * f);
   color = mix(color, body, tower);
-  color += mix(uColor3, vec3(1.0), 0.35) * tower * win * winMask * (0.45 + uBass * 0.4 + uBassHit * 0.4);
+  // windows: flickering grid inside the tower (sky pixels skip the hash)
+  if (tower > 0.0) {
+    vec2 wg = vec2(f * 4.0, uv.y * 40.0);
+    vec2 wc = floor(wg);
+    float win = step(0.35, hash(wc + col * 7.0 + floor(uHighTime * 4.0) * 0.13));
+    float winMask = step(0.25, fract(wg.x)) * step(0.3, fract(wg.y));
+    color += mix(uColor3, vec3(1.0), 0.35) * win * winMask * (0.45 + uBass * 0.4 + uBassHit * 0.4);
+  }
 
   // rooftop glow line + bloom halo above the roofs
   float roofD = abs(uv.y - height);

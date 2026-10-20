@@ -81,7 +81,7 @@ window.api?.onOutputProbe?.(async (id: number) => {
   }
   const started = performance.now()
   const poll = setInterval(() => {
-    const frames = Number((engine.health().match(/frames=(\d+)/) || [])[1] ?? 0)
+    const frames = engine.frames
     if (frames > 2 || performance.now() - started > 2000) { clearInterval(poll); announce() }
   }, 100)
 }
@@ -92,7 +92,7 @@ const noSignal = document.getElementById('nosignal')
 let lastFrames = -1
 setInterval(() => {
   if (!noSignal) return
-  const frames = Number((engine.health().match(/frames=(\d+)/) || [])[1] ?? 0)
+  const frames = engine.frames
   // Only a stalled renderer is a real "no signal": a projector painting the
   // current look receives no state updates at all when nothing changes, and
   // flagging that would put the placard on top of a working visual.

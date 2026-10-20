@@ -16,6 +16,7 @@ void main() {
   float l = dot(streak, vec3(0.333));
   vec3 tint = mix(vec3(0.25, 0.55, 1.0), uColor2 / (max(uColor2.r, max(uColor2.g, uColor2.b)) + 0.05), 0.5);
   vec3 flare = tint * l * 3.2 * (1.0 + uEnergy * 0.4 + uBeat * 0.5) + streak * 0.5;
-  vec3 wet = 1.0 - (1.0 - base) * (1.0 - clamp(flare, 0.0, 1.0));
-  gl_FragColor = vec4(mix(base, wet, uWet), 1.0);
+  // screen then mix with the dry image, folded: mix(b, 1-(1-b)(1-f), w) = b + w f (1-b)
+  vec3 f = clamp(flare, 0.0, 1.0);
+  gl_FragColor = vec4(base + (uWet * f) * (1.0 - base), 1.0);
 }
