@@ -93,6 +93,20 @@ void main() {
   float lh = -1e5;
   vec3 acc = vec3(0.0);
 
+  // slice-invariant terms, hoisted out of the (up to 72-iteration) loop.
+  // The gaussians are written as x*x: pow(x, 2.0) with a negative x is
+  // undefined in GLSL ES and only worked where the driver expanded it.
+  // sleeve window: dead-flat plane at the sides, activity in the middle
+  float wx = p.x / (aspect * 0.52);
+  float ampWin = amp * exp(-wx * wx);
+  float bandK = 0.30 + 1.10 * uBass + 0.70 * uBassHit;
+  float nowK = smoothstep(0.02, 0.22, uEnergy);
+  float invBand = 1.0 / bandLen;
+  float lw = 0.0024 + 0.0012 * uHigh + 0.0016 * uHighHit + 0.0012 * uBassHit;
+  float glowInv = 1.0 / (0.008 + 0.024 * uBeat);
+  float glowAmp = 0.09 + 0.18 * uEnergy;
+  float invSl = 1.0 / slices;
+
   for (int i = 0; i < 96; i++) {
     float fi = float(i);
     if (fi >= slices) break;
@@ -102,34 +116,31 @@ void main() {
     float xw = p.x / (FOCAL * q);              // world X under this pixel
     float zw = z + off;
 
-    // sleeve window: dead-flat plane at the sides, activity in the middle
-    float win = exp(-pow(p.x / (aspect * 0.52), 2.0));
-
     // kick band: ridges born on a beat, riding in with the field
-    float ph = fract(zw / bandLen);
-    float band = flow < 0.02 ? 0.0 : exp(-pow(min(ph, 1.0 - ph) / 0.20, 2.0));
+    float ph = fract(zw * invBand);
+    float bt = min(ph, 1.0 - ph) * 5.0;
+    float band = flow < 0.02 ? 0.0 : exp(-bt * bt);
 
     vec2 tr = terrain(vec2(xw * 2.6, zw * 1.5));
     // the front slices are "now": the live spectrum rides on them and melts
     // into the procedural landscape further back. Centred a few slices in,
     // because slice 0 projects to the very bottom edge of the frame.
-    float now = exp(-pow((fi - 7.0) / 6.5, 2.0)) * smoothstep(0.02, 0.22, uEnergy);
-    float h = (tr.x * 1.15 + tr.y * 0.42 + specRidge * now) * win
-      * amp * (0.70 + band * (0.30 + 1.10 * uBass + 0.70 * uBassHit));
+    float nt = (fi - 7.0) * (1.0 / 6.5);
+    float now = exp(-nt * nt) * nowK;
+    float h = (tr.x * 1.15 + tr.y * 0.42 + specRidge * now) * ampWin * (0.70 + band * bandK);
 
     float py = (h - eye) * FOCAL * q + HORIZON;
     float d = py - p.y;
 
     if (d > lh) {
-      float depth = fi / slices;
-      float w = 0.0024 + 0.0012 * uHigh + 0.0016 * uHighHit + 0.0012 * uBassHit;
-      float ink = 1.0 - smoothstep(w, w * 2.8, abs(d));
-      float glow = exp(-abs(d) / (0.008 + 0.024 * uBeat))
-                 * (0.09 + 0.18 * uEnergy) * (1.0 - depth);
+      float depth = fi * invSl;
+      float ad = abs(d);
+      float ink = 1.0 - smoothstep(lw, lw * 2.8, ad);
+      float glow = exp(-ad * glowInv) * glowAmp * (1.0 - depth);
 
       vec3 tint = mix(uColor1, uColor2, depth * depth);
       // the crest of each line burns hotter than its flanks: white-ish core
-      float hot = (1.0 - smoothstep(0.0, w * 1.1, abs(d))) * (0.25 + 0.7 * uBassHit);
+      float hot = (1.0 - smoothstep(0.0, lw * 1.1, ad)) * (0.25 + 0.7 * uBassHit);
       acc += (tint * (ink + glow) + mix(tint, vec3(1.0), 0.6) * hot) * exp(-2.4 * depth);
       lh = d;
     }

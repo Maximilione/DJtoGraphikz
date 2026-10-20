@@ -12,10 +12,9 @@ void main() {
   float amount = uAmount * (1.0 + uBass * 3.0 + uBeat * 2.0);
   vec2 offset = vec2(cos(uAngle), sin(uAngle)) * amount;
 
+  // one fetch of the centre sample: it is both the green channel and the dry image
+  vec3 base = texture2D(tDiffuse, vUv).rgb;
   float r = texture2D(tDiffuse, vUv + offset).r;
-  float g = texture2D(tDiffuse, vUv).g;
   float b = texture2D(tDiffuse, vUv - offset).b;
-
-  vec3 wet = vec3(r, g, b);
-  gl_FragColor = vec4(mix(texture2D(tDiffuse, vUv).rgb, wet, uWet), 1.0);
+  gl_FragColor = vec4(mix(base, vec3(r, base.g, b), uWet), 1.0);
 }

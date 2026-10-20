@@ -40,10 +40,14 @@ void main() {
   vec3 col = mix(uColor2 * 0.08, uColor1 * 0.05, smoothstep(-0.5, 0.6, uv.y));
   col += uColor3 * 0.025 / (1.0 + 6.0 * dot(uv, uv));
 
+  float invN = 1.0 / n;
+  float gain = 1.4 * inversesqrt(n * 0.2 + 1.0);
+  float kmul = 0.7 + 0.8 * kick + 0.4 * uEnergy;
+
   for (int i = 0; i < 14; i++) {
     float fi = float(i);
     if (fi >= n) break;
-    float f = (fi + 0.5) / n;                 // 0 far .. 1 near
+    float f = (fi + 0.5) * invN;              // 0 far .. 1 near
     float s = mix(0.55, 1.8, f * f);          // perspective scale of the layer
     vec2 p = uv / s;
     float ph = fi * 1.7;
@@ -52,20 +56,26 @@ void main() {
     float c = amp * (sin(x * 0.9 + T + ph)
                    + 0.55 * sin(x * 2.1 - T * 1.3 + ph * 2.0 + 1.3 * sin(T * 0.7 + fi))
                    + 0.25 * sin(x * 4.3 + T * 2.0 + ph * 3.0));
-    c += (fi / n - 0.5) * 0.45 + 0.08 * sin(T * 0.4 + fi);
+    c += (fi * invN - 0.5) * 0.45 + 0.08 * sin(T * 0.4 + fi);
     float d = p.y - c;
     float ad = abs(d);
     float hw = 0.012 + 0.11 * abs(cos(x * tw * 0.3 + T * 0.8 + ph));
-    float face = smoothstep(hw, hw * 0.15, ad);
-    float edge = exp(-pow((ad - hw) / 0.008, 2.0));
+    // past the rim by 0.03 every term of this layer is < 1e-6 (the edge
+    // gaussian is exp(-14)): skip the palette and shading for most pixels
+    if (ad > hw + 0.03) continue;
+    float face = 1.0 - smoothstep(hw * 0.15, hw, ad);
+    // gaussian rim written as exp(-x^2): pow(x, 2.0) with x < 0 (inside the
+    // band) is undefined in GLSL and NaN on exp2/log2 backends
+    float ew = (ad - hw) * 125.0;
+    float edge = exp(-ew * ew);
     // palette across the layers and along the ribbon
     float m = fract(f * 1.3 + 0.12 * sin(x * 0.7 + T));
     vec3 pc = m < 0.5 ? mix(uColor1, uColor2, m * 2.0) : mix(uColor2, uColor3, m * 2.0 - 1.0);
     float near = 0.35 + 0.9 * f;
-    float lum = (0.35 * face + 0.9 * edge) * near * (0.7 + 0.8 * kick + 0.4 * uEnergy);
+    float lum = (0.35 * face + 0.9 * edge) * near * kmul;
     // curtains fade away below their rim
-    lum += 0.22 * face * smoothstep(0.0, -0.3, d) * near;
-    col += pc * lum * (1.4 / sqrt(n * 0.2 + 1.0));
+    lum += 0.22 * face * (1.0 - smoothstep(-0.3, 0.0, d)) * near;
+    col += pc * lum * gain;
   }
 
   col = col / (1.0 + 0.55 * col);

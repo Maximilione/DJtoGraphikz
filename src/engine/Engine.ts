@@ -107,6 +107,7 @@ import facesFrag from './shaders/faces.frag?raw'
 import ribbonsFrag from './shaders/ribbons.frag?raw'
 import stormFrag from './shaders/storm.frag?raw'
 import mandelbulbFrag from './shaders/mandelbulb.frag?raw'
+import upscaleFrag from './shaders/upscale.frag?raw'
 import rgbsplitFrag from './shaders/rgbsplit.frag?raw'
 import bloomFrag from './shaders/bloom.frag?raw'
 import feedbackFrag from './shaders/feedback.frag?raw'
@@ -397,9 +398,13 @@ interface PassChain {
   defs: EffectPass[]
   materials: THREE.ShaderMaterial[]
   sizes: THREE.Vector2[]
-  buffers: Map<string, { read: THREE.WebGLRenderTarget; write: THREE.WebGLRenderTarget; scale: number; rows: number; cols: number }>
+  buffers: Map<string, SimBuffer>
+  /** the same buffers with their uniform names resolved once — runChain binds them every pass, every frame */
+  bufList: { tKey: string; sKey: string; buf: SimBuffer }[]
   frames: number
 }
+
+interface SimBuffer { read: THREE.WebGLRenderTarget; write: THREE.WebGLRenderTarget; scale: number; rows: number; cols: number }
 
 /**
  * A grid of points whose positions live in a simulation buffer. The vertex
@@ -532,7 +537,11 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   pipes: pipesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
-  mandelbulb: mandelbulbFrag,
+  // drawn into a 75% buffer and upscaled: the raymarch crawls along the
+  // fractal's surface and cost ~22 ms a frame at 1080p, over the 60 fps
+  // budget on its own. Same framing (uResolution is the buffer's), half the
+  // GPU work, slightly softer.
+  mandelbulb: { passes: [{ frag: mandelbulbFrag, buffer: 'M', scale: 0.75 }], main: upscaleFrag },
   galaxy: { build: (u) => buildPointCloud(u, 768, galaxyVert, galaxyFrag) },
   // a loaded 3D model (or the procedural default); see meshModel.ts
   mesh: { build: buildMesh },
@@ -844,7 +853,7 @@ export class Engine {
         tDiffuse: { value: null },
         uResolution: { value: new THREE.Vector2(1, 1) },
         uZoom: { value: 1 },
-        uRotation: { value: 0 },
+        uRotCS: { value: new THREE.Vector2(1, 0) },   // cos, sin of the rotation: once a frame, not per pixel
         uPan: { value: new THREE.Vector2(0, 0) },
         uTile: { value: 1 },
         uPushAmt: { value: 0 },
@@ -1138,6 +1147,9 @@ export class Engine {
       uFrame: { value: 0 },
       ...paramUniforms,
       ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
+      // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
+      // applyEffectUniforms computes them once a frame instead of per vertex
+      ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),
     }
   }
 
@@ -1178,7 +1190,7 @@ export class Engine {
     makeUniforms: (buffers: string[], size: THREE.Vector2) => Record<string, THREE.IUniform>,
   ): PassChain {
     const bufNames = defs.map(p => p.buffer)
-    const chain: PassChain = { defs, materials: [], sizes: [], buffers: new Map(), frames: 0 }
+    const chain: PassChain = { defs, materials: [], sizes: [], buffers: new Map(), bufList: [], frames: 0 }
 
     for (const pass of defs) {
       if (chain.buffers.has(pass.buffer)) continue
@@ -1192,6 +1204,8 @@ export class Engine {
         scale, rows, cols,
       })
     }
+    // the swap in runChain mutates read/write on the same object, so this list stays valid
+    for (const [name, buf] of chain.buffers) chain.bufList.push({ tKey: 'tBuffer' + name, sKey: 'uBuffer' + name + 'Size', buf })
     for (const pass of defs) {
       const buf = chain.buffers.get(pass.buffer)!
       const size = new THREE.Vector2(buf.read.width, buf.read.height)
@@ -1250,12 +1264,7 @@ export class Engine {
       this.applyParams(pm)
       pm.uniforms.uResolution.value = chain.sizes[i]   // the buffer's size, not the screen's
       pm.uniforms.uFrame.value = chain.frames
-      for (const [name, buf] of chain.buffers) {
-        const u = pm.uniforms[`tBuffer${name}`]
-        if (u) u.value = buf.read.texture
-        const us = pm.uniforms[`uBuffer${name}Size`]
-        if (us) us.value.set(buf.read.width, buf.read.height)
-      }
+      this.bindChainBuffers(pm.uniforms, chain)
       const b = chain.buffers.get(chain.defs[i].buffer)!
       this.renderPass(pm, b.write)
       // Swap straight after the pass that wrote it: a pass never reads the
@@ -1265,11 +1274,17 @@ export class Engine {
     }
     chain.frames++
 
-    for (const [name, buf] of chain.buffers) {
-      const u = mat.uniforms[`tBuffer${name}`]
-      if (u) u.value = buf.read.texture
-      const us = mat.uniforms[`uBuffer${name}Size`]
-      if (us) us.value.set(buf.read.width, buf.read.height)
+    this.bindChainBuffers(mat.uniforms, chain)
+  }
+
+  /** Point a material's tBufferX / uBufferXSize uniforms at the chain's current read targets — no strings built per frame */
+  private bindChainBuffers(U: Record<string, THREE.IUniform>, chain: PassChain) {
+    for (let j = 0; j < chain.bufList.length; j++) {
+      const e = chain.bufList[j]
+      const u = U[e.tKey]
+      if (u) u.value = e.buf.read.texture
+      const us = U[e.sKey]
+      if (us) us.value.set(e.buf.read.width, e.buf.read.height)
     }
   }
 
@@ -1809,22 +1824,41 @@ export class Engine {
    * Each output bin takes the max of the input bins it covers, so a narrow
    * peak survives instead of being averaged away.
    */
+  // Bin ranges of the log axis, recomputed only when the analyser's shape
+  // changes: they depend on nothing but bin count, bin width and wave length,
+  // and 1024 pow() per frame added up on the control window's main thread.
+  private specB0 = new Uint16Array(Engine.SPECTRUM_BINS)
+  private specB1 = new Uint16Array(Engine.SPECTRUM_BINS)
+  private specWi = new Uint16Array(Engine.SPECTRUM_BINS)
+  private specBins = -1
+  private specHz = -1
+  private specWl = -1
+
   private packSpectrum(freq: Uint8Array, wave: Uint8Array, binHz: number) {
     const N = Engine.SPECTRUM_BINS
     const px = this.spectrumPixels
     const bins = freq.length
     if (!bins || !binHz) return
+    if (bins !== this.specBins || binHz !== this.specHz || wave.length !== this.specWl) {
+      for (let i = 0; i < N; i++) {
+        const f0 = 20 * Math.pow(1000, i / N)
+        const f1 = 20 * Math.pow(1000, (i + 1) / N)
+        let b0 = Math.floor(f0 / binHz)
+        const b1 = Math.min(bins - 1, Math.max(b0, Math.floor(f1 / binHz)))
+        if (b0 >= bins) b0 = bins - 1
+        this.specB0[i] = b0
+        this.specB1[i] = b1
+        this.specWi[i] = Math.floor((i / N) * wave.length)
+      }
+      this.specBins = bins; this.specHz = binHz; this.specWl = wave.length
+    }
+    const B0 = this.specB0, B1 = this.specB1, WI = this.specWi
     for (let i = 0; i < N; i++) {
-      const f0 = 20 * Math.pow(1000, i / N)
-      const f1 = 20 * Math.pow(1000, (i + 1) / N)
-      let b0 = Math.floor(f0 / binHz)
-      const b1 = Math.min(bins - 1, Math.max(b0, Math.floor(f1 / binHz)))
-      if (b0 >= bins) b0 = bins - 1
       let peak = 0
-      for (let b = b0; b <= b1; b++) if (freq[b] > peak) peak = freq[b]
+      for (let b = B0[i], e = B1[i]; b <= e; b++) if (freq[b] > peak) peak = freq[b]
       px[i * 4] = peak
       // waveform: one sample per output bin, centred on 128
-      px[i * 4 + 1] = wave.length ? wave[Math.floor((i / N) * wave.length)] : 128
+      px[i * 4 + 1] = wave.length ? wave[WI[i]] : 128
       px[i * 4 + 3] = 255
     }
     if (this.spectrumTex) this.spectrumTex.needsUpdate = true
@@ -2878,6 +2912,11 @@ export class Engine {
     }
     overlay._seq?.dispose()
     overlay._texture?.dispose()
+    // the add* methods hand the OverlayItem to the caller, who may keep it:
+    // drop the decoded GIF frames (tens of MB) and the canvas now, not when
+    // the last reference goes
+    overlay._gifFrames = undefined
+    if (overlay._canvas) { overlay._canvas.width = 0; overlay._canvas.height = 0 }
   }
 
   removeOverlay(id: string) {
@@ -3389,31 +3428,56 @@ export class Engine {
       return
     }
 
-    // Deck A → rtA (simulation passes first, then the quad or the geometry)
-    this.renderEffect(this.mainMaterial, this.rtA)
+    // The stages below ping-pong between rtA and rtB: `cur` holds the latest
+    // image, `alt` is free to write into. No stage copies back into rtA — a
+    // full-res blit per stage was 1-4 wasted passes per frame. renderEffect
+    // still targets rtA itself, so the depth buffer a geometry effect adds on
+    // first use stays on that one target.
+    let cur = this.rtA
+    let alt = this.rtB
+    const swap = () => { const t = cur; cur = alt; alt = t }
 
-    // Effect transition blending
-    if (this.transitionProgress >= 0 && this.transitionOldMaterial) {
-      this.transitionProgress += dt / Math.max(this.transitionDuration, 0.01)
+    // Fader hard on B in plain mix: deckmix would output exactly B, so deck A
+    // (and its simulation chains) and the mix pass are skipped — B draws
+    // straight into the main buffer. Not in video mode: there rtDeckB holds
+    // the last frame across a clip change. Not mid-transition either: the
+    // outgoing effect blends against deck A.
+    // A deck A with simulation chains keeps running: skipped, it would hold
+    // its last state and jump when the fader comes back.
+    const videoMode = this.videoDeck.enabled && this.videoDeck.clips.length > 0
+    const bOnly = this.crossfade >= 0.999 && this.blendMode === 'mix' && !!this.deckBMaterial && !videoMode
+      && !(this.transitionProgress >= 0 && this.transitionOldMaterial) && !this.chains.has(this.mainMaterial)
 
-      if (this.transitionProgress >= 1) {
-        // Transition complete
-        this.disposeEffectMaterial(this.transitionOldMaterial)
-        this.transitionOldMaterial = null
-        this.transitionProgress = -1
-      } else {
-        // Render old effect → rtTransition
-        this.applyEffectUniforms(this.transitionOldMaterial, time)
-        this.renderEffect(this.transitionOldMaterial, this.rtTransition)
+    if (bOnly) {
+      this.applyEffectUniforms(this.deckBMaterial!, time)
+      this.renderEffect(this.deckBMaterial!, this.rtA)
+    } else {
+      // Deck A → rtA (simulation passes first, then the quad or the geometry)
+      this.renderEffect(this.mainMaterial, this.rtA)
 
-        // Blend old + new → rtB, then copy back to rtA
-        const tu = this.transitionMaterial.uniforms
-        tu.tOld.value = this.rtTransition.texture
-        tu.tNew.value = this.rtA.texture
-        tu.uProgress.value = this.transitionProgress
-        tu.uType.value = TRANSITION_TYPE_INDEX[this.transitionType]
-        this.renderPass(this.transitionMaterial, this.rtB)
-        this.blit(this.rtB.texture, this.rtA)
+      // Effect transition blending
+      if (this.transitionProgress >= 0 && this.transitionOldMaterial) {
+        this.transitionProgress += dt / Math.max(this.transitionDuration, 0.01)
+
+        if (this.transitionProgress >= 1) {
+          // Transition complete
+          this.disposeEffectMaterial(this.transitionOldMaterial)
+          this.transitionOldMaterial = null
+          this.transitionProgress = -1
+        } else {
+          // Render old effect → rtTransition
+          this.applyEffectUniforms(this.transitionOldMaterial, time)
+          this.renderEffect(this.transitionOldMaterial, this.rtTransition)
+
+          // Blend old + new → the free target
+          const tu = this.transitionMaterial.uniforms
+          tu.tOld.value = this.rtTransition.texture
+          tu.tNew.value = cur.texture
+          tu.uProgress.value = this.transitionProgress
+          tu.uType.value = TRANSITION_TYPE_INDEX[this.transitionType]
+          this.renderPass(this.transitionMaterial, alt)
+          swap()
+        }
       }
     }
 
@@ -3421,9 +3485,8 @@ export class Engine {
     // target, so blends and masks see no difference between effect and video.
     // ponytail: the blit stretches to the deck's aspect; a 9:16 clip on a 16:9
     // output gets squashed — add a cover-fit UV in passthrough if it matters.
-    const videoMode = this.videoDeck.enabled && this.videoDeck.clips.length > 0
     const deckVideoTex = (this.crossfade > 0.001 || videoMode) ? this.tickDeckVideo(bpm) : null
-    if (this.crossfade > 0.001 && (this.deckBMaterial || videoMode)) {
+    if (!bOnly && this.crossfade > 0.001 && (this.deckBMaterial || videoMode)) {
       if (deckVideoTex) this.blit(deckVideoTex, this.rtDeckB)
       else if (!videoMode) {
         this.applyEffectUniforms(this.deckBMaterial!, time)
@@ -3435,7 +3498,7 @@ export class Engine {
       // in a second <video> if it reads as a hiccup.
 
       const du = this.deckMixMaterial.uniforms
-      du.tDeckA.value = this.rtA.texture
+      du.tDeckA.value = cur.texture
       du.tDeckB.value = this.rtDeckB.texture
       du.uMix.value = this.crossfade
       const bi = Math.max(0, BLEND_MODES.indexOf(this.blendMode))
@@ -3443,16 +3506,16 @@ export class Engine {
       du.uMaskMode.value = bi < MASK_FIRST ? 0 : bi - MASK_FIRST + 1
       du.uMaskSoft.value = this.maskSoft
       this.applyEffectUniforms(this.deckMixMaterial, time)   // uBass/uBeat/uResolution for the masks
-      this.renderPass(this.deckMixMaterial, this.rtB)
-      this.blit(this.rtB.texture, this.rtA)
+      this.renderPass(this.deckMixMaterial, alt)
+      swap()
     }
 
     // Render overlays on top of the mixed image
     let hasVisibleOverlays = false
     for (const o of this.overlays) { if (o.visible && o._texture) { hasVisibleOverlays = true; break } }
     if (hasVisibleOverlays) {
-      let src = this.rtA
-      let dst = this.rtB
+      let src = cur
+      let dst = alt
       for (const overlay of this.overlays) {
         if (!overlay.visible || !overlay._texture) continue
         // Advance GIF frames based on sync mode
@@ -3503,17 +3566,18 @@ export class Engine {
         // Swap
         const tmp = src; src = dst; dst = tmp
       }
-      if (src !== this.rtA) this.blit(src.texture, this.rtA)
+      cur = src; alt = dst
     }
 
     // Master camera — before the post chain, so everything downstream sees
     // the framing the VJ chose, and skipped completely when it is neutral.
     if (this.cameraActive()) {
       const cu = this.cameraMaterial.uniforms
-      cu.tDiffuse.value = this.rtA.texture
+      cu.tDiffuse.value = cur.texture
       cu.uResolution.value.copy(this.resolution)
       cu.uZoom.value = this.cameraState.zoom
-      cu.uRotation.value = this.cameraState.rotation * Math.PI / 180
+      const rr = this.cameraState.rotation * Math.PI / 180
+      cu.uRotCS.value.set(Math.cos(rr), Math.sin(rr))
       cu.uPan.value.set(this.cameraState.panX, this.cameraState.panY)
       cu.uTile.value = this.cameraState.tile
       cu.uPushAmt.value = this.cameraState.push
@@ -3526,13 +3590,13 @@ export class Engine {
       cu.uSparkle.value = io.sparkle
       cu.uFlash.value = io.flash
       cu.uTime.value = this.beatClock
-      this.renderPass(this.cameraMaterial, this.rtB)
-      this.blit(this.rtB.texture, this.rtA)
+      this.renderPass(this.cameraMaterial, alt)
+      swap()
     }
 
     // Post-processing chain — ordered, each with its own wet/dry
-    let read = this.rtA
-    let write = this.rtB
+    let read = cur
+    let write = alt
 
     for (const entry of this.postChain) {
       const mat = this.postMaterials.get(entry.id)
@@ -3633,6 +3697,13 @@ export class Engine {
     if (u.uHighTime) u.uHighTime.value = this.highTime
     if (u.uResolution) u.uResolution.value = this.resolution
     if (u.uFrame) u.uFrame.value = this.frameCounter
+    if (u.uCamRot) {
+      // galaxy.vert camera: the formulas the shader had (tilt swings with the
+      // bar, yaw drifts with both clocks); float64 here, so no mod is needed
+      const tl = 0.95 + 0.22 * Math.sin(this.beatClock * 0.05)
+      const yw = (this.beatClock + this.effectTime) * 0.02
+      u.uCamRot.value.set(Math.cos(yw), Math.sin(yw), Math.cos(tl), Math.sin(tl))
+    }
   }
 
   /**
@@ -3654,6 +3725,13 @@ export class Engine {
       this.renderer.setRenderTarget(target)
       this.renderer.setClearColor(0x000000, 1)
       this.renderer.clear(true, true, false)
+      // mesh: show only the selected look's object (see meshModel.buildMesh).
+      // Every look is its own program (LOOK define) and three compiles a
+      // program on its first visible draw: compile them all once, while all
+      // six are still visible, or switching look live hitches a frame.
+      const sync = geo.object.userData.syncLook as (() => void) | undefined
+      if (sync && !geo.object.userData.warm) { this.renderer.compile(geo.scene, this.camera); geo.object.userData.warm = true }
+      sync?.()
       this.renderer.render(geo.scene, this.camera)
     } else {
       this.quad.material = mat

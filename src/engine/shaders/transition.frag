@@ -19,14 +19,18 @@ void main() {
   float t = clamp(uProgress, 0.0, 1.0);
   float mix_val = t;
 
+  // mix_val is 1 where the NEW effect shows: every wipe must be 0 everywhere at
+  // t = 0 and 1 everywhere at t = 1. The bare smoothstep gave the opposite (all
+  // new at once, then the old creeping back, then a pop to the new when Engine
+  // dropped the old material), hence the 1.0 - on each of them.
   if (uType == 1) {
     // Wipe left-to-right
     float edge = t * 1.2 - 0.1;
-    mix_val = smoothstep(edge - 0.05, edge + 0.05, vUv.x);
+    mix_val = 1.0 - smoothstep(edge - 0.05, edge + 0.05, vUv.x);
   } else if (uType == 2) {
     // Wipe top-to-bottom
     float edge = t * 1.2 - 0.1;
-    mix_val = smoothstep(edge - 0.05, edge + 0.05, 1.0 - vUv.y);
+    mix_val = 1.0 - smoothstep(edge - 0.05, edge + 0.05, 1.0 - vUv.y);
   } else if (uType == 3) {
     // Radial wipe from center
     vec2 center = vUv - 0.5;
@@ -36,8 +40,10 @@ void main() {
     mix_val = 1.0 - mix_val; // expand outward
   } else if (uType == 4) {
     // Dissolve noise
+    // noise is in [0, 1): the edge runs -0.1 -> 1.1 so both ends are complete
     float noise = hash(floor(vUv * uResolution / 4.0));
-    mix_val = smoothstep(t - 0.1, t + 0.1, noise);
+    float e = t * 1.2 - 0.1;
+    mix_val = 1.0 - smoothstep(e - 0.1, e + 0.1, noise);
   }
   // uType == 0: crossfade, mix_val = t (default)
 

@@ -14,7 +14,8 @@ vec2 kaleido(vec2 uv, float n) {
   vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
   vec2 p = (uv - 0.5) * asp;
   float seg = 6.2831853 / n;
-  float a = abs(mod(atan(p.y, p.x), seg) - seg * 0.5);   // specchio dentro lo spicchio
+  // specchio dentro lo spicchio; +1e-6: atan(0, 0) sul pixel centrale e' indefinito
+  float a = abs(mod(atan(p.y, p.x + 1e-6), seg) - seg * 0.5);
   vec2 q = 0.5 + vec2(cos(a), sin(a)) * length(p) / asp;
   return 1.0 - abs(mod(q, 2.0) - 1.0);   // oltre il bordo: ripiega invece di sbavare
 }

@@ -19,9 +19,14 @@ float noise(vec2 p) {
 void main() {
   float amp = uWet * (0.5 + uBass) * 0.06;   // al massimo ~9% del frame
   vec2 p = vUv * vec2(uResolution.x / uResolution.y, 1.0);
-  vec2 wave = vec2(sin(p.y * 9.0 + uTime * 1.6), cos(p.x * 7.0 - uTime * 1.3));
-  vec2 n = vec2(noise(p * 4.0 + uTime * 0.7), noise(p * 4.0 - uTime * 0.6 + 17.0)) * 2.0 - 1.0;
-  vec2 d = mix(wave, n, smoothstep(0.3, 0.8, uWet)) * amp;
-  vec2 uv = 1.0 - abs(mod(vUv + d, 2.0) - 1.0);   // ai bordi ripiega invece di sbavare
+  // onde sotto 0.3, noise (8 hash) sopra 0.8, mescolati in mezzo: si calcola
+  // solo il ramo che pesa davvero (t viene da un uniform, i rami sono coerenti)
+  float t = smoothstep(0.3, 0.8, uWet);
+  vec2 d = vec2(0.0);
+  if (t < 1.0) d += (1.0 - t) * vec2(sin(p.y * 9.0 + uTime * 1.6), cos(p.x * 7.0 - uTime * 1.3));
+  if (t > 0.0) d += t * (vec2(noise(p * 4.0 + uTime * 0.7), noise(p * 4.0 - uTime * 0.6 + 17.0)) * 2.0 - 1.0);
+  d *= amp;
+  // ai bordi ripiega invece di sbavare: lo stesso fold di mod(x, 2) per |x| < 2, senza i due mod
+  vec2 uv = 1.0 - abs(1.0 - abs(vUv + d));
   gl_FragColor = texture2D(tDiffuse, uv);
 }

@@ -38,6 +38,8 @@ void main() {
   float lkb = 1.0 + 2.5 * uLineBoost;
   float lminW = (3.0 + 4.0 * uLineBoost) / uResolution.y;
   vec3 color = vec3(0.0);
+  // more beams, each a little dimmer: twelve at full haze washed the frame
+  float dimB = sqrt(6.0 / max(beams, 6.0));
 
   for (int e = 0; e < 2; e++) {
     float fe = float(e);
@@ -59,20 +61,26 @@ void main() {
     float aim0 = mid + sweepA;
     float aim = fe == 0.0 ? aim0 : PI - aim0;   // mirror for the right emitter
 
+    // per-emitter invariants, out of the ray loop (its dynamic break keeps
+    // some drivers from hoisting them)
+    // pixel floor: beam half-width ~ lminW at any distance
+    float w = max((0.0016 + uHigh * 0.002) * lkb * lkb, 8.0 * lminW * lminW / max(d, 0.05));
+    float d8 = d * 8.0;
+    float hazeD = 0.02 / (d * 2.0 + 0.4);
+    float invN = 1.0 / max(beams - 1.0, 1.0);
+    float fanK = 2.0 * halfFan * (1.0 - fe * 2.0);
+
     for (float i = 0.0; i < 12.0; i++) {
       if (i >= beams) break;
-      float k = i / max(beams - 1.0, 1.0) - 0.5;
-      float beamA = aim + k * 2.0 * halfFan * (1.0 - fe * 2.0);
+      float k = i * invN - 0.5;
+      float beamA = aim + k * fanK;
       // angular distance from the beam
       float da = abs(mod(baseA - beamA + PI, TAU) - PI);
-      float w = max((0.0016 + uHigh * 0.002) * lkb * lkb, 8.0 * lminW * lminW / max(d, 0.05));
-      // pixel floor: beam half-width ~ lminW at any distance
-      float core = w / (da * da * d * 8.0 + w) ;
-      float haze = 0.02 / (da * 12.0 + 0.25) / (d * 2.0 + 0.4);
+      float core = w / (da * da * d8 + w);
+      float haze = hazeD / (da * 12.0 + 0.25);
       vec3 c = mix(uColor1, uColor2, fract(i * 0.37 + fe * 0.5 + uBarPhase));
       float strobe = 0.55 + 0.45 * step(0.5, fract(i * 0.5 + uHighTime * 2.0));
-      // more beams, each a little dimmer: twelve at full haze washed the frame
-      color += c * (core * 0.9 + haze) * strobe * sqrt(6.0 / max(beams, 6.0));
+      color += c * (core * 0.9 + haze) * strobe * dimB;
     }
   }
 

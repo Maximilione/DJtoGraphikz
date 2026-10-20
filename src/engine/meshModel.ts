@@ -15,6 +15,8 @@ export interface MeshModel {
   geometry: THREE.BufferGeometry
   /** a PLY scan with no faces: only the points look has anything to draw */
   pointsOnly: boolean
+  /** edge list for the wire look, built once per model (edge hashing a 200k-vertex mesh is 100+ ms on the main thread) and shared by every instance */
+  wire?: THREE.BufferGeometry
 }
 
 /**
@@ -32,24 +34,28 @@ function cluster(pos: Float32Array, res: number): { positions: Float32Array; ind
   const ext = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1e-9)
   const k = (res - 1) / ext
   const cells = new Map<number, number>()
-  const sums: number[] = []
   const map = new Uint32Array(pos.length / 3)
+  // typed, sized up front: there are at most as many cells as vertices, and a
+  // growing number[] over a multi-million-vertex soup reallocates its way to
+  // 2-3x the peak memory — this runs 3-6 times per import
+  const sums = new Float64Array(map.length * 4)
   for (let v = 0; v < map.length; v++) {
     const x = Math.round((pos[v * 3] - minX) * k), y = Math.round((pos[v * 3 + 1] - minY) * k), z = Math.round((pos[v * 3 + 2] - minZ) * k)
     const key = (x * res + y) * res + z   // res <= 2048 -> < 2^33, exact in a double
     let id = cells.get(key)
-    if (id === undefined) { id = cells.size; cells.set(key, id); sums.push(0, 0, 0, 0) }
+    if (id === undefined) { id = cells.size; cells.set(key, id) }
     sums[id * 4] += pos[v * 3]; sums[id * 4 + 1] += pos[v * 3 + 1]; sums[id * 4 + 2] += pos[v * 3 + 2]; sums[id * 4 + 3]++
     map[v] = id
   }
   const positions = new Float32Array(cells.size * 3)
   for (let c = 0; c < cells.size; c++) for (let j = 0; j < 3; j++) positions[c * 3 + j] = sums[c * 4 + j] / sums[c * 4 + 3]
-  const tris: number[] = []
+  const tris = new Uint32Array(map.length)
+  let tn = 0
   for (let t = 0; t + 2 < map.length; t += 3) {
     const a = map[t], b = map[t + 1], c = map[t + 2]
-    if (a !== b && b !== c && a !== c) tris.push(a, b, c)
+    if (a !== b && b !== c && a !== c) { tris[tn++] = a; tris[tn++] = b; tris[tn++] = c }
   }
-  return { positions, index: new Uint32Array(tris) }
+  return { positions, index: tris.slice(0, tn) }
 }
 
 /** Triangle soup (3 positions per triangle, world space) → centred, unit-radius, indexed, ≤ MESH_MAX_VERTS */
@@ -152,9 +158,11 @@ function fill(group: THREE.Group, model: MeshModel) {
   const [wire, points, solid, holo, dissolving, dust] = group.children as [THREE.LineSegments, THREE.Points, THREE.Mesh, THREE.Mesh, THREE.Mesh, THREE.Points]
   const old = [wire.geometry, points.geometry, solid.geometry]
   for (const o of [points, solid, holo, dissolving, dust]) o.geometry = model.geometry
-  // triangle edges, not the quads of a flat-shaded export: WireframeGeometry reads an index or a soup alike
-  wire.geometry = model.geometry.getIndex() ? new THREE.WireframeGeometry(model.geometry) : new THREE.BufferGeometry()
-  for (const g of old) if (g !== model.geometry) g.dispose()
+  // triangle edges, not the quads of a flat-shaded export: WireframeGeometry reads an index or a soup alike.
+  // Cached on the model: Engine.disposeEffectMaterial disposes it with the shared geometry too, which only
+  // drops the GPU buffers — three re-uploads them the next time another group draws, so sharing stays correct.
+  wire.geometry = model.geometry.getIndex() ? (model.wire ??= new THREE.WireframeGeometry(model.geometry)) : new THREE.BufferGeometry()
+  for (const g of old) if (g !== model.geometry && g !== model.wire) g.dispose()
   group.userData.uniforms.uPointsOnly.value = model.pointsOnly ? 1 : 0
 }
 
@@ -182,9 +190,20 @@ export function buildMesh(uniforms: Record<string, THREE.IUniform>) {
   const dissolving = new THREE.Mesh(empty, mk(4))
   const dust = new THREE.Points(empty, mk(5))
   const group = new THREE.Group()
-  for (const o of [wire, points, solid, holo, dissolving, dust]) { o.frustumCulled = false; group.add(o) }
+  const kids = [wire, points, solid, holo, dissolving, dust]
+  for (const o of kids) { o.frustumCulled = false; group.add(o) }
   group.userData.uniforms = uniforms
   group.userData.depth = true   // the solid look needs a depth buffer in the target (see Engine.renderEffect)
+  // Only the selected look is drawn. mesh.vert culls the other looks per vertex
+  // (and stays as the safety net), but that still costs a draw call and a full
+  // vertex pass for each of the six objects — 4-5 wasted passes over a 100k+
+  // vertex model every frame. Same rule as the shader's `on`, read from the
+  // same uniforms, so the two can never disagree. Engine.renderEffect calls it.
+  group.userData.syncLook = () => {
+    const lk = Math.round((uniforms.look?.value as number | undefined) ?? 0)
+    const pts = (uniforms.uPointsOnly.value as number) > 0.5
+    kids.forEach((o, i) => { o.visible = pts ? i === (lk >= 4 ? 5 : 1) : (i === lk || (i === 5 && lk === 4)) })
+  }
   fill(group, current)
   groups.add(group)
   const material = solid.material as THREE.ShaderMaterial

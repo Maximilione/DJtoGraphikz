@@ -52,9 +52,12 @@ void main() {
 #elif LOOK == 3
   // hologram: fresnel shell, scanlines running up the body, a dim floor of light
   vec3 n = normalize(vN);
-  float fres = pow(1.0 - clamp(n.z, 0.0, 1.0), 2.0);
+  float f1 = 1.0 - clamp(n.z, 0.0, 1.0);
+  float fres = f1 * f1;
   float scan = 0.55 + 0.45 * sin(vP.y * 110.0 - uTime * 3.0);
-  float sweep = pow(0.5 + 0.5 * sin(vP.y * 3.0 - uTime * 1.6), 8.0);
+  float sw = 0.5 + 0.5 * sin(vP.y * 3.0 - uTime * 1.6);
+  float sw2 = sw * sw; float sw4 = sw2 * sw2;
+  float sweep = sw4 * sw4;   // sw^8
   vec3 c = mix(uColor1, uColor2, clamp(vP.y * 0.5 + 0.5, 0.0, 1.0));
   vec3 holo = c * (0.16 + 1.2 * fres) * scan + uColor3 * (fres * 0.6 + sweep * 0.7);
   holo *= 0.8 + 0.5 * uEnergy + 0.6 * uBass;
@@ -72,18 +75,27 @@ void main() {
 #if LOOK == 4
   float kk = clamp(max(uBeat, uBassHit), 0.0, 1.0);
   float lvl = min(dissolve * 0.7 + 0.35 * kk, 0.85);
-  float en = 0.65 * vn(vO * 4.0) + 0.35 * vn(vO * 11.0);
-  if (en < lvl) discard;
-  edge = 1.0 - smoothstep(0.0, 0.07, en - lvl);
+  // the second octave adds [0, 0.35): the first one alone settles the
+  // fragments that are surely eaten or surely far from the edge (edge = 0)
+  float e1 = 0.65 * vn(vO * 4.0);
+  if (e1 + 0.35 < lvl) discard;
+  if (e1 < lvl + 0.07) {
+    float en = e1 + 0.35 * vn(vO * 11.0);
+    if (en < lvl) discard;
+    edge = 1.0 - smoothstep(0.0, 0.07, en - lvl);
+  }
 #endif
   vec3 n = normalize(vN);
   vec3 v = vec3(0.0, 0.0, 1.0);
   vec3 r = reflect(-v, n);
-  float fres = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 2.5);
+  float f1 = 1.0 - clamp(dot(n, v), 0.0, 1.0);
+  float fres = f1 * f1 * sqrt(f1);   // f1^2.5
   float env = 0.5 + 0.5 * sin(r.y * 6.0 + r.x * 3.0 + uTime * 0.6);
   vec3 c = mix(uColor1, uColor2, env);
   c = mix(c, uColor3, fres);
-  float spec = pow(max(dot(r, normalize(vec3(0.4, 0.7, 0.6))), 0.0), 24.0);
+  float s = max(dot(r, normalize(vec3(0.4, 0.7, 0.6))), 0.0);
+  float s2 = s * s, s4 = s2 * s2, s8 = s4 * s4;
+  float spec = s8 * s8 * s8;   // s^24
   c = c * (0.3 + 0.7 * (0.5 + 0.5 * n.y)) + spec * (0.6 + uBass);
   c += uColor3 * fres * 0.5 * (1.0 + uHighHit * 2.0);
   c += uColor3 * edge * (1.6 + uBass);

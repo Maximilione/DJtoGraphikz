@@ -49,7 +49,6 @@ void main() {
 
   // baseline: centred when mirrored, on the floor when not
   float base = mix(0.06, 0.5, mirror);
-  float d = abs(uv.y - base) - (mirror > 0.5 ? h * 0.5 : (uv.y > base ? h : -1.0));
   float lit = (mirror > 0.5)
     ? step(abs(uv.y - base), h * 0.5)
     : step(base, uv.y) * step(uv.y, base + h);
@@ -65,10 +64,12 @@ void main() {
   float cap = step(abs(abs(uv.y - base) - h * 0.5), capw) * gap;
   c += tint * cap * (1.2 + 1.5 * uBeat);
 
-  // oscilloscope over the top
-  float w = texture2D(uSpectrum, vec2(uv.x, 0.5)).g - 0.5;
-  float trace = abs(uv.y - (0.5 + w * 0.7 * scope));
-  c += uColor3 * scope * (1.0 - smoothstep(0.0, max(3.5 * (1.0 + 2.5 * uLineBoost), 3.0 + 4.0 * uLineBoost) / uResolution.y, trace)) * (0.6 + 0.8 * uHigh);
+  // oscilloscope over the top (uniform branch: no fetch when it is off)
+  if (scope > 0.001) {
+    float w = texture2D(uSpectrum, vec2(uv.x, 0.5)).g - 0.5;
+    float trace = abs(uv.y - (0.5 + w * 0.7 * scope));
+    c += uColor3 * scope * (1.0 - smoothstep(0.0, max(3.5 * (1.0 + 2.5 * uLineBoost), 3.0 + 4.0 * uLineBoost) / uResolution.y, trace)) * (0.6 + 0.8 * uHigh);
+  }
 
   // floor glow so a silent room is not a black rectangle
   c += tint * exp(-abs(uv.y - base) * 14.0) * (0.05 + 0.12 * uEnergy) * gap;

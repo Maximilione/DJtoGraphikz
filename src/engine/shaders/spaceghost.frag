@@ -37,7 +37,7 @@ float field(vec3 p, int n, float k) {
   float res = 0.0;
   for (int i = 0; i < 6; i++) {
     if (i >= n) break;
-    p = abs(p) / dot(p, p) - 0.68;
+    p = abs(p) / max(dot(p, p), 1e-8) - 0.68;   // a point on the origin gave inf/NaN
     p.yz = vec2(p.y * p.y - p.z * p.z, 2.0 * p.y * p.z);
     res += exp(-k * abs(dot(p, c)));
   }
@@ -63,14 +63,16 @@ void main() {
   float k = (80.0 - glow) * (1.0 - 0.25 * uBass);
   float t = 1.6;
   float c = 0.0;
-  vec3 col = vec3(0.0);
+  // the layer is linear in the three palette colours: accumulate their three
+  // scalar weights (layer*0.3 folded in) and apply the colours once
+  vec3 acc = vec3(0.0);
   for (int i = 0; i < 14; i++) {
     t += exp(-c * 2.0) * (0.14 + 0.06 * uBass);
     c = field(ro + rd * t, n, k);
     float cc = c * c;
-    vec3 layer = uColor1 * cc * 2.6 + uColor2 * cc * c * 1.6 + uColor3 * c * 0.45;
-    col = layer * 0.3 + col * 0.95;
+    acc = vec3(cc * 0.78, cc * c * 0.48, c * 0.135) + acc * 0.95;
   }
+  vec3 col = uColor1 * acc.x + uColor2 * acc.y + uColor3 * acc.z;
   // log compresses the hot cores into glow instead of white; the floor keeps
   // a dim nebula in a silent room
   // 1/(1+k r^2): the linear falloff went negative on wide frames (LED strip, ultrawide)

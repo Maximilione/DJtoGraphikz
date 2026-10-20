@@ -39,6 +39,7 @@ const float BLADE_THICK = 0.12;
 float gKick;
 float gAngle;
 float gNB;
+float gSector, gInvSector; // TAU / gNB and its reciprocal, once per pixel
 
 float sdBox(vec3 p, vec3 b) {
   vec3 q = abs(p) - b;
@@ -54,17 +55,18 @@ float bladeField(vec3 p) {
   vec3 q = p - HUB;
   float r = length(q.xy);
   float ang = atan(q.y, q.x) - gAngle;
-  float sector = TAU / gNB;
-  float a2 = mod(ang + sector * 0.5, sector) - sector * 0.5;
+  float u = (ang + gSector * 0.5) * gInvSector;
+  float a2 = (u - floor(u) - 0.5) * gSector;
   float x = r - HUB_R;                // along the blade, root to tip
   float y = r * a2;                   // lateral (arc) offset within the blade
   float z = q.z;
+  float xt = clamp(x * (1.0 / BLADE_LEN), 0.0, 1.0);
   // pitch twist: the cross-section rotates around the radial axis with x
-  float twist = 1.1 * clamp(x / BLADE_LEN, 0.0, 1.0);
+  float twist = 1.1 * xt;
   float cs = cos(twist), sn = sin(twist);
   float yz_y = y * cs - z * sn;
   float yz_z = y * sn + z * cs;
-  float taper = mix(0.46, 0.08, clamp(x / BLADE_LEN, 0.0, 1.0));
+  float taper = mix(0.46, 0.08, xt);
   vec3 bp = vec3(x - BLADE_LEN * 0.5, yz_y, yz_z);
   return sdBox(bp, vec3(BLADE_LEN * 0.5, taper, BLADE_THICK));
 }
@@ -75,14 +77,25 @@ float map(vec3 p) {
   return min(hub, bladeField(p));
 }
 
+// Bounding sphere round the rotor: blade tip r <= HUB_R + BLADE_LEN = 4.15,
+// |z| <= hypot(taper, BLADE_THICK) = 0.475, hub 0.96 -> everything sits
+// inside radius 4.18 of HUB; 4.25 leaves a margin. The camera is ~8.2 away,
+// so the march starts at the sphere, stops at its far side, and rays that
+// miss it (the frame corners) never march at all.
 float march(vec3 ro, vec3 rd) {
-  float t = 0.1;
+  vec3 oc = ro - HUB;
+  float b = dot(oc, rd);
+  float h = b * b - (dot(oc, oc) - 18.0625); // 4.25^2
+  if (h < 0.0) return -1.0;
+  h = sqrt(h);
+  float t = max(0.1, -b - h);
+  float tEnd = min(30.0, -b + h);
   for (int i = 0; i < 90; i++) {
     vec3 p = ro + rd * t;
     float d = map(p);
     if (d < 0.003) return t;
     t += d * 0.9;
-    if (t > 30.0) break;
+    if (t > tEnd) break;
   }
   return -1.0;
 }
@@ -103,18 +116,22 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
 
   // always-on floor: cold rim + a dim ambient key, so the rotor reads as a
   // dark shape even with no flash at all
-  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
+  float rf = 1.0 - max(dot(n, -rd), 0.0);
+  float rim = rf * rf * sqrt(rf); // ^2.5
   vec3 c = uColor2 * 0.05 + uColor1 * rim * 0.22;
   vec3 Lamb = normalize(vec3(0.3, 0.6, 0.6));
   c += uColor2 * max(dot(n, Lamb), 0.0) * 0.12;
 
-  // strobe: a hard flash from the hub, synced to the kick only
-  vec3 L = normalize((HUB + vec3(0.0, 0.0, 1.6)) - p);
-  float diff = max(dot(n, L), 0.0);
+  // strobe: a hard flash from the hub, synced to the kick only (uniform
+  // branch: between kicks the whole block is a multiply by zero)
   float flash = gKick * clamp(strobe, 0.0, 2.0);
-  vec3 strobeCol = mix(vec3(1.0), uColor3, 0.3);
-  c += strobeCol * diff * flash * 3.2;
-  c += strobeCol * pow(diff, 6.0) * flash * 2.0;
+  if (flash > 0.0) {
+    vec3 L = normalize((HUB + vec3(0.0, 0.0, 1.6)) - p);
+    float diff = max(dot(n, L), 0.0);
+    float d2 = diff * diff;
+    vec3 strobeCol = mix(vec3(1.0), uColor3, 0.3);
+    c += strobeCol * diff * flash * 3.2 + strobeCol * (d2 * d2 * d2) * flash * 2.0;
+  }
   return c;
 }
 
@@ -128,12 +145,13 @@ vec3 bladeGlow(vec3 ro, vec3 rd) {
   vec3 p = ro + rd * tp;
   vec3 q = p - HUB;
   float r = length(q.xy);
+  float radial = smoothstep(HUB_R - 0.1, HUB_R + 0.3, r) *
+                 (1.0 - smoothstep(HUB_R + BLADE_LEN - 0.4, HUB_R + BLADE_LEN + 0.2, r));
+  if (radial <= 0.0) return vec3(0.0); // outside the annulus: no atan/cos/pow
   float ang = atan(q.y, q.x) - gAngle;
   float spd = clamp(speed, 0.1, 3.0);
   float sharpness = mix(9.0, 1.6, clamp(spd / 3.0, 0.0, 1.0));
   float band = pow(0.5 + 0.5 * cos(gNB * ang), sharpness);
-  float radial = smoothstep(HUB_R - 0.1, HUB_R + 0.3, r) *
-                 (1.0 - smoothstep(HUB_R + BLADE_LEN - 0.4, HUB_R + BLADE_LEN + 0.2, r));
   float still = 1.0 - gKick * 0.85;
   return mix(uColor1, uColor2, 0.4) * band * radial * 0.22 * still;
 }
@@ -142,6 +160,8 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   gKick = clamp(uBassHit, 0.0, 1.0);
   gNB = floor(clamp(blades, 3.0, 8.0) + 0.5);
+  gSector = TAU / gNB;
+  gInvSector = gNB / TAU;
   float rot = clamp(speed, 0.1, 3.0);
   gAngle = uTime * rot * 1.6 + uBassTime * 0.05;
 

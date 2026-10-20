@@ -51,8 +51,11 @@ void main() {
   float kick = lit * (0.3 + 0.85 * uBassHit);
 
   // hats: sparse fast sparkles on their own clock
-  float h2 = hash(cell * 1.7 + floor(uHighTime * 6.0) * 7.3);
-  float spark = step(0.985 - chaos * 0.05, h2) * uHighHit;
+  float spark = 0.0;
+  if (uHighHit > 0.0) { // uniform branch: no hash in frames without a hat
+    float h2 = hash(cell * 1.7 + floor(uHighTime * 6.0) * 7.3);
+    spark = step(0.985 - chaos * 0.05, h2) * uHighHit;
+  }
 
   // idle glow so the grid never dies: slow breathing per cell
   float idle = 0.2 + 0.08 * sin(uTime * (0.5 + h * 1.5) + h * TAU) + uEnergy * 0.1;

@@ -84,22 +84,28 @@ void main() {
   float aa = length(vec2(n, twist)) / r * pxu / TAU;
   float w = 0.09 + 0.14 * pulse * hit;
   float arm = 1.0 - smoothstep(w - aa, w + aa, d);
-  // inside the arm: dark core, bright rim, fine stripes across the length
-  float rim = smoothstep(w * 0.45, w, d) * arm;
-  float stripe = 0.5 + 0.5 * sin((lr * 38.0 + mod(bc, 4.0) * TAU / 4.0));
-  vec3 armCol = grad * (0.35 + 0.35 * stripe) + mix(vec3(1.0), grad, 0.35) * rim * (0.9 + 0.6 * hit);
-  col = mix(col, armCol * (0.8 + 0.4 * uBeat), arm);
+  if (arm > 0.0) {   // the arm's stripe and rim only inside it: arm is 0 on most of the frame
+    // inside the arm: dark core, bright rim, fine stripes across the length
+    float rim = smoothstep(w * 0.45, w, d) * arm;
+    float stripe = 0.5 + 0.5 * sin((lr * 38.0 + mod(bc, 4.0) * TAU / 4.0));
+    vec3 armCol = grad * (0.35 + 0.35 * stripe) + mix(vec3(1.0), grad, 0.35) * rim * (0.9 + 0.6 * hit);
+    col = mix(col, armCol * (0.8 + 0.4 * uBeat), arm);
+  }
   float halo = exp(-max(d - w, 0.0) * 12.0);
   col += grad * halo * (1.0 - arm) * (0.28 + 0.4 * uBass + 0.5 * hit);
 
-  // 4. dots riding the arms, outward on the beat clock
-  float du = fract(lr * 4.0 - mod(bc, 4.0) / 4.0);
-  float cell = floor(lr * 4.0 - mod(bc, 4.0) / 4.0);
-  float ci = mod(floor(u), n) + cell * 7.0;
-  float on = step(0.5, hash(mod(ci, 97.0) + 1.0));
-  float dd = length(vec2((du - 0.5) * 0.25, (fract(u) - 0.5) * TAU / length(vec2(n, twist))));
-  float dot_ = (1.0 - smoothstep(0.05, 0.085, dd)) * on;
-  col += mix(vec3(1.0), uColor3, 0.3) * dot_ * (0.6 + 0.8 * uHigh) * depthFade;
+  // 4. dots riding the arms, outward on the beat clock. dd >= |fy|, so past
+  // |fy| = 0.085 the dot is exactly 0: no hash/mod on that band
+  float nt = length(vec2(n, twist));
+  float fy = (fract(u) - 0.5) * TAU / nt;
+  if (abs(fy) < 0.085) {
+    float qd = lr * 4.0 - mod(bc, 4.0) / 4.0;
+    float du = fract(qd);
+    float ci = mod(floor(u), n) + floor(qd) * 7.0;
+    float on = step(0.5, hash(mod(ci, 97.0) + 1.0));
+    float dd = length(vec2((du - 0.5) * 0.25, fy));
+    col += mix(vec3(1.0), uColor3, 0.3) * (1.0 - smoothstep(0.05, 0.085, dd)) * on * (0.6 + 0.8 * uHigh) * depthFade;
+  }
 
   // tunnel ends in a hole, with a thin ring of light around it
   float lip = exp(-abs(r - 0.05) * 90.0) * (0.3 + 0.7 * hit);
