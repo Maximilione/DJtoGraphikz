@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import { readJson } from './storage'
@@ -33,12 +33,21 @@ export function loadAudioSettings(): SavedAudioSettings {
  * again and moves the analyser to the profile's input. The condition is "not
  * on that device", not "not running" — after a profile load the analyser is
  * already running, on the previous room's sound card.
+ *
+ * The first run uses the store as it was when App rendered, before any child
+ * effect: the engine arrives later, and AudioPanel's persist effect writes
+ * {running:false} 250 ms after it mounts — read then, the saved input would
+ * never start again (and would stay off next launch too). Later epochs are a
+ * profile's own rewrite, read fresh.
  */
 export function useAudioRestore(engine: Engine | null, epoch: number) {
+  // read synchronously on App's first render, ahead of every child's effects
+  const boot = useRef<{ epoch: number; s: SavedAudioSettings } | null>(null)
+  if (!boot.current) boot.current = { epoch, s: loadAudioSettings() }
   useEffect(() => {
     if (!engine) return
     const a = engine.audioAnalyzer
-    const s = loadAudioSettings()
+    const s = epoch === boot.current!.epoch ? boot.current!.s : loadAudioSettings()
     // start() rebuilds the audio graph: the settings go in after it as well
     const apply = () => {
       a.setSensitivity(s.sensitivity ?? 0.5)

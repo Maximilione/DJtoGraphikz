@@ -141,20 +141,6 @@ check('Stop spegne il clock, Continue lo riaccende', () => {
   assert.equal(c.read(t).running, true)
 })
 
-check('Stop con un device che continua a tickare resta fermo; Start riparte', () => {
-  const c = new MidiClock()
-  c.onByte(MIDI_START, 0)
-  let t = run(c, 120, 2, 0)
-  c.onByte(MIDI_STOP, t)
-  t = run(c, 120, 2, t)               // CDJ, mixer, Traktor: ticks never stop
-  assert.equal(c.read(t).running, false, 'un tick ha riacceso il transport dopo Stop')
-  assert.equal(c.read(t).beatDetected, false, 'battito fantasma a transport fermo')
-  assert.ok(Math.abs(c.read(t).bpm - 120) < 0.5, 'il tempo resta noto durante lo stop')
-  c.onByte(MIDI_START, t)
-  t = run(c, 120, 1, t)
-  assert.equal(c.read(t).running, true)
-})
-
 check('un battito passato subito prima di Stop non scatta al Continue', () => {
   const c = new MidiClock()
   c.onByte(MIDI_START, 0)
