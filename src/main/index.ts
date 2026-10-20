@@ -28,7 +28,10 @@ let quitting = false
 // analyser, a second projector on the same display and a remote server on the
 // next port, while the phone stayed paired to the first. The release gate and
 // the parallel smoke-test instances (DJG_VITE_PORT) are the exception.
-if (!process.env.DJG_SELFTEST && !process.env.DJG_VITE_PORT && !app.requestSingleInstanceLock()) {
+// app.quit() before ready does not stop whenReady from firing: the second
+// instance checks this there and builds nothing (no window, no socket).
+const primaryInstance = !!process.env.DJG_SELFTEST || !!process.env.DJG_VITE_PORT || app.requestSingleInstanceLock()
+if (!primaryInstance) {
   app.quit()
 } else {
   app.on('second-instance', () => {
@@ -504,6 +507,7 @@ const VIDEO_EXT = VIDEO_RE
 const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|flac)$/i
 
 app.whenReady().then(async () => {
+  if (!primaryInstance) return
   setupDebugLog()
 
   // Under the release gate: no Dock icon, no app switch. Launching normally

@@ -84,7 +84,9 @@ class GamepadEngine {
             this.persist(); this.rebuildReverse(); this.notify()
           }
           // while learning nothing reaches the show: a stick short of
-          // LEARN_TRAVEL used to fall through and drive the existing bindings
+          // LEARN_TRAVEL used to fall through and drive the existing bindings.
+          // The panel's readout still shows what was touched.
+          for (const e of events) if (e.pressed) this.showPressed(e)
           continue
         }
         for (const e of events) this.handle(e)
@@ -96,13 +98,15 @@ class GamepadEngine {
     }
   }
 
+  /** the panel re-renders on notify: only when the text actually changed */
+  private showPressed(e: GpEvent) {
+    const msg = `${e.kind === 'btn' ? 'Pulsante' : 'Asse'} ${e.num}`
+    if (msg !== this.lastMessage) { this.lastMessage = msg; this.notify() }
+  }
+
   private handle(e: GpEvent) {
     const key = bindingKey(e)
-    if (e.pressed) {
-      // the panel re-renders on notify: only when the text actually changed
-      const msg = `${e.kind === 'btn' ? 'Pulsante' : 'Asse'} ${e.num}`
-      if (msg !== this.lastMessage) { this.lastMessage = msg; this.notify() }
-    }
+    if (e.pressed) this.showPressed(e)
     const target = this.reverse.get(key)
     if (!target || !this.dispatch || !this.engine) return
     const engine = this.engine, dispatch = this.dispatch

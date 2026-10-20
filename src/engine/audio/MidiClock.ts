@@ -61,11 +61,6 @@ export class MidiClock {
   /** Consecutive implausible intervals: one is a burst or a GC pause, a run is a real stall. */
   private badRun = 0
   private transportRunning = false
-  /**
-   * The transport said Stop. CDJs, mixers and Traktor keep ticking through a
-   * stop, and a tick alone must not turn it back on — only Start or Continue.
-   */
-  private stopped = false
   private everStarted = false
   /** Beat boundaries crossed but not yet reported to a caller. */
   private pendingBeat = false
@@ -79,7 +74,7 @@ export class MidiClock {
   onByte(status: number, nowMs: number, data1 = 0, data2 = 0): void {
     switch (status) {
       case MIDI_CLOCK:
-        if (!this.transportRunning && !this.stopped) {
+        if (!this.transportRunning) {
           // Many devices tick continuously and only send Start when the deck
           // rolls. A tick is enough to know the tempo, so take it.
           this.transportRunning = true
@@ -114,7 +109,6 @@ export class MidiClock {
         this.ticks = 0
         this.pendingBeat = true      // Start *is* a downbeat
         this.transportRunning = true
-        this.stopped = false
         this.everStarted = true
         this.lastTickAt = 0
         this.badRun = 0
@@ -122,7 +116,6 @@ export class MidiClock {
 
       case MIDI_CONTINUE:
         this.transportRunning = true
-        this.stopped = false
         this.everStarted = true
         this.lastTickAt = 0
         this.badRun = 0
@@ -130,7 +123,6 @@ export class MidiClock {
 
       case MIDI_STOP:
         this.transportRunning = false
-        this.stopped = true
         // a beat crossed just before Stop must not fire on Continue
         this.pendingBeat = false
         break
@@ -153,7 +145,6 @@ export class MidiClock {
     this.bpmCache = 0
     this.badRun = 0
     this.transportRunning = false
-    this.stopped = false
     this.everStarted = false
     this.pendingBeat = false
   }
