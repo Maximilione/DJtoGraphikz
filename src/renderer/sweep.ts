@@ -29,6 +29,10 @@ export async function runSweep(engine: Engine) {
     const avg = shots.reduce((a, b) => a + b.mean, 0) / shots.length
     log(`[Sweep] kind=${kind} id=${id} mean=${max.mean.toFixed(3)} std=${max.std.toFixed(3)} bright=${max.bright.toFixed(3)} fps=${max.fps.toFixed(0)} avg=${avg.toFixed(3)} now=${engine.getCurrentEffect()}/${engine.getActivePosts().join('+') || '-'}`)
   }
+  // A throw in here (setEffect, setActivePosts) used to reject a promise nobody
+  // awaited: no '[Sweep] done', no reason in the log, and check-sweep.py sat
+  // out its timeout with the last post chain still on the wall.
+  try {
   engine.setTransitionDuration(0)
   engine.setIntensity(1)
   log(`[Sweep] start effects=${ALL_EFFECTS.length}`)
@@ -67,6 +71,10 @@ export async function runSweep(engine: Engine) {
     await wait(1000)
     await probe('live', `${fx}:${set.name}`)
   }
-  engine.setActivePosts([])
   log('[Sweep] done')
+  } catch (e) {
+    log(`[Sweep] ERROR ${(e as Error)?.message ?? e}`)
+  } finally {
+    try { engine.setActivePosts([]) } catch { /* the error above is the finding */ }
+  }
 }

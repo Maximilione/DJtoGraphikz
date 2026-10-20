@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Panel } from '../Panel/Panel'
 import { pushToast } from '../Toasts/Toasts'
-import { readJson, writeJson } from '../../storage'
+import { readJson, writeJson, writeString } from '../../storage'
 import { VENUES_KEY, sanitizeVenues, upsertVenue, type Venue } from '../../venues'
 
 interface VenuePanelProps {
@@ -12,7 +12,15 @@ interface VenuePanelProps {
 
 /** P2 — named room setups: display, resolution, mapping, audio, ArtNet, master. */
 export function VenuePanel({ capture, apply }: VenuePanelProps) {
-  const [venues, setVenues] = useState<Venue[]>(() => sanitizeVenues(readJson(VENUES_KEY, [])))
+  const [venues, setVenues] = useState<Venue[]>(() => {
+    const raw = readJson<unknown>(VENUES_KEY, [])
+    const good = sanitizeVenues(raw)
+    // a profile with one field out of range is dropped here and the next
+    // store() rewrites the list without it: keep the bytes, like storage.ts
+    // does for a parse error, instead of losing the room for good
+    if (Array.isArray(raw) && good.length < raw.length) writeString(`${VENUES_KEY}.scartati`, JSON.stringify(raw))
+    return good
+  })
   const [name, setName] = useState('')
 
   const store = (next: Venue[]) => {

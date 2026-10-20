@@ -3,9 +3,40 @@ import type { Engine } from '@engine/Engine'
 import { loadISF } from '@engine/IsfLoader'
 import { loadShadertoy } from '@engine/ShadertoyLoader'
 import { Panel } from '../Panel/Panel'
+import { pushToast } from '../Toasts/Toasts'
+import { saveBlob } from '../../download'
 
 interface ShaderEditorProps {
   engine: Engine | null
+}
+
+/** A shader source is kilobytes; anything bigger is the wrong file. */
+const MAX_TEXT_BYTES = 2 * 1024 * 1024
+
+/**
+ * The three imports share one picker: file.text() rejects (file moved,
+ * permission), and the loaders and the compile can throw. Each used to be an
+ * unhandled rejection and a click that did nothing.
+ */
+function pickTextFile(accept: string, onText: (text: string, name: string) => void) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = accept
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    if (file.size > MAX_TEXT_BYTES) {
+      pushToast(`"${file.name}" e' troppo grande per essere uno shader (${(file.size / 1048576).toFixed(1)} MB)`, 'shader-import', undefined, 'err')
+      return
+    }
+    try {
+      onText(await file.text(), file.name)
+    } catch (e) {
+      console.error('[Shader] import fallito:', e)
+      pushToast(`Import di "${file.name}" non riuscito: ${(e as Error).message}`, 'shader-import', undefined, 'err')
+    }
+  }
+  input.click()
 }
 
 // ---- Fractal/animation templates ----
@@ -273,7 +304,15 @@ void main() {
   },
 ]
 
-export function ShaderEditor({ engine }: ShaderEditorProps) {
+// Grouped once: TEMPLATES is a constant, and this reduce used to run again on
+// every keystroke in the editor
+const TEMPLATE_CATEGORIES = TEMPLATES.reduce((acc, t, i) => {
+  if (!acc[t.category]) acc[t.category] = []
+  acc[t.category].push({ ...t, index: i })
+  return acc
+}, {} as Record<string, (typeof TEMPLATES[0] & { index: number })[]>)
+
+function ShaderEditorImpl({ engine }: ShaderEditorProps) {
   const [code, setCode] = useState(TEMPLATES[TEMPLATES.length - 1].code)
   const [error, setError] = useState<string | null>(null)
   const [liveMode, setLiveMode] = useState(false)
@@ -318,14 +357,8 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
   // Import an ISF generator: parse header → auto-sliders, transpile, apply
   const importISF = useCallback(() => {
     if (!engine) return
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.fs,.isf,.frag,.glsl,.txt'
-    input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
-      const text = await file.text()
-      const res = loadISF(text, file.name)
+    pickTextFile('.fs,.isf,.frag,.glsl,.txt', (text, name) => {
+      const res = loadISF(text, name)
       if ('error' in res) {
         setError(`ISF: ${res.error}`)
         return
@@ -338,20 +371,14 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       } else {
         setError(`ISF: ${engine.getLastShaderError() || 'compilazione fallita'}`)
       }
-    }
-    input.click()
+    })
   }, [engine])
 
   // Import a Shadertoy shader: raw GLSL (one pass) or the API JSON (Buffer A-D)
   const importShadertoy = useCallback(() => {
     if (!engine) return
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.glsl,.frag,.txt,.json'
-    input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
-      const res = loadShadertoy(await file.text(), file.name)
+    pickTextFile('.glsl,.frag,.txt,.json', (text, name) => {
+      const res = loadShadertoy(text, name)
       if ('error' in res) {
         setError(`Shadertoy: ${res.error}`)
         return
@@ -363,8 +390,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
       } else {
         setError(`Shadertoy: ${engine.getLastShaderError() || 'compilazione fallita'}`)
       }
-    }
-    input.click()
+    })
   }, [engine])
 
   // Handle tab key in textarea
@@ -387,20 +413,13 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
     }
   }, [code])
 
-  // Group templates by category
-  const categories = TEMPLATES.reduce((acc, t, i) => {
-    if (!acc[t.category]) acc[t.category] = []
-    acc[t.category].push({ ...t, index: i })
-    return acc
-  }, {} as Record<string, (typeof TEMPLATES[0] & { index: number })[]>)
-
   return (
     <Panel id="shader" title="Shader Editor" defaultCollapsed group="right">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {/* Templates */}
         <div>
           <div className="cat-label">Template</div>
-          {Object.entries(categories).map(([cat, items]) => (
+          {Object.entries(TEMPLATE_CATEGORIES).map(([cat, items]) => (
             <div key={cat} style={{ marginBottom: '4px' }}>
               <div className="cat-label" style={{ marginBottom: '2px' }}>{cat}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
@@ -471,15 +490,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
             className="btn btn-secondary btn-sm"
             style={{ flex: 1 }}
             title="Salva lo shader corrente come file .frag"
-            onClick={() => {
-              const blob = new Blob([code], { type: 'text/plain' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = 'custom-shader.frag'
-              a.click()
-              URL.revokeObjectURL(url)
-            }}
+            onClick={() => saveBlob(new Blob([code], { type: 'text/plain' }), 'custom-shader.frag')}
           >
             Esporta .frag
           </button>
@@ -487,19 +498,7 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
             className="btn btn-secondary btn-sm"
             style={{ flex: 1 }}
             title="Carica un file .frag/.glsl nell'editor"
-            onClick={() => {
-              const input = document.createElement('input')
-              input.type = 'file'
-              input.accept = '.frag,.glsl,.txt'
-              input.onchange = async () => {
-                const file = input.files?.[0]
-                if (!file) return
-                const text = await file.text()
-                setCode(text)
-                setError(null)
-              }
-              input.click()
-            }}
+            onClick={() => pickTextFile('.frag,.glsl,.txt', text => { setCode(text); setError(null) })}
           >
             Importa .frag
           </button>
@@ -540,3 +539,6 @@ export function ShaderEditor({ engine }: ShaderEditorProps) {
     </Panel>
   )
 }
+
+/** Memoised: App re-renders on every slider tick and remote command; this panel only depends on the engine. */
+export const ShaderEditor = React.memo(ShaderEditorImpl)

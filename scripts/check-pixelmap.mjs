@@ -38,9 +38,10 @@ check('un pannello piccolo sta in un universo, in alto a sinistra per primo', ()
   assert.equal(out.length, 1)
   assert.equal(out[0].universe, 3)
   assert.equal(out[0].values.length, 60)
-  assert.deepEqual(out[0].values.slice(0, 3), [0, 0, 7])        // (0,0)
-  assert.deepEqual(out[0].values.slice(27, 30), [9, 0, 7])      // (9,0): end of the first row
-  assert.deepEqual(out[0].values.slice(30, 33), [0, 1, 7])      // (0,1): the second row starts at the left
+  assert.ok(out[0].values instanceof Uint8Array, 'bytes, not JS numbers: one copy over IPC')
+  assert.deepEqual(Array.from(out[0].values.slice(0, 3)), [0, 0, 7])        // (0,0)
+  assert.deepEqual(Array.from(out[0].values.slice(27, 30)), [9, 0, 7])      // (9,0): end of the first row
+  assert.deepEqual(Array.from(out[0].values.slice(30, 33)), [0, 1, 7])      // (0,1): the second row starts at the left
 })
 
 check('170 pixel per universo, il 171esimo apre il successivo', () => {
@@ -88,6 +89,13 @@ check('il pacchetto sACN ha le lunghezze, il vettore, il CID e lo start code al 
 check('una configurazione sporca torna sana', () => {
   const c = sanitizePixelMap({ cols: 0, rows: 99999, fps: 'x', protocol: 'nope', universe: -3 })
   assert.deepEqual([c.cols, c.rows, c.fps, c.protocol, c.universe], [1, 1024, 30, 'sacn', 0])
+})
+
+check('ArtNet indirizza 15 bit: universo 40000 non esce come 7232, e il pannello sta sotto il massimo', () => {
+  assert.equal(sanitizePixelMap({ protocol: 'artnet', universe: 40000 }).universe, 32767 - universesFor(32, 8) + 1)
+  assert.equal(sanitizePixelMap({ protocol: 'sacn', universe: 40000 }).universe, 40000)
+  // 200x1 = 2 universi: dal 63999 non si puo' partire, dal 63998 si'
+  assert.equal(sanitizePixelMap({ protocol: 'sacn', cols: 200, rows: 1, universe: 63999 }).universe, 63998)
 })
 
 console.log(`\n${checks} controlli passati`)

@@ -67,10 +67,11 @@ const api = {
   sendSelfTestData: (buf: ArrayBuffer) => ipcRenderer.send('selftest:data', buf),
 
   // ArtNet DMX (main wraps the values in ArtDMX packets)
-  sendDmxFrame: (frame: { host: string; universe: number; values: number[] }) =>
+  sendDmxFrame: (frame: { host: string; universe: number; values: number[] | Uint8Array }) =>
     ipcRenderer.send('dmx:frame', frame),
-  // Pixel map: the frame sampled at the LED panel's resolution, one message per frame, many universes
-  sendPixelMap: (msg: { host: string; protocol: 'artnet' | 'sacn'; frames: { universe: number; values: number[] }[] }) =>
+  // Pixel map: the frame sampled at the LED panel's resolution, one message per
+  // frame, many universes — Uint8Array views on one buffer, cloned once
+  sendPixelMap: (msg: { host: string; protocol: 'artnet' | 'sacn'; frames: { universe: number; values: number[] | Uint8Array }[] }) =>
     ipcRenderer.send('pixelmap:frame', msg),
 
   // Soundcheck (P3): on-demand probes, one invoke each

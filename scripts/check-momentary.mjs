@@ -95,4 +95,46 @@ check('clear libera i tasti senza annullare niente', () => {
   assert.equal(m.release('q'), false)
 })
 
+check('ripremere senza rilascio tiene la prima via del ritorno', () => {
+  // MIDI note-on doppio, release persa dal telefono: il secondo press era
+  // catturato su uno stato gia' cambiato e al rilascio lo strobe restava
+  const m = new Momentary()
+  const back = []
+  now = 0
+  m.press('q', () => back.push('prima'))
+  now += 20
+  m.press('q', () => back.push('seconda'))
+  now += HOLD_MS + 1
+  assert.equal(m.release('q'), true)
+  assert.deepEqual(back, ['prima'])
+})
+
+check('un revert che lancia non rompe chi rilascia', () => {
+  const m = new Momentary()
+  const errors = []
+  const orig = console.error
+  console.error = (...a) => errors.push(a)
+  try {
+    now = 0
+    m.press('q', () => { throw new Error('boom') })
+    now += HOLD_MS + 1
+    assert.equal(m.release('q'), false)
+    assert.equal(m.isDown('q'), false)
+    assert.equal(errors.length, 1)
+  } finally { console.error = orig }
+})
+
+check('releaseWhere rilascia solo il suo spazio dei nomi', () => {
+  const m = new Momentary()
+  const back = []
+  now = 0
+  m.press('pad:btn:1', () => back.push('pad1'))
+  m.press('pad:btn:2', () => back.push('pad2'))
+  m.press('midi:note:0:36', () => back.push('midi'))
+  now += HOLD_MS + 1
+  m.releaseWhere('pad:')
+  assert.deepEqual(back.sort(), ['pad1', 'pad2'])
+  assert.equal(m.isDown('midi:note:0:36'), true)
+})
+
 console.log(`\n${checks} controlli passati`)

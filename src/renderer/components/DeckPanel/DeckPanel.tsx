@@ -16,7 +16,7 @@ interface DeckPanelProps {
   engine: Engine | null
 }
 
-export function DeckPanel({ engine }: DeckPanelProps) {
+function DeckPanelImpl({ engine }: DeckPanelProps) {
   const [deckB, setDeckB] = useState<EffectId>('plasma')
   const [crossfade, setCrossfade] = useState(0)
   const [blend, setBlend] = useState<BlendMode>('mix')
@@ -56,19 +56,32 @@ export function DeckPanel({ engine }: DeckPanelProps) {
     engine?.setCrossfade(v)
   }, [engine])
 
+  // the pickers and the engine loaders reject (dialog gone, file moved, codec
+  // refused): without a catch that was an unhandled rejection and a click
+  // that did nothing
   const addClips = useCallback(async () => {
-    const files = await window.api?.pickVideos()
-    // the dialog also lists mkv: Chromium's <video> does not play it, and
-    // neither HAP path (ours or <video>'s) understands it — see videoDeck.ts
-    const ok = (files || []).filter(f => acceptsVideo(f.name))
-    if (ok.length) engine?.addVideoClips(ok)
+    try {
+      const files = await window.api?.pickVideos()
+      // the dialog also lists mkv: Chromium's <video> does not play it, and
+      // neither HAP path (ours or <video>'s) understands it — see videoDeck.ts
+      const ok = (files || []).filter(f => acceptsVideo(f.name))
+      if (ok.length) engine?.addVideoClips(ok)
+    } catch (e) {
+      console.error('[Deck] clip non caricate:', e)
+      pushToast(`Clip non caricate: ${(e as Error).message}`, 'deck-clips', undefined, 'err')
+    }
   }, [engine])
 
   const addSequence = useCallback(async () => {
-    const seq = await window.api?.pickSequence()
-    if (!seq) return
-    if (seq.note) pushToast(seq.note, undefined, undefined, seq.paths.length ? undefined : 'err')
-    if (seq.paths.length) engine?.addSequenceClip(seq)
+    try {
+      const seq = await window.api?.pickSequence()
+      if (!seq) return
+      if (seq.note) pushToast(seq.note, undefined, undefined, seq.paths.length ? undefined : 'err')
+      if (seq.paths.length) engine?.addSequenceClip(seq)
+    } catch (e) {
+      console.error('[Deck] sequenza non caricata:', e)
+      pushToast(`Sequenza non caricata: ${(e as Error).message}`, 'deck-seq', undefined, 'err')
+    }
   }, [engine])
 
   const setClipFps = (i: number, fps: number) => {
@@ -173,3 +186,6 @@ export function DeckPanel({ engine }: DeckPanelProps) {
     </>
   )
 }
+
+/** Memoised: App re-renders on every slider tick and remote command; this panel only depends on the engine. */
+export const DeckPanel = React.memo(DeckPanelImpl)

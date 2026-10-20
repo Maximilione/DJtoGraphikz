@@ -65,6 +65,17 @@ assert.equal(migrate({}).steps.length, 0)
 assert.equal(migrateAll(null).length, 0)
 assert.equal(migrateAll([null, undefined, { name: 'ok' }]).length, 1)
 
+// --- a step without a usable look is dropped, the rest of the sequence loads ---
+// (such a step used to reach applyPreset from a useEffect and unmount the whole app)
+const dirty = migrate({ name: 'Sporca', steps: [
+  null, { name: 'ok', preset: look('ok'), hold: 2 }, { name: 'senza', hold: 2 }, { preset: { effect: 'x' }, hold: 2 }, 'junk',
+] })
+assert.equal(dirty.steps.length, 1, 'passi senza look valido scartati')
+assert.equal(dirty.steps[0].name, 'ok')
+assert.equal(migrate({ presets: [null, look('a'), { effect: 'b' }] }).steps.length, 1, 'playlist vecchia con voci rotte: restano solo i look interi')
+assert.equal(migrate({ steps: [{ preset: look('x'), hold: 2 }] }).steps[0].name, 'x', 'un passo senza nome prende quello del look')
+assert.equal(migrate({ steps: [{ name: 'o', preset: look('o'), hold: 2, overlays: 'no' }] }).steps[0].overlays, undefined, 'overlays non lista = nessuna grafica')
+
 // --- holds stay inside the unit's range ---
 assert.equal(clampHold(999, 'beats'), 128)
 assert.equal(clampHold(0, 'timer'), 1)
@@ -169,6 +180,27 @@ const slow = enterStep(host3, { overlays: [stepA.overlays[0]] }, p => new Promis
 alive = false
 await slow
 assert.equal(seqIds(host3).length, 0, 'immagine arrivata in ritardo: tolta subito')
+
+// a step left while its image was still loading: nothing of that step may
+// come up afterwards, not even its text overlay after the image failed
+const host5 = fakeHost()
+let alive5 = true
+const slow5 = enterStep(host5, { overlays: [stepA.overlays[0], stepA.overlays[2]] },
+  () => new Promise((_, rej) => setTimeout(() => rej(new Error('ENOENT')), 10)), () => alive5)
+alive5 = false
+await slow5
+assert.equal(seqIds(host5).length, 0, 'passo lasciato: niente testo aggiunto dopo un’immagine fallita')
+
+// the images of a step are read together, and still added in the step's order
+const host6 = fakeHost()
+let inFlight = 0, maxInFlight = 0
+const togetherRead = p => {
+  inFlight++; maxInFlight = Math.max(maxInFlight, inFlight)
+  return new Promise(r => setTimeout(() => { inFlight--; r('data:' + p) }, p.endsWith('logo.png') ? 8 : 2))
+}
+await enterStep(host6, { overlays: [stepA.overlays[0], stepA.overlays[1], stepA.overlays[2]] }, togetherRead)
+assert.equal(maxInFlight, 2, 'le immagini del passo si leggono insieme, non una dopo l’altra')
+assert.deepEqual(host6.items.filter(o => o.id.startsWith(SEQ_PREFIX)).map(o => o.name), ['logo.png', 'loop.gif', 'DROP'], 'aggiunte nell’ordine del passo anche se la seconda arriva prima')
 
 // a missing file skips that graphic, the rest of the step still comes up
 const host4 = fakeHost()

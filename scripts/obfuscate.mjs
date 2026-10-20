@@ -11,14 +11,14 @@
  *
  *     node scripts/obfuscate.mjs
  */
-import { readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JavaScriptObfuscator from 'javascript-obfuscator'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 const dir = join(REPO, 'out/renderer/assets')
-const SKIP = /^(three|vendor)-/
+const SKIP = /^(three|vendor|qrcode)-/
 
 let n = 0, before = 0, after = 0
 for (const name of readdirSync(dir)) {
@@ -51,4 +51,3 @@ for (const name of readdirSync(dir)) {
 }
 console.log(`obfuscate: ${n} chunk, ${(before / 1024).toFixed(0)} → ${(after / 1024).toFixed(0)} kB`)
 if (!n) { console.error('obfuscate: nessun chunk trovato in out/renderer/assets'); process.exit(1) }
-void statSync

@@ -50,6 +50,11 @@ def main() -> int:
     rows = re.findall(r"\[Sweep\] kind=(\w+) id=(\S+) mean=([\d.]+) std=([\d.]+) bright=([\d.]+) fps=(\d+)", text)
     noprobe = re.findall(r"\[Sweep\] kind=(\w+) id=(\S+) NOPROBE", text)
     done = "[Sweep] done" in text
+    # the sweep itself threw: say what, instead of a generic 'INTERROTTO'
+    err = re.search(r"\[Sweep\] ERROR (.*)", text)
+    if err:
+        print(f"FALLITO: lo sweep si e' fermato con un errore: {err.group(1)[:200]}")
+        return 1
     if not rows:
         print("FALLITO: nessuna misura (lo sweep non e' partito?)")
         for line in text.splitlines():

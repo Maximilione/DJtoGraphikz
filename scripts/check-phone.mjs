@@ -71,6 +71,10 @@ check('palette: tre colori esadecimali, altro scartato', () => {
   for (const bad of [['#fff'], ['red', 'green', 'blue'], [1, 2, 3], 'x', ['#fff', '#fff', '#fff', '#fff'], [null, null, null]])
     assert.equal(S('palette', bad), null)
 })
+check('chiavi ereditate (constructor, toString, __proto__) non passano per comandi noti', () => {
+  for (const t of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) assert.equal(S(t, 0.5), null, t)
+  for (const key of ['constructor', 'toString', '__proto__']) assert.equal(S('grade', { key, value: 1 }), null, key)
+})
 check('grade: chiave ignota scartata, valore clampato', () => {
   assert.equal(S('grade', { key: 'evil', value: 1 }), null)
   assert.equal(S('grade', { key: 'exposure', value: NaN }), null)

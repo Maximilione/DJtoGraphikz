@@ -42,7 +42,11 @@ function medianInto(scratch: Float32Array, n: number): number {
 }
 
 export class BeatTracker {
-  private fluxHistory: number[] = []
+  // flux history as a ring: the median does not care about order, and a
+  // push/shift pair per frame was garbage for nothing
+  private hist = new Float64Array(HISTORY)
+  private histN = 0
+  private histHead = 0
   private medianScratch = new Float32Array(HISTORY)
   private f1 = 0                       // flux one frame ago (peak-picking)
   private f2 = 0                       // flux two frames ago
@@ -55,7 +59,8 @@ export class BeatTracker {
   private envFull = new Float32Array(ENV_SIZE)
   private gridPos = 0
   private gridStartMs = 0
-  private acfCountdown = 30
+  /** the ACF (~0.7M MAC) runs on the clock, twice a second, not every 30 frames: 144 Hz is not 5 Hz */
+  private nextAcfMs = 0
 
   private lastLowFlux = 0
   private lastFullFlux = 0
@@ -102,7 +107,7 @@ export class BeatTracker {
   sensitivity = 1.4
 
   reset() {
-    this.fluxHistory = []
+    this.histN = this.histHead = 0
     this.f1 = this.f2 = 0
     this.prevLogSpec = new Float32Array(0)
     this.currLogSpec = new Float32Array(0)
@@ -110,6 +115,11 @@ export class BeatTracker {
     this.envFull.fill(0)
     this.gridPos = 0
     this.gridStartMs = 0
+    this.nextAcfMs = 0
+    this.lastLowFlux = this.lastFullFlux = 0
+    this.lastTime = 0
+    this.lastThreshold = 0
+    this.beatsSinceRotate = 0
     this.acfBpm = 0
     this.acfConfidence = 0
     this.heldBpm = 0
@@ -145,6 +155,9 @@ export class BeatTracker {
     if (this.prevLogSpec.length !== n) {
       this.prevLogSpec = new Float32Array(n)
       this.currLogSpec = new Float32Array(n)
+      // seed with this frame: against zeros every bin would read as an onset
+      // and the first frame after a reset put one huge impulse into the ACF
+      for (let i = 0; i < n; i++) this.prevLogSpec[i] = Math.log1p((spectrum[i] as number) * 8)
     }
 
     // --- onset strength: positive log-magnitude flux, kick-weighted ---
@@ -209,21 +222,23 @@ export class BeatTracker {
     this.envFull[gi] = Math.max(this.envFull[gi], flux)
     this.lastLowFlux = lowFlux
     this.lastFullFlux = flux
-    if (--this.acfCountdown <= 0) {
-      this.acfCountdown = 30
+    if (nowMs >= this.nextAcfMs) {
+      this.nextAcfMs = nowMs + 500
       this.estimateTempo()
     }
 
     // --- adaptive threshold: median + MAD (robust to build-ups and outliers) ---
-    this.fluxHistory.push(flux)
-    if (this.fluxHistory.length > HISTORY) this.fluxHistory.shift()
+    this.hist[this.histHead] = flux
+    this.histHead = (this.histHead + 1) % HISTORY
+    if (this.histN < HISTORY) this.histN++
     let beat = false
-    if (this.fluxHistory.length >= 16) {
-      const n = this.fluxHistory.length
-      for (let i = 0; i < n; i++) this.medianScratch[i] = this.fluxHistory[i]
-      const med = medianInto(this.medianScratch, n)
-      for (let i = 0; i < n; i++) this.medianScratch[i] = Math.abs(this.fluxHistory[i] - med)
-      const mad = medianInto(this.medianScratch, n)
+    if (this.histN >= 16) {
+      const hn = this.histN
+      const hist = this.hist
+      for (let i = 0; i < hn; i++) this.medianScratch[i] = hist[i]
+      const med = medianInto(this.medianScratch, hn)
+      for (let i = 0; i < hn; i++) this.medianScratch[i] = Math.abs(hist[i] - med)
+      const mad = medianInto(this.medianScratch, hn)
       const threshold = med + (mad * 1.4826) * (1.5 * this.sensitivity)
       this.lastThreshold = threshold
 

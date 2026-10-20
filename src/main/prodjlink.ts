@@ -79,8 +79,10 @@ export function setupProDjLink(controlWindow: BrowserWindow): void {
 
 function start(win: BrowserWindow): void {
   if (sockets.length) return
+  // from a timer: a reload of the control renderer must not become an uncaught
   const send = (channel: string, payload: unknown) => {
-    if (!win.isDestroyed()) win.webContents.send(channel, payload)
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    try { win.webContents.send(channel, payload) } catch { /* reload: the next event catches up */ }
   }
   const deviceList = () => [...devices].map(([device, d]) => ({ device, name: d.name }))
   // 'prolink:track' once per new track on the followed deck: a status packet
@@ -98,6 +100,9 @@ function start(win: BrowserWindow): void {
     const d = parseKeepAlive(msg)
     if (!d) return
     if (!iface || !sameSubnet(iface, from)) iface = pickInterface(from) ?? iface
+    // Our own keep-alive comes back on the broadcast: not a deck, and it would
+    // never expire because it renews itself every 1.5s.
+    if (d.device === deviceNumber && iface && d.ip === iface.address) return
     if (d.device === deviceNumber && iface && d.ip !== iface.address) {
       // Someone real holds our number: step aside, never argue.
       if (deviceNumber < LAST_DEVICE) deviceNumber++
@@ -105,10 +110,9 @@ function start(win: BrowserWindow): void {
     }
     const known = devices.get(d.device)
     devices.set(d.device, { name: d.name, ip: d.ip, seen: Date.now() })
-    if (!known) {
-      console.log(`[ProDJLink] lettore in rete: "${d.name}" #${d.device} (${d.ip})`)
-      send('prolink:devices', deviceList())
-    }
+    if (!known) console.log(`[ProDJLink] lettore in rete: "${d.name}" #${d.device} (${d.ip})`)
+    // a deck renamed on the same number is a change the list must show too
+    if (!known || known.name !== d.name) send('prolink:devices', deviceList())
   })
   const beats = bind(PORT_BEAT, msg => {
     const b = parseBeat(msg)
