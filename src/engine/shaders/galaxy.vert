@@ -7,6 +7,7 @@ uniform float uBeat;
 uniform float uBassHit;
 uniform float uBassTime;
 uniform float uBeatClock;
+uniform vec4 uCamRot;   // cos yaw, sin yaw, cos tilt, sin tilt (set by Engine)
 
 uniform float arms;
 uniform float twist;
@@ -54,7 +55,10 @@ void main() {
   float r = mix(pow(h.x, 1.7) * 1.35, sqrt(h.x) * 1.3, halo) + 0.02;
   // shockwave ring: stars near the front are kicked outwards
   float front = fract(uBeatClock * 0.25) * 1.5;
-  float wave = exp(-pow((r - front) * 6.0, 2.0)) * (1.0 - front / 1.5);
+  // dw * dw, not pow(dw, 2.0): the base is negative inside the ring, which
+  // pow leaves undefined (NaN on drivers that go through exp2/log2)
+  float dw = (r - front) * 6.0;
+  float wave = exp(-dw * dw) * (1.0 - front / 1.5);
   float push = burst * (0.25 * kick * (0.4 + g.x) + 0.28 * wave);
   float rr = r * (1.0 + push) + burst * 0.1 * kick * g.y;
 
@@ -68,13 +72,11 @@ void main() {
   float y = (hash3(id + 31.0).x - 0.5) * 2.0 * thick * (1.0 + 2.0 * uMid * g.x);
   vec3 p = vec3(cos(a) * rr, y, sin(a) * rr);
 
-  // camera: tilted, swinging with the bar so it never sits still
-  float tilt = 0.95 + 0.22 * sin(mod(uBeatClock * 0.05, 6.2831853));
-  float yaw = mod(uBeatClock * 0.02 + uTime * 0.02, 6.2831853);
-  float cy = cos(yaw), sy = sin(yaw);
-  p = vec3(p.x * cy - p.z * sy, p.y, p.x * sy + p.z * cy);
-  float ct = cos(tilt), st = sin(tilt);
-  p = vec3(p.x, p.y * ct - p.z * st, p.y * st + p.z * ct);
+  // camera: tilted, swinging with the bar so it never sits still. Its cos/sin
+  // depend on the clocks alone, so Engine.applyEffectUniforms computes them
+  // once per frame instead of once per vertex (5 trig on 590k vertices)
+  p = vec3(p.x * uCamRot.x - p.z * uCamRot.y, p.y, p.x * uCamRot.y + p.z * uCamRot.x);
+  p = vec3(p.x, p.y * uCamRot.z - p.z * uCamRot.w, p.y * uCamRot.w + p.z * uCamRot.z);
 
   float dist = 2.6 - 0.25 * kick;
   float z = p.z + dist;

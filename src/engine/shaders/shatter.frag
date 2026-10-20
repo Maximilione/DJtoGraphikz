@@ -31,27 +31,33 @@ uniform float edgeglow;
 
 // Shattered glass: voronoi shards, each catching light on its own; the kick
 // blows the shards apart from the center and they settle back.
+// The 25 feature points are evaluated once (2 hash + 2 sin each) and kept:
+// the nearest is picked among the inner 3x3, as before, and the edge pass
+// reads the same set instead of recomputing it.
 vec2 voro(vec2 p, out vec2 cellId, out float edgeD) {
   vec2 n = floor(p), f = fract(p);
-  float md = 8.0; vec2 mo, mc;
-  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-    vec2 g = vec2(float(i), float(j));
-    vec2 o = vec2(hash(n + g), hash(n + g + 19.1));
-    o = 0.5 + 0.4 * sin(uTime * 0.35 + o * TAU);
-    vec2 r = g + o - f;
-    float d = dot(r, r);
-    if (d < md) { md = d; mo = r; mc = n + g; }
-  }
-  // second pass: distance to the nearest edge
-  edgeD = 8.0;
+  float tt = uTime * 0.35;
+  float md = 8.0; vec2 mo = vec2(0.0), mc = vec2(0.0);
+  vec2 R[25];
   for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) {
     vec2 g = vec2(float(i), float(j));
     vec2 o = vec2(hash(n + g), hash(n + g + 19.1));
-    o = 0.5 + 0.4 * sin(uTime * 0.35 + o * TAU);
+    o = 0.5 + 0.4 * sin(tt + o * TAU);
     vec2 r = g + o - f;
-    if (dot(mo - r, mo - r) > 1e-5) {
-      edgeD = min(edgeD, dot(0.5 * (mo + r), normalize(r - mo)));
+    R[(j + 2) * 5 + (i + 2)] = r;
+    if (abs(i) <= 1 && abs(j) <= 1) {
+      float d = dot(r, r);
+      if (d < md) { md = d; mo = r; mc = n + g; }
     }
+  }
+  // distance to the nearest edge: the bisector between mo and r, written as
+  // 0.5*(|r|^2 - |mo|^2)/|r - mo| (same value, no normalize per cell)
+  edgeD = 8.0;
+  for (int k = 0; k < 25; k++) {
+    vec2 r = R[k];
+    vec2 dv = r - mo;
+    float dl = dot(dv, dv);
+    if (dl > 1e-5) edgeD = min(edgeD, 0.5 * (dot(r, r) - md) * inversesqrt(dl));
   }
   cellId = mc;
   return mo;

@@ -27,10 +27,20 @@ void main() {
 
   // Stack of audio-reactive sine waves
   float numWaves = count;
+  // loop invariants, lifted by hand: with the dynamic break below drivers do
+  // not always hoist them, and the beat wobble was one of 3 sin per wave
+  float beatWob = sin(uv.x * 1.5 + t * 0.3) * uBeat * 0.05;
+  float amp1 = amp + uBass * 0.05;
+  float amp2 = 0.02 + uMid * 0.03;
+  float gA = 0.004 * (1.0 + 1.5 * uLineBoost);
+  float lineW = 0.003 * (1.0 + 2.5 * uLineBoost);
+  float fwK = 3.0 + 4.0 * uLineBoost;
+  float lum = 0.9 + 0.5 * uEnergy;
+  float invN = 1.0 / max(numWaves, 1.0);
   // Constant loop bound (= param max), dynamic break on the actual count
   for (float i = 0.0; i < 40.0; i++) {
     if (i >= numWaves) break;
-    float fi = i / numWaves;
+    float fi = i * invN;
 
     // Y position for this wave — spread across screen
     float baseY = (fi - 0.5) * 1.5;
@@ -38,24 +48,20 @@ void main() {
     // Wave equation — multiple frequencies
     float freq1 = freq + i * 0.5;
     float freq2 = 5.0 + i * 0.3;
-    float amp1 = amp + uBass * 0.05;
-    float amp2 = 0.02 + uMid * 0.03;
 
     float wave = baseY
       + sin(uv.x * freq1 + t * (1.0 + fi) + i) * amp1
       + sin(uv.x * freq2 - t * 0.7 + i * 2.0) * amp2
-      + sin(uv.x * 1.5 + t * 0.3) * uBeat * 0.05;
+      + beatWob;
 
     // Distance from wave line
     float d = abs(uv.y - wave);
 
-    // Glow
-    float glow = 0.004 * (1.0 + 1.5 * uLineBoost) / (d + 0.004 * (1.0 + 1.5 * uLineBoost));
-    glow = pow(glow, 1.3);
-    glow = min(glow, 2.0);
+    // Glow (gA / (d + gA) is already in (0, 1]: no clamp needed)
+    float glow = pow(gA / (d + gA), 1.3);
 
     // Sharp line
-    float line = smoothstep(max(0.003 * (1.0 + 2.5 * uLineBoost), fwidth(d) * (3.0 + 4.0 * uLineBoost)), 0.0, d);
+    float line = smoothstep(max(lineW, fwidth(d) * fwK), 0.0, d);
 
     // Color gradient based on wave index
     vec3 wColor = mix(uColor1, uColor2, fi);
@@ -65,7 +71,7 @@ void main() {
     float fade = 1.0 - abs(fi - 0.5) * 1.5;
     fade = max(fade, 0.2);
 
-    color += wColor * (glow * 0.4 + line) * fade * (0.9 + 0.5 * uEnergy);
+    color += wColor * (glow * 0.4 + line) * fade * lum;
   }
 
   // Horizontal energy bars at extreme positions

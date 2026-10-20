@@ -42,16 +42,20 @@ void main() {
   bool escaped = false;
   // orbit traps: they are what gives the interior structure instead of a
   // flat fill, and the exterior filaments something to catch the light on
-  float trapR = 1e9;
+  // the radial trap is kept squared: min is monotone, so sqrt(min |z|^2) is
+  // min |z| and the loop pays one dot per iteration, no sqrt
+  float trapR2 = 1e18;
   float trapX = 1e9;
+  float m = dot(z, z);
 
   // Constant loop bound (= param max), dynamic break on the actual count
   for (float i = 0.0; i < 80.0; i++) {
     if (i >= maxIter) break;
-    if (dot(z, z) > escape) { escaped = true; break; }
+    if (m > escape) { escaped = true; break; }
     // z = z^2 + c
     z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
-    trapR = min(trapR, length(z));
+    m = dot(z, z);
+    trapR2 = min(trapR2, m);
     trapX = min(trapX, abs(z.x));
     iter = i + 1.0;
   }
@@ -61,7 +65,7 @@ void main() {
     // Smooth iteration count, then expand the low end: most exterior pixels
     // escape in a handful of steps, so a linear ramp painted them all the
     // same colour — the old version was a flat wash outside the set.
-    float smoothIter = iter + 1.0 - log2(max(log2(dot(z, z)), 1.0));
+    float smoothIter = iter + 1.0 - log2(max(log2(m), 1.0));
     float f = pow(clamp(smoothIter / maxIter, 0.0, 1.0), 0.35);
     float phase = f * 9.0 + uTime * 0.35 + uHigh * 1.5;
     color  = uColor1 * (sin(phase) * 0.5 + 0.5);
@@ -72,7 +76,7 @@ void main() {
     color += uColor3 * exp(-trapX * 14.0) * 0.5;
   } else {
     // inside the set: shade by how close the orbit came to the origin
-    float g = exp(-trapR * 2.2);
+    float g = exp(-sqrt(trapR2) * 2.2);
     color = mix(uColor3 * 0.06, uColor1 * 0.7, g);
     color += uColor2 * exp(-trapX * 9.0) * 0.35;
     color *= 0.6 + uBass * 0.3;

@@ -13,7 +13,9 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 
 void main() {
   float k = clamp(uWet * (uWet * 0.35 + uBeat * 0.4 + uHighHit * 0.8), 0.0, 1.0);
-  float t = floor(uTime * 15.0);   // frame quantizzati: il glitch "scatta"
+  // frame quantizzati: il glitch "scatta". Avvolti a 1024: uTime e' il clock
+  // dall'avvio e dopo un'ora l'argomento del sin dell'hash supera 1e7
+  float t = mod(floor(uTime * 15.0), 1024.0);
   float rows = 24.0;
   float band = floor(vUv.y * rows);
   vec2 uv = vUv;
@@ -23,7 +25,7 @@ void main() {
   // tear: tutto sopra una linea che si muove slitta un po'
   shift += step(hash(vec2(t, 3.0)), uv.y) * (hash(vec2(t, 5.0)) - 0.5) * 0.08 * k;
   // hold: sul colpo alto una riga si congela in una banda piatta
-  float hold = step(1.0 - uHighHit * uWet * 0.3, hash(vec2(band + 31.0, floor(uTime * 6.0))));
+  float hold = step(1.0 - uHighHit * uWet * 0.3, hash(vec2(band + 31.0, mod(floor(uTime * 6.0), 1024.0))));
   uv.y = mix(uv.y, (band + 0.5) / rows, hold);
   uv.x += shift;
   // color bleed sulle righe spostate

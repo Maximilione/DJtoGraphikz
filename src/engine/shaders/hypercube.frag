@@ -40,17 +40,11 @@ mat3 rotZ(float a) { float s = sin(a), c = cos(a); return mat3(c, -s, 0.0, s, c,
 
 mat3 gRout, gRin;
 float gOuterS, gInnerS, gEdgeR;
-
-vec3 cornerSign(int i) {
-  if (i == 0) return vec3(-1.0, -1.0, -1.0);
-  if (i == 1) return vec3(1.0, -1.0, -1.0);
-  if (i == 2) return vec3(-1.0, 1.0, -1.0);
-  if (i == 3) return vec3(1.0, 1.0, -1.0);
-  if (i == 4) return vec3(-1.0, -1.0, 1.0);
-  if (i == 5) return vec3(1.0, -1.0, 1.0);
-  if (i == 6) return vec3(-1.0, 1.0, 1.0);
-  return vec3(1.0, 1.0, 1.0);
-}
+// the 8 connector segments depend on uniforms only: endpoints, direction and
+// 1/|ba|^2 are built once per pixel in main() instead of 2 mat3*vec3 + a
+// division per corner on each of the ~75 map() and ~24 nodeGlowAt() calls
+vec3 gA[8], gB[8], gBA[8];
+float gInvBA2[8];
 
 // IQ's wireframe-box SDF: distance to the 12 edges of a box of half-size b
 // without looping over them.
@@ -63,33 +57,23 @@ float sdBoxFrame(vec3 p, vec3 b, float e) {
       length(max(vec3(q.x, q.y, p.z), 0.0)) + min(max(q.x, max(q.y, p.z)), 0.0));
 }
 
-float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
-  vec3 pa = p - a, ba = b - a;
-  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-  return length(pa - ba * h) - r;
-}
-
+// 8 capsules between corresponding corners (precomputed endpoints)
 float connectors(vec3 p) {
   float d = 1e5;
   for (int i = 0; i < 8; i++) {
-    vec3 sgn = cornerSign(i);
-    vec3 a = gRout * sgn * gOuterS;
-    vec3 b = gRin * sgn * gInnerS;
-    d = min(d, sdCapsule(p, a, b, gEdgeR * 0.9));
+    vec3 pa = p - gA[i];
+    float h = clamp(dot(pa, gBA[i]) * gInvBA2[i], 0.0, 1.0);
+    d = min(d, length(pa - gBA[i] * h));
   }
-  return d;
+  return d - gEdgeR * 0.9;
 }
 
 // glow contribution of the 16 vertices at p, gathered once per march step
 float nodeGlowAt(vec3 p) {
   float g = 0.0;
   for (int i = 0; i < 8; i++) {
-    vec3 sgn = cornerSign(i);
-    vec3 a = gRout * sgn * gOuterS;
-    vec3 b = gRin * sgn * gInnerS;
-    float da = length(p - a);
-    float db = length(p - b);
-    g += 0.0035 / (da * da + 0.012) + 0.0035 / (db * db + 0.012);
+    vec3 va = p - gA[i], vb = p - gB[i];
+    g += 0.0035 / (dot(va, va) + 0.012) + 0.0035 / (dot(vb, vb) + 0.012);
   }
   return g;
 }
@@ -103,11 +87,12 @@ float map(vec3 p) {
   return d;
 }
 
+// tetrahedron normal: 4 map() taps instead of 6
 vec3 normalAt(vec3 p) {
-  vec2 e = vec2(0.003, 0.0);
-  return normalize(vec3(map(p + e.xyy) - map(p - e.xyy),
-                        map(p + e.yxy) - map(p - e.yxy),
-                        map(p + e.yyx) - map(p - e.yyx)));
+  const vec2 k = vec2(1.0, -1.0);
+  const float h = 0.003;
+  return normalize(k.xyy * map(p + k.xyy * h) + k.yyx * map(p + k.yyx * h) +
+                   k.yxy * map(p + k.yxy * h) + k.xxx * map(p + k.xxx * h));
 }
 
 void main() {
@@ -126,6 +111,14 @@ void main() {
   gInnerS = gOuterS * (0.42 + 0.07 * sin(uTime * 0.5));
   float lb = 1.0 + 1.6 * uLineBoost;
   gEdgeR = (0.026 + 0.018 * gl) * sc * lb;
+  for (int i = 0; i < 8; i++) {
+    // corner i: bit 0 -> x, bit 1 -> y, bit 2 -> z
+    vec3 sgn = vec3(float(i & 1), float((i >> 1) & 1), float((i >> 2) & 1)) * 2.0 - 1.0;
+    gA[i] = gRout * sgn * gOuterS;
+    gB[i] = gRin * sgn * gInnerS;
+    gBA[i] = gB[i] - gA[i];
+    gInvBA2[i] = 1.0 / dot(gBA[i], gBA[i]);   // never 0: inner <= 0.49 * outer
+  }
 
   vec3 ro = vec3(0.0, 0.0, -4.2 / sc);
   vec3 rd = normalize(vec3(uv, 1.3));
@@ -155,7 +148,9 @@ void main() {
   vec3 col = vec3(0.0);
   if (hit) {
     vec3 n = normalAt(p);
-    float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.0);
+    // squared by hand: pow() on a base that rounds to -1e-7 is undefined
+    float e = 1.0 - max(dot(n, -rd), 0.0);
+    float rim = e * e;
     vec3 edgeCol = mix(uColor2, uColor1, 0.3);
     col += edgeCol * (0.5 + 0.5 * rim) * 1.2;
     col += vec3(1.0) * rim * 0.3;

@@ -22,6 +22,7 @@ void main() {
   // same size they are on a landscape one instead of blowing up past the frame
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
   vec2 uv0 = uv;                 // unzoomed: the centre glow stays a spot
+  float r0 = length(uv0);        // length(uv) = zoom * r0 (zoom > 0)
   uv *= zoom;
   float t = uTime;
 
@@ -41,15 +42,17 @@ void main() {
   v *= 0.2;
 
   // Moiré rings
-  float rings = sin(length(uv) * ringfreq - t * 4.0 - bass * 15.0);
+  float rings = sin(r0 * zoom * ringfreq - t * 4.0 - bass * 15.0);
   rings = rings * 0.5 + 0.5;
   rings = pow(rings, 2.0 + mid * 3.0);
 
   // Color from plasma value
+  // one sin/cos pair: sin(hue + 2.094) and cos(hue + 1.047) by angle addition
   float hue = v * 3.0 + t * 0.3;
-  vec3 c1 = uColor1 * (sin(hue) * 0.5 + 0.5);
-  vec3 c2 = uColor2 * (sin(hue + 2.094) * 0.5 + 0.5);
-  vec3 c3 = uColor3 * (cos(hue + 1.047) * 0.5 + 0.5);
+  float sh = sin(hue), ch = cos(hue);
+  vec3 c1 = uColor1 * (sh * 0.5 + 0.5);
+  vec3 c2 = uColor2 * ((-0.499658 * sh + 0.866223 * ch) * 0.5 + 0.5);
+  vec3 c3 = uColor3 * ((0.500171 * ch - 0.865927 * sh) * 0.5 + 0.5);
 
   vec3 color = c1 + c2 * rings + c3 * (v * 0.5 + 0.5);
   color *= 0.7;
@@ -63,7 +66,7 @@ void main() {
 
   // Pulsing center — measured on uv0: at zoom 0.3 the zoomed radius never
   // left the glow and the whole frame was a flat pastel wash
-  float glow = exp(-length(uv0) * 2.5) * (0.3 + beat * 0.6);
+  float glow = exp(-r0 * 2.5) * (0.3 + beat * 0.6);
   color += (uColor1 + uColor2) * glow;
 
   gl_FragColor = vec4(color, 1.0);

@@ -41,6 +41,14 @@ void main() {
   vec2 q = p / R;
   float px = 1.5 / (uResolution.y * R);   // antialias width, in iris units
   float rho = length(q);
+
+  // outside the iris (two thirds of a 16:9 frame) iris, body and glint are
+  // all zero: only the bloom into the dark remains, so skip the rest
+  if (rho > 1.0 + px) {
+    gl_FragColor = vec4(uColor1 * exp(-(rho - 1.0) * 5.0) * (0.12 + 0.18 * uBass) * (0.85 + 0.25 * uBeat), 1.0);
+    return;
+  }
+
   float phi = atan(q.y, q.x);
   float n = max(3.0, floor(blades));
 
@@ -57,15 +65,14 @@ void main() {
   float rel = mod(phi - spin, sector);
   float relc = rel > 0.5 * sector ? rel - sector : rel;
 
-  // the head: a disc on the orbit
-  vec2 ql = rho * vec2(cos(relc), sin(relc));
-  float dHead = length(ql - vec2(orbit, 0.0)) - head;
+  // the head: a disc on the orbit (distance by the law of cosines: no sin)
+  float dHead = sqrt(max(rho * rho + orbit * orbit - 2.0 * rho * orbit * cos(relc), 0.0)) - head;
   // the tail: an arc trailing the head, thinning to a point and bending in
   float L = mix(min(0.8 * sector, 1.3), 0.98 * sector, stretch);
   float ft = clamp(rel / L, 0.0, 1.0);
   float rc = orbit - 0.07 * ft;
-  float th = head * pow(1.0 - ft, 1.3);
-  float dTail = rel < L ? abs(rho - rc) - th : 1.0;
+  float dTail = 1.0;
+  if (rel < L) dTail = abs(rho - rc) - head * pow(1.0 - ft, 1.3);
   float tomoe = 1.0 - smoothstep(-px, px, min(dHead, dTail));
   // the star: on the kick each head throws a blade to the rim
   float tipR = orbit + (1.0 - orbit) * 1.05 * stretch;

@@ -55,8 +55,10 @@ void main() {
     vec2 sg = vec2(x, uv.y) * 70.0;
     vec2 sid = floor(sg);
     float sh = hash(sid);
-    float star = step(0.985, sh) * smoothstep(0.4, 0.0, length(fract(sg) - 0.5));
-    color += vec3(1.0) * star * (0.4 + 0.6 * sin(t * 2.0 + sh * 50.0)) * 0.6 * (0.6 + uHigh);
+    if (sh >= 0.985) { // 1.5% of the cells hold a star
+      float star = smoothstep(0.4, 0.0, length(fract(sg) - 0.5));
+      color += vec3(1.0) * star * (0.4 + 0.6 * sin(t * 2.0 + sh * 50.0)) * 0.6 * (0.6 + uHigh);
+    }
   }
   color += mix(uColor1, uColor2, 0.5) * exp(-abs(uv.y - horizon) * 14.0) * (0.22 + 0.3 * uBassHit + 0.2 * uEnergy);
 
@@ -65,8 +67,8 @@ void main() {
   float sd = length(vec2(x, uv.y) - sun);
   float sunR = 0.11 + uBassHit * 0.05;
   float disc = smoothstep(sunR, sunR - 0.012, sd);
-  // horizontal blinds cut into the sun
-  disc *= 0.55 + 0.45 * smoothstep(0.3, 0.7, sin(uv.y * 90.0 + t * 2.0));
+  // horizontal blinds cut into the sun (only inside the disc)
+  if (disc > 0.0) disc *= 0.55 + 0.45 * smoothstep(0.3, 0.7, sin(uv.y * 90.0 + t * 2.0));
   color += mix(uColor1, uColor2, uv.y * 2.0) * disc;
   color += uColor2 * (0.035 / (sd + 0.05)) * (0.8 + uEnergy + uBassHit);
   color += mix(uColor1, vec3(1.0), 0.4) * exp(-max(sd - sunR, 0.0) * 9.0) * 0.25 * (1.0 + 1.5 * uBassHit);

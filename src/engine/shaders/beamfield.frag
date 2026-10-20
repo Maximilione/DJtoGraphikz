@@ -57,15 +57,20 @@ void main() {
 
     vec3 nrm = cross(r, b);
     float nl2 = max(dot(nrm, nrm), 1e-5);
-    float nl = sqrt(nl2);
-    float s = dot(cross(o, b), nrm) / nl2;      // along the pixel ray
-    float t = dot(cross(r, o), nrm) / nl2;      // along the beam
-    float dist = abs(dot(o, nrm)) / nl;
+    float inl2 = 1.0 / nl2;
+    float s = dot(cross(o, b), nrm) * inl2;     // along the pixel ray
+    float t = dot(cross(r, o), nrm) * inl2;     // along the beam
+    float on = dot(o, nrm);                     // dist = |on| / nl
     // beam width: widened, floored at ~lminPx pixels at the pixel ray's distance s (1 px ~ 1/(1.2*uRes.y) rad)
     float w = max(0.05 * (1.0 + 0.12 * max(t, 0.0)) * (1.0 + 0.5 * kick) * (1.0 + 2.5 * uLineBoost),
                   0.5 * (3.0 + 4.0 * uLineBoost) * max(s, 0.0) / (1.2 * uResolution.y));
-    float vis = (s > 0.0 && t > 0.0) ? 1.0 : 0.0;
-    float g = exp(-dist * dist / (w * w)) / max(nl, 0.12) * exp(-max(t, 0.0) * 0.045) * vis;
+    // one exp for profile and fade, only in front of the mover and along the
+    // beam; past q = 16 the term is under 1e-6, below a level
+    float g = 0.0;
+    if (s > 0.0 && t > 0.0) {
+      float q = on * on * inl2 / (w * w) + t * 0.045;
+      if (q < 16.0) g = exp(-q) / max(sqrt(nl2), 0.12);
+    }
 
     float m = fract(u * 1.5 + fi * 0.17);
     vec3 pc = m < 0.5 ? mix(uColor1, uColor2, m * 2.0) : mix(uColor2, uColor3, m * 2.0 - 1.0);

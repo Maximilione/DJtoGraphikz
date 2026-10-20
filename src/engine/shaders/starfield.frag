@@ -32,11 +32,16 @@ void main() {
   // hour that product jumps whole cycles on every bass change and the whole
   // field teleports each frame
   float zClock = uTime * 0.1 + uBassTime * 0.3;
+  // per-frame invariants of the star branch
+  float streakK = 20.0 / max(speed * 0.3, 0.5);
+  // uHighTime: hats push the twinkle phase forward
+  float twPhase = uTime * 2.0 + uHighTime * 2.0 + uHigh * 5.0;
+  // a floor on the point size: a still room keeps a sky, not a black screen
+  float starSz = 0.035 + 0.02 * uEnergy;
 
   // Multiple star layers at different depths
   for (int layer = 0; layer < 3; layer++) {
     float fl = float(layer);
-    float depth = 1.0 + fl * 0.8;
 
     // Tile the space
     float scale = tile + fl * 8.0;
@@ -45,6 +50,8 @@ void main() {
     // Scroll forward (warp speed)
     float z = fract(zClock * (1.0 + fl * 0.5) + fl * 0.25);
     float zScale = mix(3.0, 0.1, z);
+    float brightness = 0.12 + 0.88 * z * z; // stars get brighter as they approach
+    float streakAmp = brightness * speed * 0.05;
 
     st *= zScale;
     vec2 cellId = floor(st);
@@ -60,20 +67,13 @@ void main() {
           vec2 starPos = neighbor + vec2(hash(vec3(id + 1.0, fl)), hash(vec3(id + 2.0, fl))) - 0.5 - cellUv;
 
           float d = length(starPos);
-          float brightness = 0.12 + 0.88 * z * z; // stars get brighter as they approach
 
-          // Star glow
-          // a floor on the point size: a still room keeps a sky, not a black screen
-          float star = (0.035 + 0.02 * uEnergy) / (d * d + 0.005) * brightness;
-          star = min(star, 3.0);
-
-          // Twinkle
-          // uHighTime: hats push the twinkle phase forward
-          float twinkle = sin(uTime * 2.0 + uHighTime * 2.0 + h * 100.0 + uHigh * 5.0) * 0.3 + 0.7;
-          star *= twinkle;
+          // Star glow, with the twinkle
+          float star = min(starSz / (d * d + 0.005) * brightness, 3.0)
+                     * (sin(twPhase + h * 100.0) * 0.3 + 0.7);
 
           // Streak when moving fast
-          float streak = exp(-d * 20.0 / max(speed * 0.3, 0.5)) * brightness * speed * 0.05;
+          float streak = exp(-d * streakK) * streakAmp;
 
           // Color variation per star
           vec3 sColor = mix(uColor1, uColor2, h);

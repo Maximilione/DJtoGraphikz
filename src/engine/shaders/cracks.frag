@@ -38,18 +38,24 @@ void main() {
   vec2 f = fract(g);
 
   // F1 / F2 with the second pass so the edge distance is exact
-  float f1 = 8.0; vec2 n1 = vec2(0.0), r1 = vec2(0.0);
+  float f1 = 8.0, h1 = 0.0; vec2 n1 = vec2(0.0), r1 = vec2(0.0);
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
     vec2 nb = vec2(float(i), float(j));
-    vec2 o = hash2(cell + nb);
-    o = 0.5 + 0.4 * sin(uTime * 0.3 + 6.2831 * o);
+    vec2 hh = hash2(cell + nb);
+    vec2 o = 0.5 + 0.4 * sin(uTime * 0.3 + 6.2831 * hh);
     vec2 rr = nb + o - f;
     float d = dot(rr, rr);
-    if (d < f1) { f1 = d; r1 = rr; n1 = nb; }
+    if (d < f1) { f1 = d; r1 = rr; n1 = nb; h1 = hh.x; }
   }
+  // Second pass over the 5x5 round the nearest site, but only the cells
+  // adjacent to that site or to the pixel's own cell (9 to 14 of the 25,
+  // each costing four sin). The first pass already assumes the nearest site
+  // is within one cell of the pixel; under the same assumption the second
+  // nearest is too, and every bisector that can win is still visited.
   float edge = 8.0;
   for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) {
     vec2 nb = n1 + vec2(float(i), float(j));
+    if (max(abs(float(i)), abs(float(j))) > 1.0 && max(abs(nb.x), abs(nb.y)) > 1.0) continue;
     vec2 o = hash2(cell + nb);
     o = 0.5 + 0.4 * sin(uTime * 0.3 + 6.2831 * o);
     vec2 rr = nb + o - f;
@@ -70,9 +76,9 @@ void main() {
   float lit = crack * (0.55 + (pulse * 1.4 + pulse2) * glow) * (1.0 + uBeat * 0.9);
 
   // slabs: near black, a little grain, slightly lighter toward the crack
-  float slab = 0.03 + 0.05 * hash2(cell + n1).x + exp(-edge * 8.0) * 0.07;
+  float slab = 0.03 + 0.05 * h1 + exp(-edge * 8.0) * 0.07;
   // slabs lit from below: the underglow rises from the bottom edge
-  vec3 under = mix(uColor1, uColor3, uv.x) * (0.05 + 0.1 * pow(1.0 - uv.y, 2.0)) * (0.6 + 0.8 * uEnergy);
+  vec3 under = mix(uColor1, uColor3, uv.x) * (0.05 + 0.1 * (1.0 - uv.y) * (1.0 - uv.y)) * (0.6 + 0.8 * uEnergy);
   vec3 col = vec3(slab) * (1.0 + 0.8 * uBassHit) + under * (0.5 + 0.9 * exp(-edge * 6.0));
   col += mix(uColor1, vec3(1.0), pulse * 0.5 + 0.15) * lit;
   // wide halo bleeding out of the crack, hot core on the kick

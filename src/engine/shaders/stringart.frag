@@ -52,16 +52,23 @@ void main() {
   float w = max(w0 * lkb, lminPx * pxP * 0.5);
   float acc = 0.0, near = 1e9;
 
+  // The chord ends are two arithmetic progressions of angles (a0 = i*TAU/n,
+  // a1 = TAU*fract(i*m/n) == i*TAU*fract(m/n) mod TAU), so they are walked
+  // with a rotation recurrence: 4 cos/sin per pixel instead of 4 per chord.
+  // The fp32 drift after 120 steps is ~1e-5, a pixel is ~2e-3 in p units.
+  float sa = TAU / n;
+  float sb = TAU * fract(m / n);
+  vec2 rA = vec2(cos(sa), sin(sa));
+  vec2 rB = vec2(cos(sb), sin(sb));
+  vec2 A = vec2(r, 0.0);
+  vec2 B = vec2(r, 0.0);
   for (int i = 0; i < 120; i++) {
-    float fi = float(i);
-    if (fi >= n) break;
-    float a0 = TAU * fi / n;
-    float a1 = TAU * fract(fi * m / n);
-    vec2 A = vec2(cos(a0), sin(a0)) * r;
-    vec2 B = vec2(cos(a1), sin(a1)) * r;
+    if (float(i) >= n) break;
     float d = segDist(p, A, B);
     near = min(near, d);
     acc += w0 / (d + w0 * 1.4);      // every chord adds a little light
+    A = vec2(A.x * rA.x - A.y * rA.y, A.x * rA.y + A.y * rA.x);
+    B = vec2(B.x * rB.x - B.y * rB.y, B.x * rB.y + B.y * rB.x);
   }
 
   float line = 1.0 - smoothstep(w, w * 2.6, near);

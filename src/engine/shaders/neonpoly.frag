@@ -24,7 +24,6 @@ varying vec2 vUv;
 #define PI 3.14159265359
 #define TAU 6.28318530718
 
-mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 uniform float sides;
 uniform float layers;
@@ -32,12 +31,16 @@ uniform float thickness;
 
 // Neon polygon: nested rotating N-gons like a vector laser show; the shape
 // morphs its side count with the bar, kick expands the stack.
-float ngon(vec2 p, float n, float r) {
-  float a = atan(p.y, p.x) + PI / n;
-  float seg = TAU / n;
-  a = mod(a, seg) - seg * 0.5;
-  return length(p) * cos(a) - r;
+//
+// Every layer is the same pixel rotated: rotating uv by `a` adds `a` to its
+// polar angle and leaves the radius alone, so the whole stack (plus the echo)
+// shares ONE atan per pixel and each N-gon costs a mod and a cos.
+float ngonP(float rad, float ang, float off, float seg, float r) {
+  return rad * cos(mod(ang + off, seg) - seg * 0.5) - r;
 }
+// wrap to [-pi, pi): reproduces atan's range, so the seam of a fractional
+// side count stays where the per-layer atan used to put it
+float wrapA(float a) { return a - TAU * floor((a + PI) / TAU); }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
@@ -47,19 +50,26 @@ void main() {
   vec3 color = vec3(0.0);
 
   // side count morphs smoothly: blend two ngons around the target
-  float nBase = sides + sin(uBarPhase * TAU) * 0.0; // sides is the anchor
+  float nBase = sides; // sides is the anchor
   float morph = fract(t * 0.1 + uBassTime * 0.05);
   float nA = nBase, nB = nBase + 1.0;
+  float segA = TAU / nA, segB = TAU / nB, offA = PI / nA, offB = PI / nB;
+  float mo = smoothstep(0.3, 0.7, morph);
+
+  float rad = length(uv);
+  float ang0 = atan(uv.y, uv.x);
 
   for (float i = 0.0; i < 8.0; i++) {
     if (i >= layers) break;
     float k = i / max(layers - 1.0, 1.0);
     float r = (0.15 + k * 0.62) * (1.0 + uBassHit * 0.2 + uBass * 0.06);
-    vec2 p = uv * rot(t * (0.2 + k * 0.5) * (mod(i, 2.0) < 1.0 ? 1.0 : -1.0));
+    float ang = wrapA(ang0 + t * (0.2 + k * 0.5) * (mod(i, 2.0) < 1.0 ? 1.0 : -1.0));
 
-    float dA = ngon(p, nA, r);
-    float dB = ngon(p, nB, r);
-    float d = mix(dA, dB, smoothstep(0.3, 0.7, morph));
+    // mo depends on uniforms only: a uniform branch, fwidth(d) stays valid
+    float d;
+    if (mo <= 0.0) d = ngonP(rad, ang, offA, segA, r);
+    else if (mo >= 1.0) d = ngonP(rad, ang, offB, segB, r);
+    else d = mix(ngonP(rad, ang, offA, segA, r), ngonP(rad, ang, offB, segB, r), mo);
 
     float w = max(thickness * (0.5 + uMid * 0.8) * 0.01 * lkb, lminW) + fwidth(d);
     float line = smoothstep(w, 0.0, abs(d));
@@ -74,26 +84,30 @@ void main() {
   // kick echo: a ghost polygon is thrown outward and fades
   {
     float er = 0.2 + (1.0 - uBassHit) * 0.85;
-    float de = ngon(uv * rot(t * 0.3), nA, er);
+    float de = ngonP(rad, wrapA(ang0 + t * 0.3), offA, segA, er);
     color += mix(uColor3, uColor1, 0.5) * (smoothstep(max(0.012 * lkb, lminW), 0.0, abs(de)) * 1.2 + 0.006 / (abs(de) + 0.015)) * uBassHit;
   }
 
   // depth: faint radial rays and a breathing haze behind the stack
-  float rad = length(uv);
-  float ang0 = atan(uv.y, uv.x);
-  float rays = pow(0.5 + 0.5 * sin(ang0 * nA * 2.0 + t * 0.4), 6.0);
+  float rb = 0.5 + 0.5 * sin(ang0 * nA * 2.0 + t * 0.4);
+  float rb2 = rb * rb;
+  float rays = rb2 * rb2 * rb2;
   color += mix(uColor2, uColor3, 0.5) * rays * exp(-rad * 2.2) * (0.08 + uEnergy * 0.12);
   color += uColor1 * exp(-rad * 3.0) * (0.05 + uBass * 0.15);
   color += uColor2 * 0.02;
 
-  // vertex sparks on the outer ring
-  float n = nA;
+  // vertex sparks on the outer ring (radius 0.77). The vertices step round
+  // the ring by TAU/nA, so one cos/sin pair rotated by a constant matrix
+  // replaces a trig pair per vertex; |uv - 0.77 cs|^2 expands to
+  // dot(uv,uv) + 0.77^2 - 2*0.77*dot(uv, cs), no sqrt.
+  vec3 sparkC = mix(uColor3, vec3(1.0), 0.4) * (0.0008 * (0.25 + uHighHit * 1.2));
+  float uu = dot(uv, uv) + 0.5929;
+  vec2 cs = vec2(cos(t * 0.2), sin(t * 0.2));
+  vec2 st = vec2(cos(TAU / nA), sin(TAU / nA));
   for (float v = 0.0; v < 9.0; v++) {
-    if (v >= n) break;
-    float ang = v * TAU / n + t * 0.2;
-    vec2 vp = vec2(cos(ang), sin(ang)) * 0.77;
-    float d = length(uv - vp);
-    color += mix(uColor3, vec3(1.0), 0.4) * (0.0008 / (d * d + 0.001)) * (0.25 + uHighHit * 1.2);
+    if (v >= nA) break;
+    color += sparkC / (uu - 1.54 * dot(uv, cs) + 0.001);
+    cs = vec2(cs.x * st.x - cs.y * st.y, cs.x * st.y + cs.y * st.x);
   }
 
   color *= 1.0 + uBeat * 0.3;

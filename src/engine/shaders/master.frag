@@ -60,7 +60,10 @@ void main() {
 
   c *= uBrightness * uOutBright;
 
-  c = pow(max(c, vec3(0.0)), vec3(1.0 / uGamma));
+  // gamma is 1 on every output but a trimmed LED wall: skip the three pow
+  // (log2 + exp2 each) on every pixel of every frame when it is
+  c = max(c, vec3(0.0));
+  if (uGamma != 1.0) c = pow(c, vec3(1.0 / uGamma));
 
   gl_FragColor = vec4(c, 1.0);
 }
