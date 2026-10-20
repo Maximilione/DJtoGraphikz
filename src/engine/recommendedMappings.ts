@@ -459,6 +459,78 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     drift: { source: 'energy', depth: 0.3 },
     folds: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
   },
+  isoblocks: {
+    height: { source: 'bass', depth: 0.4, value: 1.2 },
+    edge: { source: 'high', depth: 0.3, value: 1 },
+    wavespeed: { source: 'lfo-sine', depth: 0.25, lfoRate: 32, value: 1 },
+  },
+  vegabulge: {
+    bulge: { source: 'bass', depth: 0.4, value: 0.8 },
+    cells: { source: 'energy', depth: 0.2, value: 12 },
+    lenses: { source: 'lfo-square', depth: 0.3, lfoRate: 32, value: 2 },
+  },
+  isocontour: {
+    density: { source: 'bass', depth: 0.3, value: 18 },
+    morph: { source: 'energy', depth: 0.3, value: 0.6 },
+    pace: { source: 'lfo-sine', depth: 0.25, lfoRate: 32, value: 1 },
+  },
+  mycelium: {
+    pulse: { source: 'bass', depth: 0.4, value: 1 },
+    glow: { source: 'energy', depth: 0.3, value: 1 },
+    grow: { source: 'lfo-sine', depth: 0.25, lfoRate: 32, value: 1 },
+  },
+  medusae: {
+    glow: { source: 'bass', depth: 0.4, value: 1 },
+    drift: { source: 'energy', depth: 0.3, value: 0.9 },
+    count: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 0.55 },
+  },
+  agate: {
+    warp: { source: 'bass', depth: 0.3, value: 1 },
+    gloss: { source: 'high', depth: 0.3, value: 1 },
+    flow: { source: 'lfo-sine', depth: 0.25, lfoRate: 32, value: 1 },
+  },
+  macromosh: {
+    drift: { source: 'bass', depth: 0.5, value: 1 },
+    bleed: { source: 'high', depth: 0.3, value: 0.5 },
+    scene: { source: 'lfo-square', depth: 0.5, lfoRate: 32, value: 0 },
+  },
+  pixelsort: {
+    threshold: { source: 'bass', depth: -0.3, value: 0.5 },
+    streak: { source: 'energy', depth: 0.3, value: 0.3 },
+    steps: { source: 'lfo-square', depth: 0.3, lfoRate: 32, value: 10 },
+  },
+  typeslam: {
+    gap: { source: 'bass', depth: -0.5, value: 0.12 },
+    change: { source: 'energy', depth: -0.4, value: 6 },
+    scheme: { source: 'lfo-square', depth: 0.5, lfoRate: 64, value: 0 },
+  },
+  ringworld: {
+    sun: { source: 'bass', depth: 0.4, value: 1 },
+    pace: { source: 'energy', depth: 0.3, value: 1 },
+    density: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 0.6 },
+  },
+  escher: {
+    edge: { source: 'bass', depth: 0.4, value: 1 },
+    spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.3 },
+  },
+  lampforest: {
+    glow: { source: 'bass', depth: 0.4, value: 1 },
+    wave: { source: 'energy', depth: 0.3, value: 2 },
+  },
+  plasmaglobe: {
+    chaos: { source: 'bass', depth: 0.4, value: 0.8 },
+    discharge: { source: 'energy', depth: 0.3, value: 1 },
+    filaments: { source: 'lfo-sine', depth: 0.2, lfoRate: 32, value: 9 },
+  },
+  kickworks: {
+    trail: { source: 'bass', depth: 0.4, value: 0.7 },
+    density: { source: 'energy', depth: 0.3, value: 40 },
+  },
+  fluxlines: {
+    density: { source: 'bass', depth: 0.3, value: 20 },
+    glow: { source: 'high', depth: 0.3, value: 0.8 },
+    flow: { source: 'lfo-sine', depth: 0.25, lfoRate: 32, value: 1 },
+  },
 }
 
 export function recommendedFor(effect: string): Record<string, Recommendation> {
