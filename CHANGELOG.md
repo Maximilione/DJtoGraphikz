@@ -2,6 +2,23 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.77.0-beta] — 2026-10-20
+
+### Added
+- **14 nuove visual** (eae2ae8, 3f0b3e2): Ringworld, Escher Stairs, Mycelium, Medusae, Agate, Iso Blocks, Vega Bulge, Isocontour, Macroblock Mosh, Pixel Sort, Type Slam, Plasma Globe, Kickworks, Flux Lines. Concept trovati con una ricerca online (Shadertoy, teamLab, demoscene, palchi dei festival, motion design) e riscritti da zero dalla matematica, nessun codice di terzi. Ognuna con parametri, mapping consigliato, famiglia e scene AutoVJ per genere. Lamp Forest scartata al test.
+
+### Changed
+- **Mandelbulb disegnato al 75% della risoluzione e scalato** (6e114b2): da solo costava ~22 ms a frame a 1080p, oltre il budget dei 60 fps. Stessa inquadratura, meta' del lavoro GPU, un po' piu' morbido.
+- **Ottimizzazioni shader e pipeline** (6e114b2): tenute solo quelle con look identico al confronto pixel con la versione precedente (render headless di ogni effetto e post-FX). Pipeline: ping-pong dei buffer, cache dello spettro, uniform di camera calcolati una volta per frame, solo il look attivo della mesh disegnato, deck B diretto quando il fader e' tutto su B e il deck A non ha simulazioni.
+- **Ottimizzazioni del software** (d1cdb56, c6bf7c4): allocazioni tolte dai percorsi caldi dell'analisi audio, listener e timer con cleanup, meno re-render dell'interfaccia, error boundary per pannello (un pannello che va in errore non porta giu' l'app), QR del telecomando caricato a richiesta, controlli in learn del gamepad che non guidano piu' lo show.
+- **CI di release** (d1cdb56): un job di verifica (tipi + suite offline + tag uguale alla version) gira prima delle tre build; cache del binario Electron.
+
+### Fixed
+- **Clock MIDI** (d1cdb56): il secondo battito scattava un tick in anticipo; un battito passato subito prima di Stop non scatta piu' al Continue; un singolo intervallo anomalo non azzera piu' il tempo.
+- **Cambio traccia con Pro DJ Link** (d1cdb56): un candidato audio maturato dopo un cambio gia' segnalato dal CDJ non lo riporta una seconda volta.
+- **Ripristino audio all'avvio, uscite con storage pieno, feed OBS con immagini, miniature degli effetti, seconda istanza** (c6bf7c4): difetti emersi nella revisione delle ottimizzazioni, corretti prima del rilascio.
+- **Mesh** (6e114b2): i programmi di tutti i look compilati al primo uso, niente scatto al cambio look dal vivo. **HAP**: un frame non letto viene riprovato. **GIF**: disposal secondo lo standard.
+
 ## [0.76.0-beta] — 2026-10-15
 
 ### Added
