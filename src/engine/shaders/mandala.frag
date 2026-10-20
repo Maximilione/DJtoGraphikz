@@ -20,13 +20,11 @@ varying vec2 vUv;
 #define PI 3.14159265359
 #define TAU 6.28318530718
 
-mat2 rot(float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
-
-// One mandala layer in the kaleidoscope-folded plane. Returns
+// One mandala layer in the kaleidoscope-folded plane, given the polar
+// coordinates (r, a) of the point: the back layer is the front one scaled and
+// turned, so both share one length/atan. Returns
 // x = lines (petal edges, rings, flow), y = dots, z = spokes + lattice.
-vec3 mandalaLayer(vec2 uv, float folds, float rt, float t) {
-  float r = length(uv);
-  float a = atan(uv.y, uv.x);
+vec3 mandalaLayer(float r, float a, float folds, float rt, float t) {
   float foldAngle = TAU / folds;
   float fa = mod(a + rt, foldAngle);
   if (fa > foldAngle * 0.5) fa = foldAngle - fa;
@@ -63,13 +61,22 @@ vec3 mandalaLayer(vec2 uv, float folds, float rt, float t) {
     dots += 0.0004 / (dot(q, q) + 0.0004) * (1.2 - 0.12 * fi);
   }
 
-  // Spokes: thicker/sharper with the highs, fold edges are the weak ones
-  float swd = 60.0 + uHigh * 120.0;
-  float spokes = exp(-r * fa * swd) + 0.5 * exp(-r * (foldAngle * 0.5 - fa) * swd);
-  float spokeMask = smoothstep(0.04, 0.3, r) * (1.0 - smoothstep(0.4, 0.95, r));
-  float lat = smoothstep(0.78, 1.0, sin(p.x * 26.0 + t * 2.0) * sin(p.y * 26.0 - t * 1.5)) * 0.3;
+  // Spokes: thicker/sharper with the highs, fold edges are the weak ones.
+  // Their mask is exactly 0 from r = 0.95 (the lattice's from 0.9): skip the
+  // exp/sin there, which in the back layer is most of the frame
+  float spokes = 0.0;
+  if (r < 0.95) {
+    float swd = 60.0 + uHigh * 120.0;
+    spokes = (exp(-r * fa * swd) + 0.5 * exp(-r * (foldAngle * 0.5 - fa) * swd))
+           * smoothstep(0.04, 0.3, r) * (1.0 - smoothstep(0.4, 0.95, r)) * 0.8;
+  }
+  float latv = 0.0;
+  if (r < 0.9) {
+    latv = smoothstep(0.78, 1.0, sin(p.x * 26.0 + t * 2.0) * sin(p.y * 26.0 - t * 1.5)) * 0.3
+         * (1.0 - smoothstep(0.3, 0.9, r));
+  }
 
-  return vec3(lines, dots, spokes * spokeMask * 0.8 + lat * (1.0 - smoothstep(0.3, 0.9, r)));
+  return vec3(lines, dots, spokes + latv);
 }
 
 void main() {
@@ -85,9 +92,11 @@ void main() {
   float folds = max(floor(symmetry + uMid * 6.0), 3.0);
 
   float rt = t * 0.2 + uBassTime * 0.03;
-  vec3 front = mandalaLayer(uv, folds, rt, t);
-  // Back layer: bigger, counter-rotating, dimmer: parallax depth
-  vec3 back = mandalaLayer(uv * 1.7 * rot(-t * 0.15), folds, -rt * 0.6, t * 0.6);
+  vec3 front = mandalaLayer(r, a, folds, rt, t);
+  // Back layer: bigger, counter-rotating, dimmer: parallax depth. In polar
+  // form: 1.7 r and a - 0.15 t (folds is an integer, so the fold is 2pi
+  // periodic and the shifted angle needs no re-wrapping; the mod keeps it small)
+  vec3 back = mandalaLayer(r * 1.7, a - mod(t * 0.15, TAU), folds, -rt * 0.6, t * 0.6);
 
   float hueP = r * 3.0 + a / TAU + t * 0.2 + uHigh;
   vec3 ca = mix(uColor1, uColor2, sin(hueP * TAU) * 0.5 + 0.5);

@@ -13,6 +13,7 @@ uniform vec2 uResolution;
 uniform float uBeatPhase;
 uniform float uBarPhase;
 uniform float uBassHit;
+uniform float uBassTime;
 uniform float density;
 uniform float fogamt;
 uniform float wavefreq;
@@ -50,7 +51,11 @@ void main() {
     // Perspective transform
     float depth = -0.3 / (p.y + 0.1);
     float x = p.x * depth;
-    float z = depth + t * (2.0 + uBass * 4.0);
+    // travelled distance is accumulated time: t * (speed from bass) would
+    // shift the whole floor by t * 4 * dBass on every bass change — after ten
+    // minutes a 0.01 wobble moved it 24 cells (the grid shook instead of
+    // accelerating). uBassTime integrates the bass, as rings.frag does.
+    float z = depth + t * 2.0 + uBassTime * 4.0;
 
     // Grid lines. The old spacing (2 units in x, 3.3 in z) put ONE vertical
     // line on screen at the bottom of the frame: the ground plane was empty.
@@ -78,7 +83,7 @@ void main() {
 
     // Pulse waves along Z
     float wave = sin(z * wavefreq - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
-    wave = pow(wave, 4.0);
+    wave *= wave; wave *= wave;   // wave^4
 
     color += uColor1 * (grid * 1.7 + halo * 0.35) * fog * (1.0 + uBeat * 0.8 + uBassHit);
     color += uColor3 * wave * fog * (0.25 * halo + 0.9 * grid) * (0.5 + uBass);
@@ -99,18 +104,24 @@ void main() {
     float sunDist = length(p - vec2(0.0, 0.15));
     float sun = 0.05 / (sunDist + 0.05);
     sun *= sun;
-    // retro sun: horizontal slits cut into the lower half of the disc
-    float slits = mix(1.0, smoothstep(0.35, 0.65, sin(p.y * 110.0)), step(p.y, 0.15) * smoothstep(0.1, 0.0, sunDist - 0.05));
+    // retro sun: horizontal slits cut into the lower half of the disc (the
+    // mix weight is 0 outside sunDist < 0.15, p.y <= 0.15: skip the sin there)
+    float slits = 1.0;
+    if (sunDist < 0.15 && p.y <= 0.15)
+      slits = mix(1.0, smoothstep(0.35, 0.65, sin(p.y * 110.0)), smoothstep(0.1, 0.0, sunDist - 0.05));
     color += mix(uColor2, uColor3, 0.5) * sun * slits * (0.6 + uBeat * 0.8 + uBassHit * 0.6);
-    // stars
+    // stars: 1.5% of the cells, so the dot and its twinkle only run there
     vec2 sg = p * 60.0;
     float sh = hash2(floor(sg));
-    color += vec3(1.0) * step(0.985, sh) * smoothstep(0.4, 0.0, length(fract(sg) - 0.5)) * (0.4 + 0.6 * sin(t * 2.0 + sh * 40.0)) * 0.45 * skyGrad;
+    if (sh >= 0.985)
+      color += vec3(1.0) * smoothstep(0.4, 0.0, length(fract(sg) - 0.5)) * (0.4 + 0.6 * sin(t * 2.0 + sh * 40.0)) * 0.45 * skyGrad;
 
-    // Horizontal scan lines in sky
-    float scanlines = sin(p.y * 200.0 + t) * 0.5 + 0.5;
-    scanlines = pow(scanlines, 8.0);
-    color += uColor1 * scanlines * 0.02 * (1.0 - skyGrad);
+    // Horizontal scan lines in sky (weight 0 once skyGrad saturates)
+    if (skyGrad < 1.0) {
+      float sl = sin(p.y * 200.0 + t) * 0.5 + 0.5;
+      sl *= sl; sl *= sl; sl *= sl;   // sl^8
+      color += uColor1 * sl * 0.02 * (1.0 - skyGrad);
+    }
   }
 
   // Side mountains / buildings silhouette

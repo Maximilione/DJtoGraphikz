@@ -140,6 +140,9 @@ function setCommon(p, time) {
   u1(p, 'uBeatPhase', time % 1.0); u1(p, 'uBarPhase', (time / 4.0) % 1.0);
   u1(p, 'uBeatClock', time * 128.0 / 60.0);
   u1(p, 'uBassTime', time * 0.6); u1(p, 'uHighTime', time * 0.4);
+  // galaxy camera (cos yaw, sin yaw, cos tilt, sin tilt): the same formulas Engine.applyEffectUniforms uses
+  { const bc = time * 128.0 / 60.0, tl = 0.95 + 0.22 * Math.sin(bc * 0.05), yw = (bc + time) * 0.02;
+    const l = gl.getUniformLocation(p, 'uCamRot'); if (l) gl.uniform4f(l, Math.cos(yw), Math.sin(yw), Math.cos(tl), Math.sin(tl)); }
   u3(p, 'uColor1', 0.0, 1.0, 0.53); u3(p, 'uColor2', 1.0, 0.0, 1.0); u3(p, 'uColor3', 0.27, 0.27, 1.0);
   ui(p, 'uSpectrum', 0);
 __PARAMS__}

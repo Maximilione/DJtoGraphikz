@@ -48,6 +48,8 @@ export interface HapTrack {
   width: number
   height: number
   durationSec: number
+  /** Index of the sample nearest-below `timeSec` — what frameAt would fetch, without fetching it. */
+  indexAt(timeSec: number): number
   /** Decoded DXT1/DXT5 block buffer for the sample nearest-below `timeSec`. */
   frameAt(timeSec: number): Promise<Uint8Array>
 }
@@ -82,8 +84,12 @@ export async function probeHapTrack(path: string): Promise<HapTrack | null> {
     const bytes = await fetchRange(path, pos, end)
     const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer & { fileStart: number }
     ab.fileStart = pos
-    mp4box.appendBuffer(ab as Parameters<typeof mp4box.appendBuffer>[0])
-    pos = end + 1
+    // appendBuffer returns where the next buffer should start: with the moov
+    // still ahead and a box (mdat) only partially in hand, that is the end of
+    // the box — so a non-fast-start file skips its media instead of streaming
+    // every byte of it through the parser just to reach the sample table.
+    const next = mp4box.appendBuffer(ab as Parameters<typeof mp4box.appendBuffer>[0]) as number
+    pos = Math.max(end + 1, next || 0)
   }
   if (!ready) return null // no moov in the whole file — let <video> try and fail on its own
 
@@ -121,6 +127,7 @@ export async function probeHapTrack(path: string): Promise<HapTrack | null> {
   return {
     fourcc: fourcc as 'Hap1' | 'Hap5',
     format, width, height, durationSec,
+    indexAt(timeSec: number) { return sampleIndexAt(samples, Math.max(0, timeSec) * timescale) },
     async frameAt(timeSec: number) {
       const cts = Math.max(0, timeSec) * timescale
       const s = samples[sampleIndexAt(samples, cts)]
@@ -165,16 +172,23 @@ export class HapPlayer {
     }
   }
 
-  /** Per frame: request the frame for this clip time. Drops overlapping requests instead of queuing — a slow fetch skips frames, it never backs up. */
+  /**
+   * Per frame: request the frame for this clip time. Drops overlapping requests instead of queuing — a slow fetch skips frames, it never backs up.
+   * Keyed on the sample index, not the time: a 25 fps clip on a 60 fps output asks for the same sample 2-3 ticks in a row, and each repeat
+   * would be a fetch, a snappy decode, a fresh buffer and (since bufferTime moved) a texture re-upload of identical pixels.
+   */
   show(timeSec: number) {
-    if (this.dead || !this.track || this.pending || timeSec === this.lastRequested) return
-    this.lastRequested = timeSec
+    if (this.dead || !this.track || this.pending) return
+    const idx = this.track.indexAt(timeSec)
+    if (idx === this.lastRequested) return
+    this.lastRequested = idx
     this.pending = true
     this.track.frameAt(timeSec).then(buf => {
       this.pending = false
       if (!this.dead) { this.buffer = buf; this.bufferTime = timeSec }
     }).catch(err => {
       this.pending = false
+      this.lastRequested = -1   // retry on the next tick: a still or a paused clip would stay blank
       console.error('[HAP] frame illeggibile:', this.path, err)
     })
   }

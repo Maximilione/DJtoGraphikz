@@ -7,6 +7,7 @@ uniform float uHigh;
 uniform float uEnergy;
 uniform float uBeat;
 uniform float uBassHit;
+uniform float uBassTime;
 uniform float uHighTime;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
@@ -48,19 +49,31 @@ void main() {
 
   float seed = hash(cell.x * 7.77);
   float tail = 6.0 + hash(cell.x * 3.31) * 16.0;      // per-column trail length
-  float speed = (fallspeed + hash(cell.x * 0.123) * 3.0) * (1.0 + uBass * 1.6);
+  float baseSpeed = fallspeed + hash(cell.x * 0.123) * 3.0;
 
   // head travels down; the cycle is longer than the screen so columns restart
-  // staggered instead of all together
+  // staggered instead of all together. The bass speeds the fall through
+  // uBassTime (the integral of the bass), never t * uBass: that product
+  // jumped the head by t*dBass rows on every bass change, so after ten
+  // minutes the rain teleported on each kick
   float cycle = rows + tail;
-  float head = mod(t * speed * 3.0 + seed * cycle, cycle);
+  float head = mod((t + 1.6 * uBassTime) * baseSpeed * 3.0 + seed * cycle, cycle);
 
   // distance ABOVE the head: this is the trail (the old code used
   // fract(integer + phase), identical for every cell of a column — the whole
   // effect was flat noise instead of falling code)
   float d = head - rowFromTop;
   float inTrail = step(0.0, d) * step(d, tail);
+  // kick: a few columns light up whole — more of them the harder the kick
+  float flashCol = step(0.96 - uBassHit * 0.12, hash(cell.x * 3.33 + floor(uTime * 2.0)));
+  // every term below is scaled by inTrail or by flashCol*uBassHit: outside
+  // both the cell is exactly black, so skip the flicker and glyph hashes
+  if (inTrail + flashCol * uBassHit <= 0.0) {
+    gl_FragColor = vec4(vec3(0.0), 1.0);
+    return;
+  }
   float fade = exp(-d / (tail * (0.25 + trailfade * 0.35)));
+  float f2 = fade * fade;
 
   // glyphs flicker on their own clock, faster near the head
   float flick = floor(t * (2.0 + hash(cell.x + cell.y * 3.7) * 6.0) + uHighTime);
@@ -71,11 +84,8 @@ void main() {
   vec3 color = vec3(0.0);
   color += uColor1 * g * fade * inTrail * 0.9;                 // body of the trail
   color += mix(uColor2, vec3(1.0), 0.6) * g * headMask * (1.7 + uBeat * 1.2);  // bright head, pulses
-  color += uColor3 * g * inTrail * pow(fade, 4.0) * 0.35;      // accent near the head
-
-  // kick: a few columns light up whole — more of them the harder the kick
-  float flashCol = step(0.96 - uBassHit * 0.12, hash(cell.x * 3.33 + floor(uTime * 2.0)));
-  color += mix(uColor1, vec3(1.0), 0.3) * flashCol * uBassHit * g * 1.6;
+  color += uColor3 * g * inTrail * (f2 * f2) * 0.35;           // accent near the head
+  color += mix(uColor1, vec3(1.0), 0.3) * flashCol * uBassHit * g * 1.6;   // the kick's whole-lit columns
 
   color *= 0.92 + 0.08 * sin(pixel.y * 3.0);                    // scanlines
   color *= 0.75 + uEnergy * 0.45;

@@ -26,6 +26,6 @@ void main() {
   acc /= 24.0;
   vec3 tint = mix(vec3(1.0), uColor1 / (max(uColor1.r, max(uColor1.g, uColor1.b)) + 0.05), 0.35);
   vec3 rays = clamp(acc * tint * 2.6 * (1.0 + uEnergy * 0.4 + uBeat * 0.5), 0.0, 1.0);
-  vec3 wet = 1.0 - (1.0 - base) * (1.0 - rays);
-  gl_FragColor = vec4(mix(base, wet, uWet), 1.0);
+  // screen then mix with the dry image, folded: mix(b, 1-(1-b)(1-r), w) = b + w r (1-b)
+  gl_FragColor = vec4(base + (uWet * rays) * (1.0 - base), 1.0);
 }

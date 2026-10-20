@@ -40,6 +40,12 @@ const vec2 C1 = vec2(-0.91, RAIL_Y - 0.55 * RAIL_R);
 const vec2 C2 = vec2(0.91, RAIL_Y - 0.55 * RAIL_R);
 
 float gP; // active frame period, set in main() from `fixtures`
+float gInvP;
+// camera z and fixture hashes wrap every ZWRAP frames: the geometry is
+// periodic in gP so the wrap is invisible, and the hash arguments stay small
+// (after two hours an unbounded z put ~2.5e5 into sin(), where this hash
+// degrades: strobegrid documents the same failure)
+const float ZWRAP = 64.0;
 
 float hash11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
@@ -57,66 +63,89 @@ float rails(vec3 p) {
   return min(d0, min(d1, d2));
 }
 
-float frame(vec3 p) {
-  float zc = floor(p.z / gP + 0.5);
-  float zl = p.z - zc * gP;
-  float e = min(sdSeg2(p.xy, C0, C1), min(sdSeg2(p.xy, C1, C2), sdSeg2(p.xy, C2, C0)));
-  return max(e - 0.045, abs(zl) - 0.05);
-}
-
 float map(vec3 p) {
-  return min(rails(p), frame(p));
+  float dr = rails(p);
+  // frame = max(e - 0.045, |zl| - 0.05) >= |zl| - 0.05: when the slab in z
+  // is already further than the rails the three segments cannot win the
+  // min, so skip them (exact; true on most steps, the frames are thin)
+  float zl = p.z - floor(p.z * gInvP + 0.5) * gP;
+  float dz = abs(zl) - 0.05;
+  if (dz >= dr) return dr;
+  float e = min(sdSeg2(p.xy, C0, C1), min(sdSeg2(p.xy, C1, C2), sdSeg2(p.xy, C2, C0)));
+  return min(dr, max(e - 0.045, dz));
 }
 
+// tetrahedron normal: four map() calls instead of six
 vec3 normalAt(vec3 p) {
-  vec2 e = vec2(0.02, 0.0);
-  return normalize(vec3(map(p + e.xyy) - map(p - e.xyy),
-                        map(p + e.yxy) - map(p - e.yxy),
-                        map(p + e.yyx) - map(p - e.yyx)));
+  const vec2 k = vec2(1.0, -1.0);
+  const float e = 0.02;
+  return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e) +
+                   k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
 }
 
-// one fixture's volumetric cone, gathered into `glow` for the sample p
-void fixtureAt(float zc, float side, vec3 p, float dt, inout vec3 glow) {
-  float h = hash11(zc * 3.1 + side * 7.7);
-  float h2 = hash11(zc * 1.7 + side * 2.3 + 11.0);
-  vec2 base = side < 0.0 ? C1 : C2;
-  vec3 fPos = vec3(base, zc * gP);
+// One fixture: position, aim and colour depend on (frame, side) and the
+// uniforms only, so they are built once per frame crossing in the march
+// instead of 4x per step (the ray crosses ~14 frames, the march has 64 steps).
+struct Fix { vec3 pos; vec3 aim; vec3 col; };
+
+Fix mkFix(float zc, float side) {
+  float zh = mod(zc, ZWRAP);
+  float h = hash11(zh * 3.1 + side * 7.7);
+  float h2 = hash11(zh * 1.7 + side * 2.3 + 11.0);
+  Fix f;
+  f.pos = vec3(side < 0.0 ? C1 : C2, zc * gP);
   float rot = h2 > 0.65 ? spin * (uTime * 0.6 + h * 6.28) : 0.0;
-  vec3 aim = normalize(vec3(side * (0.25 + 0.3 * sin(rot)), -1.0, 0.35 + 0.3 * cos(rot) * step(0.65, h2)));
-  vec3 toP = p - fPos;
-  float along = dot(toP, aim);
-  if (along <= 0.0) return;
-  vec3 closest = fPos + aim * along;
-  float dist = length(p - closest);
-  float w = (0.06 + 0.1 * along) * (1.0 + 0.6 * uBassHit);
-  float g = exp(-dist * dist / (w * w)) * exp(-along * 0.07);
+  f.aim = normalize(vec3(side * (0.25 + 0.3 * sin(rot)), -1.0, 0.35 + 0.3 * cos(rot) * step(0.65, h2)));
   float chase = clamp(uBassHit * (1.3 + 0.4 * strobe) - h * (0.3 + 0.7 * strobe), 0.0, 1.0);
   vec3 fc = h > 0.5 ? mix(uColor2, vec3(1.0), 0.6) : mix(uColor1, vec3(1.0), 0.6);
-  float intensity = 0.22 + 1.4 * chase + 0.15 * uBass;
-  glow += fc * g * intensity * dt;
+  f.col = fc * (0.22 + 1.4 * chase + 0.15 * uBass);
+  return f;
+}
+
+// the fixture's volumetric cone, gathered into `glow` for the sample p
+void coneAt(Fix f, vec3 p, float dt, inout vec3 glow) {
+  vec3 toP = p - f.pos;
+  float along = dot(toP, f.aim);
+  if (along <= 0.0) return;
+  // squared distance to the axis: |toP|^2 - along^2 (aim is unit), no sqrt;
+  // the two exponentials merged into one
+  float d2 = max(dot(toP, toP) - along * along, 0.0);
+  float w = (0.06 + 0.1 * along) * (1.0 + 0.6 * uBassHit);
+  float g = exp(-d2 / (w * w) - along * 0.07);
+  glow += f.col * g * dt;
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   float kick = clamp(uBassHit, 0.0, 1.0);
   gP = clamp(60.0 / max(fixtures, 1.0), 3.0, 16.0);
+  gInvP = 1.0 / gP;
 
-  vec3 ro = vec3(0.0, -1.9, uTime * 0.9);
+  vec3 ro = vec3(0.0, -1.9, mod(uTime * 0.9, gP * ZWRAP));
   vec3 rd = normalize(vec3(uv.x, uv.y * 1.05 + 0.32, 1.1));
 
   vec3 glow = vec3(0.0);
   float t = 0.1;
   bool hit = false;
   vec3 p = ro;
+  float zcPrev = -1e4;
+  Fix fA, fB, fC, fD;
   for (int i = 0; i < 64; i++) {
     p = ro + rd * t;
     float d = map(p);
     float dt = clamp(d, 0.05, 0.6);
-    float zc = floor(p.z / gP + 0.5);
-    fixtureAt(zc, -1.0, p, dt, glow);
-    fixtureAt(zc, 1.0, p, dt, glow);
-    fixtureAt(zc + 1.0, -1.0, p, dt, glow);
-    fixtureAt(zc + 1.0, 1.0, p, dt, glow);
+    float zc = floor(p.z * gInvP + 0.5);
+    if (zc != zcPrev) { // neighbouring pixels cross frames on the same steps
+      zcPrev = zc;
+      fA = mkFix(zc, -1.0);
+      fB = mkFix(zc, 1.0);
+      fC = mkFix(zc + 1.0, -1.0);
+      fD = mkFix(zc + 1.0, 1.0);
+    }
+    coneAt(fA, p, dt, glow);
+    coneAt(fB, p, dt, glow);
+    coneAt(fC, p, dt, glow);
+    coneAt(fD, p, dt, glow);
     if (d < 0.01) { hit = true; break; }
     t += dt;
     if (t > 42.0) break;
@@ -128,13 +157,16 @@ void main() {
     vec3 n = normalAt(p);
     vec3 L = normalize(vec3(0.3, 1.0, -0.2));
     float diff = max(dot(n, L), 0.0);
-    float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+    float rf = 1.0 - max(dot(n, -rd), 0.0);
+    float rim = rf * rf * rf;
     col = steel * (0.45 + 0.8 * diff);
     col += uColor1 * 0.08;
     col += uColor3 * rim * (0.15 + 0.5 * kick);
   } else {
     col = uColor2 * 0.03 + uColor1 * 0.02 * smoothstep(1.0, -0.4, uv.y);
-    col += uColor3 * 0.08 * pow(max(rd.z, 0.0), 24.0) * (0.5 + 0.6 * kick);
+    float rz = max(rd.z, 0.0);
+    float r2 = rz * rz, r4 = r2 * r2, r8 = r4 * r4;
+    col += uColor3 * 0.08 * (r8 * r8 * r8) * (0.5 + 0.6 * kick); // ^24
   }
 
   col += glow * 0.18;

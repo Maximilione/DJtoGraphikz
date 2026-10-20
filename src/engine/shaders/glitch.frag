@@ -69,7 +69,7 @@ void main() {
 
   // Scanlines
   float scan = sin(gl_FragCoord.y * 2.0) * 0.5 + 0.5;
-  scan = pow(scan, 0.5);
+  scan = sqrt(scan);
 
   // Compose: .x blocks, .y stripes, .z data columns
   float rVal = pr.x * step(0.3, hash(centered * 10.0 + displacement * 15.0 + glitchTime)) + pr.z * 0.5;
@@ -82,16 +82,20 @@ void main() {
 
   // Big glitch blocks on beat (block size clamped: at full intensity it hit
   // zero, the division made NaN and the blocks silently disappeared)
-  float bigBlock = blockNoise(centered + vec2(0.0, glitchTime), 0.15 + (1.0 - clamp(glitchIntensity, 0.0, 1.0)) * 0.3);
-  if (bigBlock > 0.7 && glitchIntensity > 0.3) {
+  // (intensity tests first: uniform-derived, so between the beats the whole
+  // block noise is skipped)
+  if (glitchIntensity > 0.3) {
+    float bigBlock = blockNoise(centered + vec2(0.0, glitchTime), 0.15 + (1.0 - clamp(glitchIntensity, 0.0, 1.0)) * 0.3);
     // clamped: intensity 3 on a loud track pushed the mix past 1 and the
     // blocks blew out to white
-    color = mix(color, uColor2 * 1.5, clamp((bigBlock - 0.7) * 3.0 * glitchIntensity, 0.0, 1.0));
+    if (bigBlock > 0.7) color = mix(color, uColor2 * 1.5, clamp((bigBlock - 0.7) * 3.0 * glitchIntensity, 0.0, 1.0));
   }
 
-  // Horizontal tear lines
-  float tearLine = step(0.98, hash(vec2(floor(uv.y * uResolution.y), glitchTime)));
-  color += uColor3 * tearLine * min(glitchIntensity, 1.5);
+  // Horizontal tear lines (weight 0 at zero intensity)
+  if (glitchIntensity > 0.0) {
+    float tearLine = step(0.98, hash(vec2(floor(gl_FragCoord.y), glitchTime)));
+    color += uColor3 * tearLine * min(glitchIntensity, 1.5);
+  }
 
   // Scanline darkening
   color *= 0.8 + scan * 0.2;
