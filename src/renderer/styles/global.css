@@ -1230,11 +1230,12 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   height: 10px;
   border-radius: 50%;
   background: var(--text-primary);
-  transition: left var(--t-fast);
+  /* transform, not left: the knob slides on the compositor, no layout per frame */
+  transition: transform var(--t-fast);
 }
 
 .media-toggle.on { background: var(--accent); }
-.media-toggle.on::after { left: 16px; background: #000; }
+.media-toggle.on::after { transform: translateX(14px); background: #000; }
 
 .media-name {
   flex: 1;

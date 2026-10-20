@@ -25,13 +25,18 @@ const NAME_RULES: Rule[] = [
 ]
 
 // speed warps the time accumulator, reactivity already scales the audio uniforms
-const SKIP = new Set(['speed', 'reactivity'])
+export const SKIP_KEYS = ['speed', 'reactivity'] as const
+const SKIP = new Set<string>(SKIP_KEYS)
+
+/** The shader body, declarations stripped — split once per shader, not once per param */
+function bodyLines(src: string): string[] {
+  return src.split('\n').filter(l => !/^\s*uniform\b|^\s*#define\b|^\s*varying\b/.test(l))
+}
 
 /** How the shader body uses a uniform — the lines that mention it, summarized */
-function analyzeUsage(src: string, key: string) {
+function analyzeUsage(body: string[], key: string) {
   const re = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
-  const lines = src.split('\n').filter(l =>
-    re.test(l) && !/^\s*uniform\b|^\s*#define\b|^\s*varying\b/.test(l))
+  const lines = body.filter(l => re.test(l))
   const ctx = lines.join(' ')
   return {
     uses: lines.length,
@@ -67,7 +72,10 @@ export interface SmartMapResult {
 }
 
 export function smartMap(engine: Engine): SmartMapResult {
+  // the effect this ran on: Annulla must not write into whatever is active later
+  const effect = engine.getCurrentEffect()
   const src = engine.getCustomShaderSource()
+  const body = src ? bodyLines(src) : null
   const prev: { key: string; value: number; source: AudioSource; depth: number; lfoRate?: number }[] = []
 
   // Pass 1 — score and pick per param
@@ -80,7 +88,7 @@ export function smartMap(engine: Engine): SmartMapResult {
     const isBool = def.min === 0 && def.max === 1 && Number.isInteger(def.default)
     const named = NAME_RULES.find(r => r.re.test(def.key) || r.re.test(def.label))
     // ISF long inputs expose "<name>_f" as param key but the body uses "<name>"
-    const usage = src ? analyzeUsage(src, def.key.replace(/_f$/, '')) : null
+    const usage = body ? analyzeUsage(body, def.key.replace(/_f$/, '')) : null
     const pick: Pick = isBool ? { source: 'beat', depth: 1 }
       : named ? { source: named.source, depth: named.depth, lfoRate: named.lfoRate }
       : usage && usage.uses > 0 ? pickByUsage(usage)
@@ -108,24 +116,32 @@ export function smartMap(engine: Engine): SmartMapResult {
     }
   }
 
-  // Pass 3 — apply, giving positive modulation headroom
-  for (const p of picks) {
-    const st = engine.getParamState(p.key)
-    const range = p.max - p.min
-    const isBool = p.min === 0 && p.max === 1
-    if (!isBool && st.value > p.min + 0.65 * range) {
-      engine.setParamValue(p.key, p.min + 0.35 * range)
+  // Pass 3 — apply, giving positive modulation headroom. One state snapshot
+  // for the whole pass: each setter used to emit its own, ~40 per click.
+  engine.batch(() => {
+    for (const p of picks) {
+      const st = engine.getParamState(p.key)
+      const range = p.max - p.min
+      const isBool = p.min === 0 && p.max === 1
+      if (!isBool && st.value > p.min + 0.65 * range) {
+        engine.setParamValue(p.key, p.min + 0.35 * range)
+      }
+      engine.setParamMapping(p.key, p.pick.source, p.pick.depth, p.pick.lfoRate)
     }
-    engine.setParamMapping(p.key, p.pick.source, p.pick.depth, p.pick.lfoRate)
-  }
+  })
 
   return {
     count: picks.length,
     undo: () => {
-      for (const p of prev) {
-        engine.setParamValue(p.key, p.value)
-        engine.setParamMapping(p.key, p.source, p.depth, p.lfoRate)
-      }
+      // the toast outlives an effect change: undoing then would write these
+      // keys into the new effect's bucket (getParamState creates them)
+      if (engine.getCurrentEffect() !== effect || engine.getCustomShaderSource() !== src) return
+      engine.batch(() => {
+        for (const p of prev) {
+          engine.setParamValue(p.key, p.value)
+          engine.setParamMapping(p.key, p.source, p.depth, p.lfoRate)
+        }
+      })
     },
   }
 }

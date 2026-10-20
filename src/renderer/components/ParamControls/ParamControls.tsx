@@ -46,9 +46,22 @@ export function ParamControls({ engine }: ParamControlsProps) {
   const defs = engine.getParamDefs()
   if (defs.length === 0) return null
 
+  // pointercancel (touch, pen, lost capture) and a window that loses focus
+  // mid-drag never send pointerup: the panel stayed deaf to the engine —
+  // phone, Auto VJ, presets — until the next complete click
   const onPointerDown = () => {
+    if (draggingRef.current) return
     draggingRef.current = true
-    window.addEventListener('pointerup', () => { draggingRef.current = false; force() }, { once: true })
+    const end = () => {
+      draggingRef.current = false
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      window.removeEventListener('blur', end)
+      force()
+    }
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    window.addEventListener('blur', end)
   }
 
   return (

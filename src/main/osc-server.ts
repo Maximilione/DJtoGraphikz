@@ -45,6 +45,13 @@ function parseMessage(buf: Buffer): { addr: string; args: OscArg[] } | null {
       args.push(s[0]); off = s[1]
     } else if (tag === 'T') { args.push(1) }
     else if (tag === 'F') { args.push(0) }
+    else if (tag === 'd') {   // double: Max, Open Stage Control
+      if (off + 8 > buf.length) return null
+      args.push(buf.readDoubleBE(off)); off += 8
+    } else if (tag === 'h') {   // int64
+      if (off + 8 > buf.length) return null
+      args.push(Number(buf.readBigInt64BE(off))); off += 8
+    } else if (tag === 'N' || tag === 'I') { args.push(0) }   // nil / impulse: no payload
     else return null // unknown tag — can't skip its payload safely, drop
   }
   return { addr, args }
@@ -110,14 +117,17 @@ function toCmd(addr: string, args: OscArg[]): Record<string, unknown> | null {
     case '/djg/cam/pany': return f === null ? null : { type: 'camera', value: { panY: f } }
     case '/djg/cam/tile': return f === null ? null : { type: 'camera', value: { tile: f } }
     case '/djg/cam/push': return f === null ? null : { type: 'camera', value: { push: f } }
-    case '/djg/cam/reset': return { type: 'cameraReset' }
+    // momentary like the rest: a TouchOSC button sends 1 on press and 0 on
+    // release, and two taps per press made the tap tempo nonsense. A bare
+    // message (no args) still counts as one press.
+    case '/djg/cam/reset': return args.length === 0 || on ? { type: 'cameraReset' } : null
     case '/djg/blackout': return f === null ? null : { type: 'blackout', value: on }
     case '/djg/freeze': return f === null ? null : { type: 'freeze', value: on }
     case '/djg/autovj': return f === null ? null : { type: 'autovj', value: on }
     case '/djg/seq/next': return on ? { type: 'seqNext' } : null
     case '/djg/seq/prev': return on ? { type: 'seqPrev' } : null
     case '/djg/seq/stop': return on ? { type: 'seqStop' } : null
-    case '/djg/tap': return { type: 'tap' }
+    case '/djg/tap': return args.length === 0 || on ? { type: 'tap' } : null
     case '/djg/panic': return on ? { type: 'panic' } : null
     case '/djg/bpm/half': return on ? { type: 'bpmScale', value: 0.5 } : null
     case '/djg/bpm/double': return on ? { type: 'bpmScale', value: 2 } : null
@@ -164,8 +174,12 @@ export function setupOscServer(controlWindow: BrowserWindow): void {
   const lastSent = new Map<string, number>()
   const trailing = new Map<string, { cmd: unknown }>()
 
+  // also called from the trailing-flush timer: a renderer mid-reload must not
+  // turn into an uncaughtException
   const emit = (cmd: unknown) => {
-    if (!controlWindow.isDestroyed()) controlWindow.webContents.send('remote:cmd', { ...(cmd as Record<string, unknown>), source: 'osc' })
+    if (controlWindow.isDestroyed() || controlWindow.webContents.isDestroyed()) return
+    try { controlWindow.webContents.send('remote:cmd', { ...(cmd as Record<string, unknown>), source: 'osc' }) }
+    catch { /* reload: the next message gets through */ }
   }
 
   const send = (addr: string, cmd: unknown) => {
@@ -214,6 +228,10 @@ export function setupOscServer(controlWindow: BrowserWindow): void {
     })
     s.bind(p, '0.0.0.0', () => {
       socket = s
+      // bound: the bind-time handler above would close the socket and walk
+      // to the next port on any later error; from here errors are only logged
+      s.removeAllListeners('error')
+      s.on('error', (err: Error) => console.error('[OSC] socket error:', err.message))
       console.log(`[OSC] listening on :${p} (UDP, unauthenticated — LAN trust, same as ArtNet)`)
     })
   }

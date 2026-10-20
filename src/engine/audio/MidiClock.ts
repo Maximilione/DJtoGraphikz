@@ -48,10 +48,18 @@ export interface ClockState {
 }
 
 export class MidiClock {
-  /** Ticks since the last Start, or since the position the pointer gave us. */
+  /**
+   * Ticks received since the last Start, or since the position the pointer
+   * gave us — so the next tick to arrive has index `ticks`, and the first one
+   * after Start is index 0, the downbeat itself.
+   */
   private ticks = 0
   private lastTickAt = 0
   private intervals: number[] = []
+  /** Tempo from the intervals, recomputed only when they change: read() is called several times a frame. */
+  private bpmCache = 0
+  /** Consecutive implausible intervals: one is a burst or a GC pause, a run is a real stall. */
+  private badRun = 0
   private transportRunning = false
   private everStarted = false
   /** Beat boundaries crossed but not yet reported to a caller. */
@@ -76,17 +84,25 @@ export class MidiClock {
           const dt = nowMs - this.lastTickAt
           // A plausible tick sits between 300 and 40 BPM; anything else is a
           // dropped message or a stall, and averaging it in would poison the
-          // tempo for a whole beat.
+          // tempo for a whole beat. One outlier is skipped (the median would
+          // not have moved anyway); a run of them means the clock really
+          // stopped, and the window starts over.
           if (dt > 8 && dt < 62) {
             this.intervals.push(dt)
             if (this.intervals.length > WINDOW) this.intervals.shift()
-          } else {
-            this.intervals = []
+            this.badRun = 0
+            this.bpmCache = this.computeTempo()
+          } else if (++this.badRun > 3) {
+            this.intervals.length = 0
+            this.badRun = 0
+            this.bpmCache = 0
           }
         }
         this.lastTickAt = nowMs
+        // This tick is index `ticks`: the 25th one (index 24) opens beat 2.
+        // Index 0 is the beat Start already announced.
+        if (this.ticks > 0 && this.ticks % TICKS_PER_BEAT === 0) this.pendingBeat = true
         this.ticks++
-        if (this.ticks % TICKS_PER_BEAT === 0) this.pendingBeat = true
         break
 
       case MIDI_START:
@@ -95,16 +111,20 @@ export class MidiClock {
         this.transportRunning = true
         this.everStarted = true
         this.lastTickAt = 0
+        this.badRun = 0
         break
 
       case MIDI_CONTINUE:
         this.transportRunning = true
         this.everStarted = true
         this.lastTickAt = 0
+        this.badRun = 0
         break
 
       case MIDI_STOP:
         this.transportRunning = false
+        // a beat crossed just before Stop must not fire on Continue
+        this.pendingBeat = false
         break
 
       case MIDI_SONG_POSITION: {
@@ -122,6 +142,8 @@ export class MidiClock {
     this.ticks = 0
     this.lastTickAt = 0
     this.intervals = []
+    this.bpmCache = 0
+    this.badRun = 0
     this.transportRunning = false
     this.everStarted = false
     this.pendingBeat = false
@@ -137,7 +159,7 @@ export class MidiClock {
    * the visuals.
    */
   read(nowMs: number): ClockState {
-    const bpm = this.tempo()
+    const bpm = this.bpmCache
     const alive = this.transportRunning
       && bpm > 0
       && this.lastTickAt > 0
@@ -149,11 +171,13 @@ export class MidiClock {
 
     const tickMs = 60000 / (bpm * TICKS_PER_BEAT)
     // Interpolate inside the tick we are in, so phase moves every frame at
-    // 60 fps instead of stepping 24 times a beat.
+    // 60 fps instead of stepping 24 times a beat. The tick we are in is the
+    // last one received, index ticks - 1.
     const within = Math.min(1, Math.max(0, (nowMs - this.lastTickAt) / tickMs))
-    const tickPos = (this.ticks % TICKS_PER_BEAT) + within
+    const idx = Math.max(0, this.ticks - 1)
+    const tickPos = (idx % TICKS_PER_BEAT) + within
     const beatPhase = (tickPos / TICKS_PER_BEAT) % 1
-    const beatInBar = Math.floor(this.ticks / TICKS_PER_BEAT) % BEATS_PER_BAR
+    const beatInBar = Math.floor(idx / TICKS_PER_BEAT) % BEATS_PER_BAR
 
     return {
       running: true,
@@ -168,7 +192,7 @@ export class MidiClock {
   clearBeat(): void { this.pendingBeat = false }
 
   /** Median of the recent tick intervals — one late message must not move it. */
-  private tempo(): number {
+  private computeTempo(): number {
     if (this.intervals.length < 6) return 0
     const sorted = [...this.intervals].sort((a, b) => a - b)
     const mid = sorted.length >> 1

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import type { Engine, CameraState } from '@engine/Engine'
 import { CAMERA_NEUTRAL } from '@engine/Engine'
 import { LINE_BOOST_DEFAULT } from '@engine/lineBoost'
@@ -11,6 +11,9 @@ interface CameraPanelProps {
   engine: Engine | null
 }
 
+/** getCamera()/getImpact() return copies: without this React never bails out and both panels re-render on every emit */
+const same = <T extends object>(a: T, b: T) => (Object.keys(b) as (keyof T)[]).every(k => a[k] === b[k])
+
 /**
  * The master camera.
  *
@@ -20,7 +23,7 @@ interface CameraPanelProps {
  * there, which is exactly why it is worth more than a control on any single
  * effect.
  */
-export function CameraPanel({ engine }: CameraPanelProps) {
+function CameraPanelImpl({ engine }: CameraPanelProps) {
   const [cam, setCam] = useState<CameraState>(CAMERA_NEUTRAL)
   const [lb, setLb] = useState(LINE_BOOST_DEFAULT)
   const [pres, setPres] = useState(PRESENCE_DEFAULT)
@@ -29,7 +32,10 @@ export function CameraPanel({ engine }: CameraPanelProps) {
   // the engine rather than owning the value.
   useEffect(() => {
     if (!engine) return
-    const sync = () => { setCam(engine.getCamera()); setLb(engine.getLineBoost()); setPres(engine.getPresence()) }
+    const sync = () => {
+      setCam(p => { const n = engine.getCamera(); return same(p, n) ? p : n })
+      setLb(engine.getLineBoost()); setPres(engine.getPresence())
+    }
     sync()
     return engine.onState(sync)
   }, [engine])
@@ -40,7 +46,7 @@ export function CameraPanel({ engine }: CameraPanelProps) {
   }, [engine])
 
   if (!engine) return null
-  const moved = JSON.stringify(cam) !== JSON.stringify(CAMERA_NEUTRAL)
+  const moved = !same(cam, CAMERA_NEUTRAL)
 
   return (
     <Panel id="camera" title="Camera" defaultCollapsed group="right" active={moved}>
@@ -101,13 +107,16 @@ export function CameraPanel({ engine }: CameraPanelProps) {
   )
 }
 
+export const CameraPanel = memo(CameraPanelImpl)
+
 /** Audio impact: shake, punch-zoom, soft flash, per-band response, energy chaser. Same pass as the camera. */
-export function ImpactPanel({ engine }: CameraPanelProps) {
+function ImpactPanelImpl({ engine }: CameraPanelProps) {
   const [im, setIm] = useState<ImpactState>(IMPACT_DEFAULT)
   useEffect(() => {
     if (!engine) return
-    setIm(engine.getImpact())
-    return engine.onState(() => setIm(engine.getImpact()))
+    const sync = () => setIm(p => { const n = engine.getImpact(); return same(p, n) ? p : n })
+    sync()
+    return engine.onState(sync)
   }, [engine])
   const set = useCallback((patch: Partial<ImpactState>) => {
     engine?.setImpact(patch)
@@ -145,3 +154,5 @@ export function ImpactPanel({ engine }: CameraPanelProps) {
     </Panel>
   )
 }
+
+export const ImpactPanel = memo(ImpactPanelImpl)

@@ -7,8 +7,9 @@
  *   master deck, from the status packets. Exact; a new id is a new track.
  * - **Audio heuristics** (`update`), for rooms with no CDJ on the network.
  *   Three signals, each a thing a mix does and a track does not:
- *   (a) a settled tempo that moves by more than 1.5 % and stays there 8 s;
- *   (b) a confident key that changes and holds 10 s;
+ *   (a) a tempo that had settled for 30 s, moves by more than 1.5 % and
+ *       stays there 20 s;
+ *   (b) a confident key that changes and holds 20 s;
  *   (c) a break of 20 s or more ending in a drop — the classic blend.
  *   One audio detection per minute at most: a mix changes track every 2–6
  *   minutes, and a second hit inside the minute is the same change heard
@@ -55,7 +56,9 @@ export const TRACK_CHANGE = {
   bpmHoldMs: 20000,
   /** ...and the old one must have held this long first: an estimator hunting between two peaks is not news */
   bpmStableMs: 30000,
-  /** the key analyser must stand this far above the runner-up; the tempo estimate too */
+  /** frames whose tempo estimate is less sure than this do not count */
+  bpmConfidence: 0.5,
+  /** the key analyser must stand this far above the runner-up */
   keyConfidence: 0.5,
   keyHoldMs: 20000,
   /** a break shorter than this followed by a drop is the same track's drop */
@@ -100,11 +103,18 @@ export class TrackChangeDetector {
     if (!trackId || trackId === this.lastTrackId) return null
     this.lastTrackId = trackId
     this.quietUntil = Math.max(this.quietUntil, t + TRACK_CHANGE.prolinkQuietMs)
+    // The deck said it: the audio references belong to the old track. Kept,
+    // a candidate maturing after the quiet window reported the same change a
+    // second time and the playlist turned two pages.
+    this.refBpm = 0
+    this.candBpm = 0
+    this.refKey = null
+    this.candKey = null
     return (this.last = { at: t, source: 'prolink', reason: 'Pro DJ Link', trackId })
   }
 
   private trackBpm(f: TrackChangeFrame): string | null {
-    if (!(f.bpm > 0) || f.bpmConfidence < TRACK_CHANGE.keyConfidence) return null
+    if (!(f.bpm > 0) || f.bpmConfidence < TRACK_CHANGE.bpmConfidence) return null
     if (!this.refBpm) { this.refBpm = f.bpm; this.refBpmSince = f.t; return null }
     if (near(f.bpm, this.refBpm)) { this.candBpm = 0; return null }
     // ponytail: an octave flip (128 → 64) is the tracker misreading the same

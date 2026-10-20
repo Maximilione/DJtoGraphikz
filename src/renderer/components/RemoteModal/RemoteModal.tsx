@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import QRCode from 'qrcode'
+import { pushToast } from '../Toasts/Toasts'
 
 interface RemoteModalProps {
   onClose: () => void
@@ -15,6 +15,9 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
   const load = async (i?: Info) => {
     const data = i ?? await window.api.getRemoteInfo()
     setInfo(data)
+    // the encoder is loaded here and not with the app: a modal opened once a
+    // night does not belong in the chunk every start parses
+    const QRCode = (await import('qrcode')).default
     setQr(await QRCode.toDataURL(data.url, {
       width: 220, margin: 1,
       color: { dark: '#e8e8f0', light: '#0a0a0e' },
@@ -80,8 +83,13 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
             className="btn btn-secondary btn-sm"
             title="Scollega telefoni e browser OBS collegati, genera codice e indirizzo nuovi"
             onClick={async () => {
-              const { code, obsUrl } = await window.api.resetRemote()
-              if (info) load({ ...info, code, obsUrl })
+              try {
+                const { code, obsUrl } = await window.api.resetRemote()
+                if (info) await load({ ...info, code, obsUrl })
+              } catch (e) {
+                console.error('[Remote] nuovo codice fallito:', e)
+                pushToast(`Nuovo codice non riuscito: ${(e as Error).message}`, 'remote-reset', undefined, 'err')
+              }
             }}
           >
             Nuovo codice

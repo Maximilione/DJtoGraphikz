@@ -2,6 +2,11 @@ name: Release
 
 # Ogni tag v* compila gli installer per macOS/Windows/Linux e li pubblica
 # nella release GitHub corrispondente. Avviabile anche a mano.
+#
+# `verify` gira prima delle tre build: tipi e suite offline (niente GPU,
+# niente app avviata — check:output resta locale, come da CLAUDE.md), piu' il
+# controllo che il tag coincida con la version di package.json, da cui
+# prendono il nome gli installer. Un tag con i tipi rotti non produce release.
 on:
   push:
     tags: ['v*']
@@ -11,12 +16,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +26,55 @@ jobs:
         with:
           node-version: 20
           cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      # solo sui tag: a mano (workflow_dispatch) si costruisce quello che c'e'
+      - name: Il tag e' la version di package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          test "$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != package.json $v"; exit 1; }
+
+      - run: yarn typecheck
+
+      # suite pure (node, nessun hardware): beat, clock, link, storage, loader,
+      # sequenze, Auto VJ, GIF, OBS, pixel map
+      - name: Suite offline
+        shell: bash
+        run: |
+          for s in beat midiclock prodjlink storage loaders sequenza sequences autovj gif obs pixelmap; do
+            echo "== check:$s"; yarn -s "check:$s" || exit 1
+          done
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      # il binario di Electron e i tool di electron-builder (30-90 s per job)
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
       - run: yarn install --frozen-lockfile
 

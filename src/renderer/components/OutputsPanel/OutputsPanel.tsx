@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Panel } from '../Panel/Panel'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
@@ -17,19 +17,25 @@ function loadOutputs(): OutputCfg[] {
   // Pre-I7 the keystone was global and rode the session snapshot; the snapshot
   // is rewritten without it within a second of boot, so the move has to be
   // saved now or last night's alignment is gone on the next start.
-  const legacy = readJson<any>(SETTINGS_KEY, null)?.keystone
+  // The snapshot is the biggest blob in the store (base64 images): it is only
+  // parsed while the migration can still apply — a saved list whose first
+  // output already carries the field never needs it again.
+  const first = Array.isArray(raw) ? raw[0] : null
+  const migrated = !!first && typeof first === 'object' && 'keystone' in first
+  const legacy = migrated ? undefined : readJson<any>(SETTINGS_KEY, null)?.keystone
   const list = migrateKeystone(raw, legacy)
   if (Array.isArray(legacy)) writeJson(OUTPUTS_KEY, list)
   return list
 }
 
-/** Saves and tells main in one move — the two must never disagree, so main
- * only hears about it once the write actually succeeded. */
+/** Saves and tells main in one move. Main hears about it even when the write
+ * is refused (quota full): the UI already shows the change, and the projector
+ * must follow it — only the next launch loses it. Null when not saved. */
 function saveOutputs(list: OutputCfg[]): OutputCfg[] | null {
   const clean = sanitizeOutputs(list)
-  if (!writeJson(OUTPUTS_KEY, clean)) return null
+  const saved = writeJson(OUTPUTS_KEY, clean)
   try { window.api?.setOutputs?.(clean) } catch { /* no api under a test page */ }
-  return clean
+  return saved ? clean : null
 }
 
 interface OutputsPanelProps {
@@ -124,13 +130,18 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
                 </select>
               </div>
 
+              {/* Committed on blur/Enter, not per keystroke: the sanitizer clamps
+                  the width to 320, so typing the "1" of "1920" used to snap to
+                  320 and send every intermediate size to the output window. */}
               <div className="slider-row">
                 <span className="label">Risoluzione</span>
-                <input type="number" min={320} max={7680} step={2} value={o.width}
-                  onChange={e => set(open, { width: +e.target.value | 0 })} style={{ width: 72 }} />
+                <input type="number" min={320} max={7680} step={2} key={`w${open}-${o.width}`} defaultValue={o.width}
+                  onBlur={e => set(open, { width: +e.target.value | 0 })}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} style={{ width: 72 }} />
                 <span className="label">×</span>
-                <input type="number" min={240} max={4320} step={2} value={o.height}
-                  onChange={e => set(open, { height: +e.target.value | 0 })} style={{ width: 72 }} />
+                <input type="number" min={240} max={4320} step={2} key={`h${open}-${o.height}`} defaultValue={o.height}
+                  onBlur={e => set(open, { height: +e.target.value | 0 })}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} style={{ width: 72 }} />
               </div>
               <div className="u-row" style={{ gap: 4, flexWrap: 'wrap' }}>
                 {PRESETS.map(([label, w, h]) => (
@@ -191,14 +202,51 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
   )
 }
 
-/** Reads the saved list once, and keeps main in step with every change. */
+/**
+ * Reads the saved list once, and keeps main in step with every change.
+ *
+ * The React state follows at once; the synchronous write and the IPC are
+ * throttled to ~30 Hz, leading and trailing (same shape as sendState in App).
+ * A keystone drag is pointermove at up to 240 Hz, the Gamma and Tetto sliders
+ * one event per pixel: each used to be a setItem plus an IPC round trip that
+ * resized the output windows. The last value always lands.
+ */
 export function useOutputs(): [OutputCfg[], (list: OutputCfg[]) => void] {
   const [outputs, setOutputs] = useState<OutputCfg[]>(loadOutputs)
-  const change = (list: OutputCfg[]) => {
-    const clean = saveOutputs(list)
-    if (!clean) return
-    setOutputs(clean)
-    if (clean.length > 1 && clean.length !== outputs.length) pushToast(`${clean.length} uscite attive`, 'outputs-count')
+  const latest = useRef<OutputCfg[] | null>(null)
+  const timer = useRef(0)
+  const lastSave = useRef(0)
+  const countRef = useRef(outputs.length)
+
+  const flush = () => {
+    timer.current = 0
+    const list = latest.current
+    if (!list) return
+    latest.current = null
+    lastSave.current = performance.now()
+    // the state is already on screen: a refused write has to be said out loud
+    if (!saveOutputs(list)) pushToast('Uscite non salvate: spazio esaurito', 'outputs-quota', undefined, 'err')
   }
+  // the last change of a drag is never lost: flush on unmount and on close
+  useEffect(() => {
+    window.addEventListener('pagehide', flush)
+    return () => { clearTimeout(timer.current); flush(); window.removeEventListener('pagehide', flush) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // stable identity: it reaches the Outputs panel and the mapping tools as a
+  // prop, and a new function per App render re-rendered them all
+  const change = useCallback((list: OutputCfg[]) => {
+    const clean = sanitizeOutputs(list)
+    setOutputs(clean)
+    if (clean.length > 1 && clean.length !== countRef.current) pushToast(`${clean.length} uscite attive`, 'outputs-count')
+    countRef.current = clean.length
+    latest.current = clean
+    const wait = 33 - (performance.now() - lastSave.current)
+    if (wait <= 0) { clearTimeout(timer.current); flush() }
+    else if (!timer.current) timer.current = window.setTimeout(flush, wait)
+    // flush reads refs only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return [outputs, change]
 }

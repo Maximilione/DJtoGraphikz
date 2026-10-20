@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net, protocol, screen, session, systemPreferences } from 'electron'
+import { app, BrowserWindow, ipcMain, net, powerSaveBlocker, protocol, screen, session, systemPreferences } from 'electron'
 import { writeFileSync } from 'fs'
 
 // Menu/dock/notifications name (the bold macOS menu-bar name in dev still reads
@@ -19,10 +19,33 @@ import { setupProDjLink } from './prodjlink'
 import { setupUpdateCheck } from './update-check'
 import { setupArtnet } from './artnet'
 import { setupDebugLog, logWindow, logDisplayState, logLine } from './debug-log'
-import { VIDEO_RE, SEQ_RE } from '../shared/mediaFormats'
+import { VIDEO_RE, SEQ_RE, IMAGE_RE } from '../shared/mediaFormats'
 
 let controlWindow: BrowserWindow | null = null
 let quitting = false
+
+// One instance. A second double-click on the icon used to open a second
+// analyser, a second projector on the same display and a remote server on the
+// next port, while the phone stayed paired to the first. The release gate and
+// the parallel smoke-test instances (DJG_VITE_PORT) are the exception.
+// app.quit() before ready does not stop whenReady from firing: the second
+// instance checks this there and builds nothing (no window, no socket).
+const primaryInstance = !!process.env.DJG_SELFTEST || !!process.env.DJG_VITE_PORT || app.requestSingleInstanceLock()
+if (!primaryInstance) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (controlWindow && !controlWindow.isDestroyed()) {
+      if (controlWindow.isMinimized()) controlWindow.restore()
+      controlWindow.focus()
+    }
+  })
+}
+
+// Windows may stop presenting a window another one covers (the DJ software over
+// the console), and backgroundThrottling:false does not cover occlusion on
+// every version. The control window is where audio:data for the projector is made.
+if (process.platform === 'win32') app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 
 /**
  * One show, many walls.
@@ -80,7 +103,8 @@ function liveOutputs(): Output[] {
 
 /** Every output gets the show. Replaces the single `outputWindow?.send`. */
 function broadcastOutputs(channel: string, ...args: unknown[]) {
-  for (const o of liveOutputs()) o.win.webContents.send(channel, ...args)
+  // 30Hz path (audio + state): iterate in place, no array per call
+  for (const o of outputs.values()) if (!o.win.isDestroyed()) o.win.webContents.send(channel, ...args)
   // OBS / browsers on the LAN: same channels, same args, over SSE (I2)
   publishOutput(channel, ...args)
 }
@@ -111,7 +135,6 @@ function targetDisplay(o: Output) {
     ?? screen.getPrimaryDisplay()
 }
 
-/** Fullscreen that always resolves against the projector's own display */
 /**
  * Full-screen projection WITHOUT macOS fullscreen.
  *
@@ -154,6 +177,9 @@ function setOutputFullscreen(o: Output, on: boolean) {
     assertBounds()
     setTimeout(assertBounds, 120)
     setTimeout(() => {
+      // closed or recreated within 500ms: getBounds on a destroyed window
+      // throws, and that landed in the log as a false main/fatal
+      if (win.isDestroyed()) return
       assertBounds()
       logLine('output', `bounds finali ${JSON.stringify(win.getBounds())}`)
     }, 500)
@@ -183,6 +209,11 @@ function keepOutputOnItsDisplay() {
 // gets the latest engine state + overlays instead of defaults.
 let lastEngineState: unknown = null
 const overlays = new Map<string, Record<string, unknown>>()
+
+/** Renderer crash times per output id, for the recreate backoff */
+const crashTimes = new Map<number, number[]>()
+const CRASH_WINDOW_MS = 60_000
+const CRASH_MAX = 4
 
 /**
  * The release gate (scripts/check-output.py) launches the whole app. On the
@@ -224,12 +255,11 @@ function createControlWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Keep audio/rendering alive when the control window loses focus
       backgroundThrottling: false,
     }
   })
   ghost(win)
-  // Keep audio/rendering alive when control window loses focus
-  win.webContents.setBackgroundThrottling(false)
   win.once('ready-to-show', () => {
     if (win.isDestroyed()) return
     if (SELFTEST) win.showInactive()
@@ -247,11 +277,28 @@ function createControlWindow(): BrowserWindow {
     win.webContents.openDevTools({ mode: 'bottom' })
   }
 
-  // Log renderer errors
-  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-    if (level >= 2) console.error(`[RENDERER ERROR] ${message} (${sourceId}:${line})`)
-  })
+  // Renderer warnings and errors: session log (and the terminal in dev)
   logWindow(win, 'control')
+
+  // The control renderer makes audio:data and the state for every projector,
+  // and runs the Auto VJ, MIDI and DMX: when it died, the walls froze on the
+  // last frame until someone restarted the app mid-set. A reload brings it
+  // back in a second or two (the look comes from the saved settings, the
+  // outputs keep going on main's last state meanwhile). Repeats back off and
+  // give up after a few in a minute, so a renderer that dies on load does not
+  // spin.
+  let reloads: number[] = []
+  win.webContents.on('render-process-gone', (_e, d) => {
+    if (quitting || d.reason === 'clean-exit' || win.isDestroyed()) return
+    const now = Date.now()
+    reloads = [...reloads.filter(t => now - t < 60_000), now]
+    if (reloads.length > 3) {
+      console.error(`[Main] control renderer: ${reloads.length} crash in 60s, non lo ricarico (${d.reason})`)
+      return
+    }
+    console.error(`[Main] control renderer gone (${d.reason}), ricarico tra ${500 * reloads.length}ms`)
+    setTimeout(() => { if (!quitting && !win.isDestroyed()) win.webContents.reload() }, 500 * reloads.length)
+  })
 
   return win
 }
@@ -285,12 +332,11 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Never throttle the projector when it has no focus (it never has)
       backgroundThrottling: false,
     }
   })
   ghost(win)
-  // Prevent throttling when output window loses focus (critical for dual-window VJ)
-  win.webContents.setBackgroundThrottling(false)
 
   const out: Output = { id, win, cfg, displayId: externalDisplay?.id ?? null }
   outputs.set(id, out)
@@ -315,11 +361,20 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
       // exactly when the projector comes up black: the macOS fullscreen
       // transition catches a window that is not compositing yet. Wait for the
       // output renderer to report a real frame (with a safety timeout).
+      // Whatever ends the wait — paint, timeout or the window dying first —
+      // removes the listener and the timer: a window that died before its
+      // first paint used to leave its listener on ipcMain for good, one more
+      // per recreation, each run again on every later 'output:painted'.
       let entered = false
+      let timer: NodeJS.Timeout | null = null
+      const cleanup = () => {
+        ipcMain.removeListener('output:painted', onPainted)
+        if (timer) { clearTimeout(timer); timer = null }
+      }
       const goFullscreen = () => {
+        cleanup()
         if (entered || win.isDestroyed()) return
         entered = true
-        ipcMain.removeListener('output:painted', onPainted)
         setOutputFullscreen(out, true)
       }
       // `once` would be consumed by whichever output painted first, leaving the
@@ -328,7 +383,8 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
         if (!win.isDestroyed() && e.sender === win.webContents) goFullscreen()
       }
       ipcMain.on('output:painted', onPainted)
-      setTimeout(goFullscreen, 2500)
+      timer = setTimeout(goFullscreen, 2500)
+      win.once('closed', cleanup)
     })
   }
 
@@ -340,9 +396,6 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
 
   // Output renderer errors were invisible until now: without this, a broken
   // projector window fails silently and looks like "black screen"
-  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-    if (level >= 2) console.error(`[OUTPUT ERROR] ${message} (${sourceId}:${line})`)
-  })
   logWindow(win, 'output')
 
   // Initial-state handshake: replay cached engine state + overlays so the
@@ -352,13 +405,34 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
     replayShow((channel, ...args) => win.webContents.send(channel, ...args), out.cfg)
   })
 
-  // Auto-recreate if the output renderer crashes mid-set
+  // Auto-recreate if the output renderer crashes mid-set. The first crash
+  // comes back at once, as before; a renderer that dies while loading (OOM,
+  // GPU driver, broken bundle) would otherwise spin create→crash→create at
+  // full CPU and GPU, so repeats back off and stop after a few in a minute.
+  // 'Riapri uscita' (output:reopen) is the retry.
   win.webContents.on('render-process-gone', (_e, details) => {
     console.error(`[Main] output ${id} renderer gone:`, details.reason)
     if (outputs.get(id) === out) outputs.delete(id)
     win.destroy()
-    // Same id and same config: a crashed second wall comes back as itself.
-    if (!quitting && controlWindow) createOutputWindow(id, out.cfg)
+    if (quitting || !controlWindow) return
+    const now = Date.now()
+    const recent = [...(crashTimes.get(id) ?? []).filter(t => now - t < CRASH_WINDOW_MS), now]
+    crashTimes.set(id, recent)
+    if (recent.length > CRASH_MAX) {
+      logLine('output/fatal', `uscita ${id}: ${recent.length} crash in ${CRASH_WINDOW_MS / 1000}s, non la ricreo (Riapri uscita per riprovare)`)
+      notifyOutputChanged()
+      return
+    }
+    const delay = (recent.length - 1) * 1000
+    // Same id and same config: a crashed second wall comes back as itself,
+    // on the display it was actually on.
+    const recreate = () => {
+      if (!quitting && controlWindow && !outputs.has(id)) {
+        createOutputWindow(id, { ...out.cfg, displayId: out.displayId ?? out.cfg.displayId })
+      }
+    }
+    if (delay === 0) recreate()
+    else setTimeout(recreate, delay)
   })
 
   win.on('closed', () => {
@@ -390,9 +464,14 @@ function reconcileOutputs(list: OutputCfg[]) {
     const o = outputs.get(id)
     if (!o || o.win.isDestroyed()) { createOutputWindow(id, cfg); return }
     const moved = cfg.displayId !== null && cfg.displayId !== o.displayId
+    const prev = o.cfg
     o.cfg = cfg
     o.win.webContents.send('output:slice', cfg)
-    o.win.webContents.send('output:set-resolution', cfg.width, cfg.height)
+    // a resize only when the size changed: the renderer sends the whole list
+    // on every keystone or trim tick, and each one used to resize every window
+    if (!prev || prev.width !== cfg.width || prev.height !== cfg.height) {
+      o.win.webContents.send('output:set-resolution', cfg.width, cfg.height)
+    }
     if (moved) setOutputFullscreen(o, true)
   })
   notifyOutputChanged()
@@ -428,6 +507,7 @@ const VIDEO_EXT = VIDEO_RE
 const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|flac)$/i
 
 app.whenReady().then(async () => {
+  if (!primaryInstance) return
   setupDebugLog()
 
   // Under the release gate: no Dock icon, no app switch. Launching normally
@@ -435,10 +515,17 @@ app.whenReady().then(async () => {
   // whoever is working on this machine.
   if (SELFTEST) app.dock?.hide()
 
-  protocol.handle('djg-media', req => {
-    const path = new URL(req.url).searchParams.get('p')
-    if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path) || SEQ_RE.test(path))) return new Response('', { status: 400 })
-    return net.fetch(pathToFileURL(path).toString())
+  // A clip moved away or on a USB stick that was unplugged: every Range
+  // request of the <video> rejected here as an unhandled error, now a 404
+  protocol.handle('djg-media', async req => {
+    try {
+      const path = new URL(req.url).searchParams.get('p')
+      // images too: the library thumbnails, which used to cross IPC whole
+      if (!path || !(VIDEO_EXT.test(path) || AUDIO_EXT.test(path) || SEQ_RE.test(path) || IMAGE_RE.test(path))) return new Response('', { status: 400 })
+      return await net.fetch(pathToFileURL(path).toString())
+    } catch {
+      return new Response('', { status: 404 })
+    }
   })
 
   // Self-test hook (DJG_SELFTEST=<file>): grabs what the projector is actually
@@ -514,16 +601,6 @@ app.whenReady().then(async () => {
     ipcMain.once('output:painted', shoot)
     setTimeout(() => { console.error('[SelfTest] timeout'); app.quit() }, settleMs + 40000)
   }
-  // On macOS, request microphone access at OS level before anything else
-  if (process.platform === 'darwin') {
-    const micStatus = systemPreferences.getMediaAccessStatus('microphone')
-    console.log('[Main] macOS microphone access status:', micStatus)
-    if (micStatus !== 'granted') {
-      const granted = await systemPreferences.askForMediaAccess('microphone')
-      console.log('[Main] macOS microphone permission granted:', granted)
-    }
-  }
-
   // Grant microphone/audio permissions automatically in Electron
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allowed = ['media', 'mediaKeySystem', 'audioCapture']
@@ -572,9 +649,37 @@ app.whenReady().then(async () => {
   setupUpdateCheck(() => controlWindow)
   setupArtnet()
 
-  // Forward engine state from control to output window (cache for replay)
+  // macOS microphone access at OS level. Asked after the windows exist and
+  // without waiting: at a first start (or after a TCC reset) the prompt used
+  // to come before any window, and nothing was on the projector until it was
+  // answered. The analyser's own recovery copes with a transient NotAllowed.
+  if (process.platform === 'darwin') {
+    const micStatus = systemPreferences.getMediaAccessStatus('microphone')
+    console.log('[Main] macOS microphone access status:', micStatus)
+    if (micStatus !== 'granted') {
+      void systemPreferences.askForMediaAccess('microphone')
+        .then(granted => console.log('[Main] macOS microphone permission granted:', granted))
+    }
+  }
+
+  // Chromium keeps the display awake for a playing <video>, not for a WebGL
+  // canvas: a DJ on controllers alone, no key or mouse for the OS timeout,
+  // had the projector go to sleep with the laptop screen. Not under the gate.
+  if (!SELFTEST) {
+    const psb = powerSaveBlocker.start('prevent-display-sleep')
+    app.on('before-quit', () => { if (powerSaveBlocker.isStarted(psb)) powerSaveBlocker.stop(psb) })
+  }
+
+  // Forward engine state from control to output window (cache for replay).
+  // The control window leaves the ISF images out while they do not change
+  // (see sendState in App.tsx): the replay copy keeps the last ones it got,
+  // so a window or a browser that connects later still gets the whole look.
   ipcMain.on('engine:state-update', (_event, state) => {
-    lastEngineState = state
+    const prev = lastEngineState as { customShader?: string; customImages?: unknown } | null
+    const next = state as { customShader?: string; customImages?: unknown } | null
+    lastEngineState = next && next.customShader && !next.customImages && prev?.customImages && prev.customShader === next.customShader
+      ? { ...next, customImages: prev.customImages }
+      : state
     broadcastOutputs('engine:state-update', state)
   })
 

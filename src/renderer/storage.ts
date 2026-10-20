@@ -21,7 +21,11 @@ export const SCHEMA_VERSION = 1
 
 const VERSION_KEY = 'djtographikz-schema'
 
-let quotaReported = false
+/** When the quota toast last fired: once per minute at most, so a snapshot
+ *  that fails every 400 ms does not bury the screen in toasts, and a store
+ *  that fills up again later in the night is reported again. */
+let quotaReportedAt = -Infinity
+const QUOTA_TOAST_EVERY_MS = 60_000
 
 /**
  * `quarantine: false` for caches. Keeping a corrupt copy is only worth it for
@@ -29,7 +33,10 @@ let quotaReported = false
  * in the store forever.
  */
 export function readJson<T>(key: string, fallback: T, quarantine = true): T {
-  const raw = localStorage.getItem(key)
+  // getItem itself throws when storage is blocked (SecurityError): several
+  // modules read at import time, so that used to be a blank window at start.
+  let raw: string | null
+  try { raw = localStorage.getItem(key) } catch { return fallback }
   if (raw === null) return fallback
   try {
     return JSON.parse(raw) as T
@@ -49,12 +56,18 @@ export function readJson<T>(key: string, fallback: T, quarantine = true): T {
 
 /** false = nothing was written. Callers must not show what they did not save. */
 export function writeJson(key: string, value: unknown): boolean {
+  return writeJsonText(key, JSON.stringify(value))
+}
+
+/** writeJson for a caller that already has the string (the session snapshot compares it first). */
+export function writeJsonText(key: string, json: string): boolean {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    localStorage.setItem(key, json)
     return true
   } catch {
-    if (!quotaReported) {
-      quotaReported = true
+    const now = Date.now()
+    if (now - quotaReportedAt >= QUOTA_TOAST_EVERY_MS) {
+      quotaReportedAt = now
       pushToast('Spazio di salvataggio esaurito — le modifiche non vengono salvate',
         'storage-quota', undefined, 'err')
     }
@@ -77,7 +90,7 @@ export function saveAndToast(key: string, value: unknown, msg: string, toastKey?
 }
 
 export function readString(key: string): string | null {
-  return localStorage.getItem(key)
+  try { return localStorage.getItem(key) } catch { return null }
 }
 
 export function writeString(key: string, value: string): boolean {
@@ -91,7 +104,7 @@ export function writeString(key: string, value: string): boolean {
 
 /** Records the schema version this build wrote, so a future one can migrate. */
 export function stampSchemaVersion(): void {
-  const seen = Number(localStorage.getItem(VERSION_KEY) ?? '0')
+  const seen = Number(readString(VERSION_KEY) ?? '0') || 0
   if (seen === SCHEMA_VERSION) return
   if (seen > SCHEMA_VERSION) {
     console.warn(`[storage] i dati vengono da una versione piu' recente (${seen} > ${SCHEMA_VERSION})`)

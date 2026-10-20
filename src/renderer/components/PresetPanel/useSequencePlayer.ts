@@ -1,7 +1,7 @@
 // Sequence playback lives at App level: the phone (and OSC) must be able to run
 // a sequence in Live mode too, where PresetPanel is not mounted. PresetPanel is
 // only a view of this state plus the editor.
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { readJson, writeJson } from '../../storage'
 import type { Engine } from '@engine/Engine'
 import { migrateAll, nextIndex, manualStep, validSeqIndex, type Sequence, type SequenceStep } from './sequences'
@@ -9,6 +9,7 @@ import { registerSeqHandlers, pushSeqStatus } from './seqRemote'
 import { enterStep, clearStepOverlays } from './sequencePlayer'
 import { readLibraryImage } from '../OverlayPanel/OverlayPanel'
 import { shouldIgnoreHotkey } from '../../hotkeys'
+import { guardListener } from '../../safeListener'
 
 const STORAGE_KEY_PLAYLISTS = 'djtographikz-playlists'
 
@@ -80,14 +81,15 @@ export function useSequencePlayer(engine: Engine | null) {
   useEffect(() => {
     if (!playing || !playingSeq || playingSeq.mode !== 'beats' || !step || !engine) return
     beatCountRef.current = 0
-    // Subscribe to the render loop — polling misses beats (the flag lives one frame)
-    return engine.onAudioFrame(beatDetected => {
+    // Subscribe to the render loop — polling misses beats (the flag lives one frame).
+    // Guarded: a step whose preset the engine refuses must not break the frame.
+    return engine.onAudioFrame(guardListener('scaletta', beatDetected => {
       if (!beatDetected) return
       beatCountRef.current++
       if (beatCountRef.current < step.hold) return
       beatCountRef.current = 0
       advance()
-    })
+    }))
   }, [playing, playingSeq, step, engine, advance])
 
   // Track advance — one step per song, on Engine.onTrackChange
@@ -100,11 +102,20 @@ export function useSequencePlayer(engine: Engine | null) {
   // graphics up; leaving the step — or stopping — takes them down again
   useEffect(() => {
     if (!playing || !engine || !step) return
-    if (step.transition) engine.setTransitionType(step.transition)
-    engine.applyPreset(step.preset)
+    // a throw inside an effect unmounts the whole tree and disposes the
+    // engine: a bad step skips its look, the sequence keeps walking
+    try {
+      if (step.transition) engine.setTransitionType(step.transition)
+      engine.applyPreset(step.preset)
+    } catch (e) {
+      console.error('[Sequence] passo non applicabile', step.name, e)
+    }
     let alive = true
-    enterStep(engine, step, readLibraryImage, () => alive)
-    return () => { alive = false; clearStepOverlays(engine) }
+    enterStep(engine, step, readLibraryImage, () => alive).catch(e => console.error('[Sequence] overlay', e))
+    return () => {
+      alive = false
+      try { clearStepOverlays(engine) } catch (e) { console.error('[Sequence] overlay', e) }
+    }
   }, [step, playing, engine])
 
   // N / Shift+N step the running sequence — the only way to move in 'manual'
@@ -148,7 +159,10 @@ export function useSequencePlayer(engine: Engine | null) {
     })
   }, [sequences, playing, playingSeq, stepIndex, step])
 
-  return { sequences, persist, playingSeq, stepIndex, playing, step, start, stop, next, prev }
+  // one object per change, not per render: App re-renders often (fps, BPM,
+  // toasts) and a fresh object here re-rendered PresetPanel every time
+  return useMemo(() => ({ sequences, persist, playingSeq, stepIndex, playing, step, start, stop, next, prev }),
+    [sequences, persist, playingSeq, stepIndex, playing, step, start, stop, next, prev])
 }
 
 export type SequencePlayer = ReturnType<typeof useSequencePlayer>

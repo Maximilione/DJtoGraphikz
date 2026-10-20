@@ -42,10 +42,23 @@ function pearson(a: ArrayLike<number>, b: ArrayLike<number>, shift: number): num
   return da > 0 && db > 0 ? num / Math.sqrt(da * db) : 0
 }
 
+/**
+ * Byte → linear magnitude, the analyser's -90..-10 dB range: 256 values, so
+ * the per-bin pow() every frame is a table lookup with the same numbers.
+ */
+const LIN = (() => {
+  const t = new Float64Array(256)
+  for (let i = 0; i < 256; i++) t[i] = Math.pow(10, (-90 + 80 * i / 255) / 20)
+  return t
+})()
+
 export class KeyDetector {
   private chroma = new Float32Array(12)
+  private frame = new Float32Array(12)
   private binClass: Int8Array = new Int8Array(0)
   private binWeight: Float32Array = new Float32Array(0)
+  /** one past the last bin under HIGH_HZ: ~195 of 1024 at 44.1-48 kHz, the rest is skipped */
+  private lastBin = 0
   private binHz = 0
   private key: Key | null = null
   /** seconds of music the chroma remembers */
@@ -60,6 +73,7 @@ export class KeyDetector {
     this.binHz = binHz
     this.binClass = new Int8Array(bins)
     this.binWeight = new Float32Array(bins)
+    this.lastBin = 0
     for (let i = 0; i < bins; i++) {
       const hz = i * binHz
       if (hz < LOW_HZ || hz > HIGH_HZ) { this.binClass[i] = -1; continue }
@@ -72,6 +86,7 @@ export class KeyDetector {
       const semitonesPerBin = 12 * Math.log2((hz + binHz) / hz)
       this.binClass[i] = ((nearest % 12) + 12) % 12
       this.binWeight[i] = closeness * Math.min(1, 1 / Math.max(semitonesPerBin, 1))
+      this.lastBin = i + 1
     }
   }
 
@@ -81,13 +96,14 @@ export class KeyDetector {
    */
   update(spectrum: Uint8Array, binHz: number, dtMs: number) {
     if (this.binHz !== binHz || this.binClass.length !== spectrum.length) this.prepare(spectrum.length, binHz)
-    const frame = new Float32Array(12)
-    for (let i = 0; i < spectrum.length; i++) {
-      const c = this.binClass[i]
-      if (c < 0 || spectrum[i] === 0) continue
+    const frame = this.frame
+    frame.fill(0)
+    const n = Math.min(this.lastBin, spectrum.length)
+    for (let i = 0; i < n; i++) {
+      const v = spectrum[i], c = this.binClass[i]
+      if (c < 0 || v === 0) continue
       // back to linear magnitude: loud partials count, the floor does not
-      const db = -90 + 80 * spectrum[i] / 255
-      frame[c] += Math.pow(10, db / 20) * this.binWeight[i]
+      frame[c] += LIN[v] * this.binWeight[i]
     }
     let sum = 0
     for (let i = 0; i < 12; i++) sum += frame[i]
