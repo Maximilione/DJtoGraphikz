@@ -4,8 +4,7 @@ import type { Engine } from '@engine/Engine'
 import { AutoVJControl } from '../AutoVJ/AutoVJControl'
 import { Panel } from '../Panel/Panel'
 import { effectLabel } from '../../catalog'
-import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, ONLY_MINE_KEY, USER_SCENES_EVENT, type UserScene } from '../../userScenes'
-import { readJson, writeJson } from '../../storage'
+import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, getOnlyMine, setOnlyMine, USER_SCENES_EVENT, type UserScene } from '../../userScenes'
 
 // The AutoVJ instance lives in App (shared with Simple mode); this panel is just its Pro-view controls.
 interface AutoVJPanelProps {
@@ -27,12 +26,12 @@ const PHASE_LABEL: Record<Phase, string> = { break: 'Pausa', build: 'Salita', gr
 export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, vjHeld, onToggle, onGenre, onHold }: AutoVJPanelProps) {
   const config = GENRE_CONFIGS[vjGenre]
   const [mine, setMine] = useState<UserScene[]>(loadUserScenes)
-  const [onlyMine, setOnlyMine] = useState<boolean>(() => readJson<boolean>(ONLY_MINE_KEY, false))
+  const [onlyMine, setOnlyMineState] = useState<boolean>(getOnlyMine)
   const [savePhase, setSavePhase] = useState<Phase | ''>('')
 
   // the phone can save a scene or flip the flag while this panel is open
   useEffect(() => {
-    const reload = () => { setMine(loadUserScenes()); setOnlyMine(readJson<boolean>(ONLY_MINE_KEY, false)) }
+    const reload = () => { setMine(loadUserScenes()); setOnlyMineState(getOnlyMine()) }
     window.addEventListener(USER_SCENES_EVENT, reload)
     return () => window.removeEventListener(USER_SCENES_EVENT, reload)
   }, [])
@@ -40,17 +39,20 @@ export function AutoVJPanel({ engine, vj, vjEnabled, vjGenre, vjStatus, vjHeld, 
   // the Auto VJ reads them from here, on every change and at mount
   useEffect(() => { vj.setUserScenes(userScenesByGenre(mine), onlyMine) }, [vj, mine, onlyMine])
 
+  // From the stored list, not from `mine` of this render: a scene the phone
+  // saved a moment ago, before the event re-read it here, was overwritten.
   const addCurrent = () => {
     if (!engine) return
     const phase = savePhase || vjStatus.phase
-    const next = [...mine, sceneFromLook(engine, vjGenre, phase)]
-    setMine(next); saveUserScenes(next)
+    const next = [...loadUserScenes(), sceneFromLook(engine, vjGenre, phase)]
+    // disk first: a scene shown as saved with the quota full was gone at restart
+    if (saveUserScenes(next)) setMine(next)
   }
   const remove = (id: string) => {
-    const next = mine.filter(m => m.id !== id)
-    setMine(next); saveUserScenes(next)
+    const next = loadUserScenes().filter(m => m.id !== id)
+    if (saveUserScenes(next)) setMine(next)
   }
-  const toggleOnlyMine = (on: boolean) => { setOnlyMine(on); writeJson(ONLY_MINE_KEY, on) }
+  const toggleOnlyMine = (on: boolean) => { setOnlyMineState(on); setOnlyMine(on) }
   const mineHere = mine.filter(m => m.genre === vjGenre)
 
   return (

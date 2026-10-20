@@ -17,9 +17,16 @@
 
 const U8 = '__u8'
 
+// Main encodes 2048 spectrum bytes 30 times a second while OBS is connected:
+// Buffer does it natively; in a browser, chunked fromCharCode instead of one
+// string concatenation per byte.
 function u8ToB64(bytes: Uint8Array): string {
+  const B = (globalThis as any).Buffer
+  if (B) return B.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64')
   let s = ''
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i])
+  for (let i = 0; i < bytes.length; i += 0x2000) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x2000) as unknown as number[])
+  }
   return btoa(s)
 }
 

@@ -6,107 +6,111 @@ import { pushToast } from '../Toasts/Toasts'
 import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
 import { Panel } from '../Panel/Panel'
 
-export function LookBank({ engine }: { engine: Engine }) {
+function LookBankImpl({ engine }: { engine: Engine }) {
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
+  // What the triggers and the undo toasts read: the state as it is now, not
+  // the render they were created in. With `looks` in their deps the window
+  // keydown listener was removed and re-added on every save, rename or swap.
+  const looksRef = useRef(looks)
+  looksRef.current = looks
   const [active, setActive] = useState(-1)
+  const activeTimer = useRef(0)
   // U3.3 — inline rename + drag&drop reorder
   const [renaming, setRenaming] = useState(-1)
   const [renameText, setRenameText] = useState('')
   const [dragOver, setDragOver] = useState(-1)
   const dragFrom = useRef(-1)
 
-  // Mirror filled slots (thumbs included) to the phone remote — on mount and on change
+  /**
+   * Disk first, then screen. The writes and the toasts used to sit inside the
+   * setLooks updaters, which React runs during render and twice under
+   * StrictMode: double toasts, double 100-200 KB writes.
+   */
+  const commit = useCallback((next: (SavedLook | null)[]): boolean => {
+    if (!persistLooks(next)) {
+      pushToast('Spazio esaurito: il Look Bank non e\' stato salvato', 'look-quota', undefined, 'err')
+      return false
+    }
+    looksRef.current = next
+    setLooks(next)
+    return true
+  }, [])
+
+  // Mirror filled slots (thumbs included) to the phone remote — on mount and
+  // on change, settled 250 ms: a reorder is several swaps in a row, and each
+  // one used to send sixteen thumbnails over IPC
   useEffect(() => {
-    try {
-      window.api?.sendRemoteLooks(
-        looks.flatMap((l, index) => (l ? [{ index, name: l.name, thumb: l.thumb }] : []))
-      )
-    } catch (_) {}
+    const t = window.setTimeout(() => {
+      try {
+        window.api?.sendRemoteLooks(
+          looks.flatMap((l, index) => (l ? [{ index, name: l.name, thumb: l.thumb }] : []))
+        )
+      } catch (_) {}
+    }, 250)
+    return () => clearTimeout(t)
   }, [looks])
 
   const saveLook = useCallback(async (i: number) => {
     const preset = engine.createPreset(`Look ${i + 1}`)
     const thumb = await makeThumb(engine)
-    // Write to disk BEFORE putting it on screen. The other order showed the
-    // look in its slot and then lost it silently if the quota was full.
-    setLooks(prev => {
-      const previous = prev[i]
-      const next = [...prev]
-      next[i] = { name: previous?.name ?? preset.name, preset, thumb }
-      if (!persistLooks(next)) {
-        pushToast(`Spazio esaurito: il look ${i + 1} non e' stato salvato`, 'look-quota', undefined, 'err')
-        return prev
-      }
-      if (previous) {
-        // Overwriting was the one destructive path with no way back, while
-        // DELETING a look has had undo all along.
-        pushToast(`Look ${i + 1} sovrascritto`, `look-save-${i}`, {
-          label: 'Annulla',
-          fn: () => setLooks(cur => {
-            const back = [...cur]
-            back[i] = previous
-            persistLooks(back)
-            return back
-          }),
-        }, 'ok')
-      } else {
-        pushToast(`Look ${i + 1} salvato`, `look-save-${i}`, undefined, 'ok')
-      }
-      return next
-    })
-  }, [engine])
+    // read AFTER the await: another save could have landed meanwhile
+    const cur = looksRef.current
+    const previous = cur[i]
+    const next = [...cur]
+    next[i] = { name: previous?.name ?? preset.name, preset, thumb }
+    if (!commit(next)) return
+    if (previous) {
+      // Overwriting was the one destructive path with no way back, while
+      // DELETING a look has had undo all along.
+      pushToast(`Look ${i + 1} sovrascritto`, `look-save-${i}`, {
+        label: 'Annulla',
+        fn: () => { const back = [...looksRef.current]; back[i] = previous; commit(back) },
+      }, 'ok')
+    } else {
+      pushToast(`Look ${i + 1} salvato`, `look-save-${i}`, undefined, 'ok')
+    }
+  }, [engine, commit])
 
   const deleteLook = useCallback((i: number) => {
-    const removed = looks[i]
-    setLooks(prev => {
-      const next = [...prev]
-      next[i] = null
-      persistLooks(next)
-      return next
-    })
+    const removed = looksRef.current[i]
+    const next = [...looksRef.current]
+    next[i] = null
+    if (!commit(next)) return
     if (removed) {
       // U3.4 — undo: put the captured look back in its slot
       pushToast(`Look ${i + 1} eliminato`, `look-del-${i}`, {
         label: 'Annulla',
-        fn: () => setLooks(prev => {
-          const next = [...prev]
-          next[i] = removed
-          persistLooks(next)
-          return next
-        }),
+        fn: () => { const back = [...looksRef.current]; back[i] = removed; commit(back) },
       })
     }
-  }, [looks])
+  }, [commit])
 
   const renameLook = useCallback((i: number, name: string) => {
     const trimmed = name.trim()
     if (!trimmed) return
-    setLooks(prev => {
-      const next = [...prev]
-      const l = next[i]
-      if (l) next[i] = { ...l, name: trimmed, preset: { ...l.preset, name: trimmed } }
-      persistLooks(next)
-      return next
-    })
-  }, [])
+    const next = [...looksRef.current]
+    const l = next[i]
+    if (!l) return
+    next[i] = { ...l, name: trimmed, preset: { ...l.preset, name: trimmed } }
+    commit(next)
+  }, [commit])
 
   const swapLooks = useCallback((a: number, b: number) => {
     if (a === b || a < 0 || b < 0) return
-    setLooks(prev => {
-      const next = [...prev]
-      ;[next[a], next[b]] = [next[b], next[a]]
-      persistLooks(next)
-      return next
-    })
-  }, [])
+    const next = [...looksRef.current]
+    ;[next[a], next[b]] = [next[b], next[a]]
+    commit(next)
+  }, [commit])
 
   const trigger = useCallback((i: number) => {
-    const look = looks[i]
+    const look = looksRef.current[i]
     if (!look) return
     engine.applyPreset(look.preset)
     setActive(i)
-    window.setTimeout(() => setActive(prev => (prev === i ? -1 : prev)), 600)
-  }, [engine, looks])
+    clearTimeout(activeTimer.current)
+    activeTimer.current = window.setTimeout(() => setActive(prev => (prev === i ? -1 : prev)), 600)
+  }, [engine])
+  useEffect(() => () => clearTimeout(activeTimer.current), [])
 
   // Shift+1..9, Shift+0 → slots 1-10. e.code so shifted symbol layouts don't break.
   useEffect(() => {
@@ -119,7 +123,7 @@ export function LookBank({ engine }: { engine: Engine }) {
       if (!e.shiftKey) return
       if (shouldIgnoreHotkey(e)) return
       const i = slotOf(e)
-      if (i < 0 || !looks[i]) return
+      if (i < 0 || !looksRef.current[i]) return
       e.preventDefault()
       if (e.repeat || !engine || momentary.isDown(`look:${i}`)) return
       // Held, this is momentary — and going back means restoring the look that
@@ -140,7 +144,7 @@ export function LookBank({ engine }: { engine: Engine }) {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [looks, trigger, engine])
+  }, [trigger, engine])
 
   const commitRename = useCallback(() => {
     if (renaming >= 0) renameLook(renaming, renameText)
@@ -232,3 +236,6 @@ export function LookBank({ engine }: { engine: Engine }) {
     </Panel>
   )
 }
+
+/** Memoised: App re-renders on every slider tick and remote command; this panel only depends on the engine. */
+export const LookBank = React.memo(LookBankImpl)

@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { randomBytes, randomInt, timingSafeEqual } from 'crypto'
 import { networkInterfaces } from 'os'
-import { readFileSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { basename, join } from 'path'
 import { AUDIO_SOURCES } from '../engine/EffectParams'
 import { encodeEvent, tokenFromRequest } from '../shared/obsWire'
@@ -27,7 +27,24 @@ let sessionTokens: string[] = []   // up to MAX_SESSIONS phones paired at once
 let failedAttempts = 0
 let lockedUntil = 0
 let port = BASE_PORT
-let lastEngineState: unknown = null
+/**
+ * The last engine snapshot as it arrived (30Hz while anything moves) and
+ * the copy the phone gets, made on demand. Every paired phone polls /state
+ * every 1.5s; the ISF image inputs (base64) and the keystone are the heaviest
+ * part of the snapshot and the phone renders neither, so they never leave
+ * this process — but stripping them on every update cost a full copy of the
+ * snapshot at 30Hz even with no phone paired.
+ */
+let rawEngineState: unknown = null
+let strippedEngineState: unknown = null
+function engineState(): unknown {
+  if (strippedEngineState === null && rawEngineState && typeof rawEngineState === 'object') {
+    const { customImages, customImageInputs, keystone, ...rest } = rawEngineState as Record<string, unknown>
+    void customImages; void customImageInputs; void keystone
+    strippedEngineState = rest
+  }
+  return strippedEngineState ?? rawEngineState
+}
 let lastAudio: { bpm: number; energy: number; beatPulse: number } | null = null
 let lastVj: { enabled: boolean; genre: string } | null = null
 let lastSeq: unknown = null
@@ -39,7 +56,7 @@ let looksRev = 0
 
 // osc-server reads the same caches — one source of truth for catalogs/state
 export const getRemoteDefs = () => remoteDefs
-export const getLastEngineState = () => lastEngineState
+export const getLastEngineState = () => engineState()
 
 // ---- OBS / browser output (I2) ----
 // `GET /output?token=…` serves the very same output.html the projector window
@@ -51,16 +68,24 @@ let outputToken = randomBytes(24).toString('hex')
 const feedClients = new Set<ServerResponse>()
 // A browser that stops reading would pile frames up in RAM at 30 msg/s
 const FEED_MAX_BACKLOG = 1 << 20
+// Audio and state are "latest wins": a client this far behind gets the next
+// frame instead of a backlog of stale ones it would then show late
+const FEED_LAG_SKIP = 64 * 1024
 
 /** Same signature as `broadcastOutputs` in index.ts: the browsers are outputs too. */
 export function publishOutput(channel: string, ...args: unknown[]) {
   if (feedClients.size === 0) return
   const frame = encodeEvent(channel, args)
+  const droppable = channel === 'audio:data' || channel === 'engine:state-update'
   for (const res of feedClients) {
-    if (res.writableLength > FEED_MAX_BACKLOG) res.destroy()
-    else res.write(frame)
+    if (res.writableLength > FEED_MAX_BACKLOG) { feedClients.delete(res); res.destroy(); continue }
+    if (droppable && res.writableLength > FEED_LAG_SKIP) continue
+    res.write(frame)   // overlays, slice, resolution: never skipped
   }
 }
+
+/** Renderer bundle served to OBS: hashed names, read once, then immutable */
+const assetCache = new Map<string, Buffer>()
 
 function outputAuthorized(req: IncomingMessage): boolean {
   const t = tokenFromRequest(req.url || '', req.headers.cookie)
@@ -125,7 +150,17 @@ export function setupRemoteServer(
 ) {
   pairingCode = String(randomInt(0, 1000000)).padStart(6, '0')
 
-  const server = createServer(async (req, res) => {
+  // The handler is async: a throw in it was an unhandledRejection in main and
+  // a client (OBS) left hanging. One catch here closes the request instead.
+  const server = createServer((req, res) => {
+    handle(req, res).catch(err => {
+      console.error('[Remote] handler:', (err as Error)?.message)
+      try { if (!res.headersSent) res.writeHead(500) } catch { /* socket gone */ }
+      res.end()
+    })
+  })
+
+  async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = req.url || '/'
     const path = url.split('?')[0]
 
@@ -149,12 +184,15 @@ export function setupRemoteServer(
         res.end()
         return
       }
+      let page: Buffer
+      try { page = await readFile(join(__dirname, '../renderer/output.html')) }
+      catch { res.writeHead(404); res.end(); return }
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-store',
         'Set-Cookie': `djg-out=${outputToken}; Path=/; HttpOnly; SameSite=Lax`,
       })
-      res.end(readFileSync(join(__dirname, '../renderer/output.html')))
+      res.end(page)
       return
     }
 
@@ -164,8 +202,13 @@ export function setupRemoteServer(
       const name = basename(path)
       const ext = name.slice(name.lastIndexOf('.'))
       try {
-        const body = readFileSync(join(__dirname, '../renderer/assets', name))
-        res.writeHead(200, { 'Content-Type': ASSET_TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' })
+        let body = assetCache.get(name)
+        if (!body) {
+          body = await readFile(join(__dirname, '../renderer/assets', name))
+          assetCache.set(name, body)
+        }
+        // vite hashes the names: a reload in OBS is served by its own cache
+        res.writeHead(200, { 'Content-Type': ASSET_TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'private, max-age=31536000, immutable' })
         res.end(body)
       } catch { res.writeHead(404); res.end() }
       return
@@ -184,6 +227,7 @@ export function setupRemoteServer(
       replayOutput((channel, ...args) => res.write(encodeEvent(channel, args)))
       feedClients.add(res)
       res.on('close', () => feedClients.delete(res))
+      res.on('error', () => feedClients.delete(res))
       return
     }
 
@@ -218,7 +262,7 @@ export function setupRemoteServer(
     if (req.method === 'GET' && url === '/state') {
       if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
       res.setHeader('Cache-Control', 'no-store')
-      json(res, 200, { engine: lastEngineState, looksRev, audio: lastAudio, vj: lastVj, seq: lastSeq, ext: lastExt })
+      json(res, 200, { engine: engineState(), looksRev, audio: lastAudio, vj: lastVj, seq: lastSeq, ext: lastExt })
       return
     }
 
@@ -252,34 +296,34 @@ export function setupRemoteServer(
 
     res.writeHead(404)
     res.end()
-  })
-
-  // Port may be taken (second instance, other apps) — walk forward a few
-  const tryListen = (p: number) => {
-    server.once('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE' && p < BASE_PORT + 10) tryListen(p + 1)
-      else console.error('[Remote] server failed:', err.message)
-    })
-    server.listen(p, '0.0.0.0', () => {
-      port = p
-      console.log(`[Remote] listening on http://${lanIp()}:${port} — pairing code ${pairingCode}`)
-    })
   }
-  tryListen(BASE_PORT)
+
+  // Port may be taken (second instance, other apps) — walk forward a few.
+  // One permanent 'error' listener: a `once` per attempt was consumed by the
+  // first EADDRINUSE, and any error after that (a socket dying mid-set) had no
+  // listener left, which in Node is an uncaught exception.
+  let tryPort = BASE_PORT
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE' && !server.listening && tryPort < BASE_PORT + 10) server.listen(++tryPort, '0.0.0.0')
+    else console.error('[Remote] server error:', err.message)
+  })
+  server.on('listening', () => {
+    port = tryPort
+    console.log(`[Remote] listening on http://${lanIp()}:${port} — pairing code ${pairingCode}`)
+  })
+  server.listen(tryPort, '0.0.0.0')
+
+  // A peer gone without a FIN (wifi drop, OBS killed) is only found out by
+  // writing to it: a comment line every 15 s, which EventSource ignores, and
+  // the dead ones close instead of staying in the set for the whole night.
+  const heartbeat = setInterval(() => { for (const res of feedClients) res.write(': ping\n\n') }, 15_000)
+  heartbeat.unref()
 
   // Engine state already flows through the main process for the output
-  // window — cache the latest snapshot for the remote's polling
+  // window — keep the latest snapshot; the phone's copy is made on demand
   ipcMain.on('engine:state-update', (_e, state) => {
-    // Every paired phone polls /state every 1.5s. The ISF image inputs (base64)
-    // and the keystone are the heaviest part of the snapshot and the phone
-    // renders neither, so they never leave this process.
-    if (state && typeof state === 'object') {
-      const { customImages, customImageInputs, keystone, ...rest } = state as Record<string, unknown>
-      void customImages; void customImageInputs; void keystone
-      lastEngineState = rest
-    } else {
-      lastEngineState = state
-    }
+    rawEngineState = state
+    strippedEngineState = null
   })
 
   // Audio flows ~30Hz through main for the output window — cache the live
@@ -696,20 +740,34 @@ function el(tag, cls, txt){
   return n
 }
 
-async function cmd(c){
-  try {
-    const r = await fetch('/cmd', { method: 'POST', headers: auth(), body: JSON.stringify(c) })
-    if (r.status === 401) logout()
-  } catch (_) {}
+// fetch with a deadline: a hung connection on club wifi must not look connected
+function tfetch(url, opt, ms){
+  const ac = new AbortController()
+  const t = setTimeout(function(){ ac.abort() }, ms)
+  opt.signal = ac.signal
+  return fetch(url, opt).finally(function(){ clearTimeout(t) })
 }
 
-// Throttled slider sends: trailing 90ms while sliding, flush on release
+// No automatic retry: blackout and freeze are states, and a retry after a
+// timeout of a command that did land would undo it. A failed send buzzes so
+// the DJ knows to look at the wall and tap again.
+async function cmd(c){
+  try {
+    const r = await tfetch('/cmd', { method: 'POST', headers: auth(), body: JSON.stringify(c) }, 4000)
+    if (r.status === 401) return logout()
+    if (!r.ok) buzz([60, 40, 60])
+  } catch (_) { buzz([60, 40, 60]) }
+}
+
+// Throttled slider sends: at most one every 90ms while the finger moves (a
+// trailing-only timer never fired during a drag: input events come every
+// ~16ms and kept re-arming it), flush on release
 function slide(k, c){
   pending[k] = c
-  clearTimeout(timers[k])
-  timers[k] = setTimeout(function(){ cmd(pending[k]) }, 90)
+  if (timers[k]) return
+  timers[k] = setTimeout(function(){ timers[k] = 0; cmd(pending[k]) }, 90)
 }
-function flush(k, c){ clearTimeout(timers[k]); cmd(c) }
+function flush(k, c){ clearTimeout(timers[k]); timers[k] = 0; cmd(c) }
 
 // Wire a range input: throttle + drag-key + optional live value readout
 function wireRange(inp, key, make, valEl){
@@ -840,14 +898,18 @@ function renderLooks(looks){
     // Tap latches, hold is momentary — the same rule as the keyboard and the
     // MIDI pads. A phone in your hand is the most natural momentary controller
     // in the room, so it sends a press and a release, not a click.
+    // one release per press: on touch pointerup is followed by pointerleave,
+    // and on desktop a hover alone must not send anything
+    let held = false
     d.addEventListener('pointerdown', function(ev){
       ev.preventDefault()
+      held = true
       buzz(25)
       cmd({ type: 'look', value: i, hold: 'look:' + i })
       d.classList.add('flash')
       setTimeout(function(){ d.classList.remove('flash') }, 350)
     })
-    const letGo = function(){ cmd({ type: 'release', value: 'look:' + i }) }
+    const letGo = function(){ if (!held) return; held = false; cmd({ type: 'release', value: 'look:' + i }) }
     d.addEventListener('pointerup', letGo)
     d.addEventListener('pointercancel', letGo)
     d.addEventListener('pointerleave', letGo)
@@ -855,13 +917,20 @@ function renderLooks(looks){
   }
 }
 
-async function refreshLooks(){
+// looksRev is taken only once the bank really arrived: a failed fetch used to
+// leave the old thumbs on screen until the revision changed again
+let looksFetching = false
+async function refreshLooks(rev){
+  if (looksFetching) return
+  looksFetching = true
   try {
-    const r = await fetch('/defs', { headers: auth() })
+    const r = await tfetch('/defs', { headers: auth() }, 4000)
     if (r.status === 401) return logout()
     const d = await r.json()
     renderLooks(d.looks || [])
+    looksRev = rev
   } catch (_) {}
+  finally { looksFetching = false }
 }
 
 // ---- active-effect params (rebuilt only when the def set changes) ----
@@ -934,11 +1003,13 @@ function rebuildPostUI(e){
   ;(defs.posts || []).forEach(function(p){
     if (active.indexOf(p.id) !== -1) return
     const b = el('button', '', '+ ' + p.label)
+    let held = false
     b.addEventListener('pointerdown', function(ev){
       ev.preventDefault()
+      held = true
       cmd({ type: 'post', value: p.id, hold: 'post:' + p.id })
     })
-    const letGo = function(){ cmd({ type: 'release', value: 'post:' + p.id }) }
+    const letGo = function(){ if (!held) return; held = false; cmd({ type: 'release', value: 'post:' + p.id }) }
     b.addEventListener('pointerup', letGo)
     b.addEventListener('pointercancel', letGo)
     b.addEventListener('pointerleave', letGo)
@@ -1076,19 +1147,28 @@ function renderOverlays(list){
 }
 
 // ---- polling: surgical DOM updates, structural rebuilds only on change ----
+// One request in flight at a time: on degraded wifi the 1.5s interval used
+// to stack fetches until the browser's per-host connections were all taken
+// and the /cmd POSTs (BLACKOUT, PANIC) queued behind them. A phone in a
+// pocket (page hidden) does not poll at all; it catches up when it comes back.
+let polling = false
 async function poll(){
+  if (polling || document.hidden) return
+  polling = true
+  try { await pollOnce() } finally { polling = false }
+}
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll() })
+
+async function pollOnce(){
   let j
   try {
-    const r = await fetch('/state', { headers: auth() })
+    const r = await tfetch('/state', { headers: auth() }, 2500)
     if (r.status === 401) return logout()
     j = await r.json()
   } catch (_) { conn(false); return }
   conn(true)
 
-  if (typeof j.looksRev === 'number' && j.looksRev !== looksRev) {
-    looksRev = j.looksRev
-    refreshLooks()
-  }
+  if (typeof j.looksRev === 'number' && j.looksRev !== looksRev) refreshLooks(j.looksRev)
 
   const e = j.engine
   if (!e || !defs) return
@@ -1108,8 +1188,9 @@ async function poll(){
     if (j.vj.genre && document.activeElement !== gsel && gsel.value !== j.vj.genre) gsel.value = j.vj.genre
   }
 
-  renderSeq(j.seq)
-  renderExt(j.ext, e, bpm)
+  // a partial payload in one section must not stop the rest of the page
+  try { renderSeq(j.seq) } catch (_) {}
+  try { renderExt(j.ext, e, bpm) } catch (_) {}
 
   // FX: active effect highlight + params
   if (prev.fx !== e.activeEffect) {

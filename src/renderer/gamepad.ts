@@ -48,7 +48,13 @@ class GamepadEngine {
   }
 
   private onConnect = () => this.refresh()
-  private onDisconnect = (e: GamepadEvent) => { this.tracker.drop(e.gamepad.index); this.refresh() }
+  private onDisconnect = (e: GamepadEvent) => {
+    this.tracker.drop(e.gamepad.index)
+    // a cable that comes out mid-hold never sends the release: the strobe
+    // would stay on the wall
+    momentary.releaseWhere('pad:')
+    this.refresh()
+  }
 
   /** names + start/stop the loop: nothing runs without a pad */
   private refresh() {
@@ -63,27 +69,40 @@ class GamepadEngine {
     this.raf = 0
     const pads = this.pads()
     if (!pads.length) { this.refresh(); return }
-    for (const p of pads) {
-      const f: GpFrame = { buttons: p.buttons.map(b => b.value), axes: [...p.axes] }
-      const events = this.tracker.poll(p.index, f)
-      if (!events.length) continue
-      if (this.learnTarget) {
-        const b = this.tracker.learnCandidate(p.index, f, events)
-        if (b) {
-          this.bindings[this.learnTarget] = b
-          this.learnTarget = null
-          this.persist(); this.rebuildReverse(); this.notify()
+    // re-armed in `finally`: a throw in a dispatch used to stop the polling
+    // in silence until the next gamepadconnected
+    try {
+      for (const p of pads) {
+        const f: GpFrame = { buttons: p.buttons.map(b => b.value), axes: [...p.axes] }
+        const events = this.tracker.poll(p.index, f)
+        if (!events.length) continue
+        if (this.learnTarget) {
+          const b = this.tracker.learnCandidate(p.index, f, events)
+          if (b) {
+            this.bindings[this.learnTarget] = b
+            this.learnTarget = null
+            this.persist(); this.rebuildReverse(); this.notify()
+          }
+          // while learning nothing reaches the show: a stick short of
+          // LEARN_TRAVEL used to fall through and drive the existing bindings
           continue
         }
+        for (const e of events) this.handle(e)
       }
-      for (const e of events) this.handle(e)
+    } catch (err) {
+      console.error('[gamepad] tick', err)
+    } finally {
+      this.raf = requestAnimationFrame(this.tick)
     }
-    this.raf = requestAnimationFrame(this.tick)
   }
 
   private handle(e: GpEvent) {
     const key = bindingKey(e)
-    if (e.pressed) { this.lastMessage = `${e.kind === 'btn' ? 'Pulsante' : 'Asse'} ${e.num}`; this.notify() }
+    if (e.pressed) {
+      // the panel re-renders on notify: only when the text actually changed
+      const msg = `${e.kind === 'btn' ? 'Pulsante' : 'Asse'} ${e.num}`
+      if (msg !== this.lastMessage) { this.lastMessage = msg; this.notify() }
+    }
     const target = this.reverse.get(key)
     if (!target || !this.dispatch || !this.engine) return
     const engine = this.engine, dispatch = this.dispatch

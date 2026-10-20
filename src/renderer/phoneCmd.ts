@@ -18,6 +18,9 @@ const fin = (x: unknown): x is number => typeof x === 'number' && Number.isFinit
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x))
 const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
 const str = (x: unknown, max = 64): x is string => typeof x === 'string' && x.length > 0 && x.length <= max
+// `in` also finds inherited keys: {type:'constructor'} passed and `...RANGES[t]`
+// spread a function — a TypeError reachable from any paired phone
+const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k)
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
 
 /** [min, max] of the single-number commands */
@@ -50,7 +53,7 @@ export function sanitizeCmd(cmd: unknown, k: Known): RemoteCmd | null {
     return out
   }
 
-  if (t in RANGES) return fin(v) ? ok(clamp(v, ...RANGES[t])) : null
+  if (own(RANGES, t)) return fin(v) ? ok(clamp(v, ...RANGES[t])) : null
 
   switch (t) {
     case 'panic': case 'tap': case 'cameraReset': case 'saveScene': return ok()
@@ -71,7 +74,7 @@ export function sanitizeCmd(cmd: unknown, k: Known): RemoteCmd | null {
     case 'blendMode': return str(v) && k.blendModes.has(v) ? ok(v) : null
     case 'transitionType': return str(v) && k.transitions.has(v) ? ok(v) : null
     case 'grade':
-      return isObj(v) && str(v.key) && v.key in GRADE && fin(v.value) ? ok({ key: v.key, value: clamp(v.value, ...GRADE[v.key]) }) : null
+      return isObj(v) && str(v.key) && own(GRADE, v.key) && fin(v.value) ? ok({ key: v.key, value: clamp(v.value, ...GRADE[v.key]) }) : null
     case 'camera': {
       if (!isObj(v)) return null
       const out: Record<string, number> = {}

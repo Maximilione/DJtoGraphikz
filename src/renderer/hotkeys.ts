@@ -13,8 +13,10 @@
  * - `isContentEditable` was never checked.
  */
 export function shouldIgnoreHotkey(e: KeyboardEvent): boolean {
-  const el = e.target as HTMLElement | null
-  if (!el) return false
+  // a synthetic event on window/document has no element target: nothing to
+  // inspect, and `hasAttribute` below would throw inside the global listener
+  const el = e.target
+  if (!(el instanceof HTMLElement)) return false
 
   const tag = el.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true

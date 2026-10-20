@@ -23,6 +23,9 @@ export function NumberInput({
   const [editText, setEditText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // Escape unmounts the input while it has the focus: the blur that follows
+  // used to commit the very text Escape was cancelling
+  const cancelled = useRef(false)
 
   const clamp = useCallback((v: number) => {
     return Math.round(Math.min(max, Math.max(min, v)) / step) * step
@@ -30,12 +33,14 @@ export function NumberInput({
 
   // Start editing on double-click
   const startEdit = useCallback(() => {
+    cancelled.current = false
     setEditText(formatValue(value, step))
     setEditing(true)
   }, [value, step])
 
   // Commit edit
   const commitEdit = useCallback(() => {
+    if (cancelled.current) return
     const parsed = parseFloat(editText)
     if (!isNaN(parsed)) {
       onChange(clamp(parsed))
@@ -55,7 +60,7 @@ export function NumberInput({
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (editing) {
       if (e.key === 'Enter') { commitEdit(); e.preventDefault() }
-      if (e.key === 'Escape') { setEditing(false); e.preventDefault() }
+      if (e.key === 'Escape') { cancelled.current = true; setEditing(false); e.preventDefault() }
       return
     }
 
@@ -73,21 +78,25 @@ export function NumberInput({
   }, [editing, value, step, onChange, clamp, commitEdit, startEdit])
 
   // Mouse wheel — only when focused (click first), otherwise the sidebar
-  // couldn't scroll past any of these values
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (document.activeElement !== containerRef.current) return
-    e.preventDefault()
-    const delta = e.deltaY < 0 ? step : -step
-    const mult = e.shiftKey ? 10 : 1
-    onChange(clamp(value + delta * mult))
-  }, [value, step, onChange, clamp])
-
+  // couldn't scroll past any of these values. Registered once: the handler
+  // reads the latest props through a ref, where a handler closed over
+  // `value` was removed and re-added on every emit of the engine.
+  const latest = useRef({ value, step, onChange, clamp })
+  latest.current = { value, step, onChange, clamp }
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => el.removeEventListener('wheel', handleWheel)
-  }, [handleWheel])
+    const onWheel = (e: WheelEvent) => {
+      if (document.activeElement !== el) return
+      e.preventDefault()
+      const { value, step, onChange, clamp } = latest.current
+      const delta = e.deltaY < 0 ? step : -step
+      const mult = e.shiftKey ? 10 : 1
+      onChange(clamp(value + delta * mult))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   return (
     <div
@@ -104,7 +113,9 @@ export function NumberInput({
           value={editText}
           onChange={e => setEditText(e.target.value)}
           onBlur={commitEdit}
-          onKeyDown={handleKeyDown}
+          // the container has the same handler: without this Enter bubbled
+          // up and committed twice (two onChange to the engine)
+          onKeyDown={e => { handleKeyDown(e); e.stopPropagation() }}
         />
       ) : (
         <span

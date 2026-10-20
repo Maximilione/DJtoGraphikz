@@ -1,9 +1,10 @@
 import { BrowserWindow, ipcMain, dialog, net, shell } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, existsSync, readdirSync, unlinkSync, lstatSync, realpathSync } from 'fs'
-import { statfs } from 'fs/promises'
+import { statfs, readFile, writeFile, copyFile, readdir, rename, stat, rm } from 'fs/promises'
 import { basename, join, relative, isAbsolute } from 'path'
 import { homedir, tmpdir } from 'os'
-import { execFileSync } from 'child_process'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { IMAGE_NATIVE, IMAGE_CONVERT, VIDEO_EXT, MODEL_EXT, CONVERT_RE, SEQ_RE, SEQ_CONVERT_RE, imageMime } from '../shared/mediaFormats'
 import { sortNatural } from '../shared/imageSequence'
 import { inflateRawSync } from 'zlib'
@@ -13,6 +14,37 @@ const USER_DATA_DIR = join(homedir(), '.djtographikz')
 const ASSETS_DIR = join(USER_DATA_DIR, 'assets')
 const ISF_DIR = join(USER_DATA_DIR, 'isf')
 const PLUGINS_DIR = join(USER_DATA_DIR, 'plugins')
+
+// sips runs OUT of process and the main thread must not wait for it: while a
+// sync spawn converted a TIFF sequence, main forwarded no state and no audio
+// to the outputs and served no remote/OSC/DMX — the projector froze mid-set.
+const execFileP = promisify(execFile)
+const SIPS_TIMEOUT_MS = 120_000
+const sips = (args: string[]) => execFileP('/usr/bin/sips', args, { timeout: SIPS_TIMEOUT_MS })
+/** sips takes the whole list in one call, but ARG_MAX says how long that list can be */
+const SIPS_BATCH = 200
+const tmpPng = () => join(tmpdir(), `djg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`)
+
+/**
+ * The PNGs sips leaves in tmpdir were never removed: every EXR/TIFF import
+ * left tens of MB behind and macOS clears /var/folders only after days. Old
+ * ones go at startup, never at quit — a sequence loaded this session may
+ * still point into one of these folders.
+ */
+const TMP_KEEP_MS = 7 * 24 * 3600_000
+async function sweepTmp() {
+  try {
+    const dir = tmpdir()
+    const cutoff = Date.now() - TMP_KEEP_MS
+    for (const f of await readdir(dir)) {
+      if (!/^djg-seq-/.test(f) && !/^djg-.*\.png$/i.test(f)) continue
+      const p = join(dir, f)
+      try {
+        if ((await stat(p)).mtimeMs < cutoff) await rm(p, { recursive: true, force: true })
+      } catch { /* vanished meanwhile */ }
+    }
+  } catch { /* tmpdir unreadable: nothing to clean */ }
+}
 
 const NODE_PLUGIN_FS: PluginFs = {
   readdir: d => readdirSync(d),
@@ -35,15 +67,18 @@ function safeName(name: string): string {
 }
 
 // ponytail: minimal ZIP reader (stored + deflate) — the ISF site ships .fs/.vs
-// in a zip and a full zip lib is overkill for extracting two text files
-function unzipEntries(buf: Buffer): { name: string; data: Buffer }[] {
+// in a zip and a full zip lib is overkill for extracting two text files.
+// Only the entries `want` asks for are inflated, and never past 4MB: a shader
+// source is kilobytes, and a corrupt or hostile zip must not expand in main.
+const UNZIP_MAX_ENTRY = 4 * 1024 * 1024
+function unzipEntries(buf: Buffer, want: (name: string) => boolean): { name: string; data: Buffer }[] {
   const eocd = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))
   if (eocd < 0) throw new Error('ZIP non valido')
   const count = buf.readUInt16LE(eocd + 10)
   let off = buf.readUInt32LE(eocd + 16)
   const out: { name: string; data: Buffer }[] = []
   for (let i = 0; i < count; i++) {
-    if (buf.readUInt32LE(off) !== 0x02014b50) break
+    if (off + 46 > buf.length || buf.readUInt32LE(off) !== 0x02014b50) break
     const method = buf.readUInt16LE(off + 10)
     const csize = buf.readUInt32LE(off + 20)
     const nameLen = buf.readUInt16LE(off + 28)
@@ -51,10 +86,13 @@ function unzipEntries(buf: Buffer): { name: string; data: Buffer }[] {
     const commentLen = buf.readUInt16LE(off + 32)
     const lho = buf.readUInt32LE(off + 42)
     const name = buf.toString('utf8', off + 46, off + 46 + nameLen)
-    const dataStart = lho + 30 + buf.readUInt16LE(lho + 26) + buf.readUInt16LE(lho + 28)
-    const cdata = buf.subarray(dataStart, dataStart + csize)
-    if (!name.endsWith('/')) out.push({ name, data: method === 0 ? Buffer.from(cdata) : inflateRawSync(cdata) })
     off += 46 + nameLen + extraLen + commentLen
+    if (name.endsWith('/') || !want(name)) continue
+    if (lho + 30 > buf.length) throw new Error('ZIP troncato')
+    const dataStart = lho + 30 + buf.readUInt16LE(lho + 26) + buf.readUInt16LE(lho + 28)
+    if (dataStart + csize > buf.length) throw new Error('ZIP troncato')
+    const cdata = buf.subarray(dataStart, dataStart + csize)
+    out.push({ name, data: method === 0 ? Buffer.from(cdata) : inflateRawSync(cdata, { maxOutputLength: UNZIP_MAX_ENTRY }) })
   }
   return out
 }
@@ -72,6 +110,7 @@ export function setupIpcHandlers(
   _outputWindow: BrowserWindow
 ) {
   ensureDirs()
+  void sweepTmp()
 
   // Soundcheck (P3): free bytes on the volume that holds the user data
   ipcMain.handle('disk:free', async () => {
@@ -84,13 +123,15 @@ export function setupIpcHandlers(
     const file = join(ASSETS_DIR, safeName(name))
     const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl)
     if (!m) throw new Error('expected base64 data URL')
-    writeFileSync(file, Buffer.from(m[2], 'base64'))
+    await writeFile(file, Buffer.from(m[2], 'base64'))
     return { name: safeName(name), path: file }
   })
 
+  // copyFile: the kernel moves the bytes, a 1GB clip no longer passes through
+  // main's heap and the thread stays free while a USB stick is read
   ipcMain.handle('library:save-copy', async (_e, name: string, sourcePath: string) => {
     const file = join(ASSETS_DIR, safeName(name))
-    writeFileSync(file, readFileSync(sourcePath))
+    await copyFile(sourcePath, file)
     return { name: safeName(name), path: file }
   })
 
@@ -106,10 +147,14 @@ export function setupIpcHandlers(
   })
 
   // ISF folder: every generator dropped in ~/.djtographikz/isf becomes an effect
+  // One unreadable file no longer fails the whole list: it is skipped
   ipcMain.handle('isf:list', async () => {
-    return readdirSync(ISF_DIR)
-      .filter(f => /\.(fs|frag|glsl)$/i.test(f))
-      .map(f => ({ name: f.replace(/\.(fs|frag|glsl)$/i, ''), source: readFileSync(join(ISF_DIR, f), 'utf-8') }))
+    const files = (await readdir(ISF_DIR)).filter(f => /\.(fs|frag|glsl)$/i.test(f))
+    const all = await Promise.all(files.map(async f => {
+      try { return { name: f.replace(/\.(fs|frag|glsl)$/i, ''), source: await readFile(join(ISF_DIR, f), 'utf-8') } }
+      catch { return null }
+    }))
+    return all.filter((x): x is { name: string; source: string } => x !== null)
   })
 
   // Plugin dichiarativi: solo dati, validati qui (src/shared/plugins.ts); un plugin rotto non butta giu' gli altri
@@ -117,16 +162,30 @@ export function setupIpcHandlers(
   ipcMain.handle('plugins:open-folder', async () => { await shell.openPath(PLUGINS_DIR) })
 
   // Online library (editor.isf.video): light index of the public generators,
-  // cached 24h on disk — the full dump is ~40MB, fetched at most once a day
-  ipcMain.handle('isf:browse', async (_e, force?: boolean) => {
-    if (!force && existsSync(ISF_INDEX_CACHE)) {
-      try {
-        const c = JSON.parse(readFileSync(ISF_INDEX_CACHE, 'utf-8'))
-        if (Date.now() - c.fetchedAt < ISF_INDEX_TTL && Array.isArray(c.shaders)) return c.shaders
-      } catch { /* corrupt cache — refetch */ }
+  // cached 24h on disk — the full dump is ~40MB, fetched at most once a day.
+  // One download at a time (two panels asking together parsed 40MB twice), a
+  // timeout, and the stale cache as the fallback when the club has no internet.
+  let browseInflight: Promise<any[]> | null = null
+  ipcMain.handle('isf:browse', (_e, force?: boolean) =>
+    browseInflight ??= browseIsf(!!force).finally(() => { browseInflight = null }))
+
+  async function browseIsf(force: boolean): Promise<any[]> {
+    let stale: any[] | null = null
+    try {
+      const c = JSON.parse(await readFile(ISF_INDEX_CACHE, 'utf-8'))
+      if (Array.isArray(c.shaders)) {
+        if (!force && Date.now() - c.fetchedAt < ISF_INDEX_TTL) return c.shaders
+        stale = c.shaders
+      }
+    } catch { /* missing or corrupt cache — refetch */ }
+    let res: Response
+    try {
+      res = await net.fetch(`${ISF_API}?limit=100000`, { signal: AbortSignal.timeout(30_000) })
+      if (!res.ok) throw new Error(`editor.isf.video ha risposto ${res.status}`)
+    } catch (e) {
+      if (stale) { console.warn('[ISF] rete assente, uso l\'indice in cache:', (e as Error)?.message); return stale }
+      throw e
     }
-    const res = await net.fetch(`${ISF_API}?limit=100000`)
-    if (!res.ok) throw new Error(`editor.isf.video ha risposto ${res.status}`)
     const all = await res.json() as any[]
     const shaders = all
       .filter(s => {
@@ -149,9 +208,14 @@ export function setupIpcHandlers(
         stars: Array.isArray(s.stars) ? s.stars.length : 0,
       }))
       .sort((a, b) => b.stars - a.stars)
-    writeFileSync(ISF_INDEX_CACHE, JSON.stringify({ fetchedAt: Date.now(), shaders }))
+    // write + rename: a crash mid-write leaves the old index, not half a JSON
+    try {
+      const tmp = ISF_INDEX_CACHE + '.tmp'
+      await writeFile(tmp, JSON.stringify({ fetchedAt: Date.now(), shaders }))
+      await rename(tmp, ISF_INDEX_CACHE)
+    } catch (e) { console.warn('[ISF] cache non scritta:', (e as Error)?.message) }
     return shaders
-  })
+  }
 
   // Import one shader from the online library into ~/.djtographikz/isf
   ipcMain.handle('isf:import-online', async (_e, id: string, title: string) => {
@@ -173,19 +237,24 @@ export function setupIpcHandlers(
     })
     if (r.canceled) return []
     const imported: { name: string; source: string }[] = []
+    const isShader = (n: string) => /\.(fs|frag|glsl)$/i.test(n)
+    // per file: one broken zip skips itself, not the others picked with it
     for (const fp of r.filePaths) {
-      if (/\.zip$/i.test(fp)) {
-        for (const ent of unzipEntries(readFileSync(fp))) {
-          if (!/\.(fs|frag|glsl)$/i.test(ent.name)) continue
-          const name = stripIsfExt(ent.name)
-          writeFileSync(join(ISF_DIR, name + '.fs'), ent.data)
-          imported.push({ name, source: ent.data.toString('utf-8') })
+      try {
+        if (/\.zip$/i.test(fp)) {
+          for (const ent of unzipEntries(await readFile(fp), isShader)) {
+            const name = stripIsfExt(ent.name)
+            await writeFile(join(ISF_DIR, name + '.fs'), ent.data)
+            imported.push({ name, source: ent.data.toString('utf-8') })
+          }
+        } else {
+          const name = stripIsfExt(fp)
+          const source = await readFile(fp, 'utf-8')
+          await writeFile(join(ISF_DIR, name + '.fs'), source)
+          imported.push({ name, source })
         }
-      } else {
-        const name = stripIsfExt(fp)
-        const source = readFileSync(fp, 'utf-8')
-        writeFileSync(join(ISF_DIR, name + '.fs'), source)
-        imported.push({ name, source })
+      } catch (e) {
+        console.error('[ISF] import saltato', fp, (e as Error)?.message)
       }
     }
     return imported
@@ -221,16 +290,17 @@ export function setupIpcHandlers(
       filters: [{ name: 'Immagini', extensions: process.platform === 'darwin' ? [...IMAGE_NATIVE, ...IMAGE_CONVERT] : IMAGE_NATIVE }]
     })
     if (result.canceled) return []
-    return result.filePaths.slice(0, 8).map(filePath => {
+    // conversions run in parallel, off the main thread; the order is kept
+    return Promise.all(result.filePaths.slice(0, 8).map(async filePath => {
       if (!CONVERT_RE.test(filePath)) return { name: basename(filePath), path: filePath }
-      const png = join(tmpdir(), `djg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`)
+      const png = tmpPng()
       try {
-        execFileSync('/usr/bin/sips', ['-s', 'format', 'png', filePath, '--out', png], { stdio: 'ignore' })
+        await sips(['-s', 'format', 'png', filePath, '--out', png])
         return { name: basename(filePath).replace(/\.[^.]+$/, '') + '.png', path: png }
       } catch {
         return { name: basename(filePath), path: filePath }
       }
-    })
+    }))
   })
 
   // A folder of numbered frames. One sequence per folder; frames are streamed
@@ -251,18 +321,27 @@ export function setupIpcHandlers(
     if (process.platform !== 'darwin') {
       return { name, dir, paths: [], note: 'EXR/DPX/TIFF non si leggono qui: convertili in PNG (ffmpeg, oiiotool) e riprova' }
     }
-    // macOS: sips → PNG in a temp folder, one call for the whole sequence
+    // macOS: sips → PNG in a temp folder, in batches of SIPS_BATCH frames
+    // (ARG_MAX), two batches at a time, each one on its own: a batch that
+    // fails leaves the others' output, and what landed is what counts
     const out = mkdtempSync(join(tmpdir(), 'djg-seq-'))
-    try {
-      execFileSync('/usr/bin/sips', ['-s', 'format', 'png', ...sortNatural(foreign).map(f => join(dir, f)), '--out', out], { stdio: 'ignore' })
-    } catch { /* partial output is still usable: judge by what landed */ }
-    const pngs = sortNatural(readdirSync(out).filter(f => /\.png$/i.test(f))).map(f => join(out, f))
+    const src = sortNatural(foreign).map(f => join(dir, f))
+    const batches: string[][] = []
+    for (let i = 0; i < src.length; i += SIPS_BATCH) batches.push(src.slice(i, i + SIPS_BATCH))
+    const worker = async () => {
+      for (let b = batches.shift(); b; b = batches.shift()) {
+        try { await sips(['-s', 'format', 'png', ...b, '--out', out]) }
+        catch { /* partial output is still usable: judge by what landed */ }
+      }
+    }
+    await Promise.all([worker(), worker()])
+    const pngs = sortNatural((await readdir(out)).filter(f => /\.png$/i.test(f))).map(f => join(out, f))
     if (!pngs.length) return { name, dir, paths: [], note: 'conversione con sips fallita: converti i frame in PNG' }
     return { name, dir, paths: pngs, note: 'frame convertiti in PNG a 8 bit (sips)' }
   })
 
   ipcMain.handle('asset:read-file', async (_event, filePath: string) => {
-    return readFileSync(filePath)
+    return readFile(filePath)
   })
 
   // Asset import via dialog
@@ -281,14 +360,14 @@ export function setupIpcHandlers(
       // HEIC/TIFF/PSD/RAW...: Chromium can't decode them, macOS can. sips → PNG.
       if (CONVERT_RE.test(path)) {
         if (process.platform !== 'darwin') continue
-        const png = join(tmpdir(), `djg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`)
+        const png = tmpPng()
         try {
-          execFileSync('/usr/bin/sips', ['-s', 'format', 'png', path, '--out', png], { stdio: 'ignore' })
+          await sips(['-s', 'format', 'png', path, '--out', png])
         } catch { continue }
         path = png
         name = name.replace(/\.[^.]+$/, '') + '.png'
       }
-      const data = readFileSync(path)
+      const data = await readFile(path)
       out.push({ name, ext: name.split('.').pop() || 'png', data: `data:${imageMime(name)};base64,${data.toString('base64')}` })
     }
     return out

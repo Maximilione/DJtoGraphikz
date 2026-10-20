@@ -23,24 +23,30 @@ export function sortNatural(names: string[]): string[] {
 }
 
 const mod = (n: number, m: number) => ((n % m) + m) % m
+// A NaN clock (beat grid not up yet, 0/0 in a rate) made every frame index
+// NaN: `idx !== want` was then always true, and SequencePlayer rebuilt its
+// keep-window on every frame while the sequence sat still. Finite or zero.
+const fin = (n: number) => Number.isFinite(n) ? n : 0
+/** a rate: finite and positive, or the default */
+const pos = (n: number, d: number) => Number.isFinite(n) && n > 0 ? n : d
 
 /** Free-running: frame at `elapsedMs` from the start, looping. */
 export function frameAtTime(elapsedMs: number, fps: number, count: number): number {
   if (count <= 0) return 0
-  return mod(Math.floor(Math.max(0, elapsedMs) / 1000 * (fps || SEQ_DEFAULT_FPS)), count)
+  return mod(Math.floor(Math.max(0, fin(elapsedMs)) / 1000 * pos(fps, SEQ_DEFAULT_FPS)), count)
 }
 
 /** One loop = `beatsPerLoop` beats, locked to the absolute beat grid (both windows agree). */
 export function frameAtBeat(beatClock: number, beatsPerLoop: number, count: number): number {
   if (count <= 0 || !(beatsPerLoop > 0)) return 0
-  return Math.min(count - 1, Math.floor(mod(beatClock / beatsPerLoop, 1) * count))
+  return Math.min(count - 1, Math.floor(mod(fin(beatClock) / beatsPerLoop, 1) * count))
 }
 
 /** Deck B: like a video clip, the native BPM sets the speed (rate = live / native). */
 export function frameAtDeck(beatClock: number, clipStartBeat: number, nativeBpm: number, fps: number, count: number): number {
   if (count <= 0) return 0
-  const t = Math.max(0, beatClock - clipStartBeat) * 60 / (nativeBpm || 128)
-  return mod(Math.floor(t * (fps || SEQ_DEFAULT_FPS)), count)
+  const t = Math.max(0, fin(beatClock) - fin(clipStartBeat)) * 60 / pos(nativeBpm, 128)
+  return mod(Math.floor(t * pos(fps, SEQ_DEFAULT_FPS)), count)
 }
 
 /** How many decoded frames fit: the frame cap, shrunk so w*h*4*n stays in budget (min 8). */

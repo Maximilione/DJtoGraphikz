@@ -14,6 +14,7 @@ import { readLibraryImage, IMAGE_RE, type LibraryItem } from '../OverlayPanel/Ov
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
 import { SliderRow } from '../SliderRow/SliderRow'
+import { saveBlob } from '../../download'
 
 interface PresetPanelProps {
   engine: Engine | null
@@ -23,8 +24,19 @@ interface PresetPanelProps {
 
 const STORAGE_KEY_PRESETS = 'djtographikz-presets'
 
+/**
+ * A preset as this app writes it. An imported file used to be checked on its
+ * first element only and saved whole: one entry without colors crashed the
+ * list's render (p.colors.map) — and, already persisted, crashed it again at
+ * every start. Engine.applyPreset reads colors[0] too.
+ */
+const isPreset = (p: any): p is Preset =>
+  !!p && typeof p === 'object' && typeof p.name === 'string' && typeof p.effect === 'string'
+  && Array.isArray(p.colors) && p.colors.length >= 3
+
 function loadPresets(): Preset[] {
-  return readJson<Preset[]>(STORAGE_KEY_PRESETS, [])
+  const raw = readJson<unknown>(STORAGE_KEY_PRESETS, [])
+  return Array.isArray(raw) ? raw.filter(isPreset) : []
 }
 
 /**
@@ -43,6 +55,12 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
   // Presets
   const [presets, setPresets] = useState<Preset[]>(loadPresets)
   const [presetName, setPresetName] = useState('')
+  // the undo toasts read the list as it is when clicked, not as it was when
+  // the toast was made: a preset saved in between used to be undone with it
+  const presetsRef = useRef(presets)
+  presetsRef.current = presets
+  const sequencesRef = useRef(sequences)
+  sequencesRef.current = sequences
 
   // Sequences (saved) + the one open in the editor
   const [draft, setDraft] = useState<Sequence>(() => ({
@@ -79,10 +97,12 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     pushToast(`Preset "${preset.name}" salvato`, 'preset-save', undefined, 'ok')
   }, [engine, presetName, presets])
 
-  // Apply preset
+  // Apply preset — a preset from an older build or a hand-edited file can be
+  // refused by the engine: that is a toast, not a dead panel
   const applyPreset = useCallback((preset: Preset) => {
     if (!engine) return
-    engine.applyPreset(preset)
+    try { engine.applyPreset(preset) }
+    catch (e) { pushToast(`Preset non applicabile: ${(e as Error).message}`, 'preset-apply', undefined, 'err') }
   }, [engine])
 
   // Delete preset
@@ -96,7 +116,9 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     pushToast(`Preset "${removed?.name ?? ''}" eliminato`, `preset-del-${index}`, {
       label: 'Annulla',
       fn: () => {
-        const back = [...next.slice(0, index), removed, ...next.slice(index)]
+        const cur = presetsRef.current
+        const at = Math.min(index, cur.length)
+        const back = [...cur.slice(0, at), removed, ...cur.slice(at)]
         if (savePresetsToStorage(back)) setPresets(back)
       },
     })
@@ -104,14 +126,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
 
   // Export all presets as JSON file
   const exportPresets = useCallback(() => {
-    const json = JSON.stringify(presets, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'djtographikz-presets.json'
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(new Blob([JSON.stringify(presets, null, 2)], { type: 'application/json' }), 'djtographikz-presets.json')
   }, [presets])
 
   // Import presets from JSON file
@@ -122,18 +137,26 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
-      const text = await file.text()
+      let raw: unknown
       try {
-        const imported: Preset[] = JSON.parse(text)
-        if (Array.isArray(imported) && imported.length > 0 && imported[0].effect) {
-          const merged = [...presets, ...imported]
-          setPresets(merged)
-          savePresetsToStorage(merged)
-        }
-      } catch {}
+        raw = JSON.parse(await file.text())
+      } catch {
+        pushToast('File non leggibile', 'preset-import', undefined, 'err')
+        return
+      }
+      const ok = (Array.isArray(raw) ? raw : []).filter(isPreset)
+      if (!ok.length) {
+        pushToast('Nessun preset valido nel file', 'preset-import', undefined, 'err')
+        return
+      }
+      const merged = [...presetsRef.current, ...ok]
+      if (!savePresetsToStorage(merged)) return
+      setPresets(merged)
+      const skipped = (Array.isArray(raw) ? raw.length : 0) - ok.length
+      pushToast(`${ok.length} preset importati${skipped ? ` (${skipped} scartati)` : ''}`, 'preset-import', undefined, 'ok')
     }
     input.click()
-  }, [presets])
+  }, [])
 
   // ---- Sequence editor ----
 
@@ -149,7 +172,10 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     if (!engine) return
     const name = `Passo ${draft.steps.length + 1}`
     const preset = engine.createPreset(name)
-    addStep(name, preset, await makeThumb(engine))
+    // a failed thumbnail is a step without a picture, not a missing step
+    let thumb: string | undefined
+    try { thumb = await makeThumb(engine) } catch { thumb = undefined }
+    addStep(name, preset, thumb)
   }, [engine, draft.steps.length, addStep])
 
   const updateStep = useCallback((i: number, patch: Partial<SequenceStep>) => {
@@ -227,9 +253,14 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
       setTrialStep(-1)
       return
     }
-    if (st.transition) engine.setTransitionType(st.transition)
-    engine.applyPreset(st.preset)
-    enterStep(engine, st, readLibraryImage)
+    try {
+      if (st.transition) engine.setTransitionType(st.transition)
+      engine.applyPreset(st.preset)
+      enterStep(engine, st, readLibraryImage)
+    } catch (e) {
+      pushToast(`Passo non applicabile: ${(e as Error).message}`, 'step-try', undefined, 'err')
+      return
+    }
     setTrialStep(i)
   }, [engine, draft.steps, trialStep])
 
@@ -284,19 +315,16 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     pushToast(`Scaletta "${removed?.name ?? ''}" eliminata (${removed?.steps.length ?? 0} passi)`,
       `seq-del-${i}`, {
         label: 'Annulla',
-        fn: () => persist([...next.slice(0, i), removed, ...next.slice(i)]),
+        fn: () => {
+          const cur = sequencesRef.current
+          const at = Math.min(i, cur.length)
+          persist([...cur.slice(0, at), removed, ...cur.slice(at)])
+        },
       })
   }, [sequences, playingSeq, editingIndex, stopSequence, persist])
 
   const exportSequences = useCallback(() => {
-    const json = JSON.stringify(sequences, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'djtographikz-scalette.json'
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(new Blob([JSON.stringify(sequences, null, 2)], { type: 'application/json' }), 'djtographikz-scalette.json')
   }, [sequences])
 
   const importSequences = useCallback(() => {
