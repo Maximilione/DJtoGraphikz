@@ -131,6 +131,8 @@
   pointer-events: none;
   box-shadow: inset 0 0 18px 2px var(--accent);
   opacity: 0;
+  /* its own layer: the beat fade must not repaint the preview under it */
+  will-change: opacity;
 }
 
 /* U4.2 — toggle "flash beat" nella barra di stato */
@@ -439,3 +441,8 @@
   .fx-panel .fx-params { display: flex; grid-column: 2; grid-row: 3; position: sticky; top: 76px; }
   .fx-panel .fx-lib { display: flex; grid-column: 1; grid-row: 3; }
 }
+
+/* PanelBoundary: a panel that threw, kept out of the rest of the show */
+.panel-error .panel-header { color: var(--danger, #e5484d); cursor: default; }
+.panel-error-body { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 12px; }
+.panel-error-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.8; }

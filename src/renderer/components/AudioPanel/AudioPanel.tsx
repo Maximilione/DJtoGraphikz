@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { readJson, writeJson } from '../../storage'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { writeJson } from '../../storage'
+import { loadAudioSettings, type SavedAudioSettings } from '../../useAudioRestore'
 import { pushToast } from '../Toasts/Toasts'
 import { listAudioInputs, pickInput } from '../../audioDevices'
 import { findExternal, isBuiltInLabel } from '../../../shared/audioInput'
@@ -38,20 +39,6 @@ function mmss(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-interface SavedAudioSettings {
-  deviceId?: string
-  bpmMode?: BpmMode
-  manualBpm?: number
-  sensitivity?: number
-  inputGain?: number
-  running?: boolean
-}
-
-function loadAudioSettings(): SavedAudioSettings {
-  // `?? {}` and not a `{}` fallback: older builds could store a literal `null`.
-  return readJson<SavedAudioSettings | null>(AUDIO_STORE_KEY, null) ?? {}
-}
-
 const PHASES: { id: Phase; label: string }[] = [
   { id: 'break', label: 'pausa' }, { id: 'build', label: 'salita' }, { id: 'groove', label: 'groove' }, { id: 'peak', label: 'picco' },
 ]
@@ -72,9 +59,26 @@ function audioErrorHelp(err: any, prefix: string): string {
 
 const agoLabel = (ms: number) => ms < 60000 ? `${Math.max(0, Math.round(ms / 1000))} s fa` : `${Math.round(ms / 60000)} min fa`
 
-export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
+// 64 bars a frame, each a fresh `hsl(...)` template string: ~3800 strings a
+// second for a 60 px meter. One table, indexed by the byte the bar shows.
+const BAR_COLORS: string[] = Array.from({ length: 256 }, (_, v) => {
+  const val = v / 255
+  return `hsl(${140 + val * 60}, 100%, ${40 + val * 30}%)`
+})
+
+/** commit a number field on blur/Enter: typing "10" through a clamp at 3 used to snap on the "1" */
+const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') e.currentTarget.blur() }
+
+function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
   const [idle, setIdle] = useState<IdleSettings>(loadIdleSettings)
-  const setIdleCfg = (patch: Partial<IdleSettings>) => setIdle(prev => { const next = { ...prev, ...patch }; saveIdleSettings(next); return next })
+  // pure updater; the write (and its listeners in App) run from an effect,
+  // once per change, not twice under StrictMode
+  const setIdleCfg = (patch: Partial<IdleSettings>) => setIdle(prev => ({ ...prev, ...patch }))
+  const idleMounted = useRef(false)
+  useEffect(() => {
+    if (!idleMounted.current) { idleMounted.current = true; return }   // what was loaded needs no save
+    saveIdleSettings(idle)
+  }, [idle])
   // Persisted settings from the previous session — read once per mount
   const savedRef = useRef<SavedAudioSettings>(loadAudioSettings())
   const saved = savedRef.current
@@ -124,25 +128,37 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
   const phaseRef = useRef<Phase | null>(phase)
   phaseRef.current = phase
 
-  const refreshDevices = async () => {
+  // A USB hub fires several devicechange events in a row and the answers can
+  // land out of order: only the latest request may touch the state. The error
+  // is cleared only by the user's own Riprova/Aggiorna — a devicechange used
+  // to wipe the real reason the input was refused.
+  const devicesReq = useRef(0)
+  const refreshDevices = async (clearError = false) => {
+    const my = ++devicesReq.current
     try {
       const audioInputs = await listAudioInputs()
+      if (my !== devicesReq.current) return
       setDevices(audioInputs)
       // the saved input, unless it is the room mic and a sound card is plugged in
       if (audioInputs.length > 0) setSelectedDevice(prev => pickInput(audioInputs, prev))
-      setError(null)
+      if (clearError) setError(null)
     } catch (err: any) {
+      if (my !== devicesReq.current) return
       console.error('Failed to enumerate devices:', err)
       setError(audioErrorHelp(err, 'Non riesco a leggere gli ingressi audio'))
     }
   }
+  const retryDevices = () => { void refreshDevices(true) }
 
   useEffect(() => {
     refreshDevices()
-    // a card plugged in after the app is open
+    // a card plugged in after the app is open — settled 200 ms, one refresh per burst
     const md = navigator.mediaDevices
-    md.addEventListener?.('devicechange', refreshDevices)
-    return () => md.removeEventListener?.('devicechange', refreshDevices)
+    let t = 0
+    const onChange = () => { clearTimeout(t); t = window.setTimeout(() => { void refreshDevices() }, 200) }
+    md.addEventListener?.('devicechange', onChange)
+    return () => { clearTimeout(t); devicesReq.current++; md.removeEventListener?.('devicechange', onChange) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Moving to a card that shows up while on the room mic (or while recovering) is
@@ -162,52 +178,28 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     engine.audioAnalyzer.setManualBpm(manualBpm)
   }
 
-  // Restore last session: apply saved settings, and if audio was running with
-  // a saved device, auto-start the analyzer (the 500ms poll picks up the UI)
-  //
-  // The condition is "not on that device", not "not running": loading a venue
-  // profile (P2) remounts this panel while the analyzer is already running on
-  // the *previous* room's sound card. `!isRunning` left it there, so the one
-  // setting the profile exists for — which input the music comes in on — was
-  // the one it silently did not restore.
-  const restoredRef = useRef(false)
-  useEffect(() => {
-    if (!engine || restoredRef.current) return
-    restoredRef.current = true
-    applyAnalyzerSettings()
-    const s = savedRef.current
-    // A file under analysis is not a room's sound card: switching to the
-    // profile's input there would yank the track being tested.
-    const onFile = engine.audioAnalyzer.getSourceKind() === 'file'
-    if (s.running && s.deviceId && !onFile) {
-      // Listing inputs can wait on the permission dialog: anyone who started or stopped
-      // the analyzer meanwhile (Onboarding, the Stop button) has the last word.
-      const gen = engine.audioAnalyzer.generation
-      // The saved id can be the built-in mic from a rehearsal: choose again
-      // from what is plugged in now, before starting on it.
-      listAudioInputs().catch(() => [] as MediaDeviceInfo[]).then(inputs => {
-        const id = inputs.length ? pickInput(inputs, s.deviceId) : (s.deviceId ?? '')
-        if (engine.audioAnalyzer.generation !== gen) return
-        setSelectedDevice(id)
-        if (engine.audioAnalyzer.currentDeviceId === id) return
-        return engine.audioAnalyzer.start(id).then(applyAnalyzerSettings)
-      }).catch((err: any) => console.warn('[AudioPanel] auto-start failed:', err))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine])
+  // Last session's settings and input are restored by App (useAudioRestore),
+  // in every layout: this panel only shows what the analyser is doing.
+  /** the input the analyser was last seen running on; the dropdown follows a real start, not a poll */
+  const runningDeviceRef = useRef<string | undefined>(undefined)
 
-  // Persist settings — writes are rare (user tweaks), no debounce needed
+  // Persist settings, settled 250 ms: "writes are rare" was not true of the
+  // sensitivity and gain sliders, which emit one synchronous setItem per pixel
+  // of a drag
   useEffect(() => {
-    try {
-      writeJson(AUDIO_STORE_KEY, ({
-        deviceId: selectedDevice,
-        bpmMode,
-        manualBpm,
-        sensitivity,
-        inputGain,
-        running: audioActive,
-      }))
-    } catch { /* private mode / quota — non-fatal */ }
+    const t = window.setTimeout(() => {
+      try {
+        writeJson(AUDIO_STORE_KEY, ({
+          deviceId: selectedDevice,
+          bpmMode,
+          manualBpm,
+          sensitivity,
+          inputGain,
+          running: audioActive,
+        }))
+      } catch { /* private mode / quota — non-fatal */ }
+    }, 250)
+    return () => clearTimeout(t)
   }, [selectedDevice, bpmMode, manualBpm, sensitivity, inputGain, audioActive])
 
   // Audio and BPM mode can change from outside this panel (onboarding, Space
@@ -217,7 +209,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       const running = engine.audioAnalyzer.isRunning
       if (running !== audioActive) {
         setAudioActive(running)
-        if (running) drawSpectrum()
+        if (running) startDraw()
         else cancelAnimationFrame(animFrameRef.current)
       }
       // automatic recovery gave up (permission denied): say why instead of "Audio fermo"
@@ -225,6 +217,10 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       if (fatal && !engine.audioAnalyzer.isRunning) setError(prev => prev ?? audioErrorHelp({ name: fatal.split(':')[0] }, 'Errore audio'))
       const lbl = engine.audioAnalyzer.currentLabel
       setActiveLabel(prev => (prev === lbl ? prev : lbl))
+      // the restore in App (or Onboarding) may start on another input than the
+      // saved one: the dropdown shows the device the music really comes in on
+      const dev = engine.audioAnalyzer.currentDeviceId
+      if (running && dev && dev !== runningDeviceRef.current) { runningDeviceRef.current = dev; setSelectedDevice(dev) }
       const m = engine.audioAnalyzer.getBpmMode()
       if (m !== bpmMode) setBpmMode(m)
       const mb = engine.audioAnalyzer.getManualBpm()
@@ -244,10 +240,12 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       }
       const a = engine.audioAnalyzer
       if (a.getSourceKind() === 'file') {
-        setFile({
+        // a fresh object every 500 ms re-rendered the panel even in pause
+        const nf = {
           name: a.getFileName(), playing: a.isPlaying(),
           at: a.getCurrentTime(), len: a.getDuration(), loop: a.isLooping(),
-        })
+        }
+        setFile(f => (f.name === nf.name && f.playing === nf.playing && f.at === nf.at && f.len === nf.len && f.loop === nf.loop ? f : nf))
       } else if (file.name) {
         setFile({ name: '', playing: false, at: 0, len: 0, loop: true })
       }
@@ -259,11 +257,11 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     try {
       await engine.audioAnalyzer.startFile(f)
       setAudioActive(true)
-      drawSpectrum()
+      startDraw()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Non riesco a leggere il file')
     }
-  // drawSpectrum is a stable module-level closure over refs, not a dependency
+  // startDraw is a stable closure over refs, not a dependency
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])
 
@@ -297,7 +295,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       await engine.audioAnalyzer.start(selectedDevice || undefined)
       applyAnalyzerSettings()
       setAudioActive(true)
-      drawSpectrum()
+      startDraw()
     } catch (err: any) {
       console.error('Failed to start audio:', err)
       setError(audioErrorHelp(err, 'Errore audio'))
@@ -351,7 +349,8 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     const h = canvasRef.current.height
     // getFrequencyData() re-reads the analyser into the same buffer that
     // update() already filled this frame — read the frame we have instead
-    const data = engine.audioAnalyzer.getData().spectrum
+    const audioData = engine.audioAnalyzer.getData()
+    const data = audioData.spectrum
 
     ctx.fillStyle = '#0a0a0a'
     ctx.fillRect(0, 0, w, h)
@@ -362,14 +361,11 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
       const barW = w / barCount
 
       for (let i = 0; i < barCount; i++) {
-        const val = data[i * step] / 255
-        const barH = val * h
-        const hue = 140 + val * 60
-        ctx.fillStyle = `hsl(${hue}, 100%, ${40 + val * 30}%)`
+        const byte = data[i * step]
+        const barH = byte / 255 * h
+        ctx.fillStyle = BAR_COLORS[byte]
         ctx.fillRect(i * barW, h - barH, barW - 1, barH)
       }
-
-      const audioData = engine.audioAnalyzer.getData()
 
       // Beat flash overlay
       if (audioData.beatDetected) beatFlashRef.current = 1.0
@@ -416,6 +412,18 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
 
     animFrameRef.current = requestAnimationFrame(drawSpectrum)
   }
+  // The one entry point to the draw loop. drawSpectrum() was called directly
+  // from three places, each starting a new rAF chain while animFrameRef kept
+  // only the last id: a race between the 500 ms poll and startAudio, or
+  // "Torna al vivo" with audio already on, left two or more chains drawing at
+  // 60 fps on the UI thread, and Stop cancelled just one of them.
+  const startDraw = () => {
+    cancelAnimationFrame(animFrameRef.current)
+    animFrameRef.current = requestAnimationFrame(drawSpectrum)
+  }
+  useEffect(() => () => cancelAnimationFrame(animFrameRef.current), [])
+
+  const effectOptions = useMemo(() => ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>), [])
 
   return (
     <Panel id="audio" title="Ingresso audio">
@@ -431,7 +439,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
         {error && !file.name && (
           <div className="u-error u-col" style={{ gap: 'var(--s2)' }} role="alert">
             <span>{error}</span>
-            <button className="btn btn-sm" onClick={refreshDevices} style={{ alignSelf: 'flex-start' }}>Riprova</button>
+            <button className="btn btn-sm" onClick={retryDevices} style={{ alignSelf: 'flex-start' }}>Riprova</button>
           </div>
         )}
 
@@ -463,11 +471,12 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
             <input type="checkbox" checked={idle.enabled} onChange={e => setIdleCfg({ enabled: e.target.checked })} />
             <span className="label">Silenzio dopo</span>
           </label>
-          <input type="number" min={3} max={120} value={idle.seconds} style={{ width: 48 }}
-            onChange={e => setIdleCfg({ seconds: Math.max(3, Math.min(120, +e.target.value | 0)) })} aria-label="Secondi di silenzio" />
+          <input type="number" min={3} max={120} key={idle.seconds} defaultValue={idle.seconds} style={{ width: 48 }}
+            onBlur={e => setIdleCfg({ seconds: Math.max(3, Math.min(120, +e.target.value | 0)) })}
+            onKeyDown={blurOnEnter} aria-label="Secondi di silenzio" />
           <span className="label">s →</span>
           <select style={{ flex: '1 1 90px', minWidth: 0 }} value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto in idle">
-            {ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>)}
+            {effectOptions}
           </select>
         </div>
 
@@ -555,7 +564,7 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
           </button>
           <button
             className="btn btn-secondary"
-            onClick={refreshDevices}
+            onClick={retryDevices}
             title="Aggiorna la lista dei dispositivi"
           >
             Aggiorna
@@ -722,12 +731,16 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
                aria-label="Diminuisci il BPM di 1">
                 -
               </button>
+              {/* committed on blur/Enter: per keystroke, "1" of "128" sent 60 and an
+                  empty field sent 128 to the engine, mid-set */}
               <input
                 type="number"
                 min={60} max={300}
-                value={manualBpm}
+                key={manualBpm}
+                defaultValue={manualBpm}
                 title="BPM manuale (60-300)"
-                onChange={e => handleManualBpm(parseInt(e.target.value) || 128)}
+                onBlur={e => { const n = parseInt(e.target.value); if (n >= 60 && n <= 300) handleManualBpm(n) }}
+                onKeyDown={blurOnEnter}
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -774,3 +787,6 @@ export function AudioPanel({ engine, phase = null }: AudioPanelProps) {
     </Panel>
   )
 }
+
+/** Memoised: App re-renders on every slider tick and remote command; this panel depends on the engine and the phase only. */
+export const AudioPanel = React.memo(AudioPanelImpl)

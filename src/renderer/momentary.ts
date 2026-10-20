@@ -44,7 +44,12 @@ export class Momentary {
    * so callers apply their change first, then hand over the way back.
    */
   press(key: string, revert: () => void): void {
-    this.held.set(key, { at: performance.now(), revert })
+    // A second press with no release in between (double note-on, a release
+    // the phone never sent) must keep the FIRST way back: the new `revert`
+    // was captured on a state the press itself had already changed, and
+    // undoing to that would leave the strobe or the look on.
+    const old = this.held.get(key)
+    this.held.set(key, { at: performance.now(), revert: old ? old.revert : revert })
   }
 
   /**
@@ -56,8 +61,15 @@ export class Momentary {
     if (!p) return false
     this.held.delete(key)
     if (performance.now() - p.at < HOLD_MS) return false
-    p.revert()
+    // the revert runs inside a MIDI/gamepad/IPC handler: a throw there must
+    // not take the caller's loop down with it
+    try { p.revert() } catch (e) { console.error('[momentary] revert', e); return false }
     return true
+  }
+
+  /** Release every key under a namespace, undoing the held ones — for a controller that just went away. */
+  releaseWhere(prefix: string): void {
+    for (const k of [...this.held.keys()]) if (k.startsWith(prefix)) this.release(k)
   }
 
   /**
