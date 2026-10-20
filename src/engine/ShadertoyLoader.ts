@@ -66,10 +66,13 @@ float iChannelTime[4];
 `
 }
 
-const MAIN_WRAPPER = `
+// The iChannelResolution/iChannelTime fill-in runs per fragment, and some
+// drivers (ANGLE, Intel, Apple) keep the stores to a global array even when
+// nothing reads it — so it is emitted only for shaders that name them. The
+// globals stay declared in the prelude; an unused declaration costs nothing.
+const mainWrapper = (code: string) => `
 void main() {
-  for (int i = 0; i < 4; i++) { iChannelResolution[i] = vec3(uResolution, 1.0); iChannelTime[i] = uTime; }
-  vec4 djgOut = vec4(0.0, 0.0, 0.0, 1.0);
+${/\biChannel(Resolution|Time)\b/.test(code) ? '  for (int i = 0; i < 4; i++) { iChannelResolution[i] = vec3(uResolution, 1.0); iChannelTime[i] = uTime; }\n' : ''}  vec4 djgOut = vec4(0.0, 0.0, 0.0, 1.0);
   mainImage(djgOut, gl_FragCoord.xy);
   gl_FragColor = vec4(djgOut.rgb, 1.0);
 }
@@ -91,7 +94,7 @@ export function loadShadertoy(source: string, fileName = 'Shadertoy'): Shadertoy
     const used = CHANNELS.filter(c => trimmed.includes(`iChannel${c}`)).map(c => `iChannel${c}`)
     if (used.length) warnings.push(`${used.length} iChannel: scegli tu le immagini`)
     return {
-      fragment: preludeFor({}, [], used) + trimmed + MAIN_WRAPPER,
+      fragment: preludeFor({}, [], used) + trimmed + mainWrapper(trimmed),
       params: [], name: fileName, warnings, imageInputs: used,
     }
   }
@@ -150,7 +153,7 @@ export function loadShadertoy(source: string, fileName = 'Shadertoy'): Shadertoy
   const section = (pass: any, map: Record<number, string>) => {
     const code = `${common}\n${pass.code || ''}`
     if (!hasMainImage(code)) return null
-    return preludeFor(map, bufferNames, imgList) + code + MAIN_WRAPPER
+    return preludeFor(map, bufferNames, imgList) + code + mainWrapper(code)
   }
 
   const parts: string[] = []

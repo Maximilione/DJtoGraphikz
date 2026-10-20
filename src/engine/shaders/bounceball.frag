@@ -24,8 +24,6 @@ uniform float squash;
 // floor and stretches at the top — the cartoon rule, which is what reads as
 // bounce from the back of the room.
 
-float hash(float n) { return fract(sin(n * 127.1) * 43758.5453); }
-
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   float aspect = uResolution.x / uResolution.y;
@@ -60,15 +58,20 @@ void main() {
     vec2 c = vec2(x, floorY + r * sy + height);
     vec2 d = (p - c) / vec2(sx, sy);
     float dist = length(d);
-    float ball = 1.0 - smoothstep(r, r + 0.004, dist);
-    float glow = exp(-max(0.0, dist - r) * 18.0);
+    float over = dist - r;
     vec3 tint = i % 3 == 0 ? uColor1 : i % 3 == 1 ? uColor2 : uColor3;
-    // highlight top-left
-    float hi = exp(-length(d - vec2(-0.3, 0.35) * r) * 25.0);
-    col += tint * ball * (0.85 + 0.3 * uBeat) + vec3(1.0) * hi * ball * 0.6 + tint * glow * 0.25;
-    // shadow on the floor, smaller when high
-    float sh = exp(-length((p - vec2(x, floorY)) / vec2(1.6 * (1.0 - 0.5 * h), 0.25)) * 25.0);
-    col *= 1.0 - sh * 0.35 * (1.0 - h) * step(p.y, floorY + 0.01);
+    col += tint * exp(-max(0.0, over) * 18.0) * 0.25;   // glow, everywhere
+    if (over < 0.004) {   // disc and highlight: only on the ball itself
+      float ball = 1.0 - smoothstep(r, r + 0.004, dist);
+      // highlight top-left
+      float hi = exp(-length(d - vec2(-0.3, 0.35) * r) * 25.0);
+      col += tint * ball * (0.85 + 0.3 * uBeat) + vec3(1.0) * hi * ball * 0.6;
+    }
+    // shadow on the floor, smaller when high: only below the floor line
+    if (p.y <= floorY + 0.01) {
+      float sh = exp(-length((p - vec2(x, floorY)) / vec2(1.6 * (1.0 - 0.5 * h), 0.25)) * 25.0);
+      col *= 1.0 - sh * 0.35 * (1.0 - h);
+    }
   }
   gl_FragColor = vec4(col, 1.0);
 }

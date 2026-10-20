@@ -42,19 +42,25 @@ void main() {
   // the rim wobbles slowly
   float rim = radius * (1.0 + wobble * 0.04 * sin(a * 5.0 + uTime * 0.8)
                                 + wobble * 0.02 * sin(a * 11.0 - uTime * 1.3));
+  // the disc is exactly black (every term below is scaled by `outside`, grain
+  // included) and inside it exp(-(r - rim) * 9 / reach) overflows to +inf
+  // when the corona is small: inf * 0 is a NaN the post-FX would spread
+  if (r <= rim) { gl_FragColor = vec4(vec3(0.0), 1.0); return; }
   float outside = smoothstep(rim, rim + 0.004, r);
+  float d = r - rim;
 
   // rays: two octaves of angular noise, drifting opposite ways
   float rays = noise(a / TAU * 72.0 + uTime * 0.6, 72.0)
              * noise(a / TAU * 174.0 - uTime * 0.9, 174.0);
-  rays = pow(rays, 1.5) * 1.6;
+  rays = rays * sqrt(rays) * 1.6;
   float reach = corona * (0.6 + 1.6 * uBass);
-  float halo = exp(-(r - rim) * 9.0 / reach) * (0.35 + rays);
-  float shell = exp(-(r - rim) * 60.0) * (0.6 + 0.8 * uHigh);
+  float halo = exp(-d * 9.0 / reach) * (0.35 + rays);
+  float e30 = exp(-d * 30.0);
+  float shell = e30 * e30 * (0.6 + 0.8 * uHigh);
 
   vec3 col = uColor1 * halo + mix(uColor1, vec3(1.0), 0.6) * shell;
   col = mix(col, uColor2 * halo * 0.5, smoothstep(rim + 0.1, rim + 0.5, r));
-  col += vec3(1.0) * uBassHit * exp(-(r - rim) * 30.0) * 0.4;
+  col += vec3(1.0) * uBassHit * e30 * 0.4;
   col *= outside;
   col += vec3(hash(gl_FragCoord.xy + fract(uTime) * 13.0)) * 0.008 * outside;
   gl_FragColor = vec4(col, 1.0);

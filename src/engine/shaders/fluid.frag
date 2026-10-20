@@ -57,6 +57,12 @@ float fbm(vec2 p) {
   return val;
 }
 
+// first two octaves of fbm (same lattice offsets, no renormalisation: the
+// third octave is +-0.125 and only a 2% change in spread)
+float fbm2(vec2 p) {
+  return snoise2(p) * 0.5 + snoise2((p + vec2(1.7, 9.2)) * 2.0) * 0.25;
+}
+
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime * 0.4;
@@ -81,17 +87,20 @@ void main() {
   // Sample the warped field
   float f1 = fbm(p + warp2);
   float f2 = fbm(p + warp2 * 0.7 + vec2(3.0, 7.0));
-  float f3 = fbm(p * 1.5 + warp1 * 0.5 + vec2(5.0, 2.0));
+  // the weakest channel (squared, half weight): its fine octave is below
+  // 0.01 in the output, two octaves are enough
+  float f3 = fbm2(p * 1.5 + warp1 * 0.5 + vec2(5.0, 2.0));
 
   // Color mixing based on field values
   float v1 = f1 * 0.5 + 0.5;
   float v2 = f2 * 0.5 + 0.5;
   float v3 = f3 * 0.5 + 0.5;
 
+  // v^1.5 = v * sqrt(v), v^2 = v * v: v is in [0.06, 0.94], never negative
   vec3 color = vec3(0.0);
-  color += uColor1 * pow(v1, 1.5);
-  color += uColor2 * pow(v2, 1.5);
-  color += uColor3 * pow(v3, 2.0) * 0.5;
+  color += uColor1 * (v1 * sqrt(v1));
+  color += uColor2 * (v2 * sqrt(v2));
+  color += uColor3 * (v3 * v3) * 0.5;
 
   // Highlights at field extremes
   float highlight = smoothstep(0.7, 1.0, v1 * v2);

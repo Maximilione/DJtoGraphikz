@@ -25,26 +25,32 @@ void main() {
   vec3 color = mix(uColor3, uColor1, uv.y + 0.5) * (0.03 + 0.03 * uEnergy);
   color += mix(uColor1, uColor2, 0.5) * exp(-abs(uv.x) * 3.0) * (0.04 + 0.08 * uBass);
 
+  // bass through the gated clock: t * uBass teleports the helix on every
+  // bass change once t is large
+  float scrollY = uv.y * coils + t * 2.0 + uBassTime * 3.0;
+  float amplitude = amp * (1.0 + uBeat * 0.35) + uMid * 0.05;
+  // Distance to the nearest rung measured in the scrolled frame,
+  // divided back to screen units.
+  float rungDist = abs(fract(scrollY) - 0.5) / coils;
+
   // Multiple DNA helices: the centre one is nearest (bright, thick), the
   // side ones recede (dimmer, thinner)
   for (int helix = 0; helix < 3; helix++) {
     float fh = float(helix);
     float offsetX = (fh - 1.0) * 0.4;
     float nr = 1.0 - 0.35 * abs(fh - 1.0);
+    // one sin/cos per helix: the second strand sits at phase + PI, so its
+    // sin and cos are the negatives of the first strand's
+    float ph0 = scrollY + fh * PI * 0.66;
+    float s0 = sin(ph0), c0 = cos(ph0);
 
     // Two strands of the helix
     for (int strand = 0; strand < 2; strand++) {
-      float phase = float(strand) * PI;
-      // bass through the gated clock: t * uBass teleports the helix on every
-      // bass change once t is large
-      float scrollY = uv.y * coils + t * 2.0 + uBassTime * 3.0;
-      float amplitude = amp * (1.0 + uBeat * 0.35) + uMid * 0.05;
-
-      float ph = scrollY + phase + fh * PI * 0.66;
+      float sg = strand == 0 ? 1.0 : -1.0;
       // Helix curve
-      float helixX = sin(ph) * amplitude + offsetX;
+      float helixX = sg * s0 * amplitude + offsetX;
       // cos(ph) is the depth: strand in front is bright and thick, behind is dim
-      float zf = cos(ph) * 0.5 + 0.5;
+      float zf = sg * c0 * 0.5 + 0.5;
       float depthK = (0.45 + 0.55 * zf) * nr;
 
       // Distance to helix strand: thin bright core plus a wide soft halo
@@ -61,26 +67,20 @@ void main() {
       color += strandColor * (glow * 0.8 + halo) * depthK * (1.0 + uBass * 0.9);
 
       // Rungs connecting the two strands
-      if (strand == 0) {
-        float otherHelixX = sin(scrollY + PI + fh * PI * 0.66) * amplitude + offsetX;
+      if (strand == 0 && rungDist < 0.03) {
+        float otherHelixX = -s0 * amplitude + offsetX;
+        float minX = min(helixX, otherHelixX);
+        float maxX = max(helixX, otherHelixX);
+        float rungInside = step(minX, uv.x) * step(uv.x, maxX);
+        float rung = smoothstep(0.005, 0.0, rungDist) * rungInside;
 
-        // Distance to the nearest rung measured in the scrolled frame,
-        // divided back to screen units.
-        float rungDist = abs(fract(scrollY) - 0.5) / coils;
-        if (rungDist < 0.03) {
-          float minX = min(helixX, otherHelixX);
-          float maxX = max(helixX, otherHelixX);
-          float rungInside = step(minX, uv.x) * step(uv.x, maxX);
-          float rung = smoothstep(0.005, 0.0, rungDist) * rungInside;
+        // Base pair dots at ends
+        float dot1 = 0.005 / (length(vec2(uv.x - helixX, rungDist)) + 0.005);
+        float dot2 = 0.005 / (length(vec2(uv.x - otherHelixX, rungDist)) + 0.005);
 
-          // Base pair dots at ends
-          float dot1 = 0.005 / (length(vec2(uv.x - helixX, rungDist)) + 0.005);
-          float dot2 = 0.005 / (length(vec2(uv.x - otherHelixX, rungDist)) + 0.005);
-
-          vec3 rungColor = mix(uColor1, uColor2, 0.5);
-          color += rungColor * rung * 0.9 * nr * (1.0 + uBeat * 0.6);
-          color += uColor3 * (dot1 + dot2) * 0.3 * nr;
-        }
+        vec3 rungColor = mix(uColor1, uColor2, 0.5);
+        color += rungColor * rung * 0.9 * nr * (1.0 + uBeat * 0.6);
+        color += uColor3 * (dot1 + dot2) * 0.3 * nr;
       }
     }
   }

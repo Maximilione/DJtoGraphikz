@@ -33,6 +33,9 @@ export class SequencePlayer {
   /** Resolves once frame 0 is decoded and the texture exists; rejects if it cannot be read. */
   async ready(): Promise<void> {
     const first = await this.decode(0)
+    // disposed while frame 0 was decoding (a quick clip change): building the
+    // texture now would leak it and the bitmap, since dispose() already ran
+    if (this.dead) { first.close(); return }
     this.cap = cacheCap(first.width, first.height)
     this.canvas.width = first.width
     this.canvas.height = first.height

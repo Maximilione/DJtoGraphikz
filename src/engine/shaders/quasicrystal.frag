@@ -48,18 +48,27 @@ void main() {
   float s = 0.22 + 0.55 * uBassHit + 0.15 * uHigh;
   float cs = cos(s), sn = sin(s);
 
-  float sumG = 0.0, sumR = 0.0, sumB = 0.0;
+  // wave directions are PI/n apart and the phase offsets grow by 0.12 t per
+  // wave: both advance by a fixed step, so the loop needs only the cos/sin of
+  // the phase itself. The R/B sums are linear in sum(cos d), sum(sin d) and
+  // are combined after the loop.
+  float a0 = t * 0.07 + twist;
+  vec2 dir = vec2(cos(a0), sin(a0));
+  float da = PI / n;
+  vec2 stp = vec2(cos(da), sin(da));
+  float tp = t + uBass * 2.0;
+  float dtp = t * 0.12;
+
+  float sumC = 0.0, sumS = 0.0;
   for (int i = 0; i < 12; i++) {
     if (float(i) >= n) break;
-    float a = PI * float(i) / n + t * 0.07 + twist;
-    vec2 dir = vec2(cos(a), sin(a));
-    float d = dot(p, dir) + t * (1.0 + 0.12 * float(i)) + uBass * 2.0;
-    float cd = cos(d), sd = sin(d);
-    sumG += cd;
-    sumR += cd * cs - sd * sn;
-    sumB += cd * cs + sd * sn;
+    float d = dot(p, dir) + tp;
+    sumC += cos(d);
+    sumS += sin(d);
+    dir = vec2(dir.x * stp.x - dir.y * stp.y, dir.x * stp.y + dir.y * stp.x);
+    tp += dtp;
   }
-  vec3 sum = vec3(sumR, sumG, sumB) / n;
+  vec3 sum = vec3(sumC * cs - sumS * sn, sumC, sumC * cs + sumS * sn) / n;
 
   // The fringes are the image: wrapping the sum through a sine turns the smooth
   // interference into the fine banding a quasicrystal actually shows.
