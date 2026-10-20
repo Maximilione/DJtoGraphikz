@@ -38,8 +38,14 @@ let listener: ((t: Toast[]) => void) | null = null
 const timers = new Map<number, number>()
 
 function remove(id: number) {
+  // a toast pushed out by slice(-MAX) or closed by its button still had a
+  // timer: it fired later for an id already gone and re-rendered for nothing
+  const h = timers.get(id)
+  if (h !== undefined) clearTimeout(h)
   timers.delete(id)
-  toasts = toasts.filter(t => t.id !== id)
+  const next = toasts.filter(t => t.id !== id)
+  if (next.length === toasts.length) return
+  toasts = next
   listener?.(toasts)
 }
 
@@ -61,7 +67,12 @@ export function pushToast(msg: string, key = msg, action?: ToastAction, level: T
     toasts = [...toasts]
   } else {
     const t: Toast = { id: nextId++, key, msg, ts: now, level, action }
-    toasts = [...toasts, t].slice(-MAX_TOASTS)
+    const all = [...toasts, t]
+    toasts = all.slice(-MAX_TOASTS)
+    for (const old of all.slice(0, all.length - toasts.length)) {
+      clearTimeout(timers.get(old.id))
+      timers.delete(old.id)
+    }
     timers.set(t.id, window.setTimeout(() => remove(t.id), dismissMs))
   }
   listener?.(toasts)

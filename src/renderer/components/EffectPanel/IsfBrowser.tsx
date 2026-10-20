@@ -20,9 +20,11 @@ export function IsfBrowser({ onClose, onImported }: IsfBrowserProps) {
   const [busy, setBusy] = useState<string | null>(null)
 
   useEffect(() => {
+    let alive = true
     window.api.browseIsf()
-      .then(setIndex)
-      .catch(e => setError(e?.message || 'rete non disponibile'))
+      .then(list => { if (alive) setIndex(list) })
+      .catch(e => { if (alive) setError(e?.message || 'rete non disponibile') })
+    return () => { alive = false }
   }, [])
 
   useEffect(() => {
@@ -41,14 +43,19 @@ export function IsfBrowser({ onClose, onImported }: IsfBrowserProps) {
   const doImport = async (s: IsfEntry) => {
     if (busy) return
     setBusy(s.id)
+    setError(null)   // a failure from a previous try is not this one's
+    let r: { name: string; source: string }
     try {
-      const r = await window.api.importIsfOnline(s.id, s.title)
-      onImported(r.name, r.source)
+      r = await window.api.importIsfOnline(s.id, s.title)
     } catch (e: any) {
       setError(e?.message || 'download fallito')
-    } finally {
       setBusy(null)
+      return
     }
+    setBusy(null)
+    // outside the download's try: an error in the parent's refresh is not a
+    // "download fallito", and the toast there says what it really was
+    onImported(r.name, r.source)
   }
 
   return (

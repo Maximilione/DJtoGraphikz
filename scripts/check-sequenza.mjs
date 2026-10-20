@@ -53,6 +53,17 @@ assert.strictEqual(frameAtDeck(8, 8, 120, 30, 1000), 0)
 assert.strictEqual(frameAtDeck(5, 8, 120, 30, 1000), 0)     // before the start clamps
 assert.strictEqual(frameAtDeck(10, 8, 120, 30, 20), 10)     // loops
 
+// a clock that is not a number yet (NaN, Infinity) gives a frame, never NaN
+for (const bad of [NaN, Infinity, -Infinity]) {
+  assert.strictEqual(frameAtTime(bad, 30, 100), 0)
+  assert.strictEqual(frameAtBeat(bad, 4, 100), 0)
+  assert.strictEqual(frameAtDeck(bad, 8, 120, 30, 1000), 0)
+  assert.strictEqual(frameAtDeck(10, bad, 120, 30, 1000), 150)   // start unknown = beat 0: 10 beats @120 = 5 s
+  assert.ok(Number.isInteger(frameAtDeck(10, 8, bad, 30, 1000)))  // bpm falls back to 128
+  assert.ok(Number.isInteger(frameAtTime(1000, bad, 100)))        // fps falls back to 30
+}
+assert.strictEqual(frameAtDeck(10, 8, -120, 30, 1000), frameAtDeck(10, 8, 128, 30, 1000))
+
 // RAM: 4K frames shrink the window, small ones hit the frame cap, never below 8
 assert.strictEqual(cacheCap(640, 360), SEQ_MAX_CACHED)
 assert.ok(cacheCap(3840, 2160) < 40 && cacheCap(3840, 2160) >= 8)

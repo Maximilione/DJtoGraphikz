@@ -43,7 +43,9 @@ export default defineConfig({
           // only our code, and three.js is public anyway
           manualChunks: {
             three: ['three'],
-            vendor: ['react', 'react-dom', 'react-dom/client']
+            vendor: ['react', 'react-dom', 'react-dom/client'],
+            // loaded on demand by the Remote modal: out of the startup chunk
+            qrcode: ['qrcode']
           }
         }
       }

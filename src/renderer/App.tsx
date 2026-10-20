@@ -33,14 +33,20 @@ import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
 import { allPalettes } from './palettes'
 import { sanitizeCmd, stepPalette, type Known } from './phoneCmd'
 import { AUDIO_SOURCES } from '@engine/EffectParams'
-import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, ONLY_MINE_KEY, USER_SCENES_EVENT } from './userScenes'
+import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, getOnlyMine, setOnlyMine, USER_SCENES_EVENT } from './userScenes'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
 import { runSweep } from './sweep'
 import { ReelBuffer, cropRect, reelFileName, loadReelSettings, onReelSettings, CHUNK_MS, DROP_DELAY_MS, REEL_FPS, type ReelLap, type ReelSettings } from './reel'
-import { loadLooks } from './looks'
-import { readJson, writeJson, writeString, readString } from './storage'
+import { getLook } from './looks'
+import { readJson, writeJson, writeJsonText, writeString, readString } from './storage'
+import { midi } from './midi'
+import { gamepad } from './gamepad'
+import { PanelBoundary } from './components/PanelBoundary/PanelBoundary'
+import { saveBlob, stampedName } from './download'
+import { useDmxOutput, notifyDmxConfigChanged } from './useDmxOutput'
+import { useAudioRestore } from './useAudioRestore'
 import { pickEffect } from './autoMapping'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
 import { migrateKeystone, type OutputCfg } from './outputs'
@@ -115,13 +121,47 @@ function loadSettings(): Partial<EngineState> | null {
   } catch { return null }
 }
 
+// Commands that change nothing the phone's "ext" block shows (BPM mode,
+// scenes, overlays): a slider stream from the phone or a MIDI knob used to
+// rebuild and stringify it after every one of them, up to 60 times a second.
+// The 1 s tick stays as the safety net.
+const EXT_STABLE = new Set([
+  'param', 'paramMap', 'postAmount', 'postMove', 'grade', 'motionBlur', 'intensity', 'lineBoost',
+  'presence', 'camera', 'blendMode', 'maskSoft', 'brightness', 'crossfade', 'palette', 'transitionDuration',
+])
+
+/**
+ * The FPS counter as a leaf. Its setState used to live in App, so the whole
+ * tree — every panel, none of them memoised — re-rendered once a second on
+ * the thread that paints the preview. The engine already calls its frame
+ * listeners once per rendered frame, so it counts those: one chain, and the
+ * number means what it says.
+ */
+function FpsLabel({ engine }: { engine: Engine | null }) {
+  const [fps, setFps] = useState(0)
+  useEffect(() => {
+    if (!engine) return
+    let frames = 0
+    let lastTime = performance.now()
+    return engine.onAudioFrame(() => {
+      frames++
+      const now = performance.now()
+      if (now - lastTime < 1000) return
+      setFps(frames)
+      frames = 0
+      lastTime = now
+    })
+  }, [engine])
+  const color = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
+  return <span style={{ color }}>{fps} FPS</span>
+}
+
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [engine, setEngine] = useState<Engine | null>(null)
   const seqPlayer = useSequencePlayer(engine)
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
-  const [fps, setFps] = useState(0)
   const [bpm, setBpm] = useState(0)
   /** Intensity macro, 0..1 — one fader instead of five sliders, key I */
   const [intensity, setIntensity] = useState(0)
@@ -139,6 +179,13 @@ export function App() {
   const [brightness, setBrightness] = useState(1)
   const [blackout, setBlackout] = useState(false)
   const [frozen, setFrozen] = useState(false)
+  // Mirrors for the hotkeys: they read and write these synchronously in the
+  // keydown, instead of inside a setState updater that React runs later (and
+  // twice under StrictMode, registering the momentary release twice).
+  const blackoutRef = useRef(blackout); blackoutRef.current = blackout
+  const frozenRef = useRef(frozen); frozenRef.current = frozen
+  const intensityRef = useRef(intensity); intensityRef.current = intensity
+  const brightnessRef = useRef(brightness); brightnessRef.current = brightness
 
   // UI mode + onboarding
   const [mode, setMode] = useState<UIMode>(() => {
@@ -170,8 +217,11 @@ export function App() {
   const [beatFlash, setBeatFlash] = useState(() => readString(BEATFLASH_KEY) === '1')
   const beatFlashRef = useRef<HTMLDivElement>(null)
 
-  // AutoVJ lives here so Simple and Pro views share one instance
-  const vjRef = useRef<AutoVJ>(new AutoVJ())
+  // AutoVJ lives here so Simple and Pro views share one instance. Lazy: the
+  // argument of useRef is evaluated on every render, so `useRef(new AutoVJ())`
+  // built one per render and threw it away.
+  const vjRef = useRef<AutoVJ>(null!)
+  if (!vjRef.current) vjRef.current = new AutoVJ()
   // Pro: gli FX stanno sotto il Look Bank; sotto 1100px tornano nella sidebar
   const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1100px)').matches)
   useEffect(() => {
@@ -229,15 +279,58 @@ export function App() {
     // sending each one structured-clones megabytes at 60Hz to main and on to
     // the output window. 30Hz, same rate as the audio push: leading edge so a
     // look change lands at once, trailing flush so the last value is never lost.
-    // ponytail: images ride along on every send — split them out only if a set
-    // with many ISF image inputs still shows a hitch.
     let ipcTimer = 0
     let lastSent = 0
-    let pending: unknown = null
+    let pending: EngineState | null = null
+    // The ISF image inputs are the same strings snapshot after snapshot while
+    // the shader stays (the engine hands out its own map), yet each send
+    // cloned them to main and on to every output and browser. They go once,
+    // and again only when one changes: applyRemoteState leaves the images
+    // alone when the field is absent, and main puts them back into the copy
+    // it replays to a window or a browser that connects later.
+    let sentImgs: Record<string, string> | undefined
+    let sentShader: string | undefined
     const sendState = () => {
       ipcTimer = 0
       lastSent = performance.now()
-      try { window.api?.sendEngineState(pending) } catch (_) {}
+      let out = pending
+      const imgs = out?.customImages
+      if (out && imgs && sentImgs && out.customShader === sentShader) {
+        const keys = Object.keys(imgs)
+        if (keys.length === Object.keys(sentImgs).length && keys.every(k => imgs[k] === sentImgs![k])) {
+          const { customImages, ...rest } = out
+          void customImages
+          out = rest as EngineState
+        } else {
+          sentImgs = { ...imgs }
+        }
+      } else {
+        sentImgs = imgs ? { ...imgs } : undefined
+        sentShader = out?.customShader
+      }
+      try { window.api?.sendEngineState(out) } catch (_) {}
+    }
+    let lastSnap = ''
+    // blackout/frozen excluded on restore. This is the biggest writer in the
+    // app — base64 images included — so it is the one that fills the quota and
+    // makes every other save fail. Many state changes serialize to the same
+    // string (a slider back where it was, applyRemoteState): the synchronous MB
+    // setItem is skipped for those.
+    let latest: EngineState | null = null
+    let lastWrite = performance.now()
+    const flush = () => {
+      persistTimer = 0
+      if (latest === null) return
+      // paramDefs, the audio readings and the running transition are never
+      // read back by applySettings: out of the file, and out of the compare —
+      // with `energy` in it no two snapshots were ever the same string
+      const { paramDefs, energy, beatPulse, bpm, transition, ...persist } = latest
+      void paramDefs; void energy; void beatPulse; void bpm; void transition
+      const snap = JSON.stringify(persist)
+      latest = null
+      lastWrite = performance.now()
+      if (snap === lastSnap) return
+      if (writeJsonText(SETTINGS_KEY, snap)) lastSnap = snap
     }
     eng.onStateChange = (state) => {
       pending = state
@@ -248,30 +341,54 @@ export function App() {
       } else if (!ipcTimer) {
         ipcTimer = window.setTimeout(sendState, wait)
       }
+      // Debounced 400 ms after the last change, but never later than 5 s after
+      // the previous write: a trailing-only timer re-armed by every emit (a
+      // long drag, the Auto VJ) could go minutes without touching disk, and a
+      // crash in that window lost the look. The write itself waits for an idle
+      // slot so the MB serialization does not land inside a frame.
+      latest = state
       clearTimeout(persistTimer)
+      if (performance.now() - lastWrite > 5000) { flush(); return }
       persistTimer = window.setTimeout(() => {
-        // blackout/frozen excluded on restore. This is the biggest writer in
-        // the app — base64 images included, every 400 ms — so it is the one
-        // that fills the quota and makes every other save fail.
-        writeJson(SETTINGS_KEY, state)
+        if ('requestIdleCallback' in window) requestIdleCallback(flush, { timeout: 1000 })
+        else flush()
       }, 400)
     }
+    // the last look must survive a close: flush on the way out
+    window.addEventListener('pagehide', flush)
     eng.start()
 
-    // Restore last session's look
+    // Restore last session's look. A corrupt or stale snapshot used to throw
+    // here, before setEngine and before the cleanup was registered: an app
+    // with no engine, at every start, until the user cleared the data by hand.
     const saved = loadSettings()
     if (saved) {
-      eng.applySettings(saved)
-      if (typeof saved.brightness === 'number') setBrightness(saved.brightness)
+      try {
+        eng.applySettings(saved)
+        if (typeof saved.brightness === 'number') setBrightness(saved.brightness)
+      } catch (err) {
+        console.error('[Settings] ripristino fallito:', err)
+        window.api?.logToFile?.('settings', `[Settings] ripristino fallito: ${err instanceof Error ? err.stack ?? err.message : String(err)}`)
+        // a copy instead of a delete: the look stays recoverable by hand
+        try {
+          const raw = readString(SETTINGS_KEY)
+          if (raw) writeString(`${SETTINGS_KEY}-broken`, raw)
+          localStorage.removeItem(SETTINGS_KEY)
+        } catch { /* storage blocked: nothing to park */ }
+        pushToast('Look della sessione precedente non leggibile: ripartito dai default', 'settings-restore', undefined, 'err')
+      }
     }
 
     // Release gate: pin the effect it asked for (DJG_SELFTEST_EFFECT), or the
     // custom shader source it handed over (DJG_SELFTEST_SHADER)
-    if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
-    else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
+    try {
+      if (window.api?.selfTestShader) eng.setCustomShader(window.api.selfTestShader)
+      else if (window.api?.selfTestEffect) eng.setEffect(window.api.selfTestEffect as any)
+    } catch (err) { console.error('[SelfTest] effetto/shader non applicabile:', err) }
 
     // Release sweep: every effect, post and Auto VJ post chain, probed on the projector
-    if (window.api?.selfTestSweep) setTimeout(() => { void runSweep(eng) }, 4000)
+    let sweepTimer = 0
+    if (window.api?.selfTestSweep) sweepTimer = window.setTimeout(() => { void runSweep(eng) }, 4000)
 
     // Gate: frame the scene, so a screenshot can prove the camera pass runs.
     if (window.api?.selfTestCamera) {
@@ -295,7 +412,8 @@ export function App() {
     if (dryRun) {
       fetch(`djg-media://f?p=${encodeURIComponent(dryRun)}`)
         .then(r => r.blob())
-        .then(b => eng.audioAnalyzer.startFile(new File([b], dryRun.split('/').pop() || 'prova.wav')))
+        // a mount already disposed must not start a file on a dead analyser
+        .then(b => disposed ? undefined : eng.audioAnalyzer.startFile(new File([b], dryRun.split('/').pop() || 'prova.wav')))
         .then(() => {
           if (disposed) return
           // One line a second, so the check can read the tempo the analysis
@@ -354,7 +472,6 @@ export function App() {
     // VJ handles silence itself (it is a break there), so it is left alone.
     let idleSettings = loadIdleSettings()
     const idle = new IdleWatch(idleSettings.seconds)
-    const unIdle = onIdleSettings(s => { idleSettings = s; idle.setSeconds(s.seconds); if (!s.enabled) idle.reset() })
     let idleBefore: EffectId | null = null
     const fadeTo = (effect: EffectId, seconds: number) => {
       const prevType = eng.getTransitionType(), prevSeconds = eng.getTransitionDuration()
@@ -362,20 +479,43 @@ export function App() {
       eng.setEffect(effect)
       eng.setTransitionType(prevType); eng.setTransitionDuration(prevSeconds)
     }
+    const unIdle = onIdleSettings(s => {
+      // idle switched off while the wall IS idle: bring the picture back, or
+      // the calm look stays up for the rest of the night. The old effect is
+      // read before the new settings replace it.
+      if (!s.enabled && idle.isIdle() && idleBefore && eng.getCurrentEffect() === idleSettings.effect) fadeTo(idleBefore, 1.5)
+      idleSettings = s
+      idle.setSeconds(s.seconds)
+      if (!s.enabled) { idle.reset(); idleBefore = null }
+    })
+    let listenerErrorAt = -Infinity
     const unsubscribe = eng.onAudioFrame((beat, energy, bass, barPhase, bassRaw, energyRaw, key) => {
-      vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
-      eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
-      // the release sweep sets effects itself and measures them: idle must not move the picture under it
-      if (!idleSettings.enabled || vj.isEnabled() || window.api?.selfTestSweep) return
-      const ev = idle.update(energyRaw > 0, performance.now())
-      if (ev) window.api?.logToFile?.('idle', `[Idle] ${ev} effect=${eng.getCurrentEffect()}`)
-      if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
-        idleBefore = eng.getCurrentEffect()
-        fadeTo(idleSettings.effect, 3)
-      } else if (ev === 'exit' && idleBefore) {
-        // only if nobody changed the picture in the meantime
-        if (eng.getCurrentEffect() === idleSettings.effect) fadeTo(idleBefore, 1.5)
-        idleBefore = null
+      // The engine runs its listeners without isolating them: a throw here
+      // (a user scene the Auto VJ cannot apply) used to skip the rest of
+      // renderFrame on every frame until the cause went away — frozen preview.
+      try {
+        vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
+        eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
+        // the release sweep sets effects itself and measures them: idle must not move the picture under it.
+        // The watch is reset while it is not in charge: a silence from minutes ago
+        // must not count the moment the Auto VJ is switched off.
+        if (!idleSettings.enabled || vj.isEnabled() || window.api?.selfTestSweep) { idle.reset(); idleBefore = null; return }
+        const ev = idle.update(energyRaw > 0, performance.now())
+        if (ev) window.api?.logToFile?.('idle', `[Idle] ${ev} effect=${eng.getCurrentEffect()}`)
+        if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
+          idleBefore = eng.getCurrentEffect()
+          fadeTo(idleSettings.effect, 3)
+        } else if (ev === 'exit' && idleBefore) {
+          // only if nobody changed the picture in the meantime
+          if (eng.getCurrentEffect() === idleSettings.effect) fadeTo(idleBefore, 1.5)
+          idleBefore = null
+        }
+      } catch (e) {
+        const now = performance.now()
+        if (now - listenerErrorAt < 5000) return   // one line every 5 s, not one per frame
+        listenerErrorAt = now
+        console.error('[AutoVJ/idle]', e)
+        window.api?.logToFile?.('autovj', `[AutoVJ/idle] ${e instanceof Error ? e.stack ?? e.message : String(e)}`)
       }
     })
 
@@ -395,7 +535,10 @@ export function App() {
     return () => {
       clearTimeout(ipcTimer)
       clearTimeout(persistTimer)
+      flush()
+      window.removeEventListener('pagehide', flush)
       disposed = true
+      clearTimeout(sweepTimer)
       clearInterval(dryRunTimer)
       unsubscribe()
       unIdle()
@@ -423,40 +566,31 @@ export function App() {
     })
   }, [])
 
-  // U1.2 — flash the beat dot on beatDetected: direct DOM mutation on the ref,
-  // instant jump to scale+glow then a CSS transition decays it back
+  // U1.2 — flash the beat dot on beatDetected: direct DOM animation on the
+  // ref, no setState per frame. The Web Animations API instead of the
+  // `void el.offsetWidth` restart trick: that was a forced synchronous layout
+  // of the whole control window inside the engine's frame, on every beat.
   useEffect(() => {
     if (!engine) return
     return engine.onAudioFrame((beat) => {
       const el = beatDotRef.current
       if (!beat || !el) return
-      el.style.transition = 'none'
-      el.style.transform = 'scale(1.5)'
-      el.style.boxShadow = '0 0 10px var(--accent)'
-      void el.offsetWidth
-      el.style.transition = 'transform 0.25s ease-out, box-shadow 0.25s ease-out'
-      el.style.transform = 'scale(1)'
-      el.style.boxShadow = 'none'
+      el.animate(
+        [{ transform: 'scale(1.5)', boxShadow: '0 0 10px var(--accent)' }, { transform: 'scale(1)', boxShadow: 'none' }],
+        { duration: 250, easing: 'ease-out' },
+      )
     })
   }, [engine])
 
   // U4.2 — flash sul bordo della preview a ogni beat: stessa tecnica del beat
-  // dot, mutazione DOM diretta sul ref (nessun setState per frame)
+  // dot (l'opacita' di base, 0, e' nel CSS)
   useEffect(() => {
     if (!engine || !beatFlash) return
-    const unsub = engine.onAudioFrame((beat) => {
+    return engine.onAudioFrame((beat) => {
       const el = beatFlashRef.current
       if (!beat || !el) return
-      el.style.transition = 'none'
-      el.style.opacity = '1'
-      void el.offsetWidth
-      el.style.transition = 'opacity 180ms ease-out'
-      el.style.opacity = '0'
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out' })
     })
-    return () => {
-      unsub()
-      if (beatFlashRef.current) beatFlashRef.current.style.opacity = '0'
-    }
   }, [engine, beatFlash])
 
   // U1.2 — poll audio status: 'reconnecting' shows the banner, a user stop is fine
@@ -474,22 +608,24 @@ export function App() {
 
   const screenshot = useCallback(async () => {
     if (!engine) return
-    const blob = await engine.screenshot()
+    let blob: Blob | null
+    try { blob = await engine.screenshot() }
+    catch (e) { pushToast(`Screenshot non riuscito: ${(e as Error).message}`, 'shot', undefined, 'err'); return }
     if (!blob) return
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.png`
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(blob, stampedName('png'))
   }, [engine])
 
   // WebM recording of the preview canvas — zero deps, saves on stop
   const [recording, setRecording] = useState(false)
   const recorderRef = useRef<MediaRecorder | null>(null)
+  // The chunks sit in RAM until stop: at 12 Mbps an hour is ~5 GB inside the
+  // renderer that owns the engine and the audio. Stop and save before that.
+  // ponytail: stream the chunks to disk through main — then a crash really
+  // loses one second, as the 1 s timeslice promises.
+  const REC_MAX_BYTES = 1.5e9
   const toggleRecording = useCallback(() => {
     if (recorderRef.current) {
-      recorderRef.current.stop()
+      try { recorderRef.current.stop() } catch { /* already inactive */ }
       recorderRef.current = null
       setRecording(false)
       return
@@ -498,30 +634,55 @@ export function App() {
     const stream = canvasRef.current.captureStream(60)
     const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
       ? 'video/webm;codecs=vp9' : 'video/webm'
-    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 })
+    let rec: MediaRecorder
+    try {
+      rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 })
+    } catch (e) {
+      stream.getTracks().forEach(t => t.stop())
+      pushToast(`Registrazione non disponibile: ${(e as Error).message}`, 'rec', undefined, 'err')
+      return
+    }
     const chunks: Blob[] = []
-    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+    let bytes = 0
+    rec.ondataavailable = e => {
+      if (e.data.size === 0) return
+      chunks.push(e.data)
+      bytes += e.data.size
+      if (bytes > REC_MAX_BYTES && recorderRef.current === rec) {
+        try { rec.stop() } catch { /* already inactive */ }
+        recorderRef.current = null
+        setRecording(false)
+        pushToast('Registrazione fermata: limite memoria (1,5 GB) — file salvato', 'rec')
+      }
+    }
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop())
-      const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(new Blob(chunks, { type: 'video/webm' }), stampedName('webm'))
     }
-    rec.start(1000) // 1s chunks so a crash loses at most a second
+    try {
+      rec.start(1000) // 1s chunks so a crash loses at most a second
+    } catch (e) {
+      stream.getTracks().forEach(t => t.stop())
+      pushToast(`Registrazione non avviata: ${(e as Error).message}`, 'rec', undefined, 'err')
+      return
+    }
     recorderRef.current = rec
     setRecording(true)
   }, [])
+  // a recording still running at unmount is saved, not leaked
+  useEffect(() => () => { try { recorderRef.current?.stop() } catch { /* inactive */ } }, [])
 
   // GIF export: N seconds (or N bars at the current BPM) of the preview, looped, no dependencies
   const [gifMenu, setGifMenu] = useState(false)
   const [gifBusy, setGifBusy] = useState<string | null>(null)
   const [gifOpt, setGifOpt] = useState({ secs: 5, width: 480, bars: false })
+  // the guard is a ref, not the state: two quick clicks read the same stale
+  // closure and started two captures
+  const gifRunning = useRef(false)
   const startGif = useCallback(async () => {
     const eng = engineRef.current
-    if (!eng || gifBusy) return
+    if (!eng || gifRunning.current) return
+    gifRunning.current = true
     setGifMenu(false)
     const bpmNow = eng.audioAnalyzer.getEffectiveBpm()
     const useBars = gifOpt.bars && bpmNow > 0
@@ -531,7 +692,7 @@ export function App() {
     const fps = 15
     const { frames: total, delayCs } = gifTiming(seconds, fps)
     const src0 = canvasRef.current
-    if (!src0) return
+    if (!src0) { gifRunning.current = false; return }
     const w = Math.min(gifOpt.width, src0.width)
     const h = Math.max(1, Math.round(w * src0.height / src0.width))
     const cv = document.createElement('canvas')
@@ -541,33 +702,32 @@ export function App() {
     setGifBusy('GIF 0%')
     const startedAt = performance.now()
     try {
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve, reject) => {
+        // an engine that stops emitting frames (lost context, dispose) must
+        // not leave the button at "GIF n%" for ever
+        const timeout = window.setTimeout(() => { off(); reject(new Error('nessun frame dal motore')) }, seconds * 3000 + 2000)
         const off = eng.onFrameRendered(canvas => {
           // frame k is due at k/total of the span: pace by clock, not by render count
           if (frames.length > (performance.now() - startedAt) / (seconds * 1000) * total) return
           ctx.drawImage(canvas, 0, 0, w, h)
           frames.push({ data: ctx.getImageData(0, 0, w, h).data })
           setGifBusy(`GIF ${Math.round(frames.length / total * 50)}%`)
-          if (frames.length >= total) { off(); resolve() }
+          if (frames.length >= total) { clearTimeout(timeout); off(); resolve() }
         })
       })
       const bytes = await encodeGif(frames, {
         width: w, height: h, delayCs, dither: true,
         onProgress: (d, t) => setGifBusy(`GIF ${50 + Math.round(d / t * 50)}%`),
       })
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/gif' }))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `djtographikz-${new Date().toISOString().replace(/[:.]/g, '-')}.gif`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(new Blob([bytes as BlobPart], { type: 'image/gif' }), stampedName('gif'))
       pushToast(`GIF salvata · ${seconds.toFixed(1)} s${useBars ? ` (${bars} ${bars === 1 ? 'battuta' : 'battute'} a ${Math.round(bpmNow)} BPM)` : ''} · ${w}×${h} · ${(bytes.length / 1048576).toFixed(1)} MB`, 'gif')
     } catch (e) {
-      pushToast(`GIF non riuscita: ${(e as Error).message}`, 'gif')
+      pushToast(`GIF non riuscita: ${(e as Error).message}`, 'gif', undefined, 'err')
     } finally {
+      gifRunning.current = false
       setGifBusy(null)
     }
-  }, [gifBusy, gifOpt])
+  }, [gifOpt])
 
   // I4 — reel: the last 15–30 s of the preview in 9:16, armed in the Outputs
   // panel, saved by V, the toolbar chip or (opt-in) the Auto VJ's drop. The
@@ -586,7 +746,15 @@ export function App() {
       canvas.width = W; canvas.height = H
       const ctx = canvas.getContext('2d')
       if (!ctx) return
+      // captureStream samples the canvas at REEL_FPS: copying the full-size
+      // WebGL frame into it on every rendered frame (60+) threw half the
+      // copies away, on the render path
+      let lastDraw = 0
+      const minDt = 1000 / REEL_FPS - 2
       const unFrame = engine.onFrameRendered(src => {
+        const t = performance.now()
+        if (t - lastDraw < minDt) return
+        lastDraw = t
         const [sx, sy, sw, sh] = cropRect(src.width, src.height)
         ctx.drawImage(src, sx, sy, sw, sh, 0, 0, W, H)
       })
@@ -595,29 +763,36 @@ export function App() {
       const buf = new ReelBuffer<Blob>()
       const recs: (MediaRecorder | null)[] = [null, null]
       let pending: ReelLap<Blob> | null = null
+      let warned = false
       const download = (lap: ReelLap<Blob>) => {
-        const url = URL.createObjectURL(new Blob(lap.chunks, { type: 'video/webm' }))
-        const a = document.createElement('a')
-        a.href = url
-        a.download = reelFileName(new Date())
-        a.click()
-        URL.revokeObjectURL(url)
+        saveBlob(new Blob(lap.chunks, { type: 'video/webm' }), reelFileName(new Date()))
         pushToast(`Reel salvato · ${Math.round((performance.now() - lap.startedAt) / 1000)} s · ${W}×${H}`, 'reel')
       }
       const tick = () => {
         const now = performance.now()
         for (const slot of buf.due(now)) {
           const old = recs[slot]
-          if (old && old.state !== 'inactive') old.stop()
-          // a recorder per lap: the old one's last chunk lands in its own lap
-          const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 })
-          const lap = buf.started(slot, now)
-          rec.ondataavailable = e => {
-            if (e.data.size > 0) lap.chunks.push(e.data)
-            if (pending === lap) { pending = null; download(lap) }
+          try { if (old && old.state !== 'inactive') old.stop() } catch { /* already gone */ }
+          // a recorder per lap: the old one's last chunk lands in its own lap.
+          // In a setInterval a throw here repeated every second and the reel
+          // silently stopped saving: one toast, and the slot stays empty.
+          try {
+            const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 })
+            const lap = buf.started(slot, now)
+            rec.ondataavailable = e => {
+              if (e.data.size > 0) lap.chunks.push(e.data)
+              if (pending === lap) { pending = null; download(lap) }
+            }
+            rec.start(CHUNK_MS)
+            recs[slot] = rec
+          } catch (e) {
+            recs[slot] = null
+            if (!warned) {
+              warned = true
+              console.error('[reel]', e)
+              pushToast('Reel: registratore non disponibile', 'reel', undefined, 'err')
+            }
           }
-          rec.start(CHUNK_MS)
-          recs[slot] = rec
         }
       }
       tick()
@@ -716,7 +891,7 @@ export function App() {
 
     engine.setBrightness(v.brightness); setBrightness(v.brightness)
     if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
-    if (v.dmx !== null) writeJson(DMX_STORE_KEY, v.dmx)
+    if (v.dmx !== null) { writeJson(DMX_STORE_KEY, v.dmx); notifyDmxConfigChanged() }
     setPanelEpoch(e => e + 1)
     pushToast(`Posto "${v.name}" caricato${missing.length ? ` (${missing.length} schermo/i non collegati)` : ''}`)
   }, [engine, displays, setOutputs])
@@ -752,24 +927,12 @@ export function App() {
     }
   }, [engine, changeVJGenre, toggleVJ])
 
-  // FPS counter. It used to run a second requestAnimationFrame chain of its
-  // own, next to the engine's — which measured the renderer's frame rate, not
-  // the one the label claims. The engine already calls its frame listeners
-  // once per rendered frame, so it counts those instead: one chain, and the
-  // number now means what it says.
-  useEffect(() => {
-    if (!engine) return
-    let frames = 0
-    let lastTime = performance.now()
-    return engine.onAudioFrame(() => {
-      frames++
-      const now = performance.now()
-      if (now - lastTime < 1000) return
-      setFps(frames)
-      frames = 0
-      lastTime = now
-    })
-  }, [engine])
+  // DMX PARs and pixel map follow the show in every mode, not only with the Pro panel mounted
+  useDmxOutput(engine)
+  // Last session's input and analyser settings come back in every mode too:
+  // this lived in AudioPanel, which Live mode never mounts, so an app
+  // restarted in Live sat silent with default settings
+  useAudioRestore(engine, panelEpoch)
 
   // Live performance hotkeys:
   // B blackout · F freeze · [ ] master · 1-0 effects · QWER post toggles · Space tap BPM
@@ -786,28 +949,29 @@ export function App() {
       // the blackout either.
       if (e.repeat || momentary.isDown(k)) return
 
+      // The engine is driven in the keydown itself, through the mirror refs:
+      // inside a setState updater React ran it later, and twice under
+      // StrictMode — so the momentary release was registered twice and dev and
+      // prod behaved differently on the most critical gesture of the night.
       if (k === 'b') {
-        setBlackout(prev => {
-          engine.setBlackout(!prev)
-          momentary.press(k, () => { engine.setBlackout(prev); setBlackout(prev) })
-          return !prev
-        })
+        const prev = blackoutRef.current
+        blackoutRef.current = !prev
+        engine.setBlackout(!prev); setBlackout(!prev)
+        momentary.press(k, () => { blackoutRef.current = prev; engine.setBlackout(prev); setBlackout(prev) })
       } else if (k === 'f') {
-        setFrozen(prev => {
-          engine.setFreeze(!prev)
-          momentary.press(k, () => { engine.setFreeze(prev); setFrozen(prev) })
-          return !prev
-        })
+        const prev = frozenRef.current
+        frozenRef.current = !prev
+        engine.setFreeze(!prev); setFrozen(!prev)
+        momentary.press(k, () => { frozenRef.current = prev; engine.setFreeze(prev); setFrozen(prev) })
       } else if (k === 'i') {
         // The macro as a key: held it is momentary, tapped it latches — the
         // same rule as everything else. A fader you have to find in the dark
         // is not a fader you will use.
-        setIntensity(prev => {
-          const next = prev > 0 ? 0 : 1
-          engine.setIntensity(next)
-          momentary.press(k, () => { engine.setIntensity(prev); setIntensity(prev) })
-          return next
-        })
+        const prev = intensityRef.current
+        const next = prev > 0 ? 0 : 1
+        intensityRef.current = next
+        engine.setIntensity(next); setIntensity(next)
+        momentary.press(k, () => { intensityRef.current = prev; engine.setIntensity(prev); setIntensity(prev) })
       } else if (k === ',' || k === '.' || k === '/') {
         // Beat-roll: the clocks loop over a quarter, an eighth or a sixteenth
         // of a beat. Held it stutters while you hold; tapped it latches, and
@@ -824,10 +988,10 @@ export function App() {
       } else if (e.key === '?') {
         // U2.2 — Shift+/ apre/chiude direttamente la cheat sheet
         setShowCheatSheet(prev => !prev)
-      } else if (e.key === '[') {
-        setBrightness(prev => { const v = Math.max(0, prev - 0.05); engine.setBrightness(v); return v })
-      } else if (e.key === ']') {
-        setBrightness(prev => { const v = Math.min(1, prev + 0.05); engine.setBrightness(v); return v })
+      } else if (e.key === '[' || e.key === ']') {
+        const v = e.key === '[' ? Math.max(0, brightnessRef.current - 0.05) : Math.min(1, brightnessRef.current + 0.05)
+        brightnessRef.current = v
+        engine.setBrightness(v); setBrightness(v)
       } else if (!e.shiftKey && k >= '0' && k <= '9') {
         // Shift+digit is the Look Bank's, and it handles its own hold.
         const idx = k === '0' ? 9 : parseInt(k) - 1
@@ -878,7 +1042,7 @@ export function App() {
       bpmMode: engine.audioAnalyzer.getBpmMode(),
       manualBpm: engine.audioAnalyzer.getManualBpm(),
       phase: vj.getPhase(),
-      onlyMine: readJson<boolean>(ONLY_MINE_KEY, false),
+      onlyMine: getOnlyMine(),
       scenes: loadUserScenes().filter(sc => sc.genre === genre).length,
       overlays: engine.getOverlays().filter(o => !o.id.startsWith('seq:')).slice(0, 24)
         .map(o => ({ id: o.id, name: o.name.slice(0, 40), visible: o.visible, opacity: Math.round(o.opacity * 100) / 100 })),
@@ -956,7 +1120,7 @@ export function App() {
           // Same source LookBank reads. This used to re-read the raw key by
           // hand, so a change to the key or the shape broke the phone and MIDI
           // triggers in silence.
-          const slot = loadLooks()[v]
+          const slot = getLook(v)
           if (slot?.preset) { toggleVJ(false); engine.applyPreset(slot.preset) }
           break
         }
@@ -996,7 +1160,7 @@ export function App() {
           break
         }
         case 'onlyMine': {
-          writeJson(ONLY_MINE_KEY, !!v)
+          setOnlyMine(!!v)
           vjRef.current.setUserScenes(userScenesByGenre(loadUserScenes()), !!v)
           window.dispatchEvent(new Event(USER_SCENES_EVENT))
           break
@@ -1004,8 +1168,8 @@ export function App() {
         case 'saveScene': {
           const vj = vjRef.current
           const list = [...loadUserScenes(), sceneFromLook(engine, vj.getGenre(), vj.getPhase())]
-          saveUserScenes(list)
-          vj.setUserScenes(userScenesByGenre(list), readJson<boolean>(ONLY_MINE_KEY, false))
+          if (!saveUserScenes(list)) break   // not on disk = not a scene: the toast already said why
+          vj.setUserScenes(userScenesByGenre(list), getOnlyMine())
           window.dispatchEvent(new Event(USER_SCENES_EVENT))
           break
         }
@@ -1018,8 +1182,22 @@ export function App() {
     // source and stay silent: MIDI is the operator's own hands.
     // Keyed on cmd.type so a slider stream collapses into one updating toast.
     if (cmd.source) pushToast(`${cmdToastLabel(cmd.type, v)} · ${cmd.source}`, cmd.type)
-    pushPhoneExt()
+    if (!EXT_STABLE.has(cmd.type)) pushPhoneExt()
   }, [engine, pushPhoneExt, toggleVJ, changeVJGenre, panic])
+
+  // MIDI and gamepad start with the engine, whatever the layout. They used to
+  // start in MidiPanel's effect — mounted in Pro mode only — so a show run in
+  // Live (or the default Simple) had dead controllers until Pro was opened
+  // once, and after leaving Pro they kept a dispatch from a stale closure.
+  // The ref keeps the dispatch current without restarting anything.
+  const dispatchRef = useRef(dispatchCmd)
+  dispatchRef.current = dispatchCmd
+  useEffect(() => {
+    if (!engine) return
+    const d = (c: { type: string; value?: unknown }) => dispatchRef.current(c)
+    void midi.start(engine, d)
+    gamepad.start(engine, d)
+  }, [engine])
 
   // Phone remote / OSC → engine (commands arrive from the main process)
   useEffect(() => {
@@ -1036,23 +1214,28 @@ export function App() {
     return () => { offBeat(); offDevices(); offTrack() }
   }, [engine])
 
-  const fpsColor = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
-
   return (
     <div className={`app-layout mode-${mode}`}>
-      {showOnboarding && <Onboarding onDone={finishOnboarding} />}
-      {showRemote && <RemoteModal onClose={() => setShowRemote(false)} />}
-      {showSoundcheck && <Soundcheck engine={engine} outputRes={outputRes} onClose={() => setShowSoundcheck(false)} />}
-      {showHelpMenu && (
-        <HelpMenu
-          onShortcuts={() => { setShowHelpMenu(false); setShowCheatSheet(true) }}
-          onGuide={() => { setShowHelpMenu(false); setShowQuickGuide(true) }}
-          onOnboarding={() => { setShowHelpMenu(false); setShowOnboarding(true) }}
-          onClose={() => setShowHelpMenu(false)}
-        />
+      {/* modals get a boundary each, like the panels: a throw in one must not take App (and the engine) down */}
+      {showOnboarding && <PanelBoundary name="Configurazione"><Onboarding onDone={finishOnboarding} /></PanelBoundary>}
+      {showRemote && <PanelBoundary name="Remote"><RemoteModal onClose={() => setShowRemote(false)} /></PanelBoundary>}
+      {showSoundcheck && (
+        <PanelBoundary name="Soundcheck">
+          <Soundcheck engine={engine} outputRes={outputRes} onClose={() => setShowSoundcheck(false)} />
+        </PanelBoundary>
       )}
-      {showCheatSheet && <CheatSheet onClose={() => setShowCheatSheet(false)} />}
-      {showQuickGuide && <QuickGuide onClose={() => setShowQuickGuide(false)} />}
+      {showHelpMenu && (
+        <PanelBoundary name="Aiuto">
+          <HelpMenu
+            onShortcuts={() => { setShowHelpMenu(false); setShowCheatSheet(true) }}
+            onGuide={() => { setShowHelpMenu(false); setShowQuickGuide(true) }}
+            onOnboarding={() => { setShowHelpMenu(false); setShowOnboarding(true) }}
+            onClose={() => setShowHelpMenu(false)}
+          />
+        </PanelBoundary>
+      )}
+      {showCheatSheet && <PanelBoundary name="Scorciatoie"><CheatSheet onClose={() => setShowCheatSheet(false)} /></PanelBoundary>}
+      {showQuickGuide && <PanelBoundary name="Guida"><QuickGuide onClose={() => setShowQuickGuide(false)} /></PanelBoundary>}
 
       {/* Top bar — D4: controlli raggruppati (identità · modalità · master · output · aiuto) */}
       <div className="top-bar">
@@ -1312,9 +1495,12 @@ export function App() {
         {/* Left sidebar */}
         {mode !== 'live' && (
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
-          <AudioPanel key={panelEpoch} engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
+          {/* one PanelBoundary per panel: a panel that throws must not unmount App, which owns the engine */}
+          <PanelBoundary key={panelEpoch} name="Audio">
+            <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
+          </PanelBoundary>
           {mode === 'simple' ? (
-            <>
+            <PanelBoundary name="Semplice">
               <SimplePanel
                 engine={engine}
                 vjEnabled={vjEnabled}
@@ -1325,21 +1511,23 @@ export function App() {
                 onVJGenre={changeVJGenre}
                 onVJHold={toggleVJHold}
               />
-            </>
+            </PanelBoundary>
           ) : (
             <>
-              {!fxCenter && <EffectPanel engine={engine} />}
-              <AutoVJPanel
-                engine={engine}
-                vj={vjRef.current}
-                vjEnabled={vjEnabled}
-                vjGenre={vjGenre}
-                vjStatus={vjStatus}
-                vjHeld={vjHeld}
-                onToggle={toggleVJ}
-                onGenre={changeVJGenre}
-                onHold={toggleVJHold}
-              />
+              {!fxCenter && <PanelBoundary name="Effetti"><EffectPanel engine={engine} /></PanelBoundary>}
+              <PanelBoundary name="Auto VJ">
+                <AutoVJPanel
+                  engine={engine}
+                  vj={vjRef.current}
+                  vjEnabled={vjEnabled}
+                  vjGenre={vjGenre}
+                  vjStatus={vjStatus}
+                  vjHeld={vjHeld}
+                  onToggle={toggleVJ}
+                  onGenre={changeVJGenre}
+                  onHold={toggleVJHold}
+                />
+              </PanelBoundary>
             </>
           )}
         </div>
@@ -1363,36 +1551,38 @@ export function App() {
             <div ref={beatFlashRef} className="beat-flash" />
             <span className="preview-label">PREVIEW</span>
           </div>
-          {mode === 'pro' && <DeckPanel engine={engine} />}
+          {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
           {engine && (
             <div className="live-lookbank">
-              <LookBank engine={engine} />
+              <PanelBoundary name="Look Bank"><LookBank engine={engine} /></PanelBoundary>
             </div>
           )}
-          {fxCenter && <div className="center-fx"><EffectPanel engine={engine} /></div>}
+          {fxCenter && <div className="center-fx"><PanelBoundary name="Effetti"><EffectPanel engine={engine} /></PanelBoundary></div>}
         </div>
 
         {/* Right sidebar — pro only */}
         {mode === 'pro' && (
           <div className="sidebar-right">
-            <OverlayPanel engine={engine} />
-            <PresetPanel engine={engine} player={seqPlayer} />
-            <ShaderEditor engine={engine} />
-            <CameraPanel engine={engine} />
-            <ImpactPanel engine={engine} />
-            <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
-              selected={mappingOut} onSelect={setMappingOut} />
-            <DmxPanel key={panelEpoch} engine={engine} />
-            <OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} />
-            <VenuePanel capture={captureVenue} apply={applyVenue} />
-            <MidiPanel engine={engine} dispatchCmd={dispatchCmd} />
+            <PanelBoundary name="Overlay"><OverlayPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Scalette"><PresetPanel engine={engine} player={seqPlayer} /></PanelBoundary>
+            <PanelBoundary name="Shader"><ShaderEditor engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Camera"><CameraPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Impatto"><ImpactPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Mapping">
+              <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
+                selected={mappingOut} onSelect={setMappingOut} />
+            </PanelBoundary>
+            <PanelBoundary key={panelEpoch} name="DMX"><DmxPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Uscite"><OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} /></PanelBoundary>
+            <PanelBoundary name="Posti"><VenuePanel capture={captureVenue} apply={applyVenue} /></PanelBoundary>
+            <PanelBoundary name="MIDI"><MidiPanel engine={engine} /></PanelBoundary>
           </div>
         )}
       </div>
 
       {/* Bottom status bar */}
       <div className="bottom-bar">
-        <span style={{ color: fpsColor }}>{fps} FPS</span>
+        <FpsLabel engine={engine} />
         <span>|</span>
         <span>{outputRes}</span>
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}

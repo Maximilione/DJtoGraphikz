@@ -23,6 +23,11 @@ function sseFeed(): Feed {
     es.addEventListener(channel, h)
     return () => es.removeEventListener(channel, h)
   }
+  // EventSource reconnects on its own after a network blip, and every
+  // connection gets the server's replay (last state, every overlay). From the
+  // second 'open' on, the overlays of the old connection go first.
+  let opens = 0
+  es.addEventListener('open', () => { if (++opens > 1) feedReconnected() })
   return {
     onEngineState: cb => on('engine:state-update', cb),
     onAudioData: cb => on('audio:data', cb),
@@ -112,7 +117,21 @@ setInterval(() => {
 api.onEngineState((state: any) => engine.applyRemoteState(state))
 api.onAudioData((data: any) => engine.setAudioData(data))
 
+// Overlays by id as this window has them. Engine.addOverlay does not
+// deduplicate: a replay after a reconnect used to add every overlay again —
+// textures and decoded GIFs doubled on each one, the picture visibly stacked,
+// and the ones removed while the link was down stayed.
+const live = new Set<string>()
+function feedReconnected() {
+  for (const id of live) engine.removeOverlay(id)
+  live.clear()
+}
+
 api.onOverlayAdd((data: any) => {
+  if (typeof data?.id === 'string') {
+    if (live.has(data.id)) engine.removeOverlay(data.id)   // an add for an id we have is a replace
+    live.add(data.id)
+  }
   const added = data.source?.kind === 'text'
     ? Promise.resolve(engine.addTextOverlay(data.source.text, data.source, data.id))
     : data.source?.kind === 'sequence'
@@ -130,7 +149,7 @@ api.onOverlayAdd((data: any) => {
     })
   }).catch(err => console.error('[Output] overlay add failed:', err))
 })
-api.onOverlayRemove((id: string) => engine.removeOverlay(id))
+api.onOverlayRemove((id: string) => { live.delete(id); engine.removeOverlay(id) })
 api.onOverlayUpdate((id: string, updates: any) => engine.updateOverlay(id, updates))
 
 // Release gate: present only this rectangle, so the shot proves the crop runs

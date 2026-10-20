@@ -894,7 +894,16 @@ export class AutoVJ {
   private setPhase(phase: Phase) {
     if (phase === this.phase) return
     this.phase = phase
-    this.onPhaseChange?.(phase)
+    this.safe(() => this.onPhaseChange?.(phase))
+  }
+
+  /**
+   * The callbacks run the renderer's code (setEffect on a user scene, React
+   * state) from inside the audio-frame loop: a throw there used to leave
+   * recent/switchesOnPalette half-updated and skip the rest of the frame.
+   */
+  private safe(fn: () => void) {
+    try { fn() } catch (e) { console.error('[AutoVJ] callback', e) }
   }
 
   /** recency memory + palette: the part of reset() that is genuinely genre-specific */
@@ -1055,8 +1064,8 @@ export class AutoVJ {
     this.beatsSinceSwitch = 0
     this.recent = [scene.effect, ...this.recent].slice(0, 3)
     this.recentFamilies = [FAMILY[scene.effect], ...this.recentFamilies].slice(0, 3)
-    this.onSceneChange?.(scene, cut, phase)
-    this.onPostChange?.(scene.posts)
+    this.safe(() => this.onSceneChange?.(scene, cut, phase))
+    this.safe(() => this.onPostChange?.(scene.posts))
     // the palette block counts groove and peak scenes; a break keeps its colour
     if (phase !== 'break' && phase !== 'build') {
       this.switchesOnPalette += 1
@@ -1065,7 +1074,9 @@ export class AutoVJ {
   }
 
   private nextPalette(config: GenreConfig) {
-    if (!this.enabled) return
+    // held = the picture stays put, colours included: the drop path calls
+    // this before switchTo, which is where the hold used to be checked
+    if (!this.enabled || this.held) return
     this.switchesOnPalette = 0
     if (config.palettes.length < 2) return
     const byKey = this.key && this.key.confidence >= KEY_CONFIDENCE
@@ -1073,7 +1084,7 @@ export class AutoVJ {
     const next = byKey >= 0 ? byKey
       : (this.palette + 1 + Math.floor(Math.random() * (config.palettes.length - 1))) % config.palettes.length
     this.palette = next
-    this.onPaletteChange?.(config.palettes[next])
+    this.safe(() => this.onPaletteChange?.(config.palettes[next]))
   }
 
   /**

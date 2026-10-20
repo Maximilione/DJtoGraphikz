@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import type { Engine } from '@engine/Engine'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
@@ -26,6 +26,9 @@ const H = 135
 export function MappingPanel({ engine, outputs, onChange, selected, onSelect }: MappingPanelProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const dragRef = useRef<number>(-1)
+  /** ends the drag in progress: the listeners on window must not outlive the panel */
+  const cleanupRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => cleanupRef.current?.(), [])
   const sel = Math.min(selected, outputs.length - 1)
   const corners = outputs[sel]?.keystone ?? DEFAULT_KEYSTONE
 
@@ -34,10 +37,18 @@ export function MappingPanel({ engine, outputs, onChange, selected, onSelect }: 
 
   const onPointerDown = (i: number) => (e: React.PointerEvent) => {
     e.preventDefault()
+    cleanupRef.current?.()
     dragRef.current = i
-    const move = (ev: PointerEvent) => {
+    // pointermove arrives at 120-240 Hz on a good mouse; one apply a frame is
+    // all the preview can show, and each apply is a render of App
+    let pendingMove: PointerEvent | null = null
+    let raf = 0
+    const flush = () => {
+      raf = 0
+      const ev = pendingMove
+      pendingMove = null
       const box = svgRef.current?.getBoundingClientRect()
-      if (!box || dragRef.current < 0) return
+      if (!ev || !box || dragRef.current < 0) return
       // margin lets corners go slightly outside for pincushion correction
       const x = (ev.clientX - box.left) / box.width * 1.5 - 0.25
       const y = (ev.clientY - box.top) / box.height * 1.5 - 0.25
@@ -46,13 +57,24 @@ export function MappingPanel({ engine, outputs, onChange, selected, onSelect }: 
       next[dragRef.current * 2 + 1] = Math.max(-0.25, Math.min(1.25, y))
       apply(next)
     }
+    const move = (ev: PointerEvent) => {
+      pendingMove = ev
+      if (!raf) raf = requestAnimationFrame(flush)
+    }
     const up = () => {
       dragRef.current = -1
+      cancelAnimationFrame(raf)
+      pendingMove = null
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
+      // pointercancel (touch, pen, lost capture) used to leave the drag armed
+      window.removeEventListener('pointercancel', up)
+      cleanupRef.current = null
     }
+    cleanupRef.current = up
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
   }
 
   if (!engine) return null
