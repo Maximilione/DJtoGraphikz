@@ -20,150 +20,172 @@ uniform float speed;
 uniform float density;
 uniform float glow;
 
-// Pipes: the classic "3D Pipes" screensaver, raymarched. Space is cut into a
-// fixed lattice of cells (domain repeat, same trick as reactor's rings);
-// each cell hashes to one of three axis-aligned tube directions with a
-// rounded joint at its centre, so neighbouring cells read as a tangled maze
-// of elbowed pipework with no per-pipe path to walk or store. `density` is
-// the chance a cell is filled at all (empty cells are just void the camera
-// flies through) rather than the lattice spacing itself — changing the
-// spacing under audio/LFO would re-hash every cell's orientation at once
-// and the whole maze would boil; flipping individual cells' fill in and out
-// stays calm under continuous modulation.
+// Pipes: the Windows "3D Pipes" screensaver, as it actually looked — a fixed
+// camera on black, a handful of glossy solid-colour pipes growing cell by
+// cell through an invisible 3D grid, a ball joint at every 90° turn, and the
+// whole box wiped and restarted once it has filled up.
 //
-// Each cell's SDF only has local knowledge — a point near a shared face can
-// be closer to the NEIGHBOUR's geometry than to this cell's, so `map()`'s
-// return value isn't always a trustworthy lower bound near boundaries. The
-// standard fix (shrinking it to the cell's own face distance) was tried
-// first and stalls the march to a crawl at every single cell crossing,
-// empty or not. Instead, like truss/reactor, the *step* is capped to a
-// small constant (MAX_STEP, comfortably above a joint's radius) so a bad
-// bound can only ever be worth one short, safe hop.
+// Stateless on purpose: every pipe is a random walk hashed from (epoch, pipe,
+// run), recomputed per pixel, so both windows draw the same pipework from
+// uTime alone with nothing to sync. uTime already integrates `speed`, so it
+// is the growth clock directly (scaling it again would make the tips jump).
+// Each straight run is ray-traced analytically as a capsule — its rounded
+// cap is the growing tip, no extra geometry needed. No collision avoidance
+// between pipes (the original had it; a stateless walk can't know where the
+// others went) — runs bounce off the box walls instead, which keeps the
+// tangle inside the frame.
 //
-// A travelling brightness band (like reactor's idle flow) runs along each
-// tube's own axis and keeps the metal looking alive; one cell in ~14 hashes
-// into a stubby valve body instead of a joint — the nod to the
-// screensaver's teapots, without an actual teapot SDF (ponytail: three
-// smin'd spheres, not Utah-teapot geometry — upgrade only if a real teapot
-// is ever wanted).
+// `density` sets how many pipes grow per screen (2..7). Being stateless it
+// is read live, so lowering it drops the newest pipes at once: map it to
+// something slow, never to an LFO or a fast audio band.
 
-const float CELL = 2.4;
-const float TUBE_R = CELL * 0.09;
-const float JOINT_R = TUBE_R * 1.2;
-const float MAX_STEP = 0.3;
+const int NPIPE = 7;
+const int NRUN = 22;
+const float R = 0.2;          // pipe radius, grid cell = 1
+const float JR = R * 1.32;    // ball joint radius
+const vec3 BOX = vec3(7.0, 4.0, 4.0);
+const float GROW = 4.5;       // cells per uTime second
+const float STAGGER = 1.4;    // seconds between pipe starts
+const float EPOCH = 26.0;     // uTime seconds per screen, fade included
+const float FADE = 1.2;
 
-float gFlow;
-float gKick;
-
-float hash31(vec3 p) {
-  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+float hash(float a, float b, float c) {
+  return fract(sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453);
 }
 
-float smin(float a, float b, float k) {
-  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-  return mix(b, a, h) - k * h * (1.0 - h);
+vec3 axisDir(float axis, float sgn) {
+  return (axis < 0.5 ? vec3(1.0, 0.0, 0.0) : axis < 1.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0)) * sgn;
 }
 
-float map(vec3 p) {
-  vec3 ic = floor(p / CELL + 0.5);
-  vec3 pl = p - ic * CELL;
-
-  float fillH = hash31(ic + vec3(3.3, -7.1, 5.5));
-  float fillChance = clamp(0.35 + 0.3 * clamp(density, 0.0, 2.0), 0.35, 0.95);
-  if (fillH > fillChance) return MAX_STEP + 0.2;
-
-  float h = hash31(ic);
-  float axisF = floor(h * 3.0);
-  float tube = axisF < 0.5 ? length(pl.yz) - TUBE_R
-             : axisF < 1.5 ? length(pl.xz) - TUBE_R
-             :               length(pl.xy) - TUBE_R;
-
-  float valveH = hash31(ic + vec3(91.3, 17.7, 53.1));
-  if (valveH > 0.93) {
-    float body = length(pl) - JOINT_R * 1.5;
-    vec3 sp = vec3(JOINT_R * 1.4, JOINT_R * 0.25, 0.0);
-    float spout = length(pl - sp) - JOINT_R * 0.45;
-    vec3 hd = vec3(-JOINT_R * 1.2, JOINT_R * 0.1, 0.0);
-    float handle = length(pl - hd) - JOINT_R * 0.38;
-    float valve = smin(smin(body, spout, 0.06), handle, 0.06);
-    return min(tube, valve);
-  }
-  float joint = length(pl) - JOINT_R;
-  return smin(tube, joint, 0.05);
-}
-
-vec3 normalAt(vec3 p) {
-  vec2 k = vec2(1.0, -1.0);
-  const float e = 0.003;
-  return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e) +
-                   k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
-
-float march(vec3 ro, vec3 rd, float tmax) {
-  float t = 0.1;
-  for (int i = 0; i < 100; i++) {
-    if (t > tmax) break;
-    vec3 p = ro + rd * t;
-    float d = map(p);
-    gFlow += clamp(d, 0.03, 0.5) * 0.06;
-    if (d < 0.003) return t;
-    t += clamp(d * 0.9, 0.02, MAX_STEP);
+// iq's ray/capsule intersection: distance along the ray or -1
+float capsule(vec3 ro, vec3 rd, vec3 pa, vec3 pb, float r) {
+  vec3 ba = pb - pa, oa = ro - pa;
+  float baba = dot(ba, ba), bard = dot(ba, rd), baoa = dot(ba, oa);
+  float rdoa = dot(rd, oa), oaoa = dot(oa, oa);
+  float a = baba - bard * bard;
+  float b = baba * rdoa - baoa * bard;
+  float c = baba * oaoa - baoa * baoa - r * r * baba;
+  float h = b * b - a * c;
+  if (h >= 0.0) {
+    float t = (-b - sqrt(h)) / a;
+    float y = baoa + t * bard;
+    if (y > 0.0 && y < baba) return t;
+    vec3 oc = (y <= 0.0) ? oa : ro - pb;
+    b = dot(rd, oc);
+    c = dot(oc, oc) - r * r;
+    h = b * b - c;
+    if (h > 0.0) return -b - sqrt(h);
   }
   return -1.0;
 }
 
-vec3 shade(vec3 p, vec3 rd) {
-  vec3 n = normalAt(p);
-  vec3 ic = floor(p / CELL + 0.5);
-  vec3 pl = p - ic * CELL;
-  float h = hash31(ic);
-  float axisF = floor(h * 3.0);
-  float alongCoord = axisF < 0.5 ? pl.x : axisF < 1.5 ? pl.y : pl.z;
-  float along = alongCoord / (CELL * 0.5);
+float sphere(vec3 ro, vec3 rd, vec3 c, float r) {
+  vec3 oc = ro - c;
+  float b = dot(oc, rd);
+  float h = b * b - dot(oc, oc) + r * r;
+  return h < 0.0 ? -1.0 : -b - sqrt(h);
+}
 
-  vec3 L = normalize(vec3(0.4, 1.0, -0.3));
-  float diff = max(dot(n, L), 0.0);
-  vec3 metal = mix(uColor2, vec3(0.65), 0.55) * 0.4;
-  vec3 c = metal * (0.35 + 0.8 * diff);
-
-  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
-  c += uColor1 * rim * 0.25;
-
-  // flow band travels along the tube's own axis, pulsing on the beat
-  float band = 0.5 + 0.5 * sin(along * 6.28 - uBeatClock * 6.28);
-  c += mix(uColor2, uColor1, band) * (0.15 + 0.5 * glow) * (0.4 + gKick);
-
-  float valveH = hash31(ic + vec3(91.3, 17.7, 53.1));
-  if (valveH > 0.93) {
-    c += uColor3 * 0.3 * (0.6 + 0.6 * diff);
-  }
-  return c;
+vec3 pipeColor(int i, float ep) {
+  float fi = float(i);
+  float k = mod(fi + floor(hash(ep, 7.0, 3.0) * 3.0), 3.0);
+  vec3 a = k < 0.5 ? uColor1 : k < 1.5 ? uColor2 : uColor3;
+  vec3 b = k < 0.5 ? uColor2 : k < 1.5 ? uColor3 : uColor1;
+  vec3 c = mix(a, b, hash(ep, fi, 11.0) * 0.4);
+  // solid, saturated plastic: widen the chroma, then push the brightest
+  // channel to 1 — palettes are often pastel, the original never was
+  c = max(mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.7), 0.0);
+  return c / max(max(c.r, c.g), max(c.b, 0.05));
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
-  gKick = clamp(uBassHit, 0.0, 1.0);
-  gFlow = 0.0;
+  float kick = clamp(uBassHit, 0.0, 1.0);
 
-  float spd = clamp(speed, 0.1, 3.0) * (0.7 + 0.5 * uEnergy);
-  vec3 ro = vec3(0.6 * sin(uTime * 0.07), 0.5 * sin(uTime * 0.05 + 1.3), uTime * spd * 1.4);
-  float drift = 0.1 * sin(uTime * 0.09);
-  float cs = cos(drift), sn = sin(drift);
-  vec3 rd = normalize(vec3(uv, 1.3));
-  rd.xy = mat2(cs, -sn, sn, cs) * rd.xy;
+  float ep = floor(uTime / EPOCH);
+  float local = uTime - ep * EPOCH;
+  float nPipe = clamp(floor(2.0 + 2.6 * clamp(density, 0.3, 2.0) + hash(ep, 1.0, 1.0)), 2.0, float(NPIPE));
 
-  float t = march(ro, rd, 28.0);
-  vec3 col;
-  if (t > 0.0) {
-    vec3 p = ro + rd * t;
-    col = shade(p, rd);
-    col = mix(uColor2 * 0.05, col, exp(-t * 0.05));
-  } else {
-    col = uColor2 * 0.04 + uColor1 * 0.02 * (0.5 - uv.y);
+  // fixed screensaver camera, only a slow sway so the screen is never frozen
+  float yaw = 0.18 * sin(uTime * 0.04 + ep * 2.0);
+  float pitch = 0.12 + 0.06 * sin(uTime * 0.03);
+  vec3 ro = vec3(sin(yaw), sin(pitch), -cos(yaw)) * 19.0;
+  vec3 fw = normalize(-ro);
+  vec3 rt = normalize(cross(vec3(0.0, 1.0, 0.0), fw));
+  vec3 up = cross(fw, rt);
+  vec3 rd = normalize(uv.x * rt + uv.y * up + 1.65 * fw);
+
+  float tBest = 1e9;
+  vec3 nBest = vec3(0.0);
+  int iBest = -1;
+
+  for (int i = 0; i < NPIPE; i++) {
+    if (float(i) >= nPipe) break;
+    float fi = float(i);
+    float grown = (local - fi * STAGGER) * GROW;
+    if (grown <= 0.0) break;
+
+    vec3 p = floor(vec3(hash(ep, fi, 1.0), hash(ep, fi, 2.0), hash(ep, fi, 3.0)) * (2.0 * BOX - 1.0)) - BOX + 1.0;
+    float axis = floor(hash(ep, fi, 4.0) * 3.0);
+    float acc = 0.0;
+    // two pipes sharing a grid line would z-fight; a hair of radius apart
+    // lets the fatter one win cleanly
+    float pr = R * (1.0 + 0.04 * fi);
+    float pj = JR * (1.0 + 0.04 * fi);
+
+    float ts = sphere(ro, rd, p, pj);
+    if (ts > 0.0 && ts < tBest) { tBest = ts; nBest = normalize(ro + rd * ts - p); iBest = i; }
+
+    for (int k = 0; k < NRUN; k++) {
+      float fk = float(k);
+      float hk = hash(ep * 3.1 + fi, fk, 5.0);
+      if (k > 0) axis = mod(axis + 1.0 + floor(hk * 2.0), 3.0);
+      float sgn = hash(ep * 3.1 + fi, fk, 6.0) < 0.5 ? -1.0 : 1.0;
+      float pos = axis < 0.5 ? p.x : axis < 1.5 ? p.y : p.z;
+      float lim = axis < 0.5 ? BOX.x : axis < 1.5 ? BOX.y : BOX.z;
+      float room = lim - pos * sgn;
+      if (room < 1.0) { sgn = -sgn; room = lim - pos * sgn; }
+      float len = min(1.0 + floor(hash(ep * 3.1 + fi, fk, 7.0) * 5.0), room);
+
+      float seg = min(len, grown - acc);
+      if (seg <= 0.0) break;
+      vec3 d = axisDir(axis, sgn);
+      vec3 q = p + d * seg;
+      float tc = capsule(ro, rd, p, q, pr);
+      if (tc > 0.0 && tc < tBest) {
+        vec3 hp = ro + rd * tc;
+        vec3 ba = q - p;
+        float h = clamp(dot(hp - p, ba) / dot(ba, ba), 0.0, 1.0);
+        tBest = tc; nBest = (hp - p - h * ba) / pr; iBest = i;
+      }
+      if (seg >= len) {
+        float tj = sphere(ro, rd, q, pj);
+        if (tj > 0.0 && tj < tBest) { tBest = tj; nBest = normalize(ro + rd * tj - q); iBest = i; }
+      }
+      acc += len;
+      p += d * len;
+    }
   }
 
-  col += mix(uColor1, uColor3, 0.3) * gFlow * 0.025 * clamp(glow, 0.3, 2.0);
-  col = col / (1.0 + 0.5 * col);
-  col *= clamp(1.25 - dot(uv, uv) * 0.85, 0.4, 1.0);
+  vec3 col = uColor2 * 0.015;
+  if (iBest >= 0) {
+    vec3 base = pipeColor(iBest, ep);
+    vec3 n = nBest;
+    vec3 v = -rd;
+    vec3 L1 = normalize(vec3(-0.5, 0.8, -0.6));
+    vec3 L2 = normalize(vec3(0.7, -0.2, -0.4));
+    float dif = max(dot(n, L1), 0.0) + 0.35 * max(dot(n, L2), 0.0);
+    float spec = pow(max(dot(reflect(-L1, n), v), 0.0), 48.0);
+    float spec2 = pow(max(dot(reflect(-L2, n), v), 0.0), 24.0) * 0.3;
+    float g = clamp(glow, 0.3, 2.0);
+    col = base * (0.16 + 1.0 * dif);
+    col += vec3(1.0) * (spec + spec2) * (0.55 + 0.35 * g);
+    col += base * kick * 0.3 * g;
+    // far pipes a touch darker, like the original's depth cue
+    col *= mix(1.0, 0.6, smoothstep(14.0, 25.0, tBest));
+  }
+
+  col *= 1.0 - smoothstep(EPOCH - FADE, EPOCH, local);
+  col = col / (1.0 + 0.15 * col);
   gl_FragColor = vec4(col, 1.0);
 }
