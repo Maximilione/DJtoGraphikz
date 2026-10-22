@@ -571,11 +571,12 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
-  // drawn into a 75% buffer and upscaled: the raymarch crawls along the
+  // drawn into a half-size buffer and upscaled: the raymarch crawls along the
   // fractal's surface and cost ~22 ms a frame at 1080p, over the 60 fps
-  // budget on its own. Same framing (uResolution is the buffer's), half the
-  // GPU work, slightly softer.
-  mandelbulb: { passes: [{ frag: mandelbulbFrag, buffer: 'M', scale: 0.75 }], main: upscaleFrag },
+  // budget on its own (75% was still too slow on a 4K output, where the
+  // buffer alone was 4.7 Mpx). Same framing (uResolution is the buffer's),
+  // a quarter of the GPU work, softer — the upscale sharpens a touch.
+  mandelbulb: { passes: [{ frag: mandelbulbFrag, buffer: 'M', scale: 0.5 }], main: upscaleFrag },
   galaxy: { build: (u) => buildPointCloud(u, 768, galaxyVert, galaxyFrag) },
   // a loaded 3D model (or the procedural default); see meshModel.ts
   mesh: { build: buildMesh },
