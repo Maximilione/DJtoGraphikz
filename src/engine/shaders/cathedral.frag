@@ -20,6 +20,14 @@ uniform float density;
 uniform float rays;
 uniform float sway;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 // Cathedral of light: a nave of gothic ribs the camera glides down, raymarched
 // (60 steps) while a volumetric fog is integrated along the same ray. The
 // light comes in through the vault in slanted bands: for every point of the
@@ -83,7 +91,11 @@ void main() {
 
   float dens = density * (0.8 + 0.5 * uBass);
   float beam = rays * (0.9 + 0.8 * kick + 0.3 * uEnergy);
-  vec3 beamCol = mix(uColor3, uColor1, 0.25);
+  // the shafts are most of the frame: colour by view direction, so the hall
+  // fans across the palette (was colour 3 alone; colour 2 only on the stone).
+  // Still constant along the ray, which the integration below relies on.
+  // ph / TAU: one turn of the loop per 64 beats, seamless at the wrap
+  vec3 beamCol = pal3(rd.x * 0.45 + rd.y * 0.2 + ph / TAU);
 
   float t = hash(gl_FragCoord.xy) * 0.2; // dither hides the step bands
   // the two fog colours are constant along the ray: integrate two scalars

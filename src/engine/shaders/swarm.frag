@@ -10,8 +10,17 @@ varying float vSpeed;
 varying float vSeed;
 varying float vGain;
 
-// Additive round sprite. Colour runs from color1 to color2 with speed, with a
-// minority of particles in color3 so the swarm does not read as one flat mass.
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
+// Additive round sprite. Each particle takes its palette colour from its seed,
+// shifted a little by its speed. Colour 1 → 2 by speed alone left most of the
+// swarm, which is slow, in colour 1.
 
 void main() {
   vec2 d = gl_PointCoord - 0.5;
@@ -19,8 +28,7 @@ void main() {
   if (r2 > 0.25) discard;
   float fall = exp(-r2 * 11.0) - 0.028;
 
-  vec3 col = mix(uColor1, uColor2, clamp(vSpeed * 0.11, 0.0, 1.0));
-  col = mix(col, uColor3, step(0.90, vSeed));
+  vec3 col = pal3(vSeed + clamp(vSpeed * 0.02, 0.0, 0.2));
   // 65k additive sprites: each one has to be faint or the frame clips to a
   // flat wash of the palette's brightest colour
   // a sprite covers a few pixels and its falloff averages about a quarter of
