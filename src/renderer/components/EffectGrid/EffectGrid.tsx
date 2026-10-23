@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { EffectId } from '@engine/Engine'
-import { EFFECT_CATEGORIES } from '../../catalog'
+import { EFFECT_CATEGORIES, EFFECT_PALETTE_USE } from '../../catalog'
 import { getThumb, onThumbs, thumbBackground } from '../../fxThumbs'
 
 interface EffectGridProps {
@@ -55,16 +55,18 @@ export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 's
               {shown.map(fx => {
                 const isActive = activeId === fx.id
                 const thumb = getThumb(fx.id)
+                const pal = EFFECT_PALETTE_USE[fx.id]
                 return (
                   <button
                     key={fx.id}
                     onClick={() => onPick(fx.id)}
                     className={`fx-btn${size === 'lg' ? ' fx-btn-lg' : ''}${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
-                    title={`Effetto ${fx.label}`}
+                    title={pal ? `Effetto ${fx.label} — usa ${pal === 1 ? 'un solo colore' : 'due colori'} della palette` : `Effetto ${fx.label}`}
                     style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
                    >
                     <span className="fx-ico">{fx.icon}</span>
                     <span className="fx-name">{fx.label}</span>
+                    {pal && <span className="fx-pal" aria-label={`${pal} ${pal === 1 ? 'colore' : 'colori'}`}>{'●'.repeat(pal)}</span>}
                   </button>
                 )
               })}
