@@ -23,6 +23,14 @@ uniform float pulse;
 uniform float glow;
 uniform float grow;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 // Mycelium: an open, branching bioluminescent network. The veins are the
 // creases of a ridged multifractal (1-|2n-1|). Each crease is turned into a
 // screen-space distance with fwidth, so a filament is a fixed number of
@@ -172,8 +180,8 @@ void main() {
 
   // colour
   vec3 base = uColor3 * 0.02;
-  float hueMix = 0.5 + 0.5 * sin(mod(uBeatClock, 32.0) * (TAU / 32.0) + r * 1.5);
-  vec3 veinCol = mix(uColor1, uColor2, hueMix);
+  // veins walk the whole palette, outward and with the phrase (was c1 → c2)
+  vec3 veinCol = pal3(mod(uBeatClock, 32.0) / 32.0 + r * 0.25);
   // the halo floor keeps the net visible in silence, even at glow 0
   float haloK = (0.07 + 0.14 * glow) * (0.6 + 0.6 * uBass + 0.4 * uEnergy) + 0.03;
   vec3 col = base

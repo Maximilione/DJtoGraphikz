@@ -20,6 +20,14 @@ uniform float bolts;
 uniform float branches;
 uniform float fog;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 // Storm: forked lightning over a dark wet horizon. Every bolt is a jagged
 // path (three octaves of value noise bending a vertical line) with side
 // branches that peel off it, and each branch carries one smaller fork of its
@@ -139,7 +147,10 @@ void main() {
     float cl = vn2(uv * vec2(2.2, 4.0) + vec2(uTime * 0.04, 0.0)) * 0.6 + vn2(uv * vec2(5.0, 9.0) - uTime * 0.07) * 0.4;
     cl = smoothstep(0.15, 0.9, cl) * smoothstep(H - 0.05, 0.4, uv.y);
     vec3 sky = mix(uColor2 * 0.40, uColor1 * 0.40, smoothstep(H, 0.5, uv.y));
-    sky += uColor2 * cl * (0.8 + 0.28 * lamp * flash * haze) + uColor1 * cl * 0.05;
+    // the clouds carry most of the frame: lit in large slow patches of the
+    // whole palette, not colour 2 alone
+    vec3 cloudC = pal3(vn2(uv * vec2(0.7, 1.2) + vec2(uTime * 0.02, 0.0)) * 1.3);
+    sky += cloudC * cl * (0.8 + 0.28 * lamp * flash * haze) + uColor1 * cl * 0.05;
     // far flashes: a distant strike lights a patch of cloud now and then
     float tf = uTime * 0.37 + 0.2;
     float fx = (hash(floor(tf)) - 0.5) * 1.6;
