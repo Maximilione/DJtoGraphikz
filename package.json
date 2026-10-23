@@ -48,6 +48,7 @@
     "check:pixelmap": "node scripts/check-pixelmap.mjs",
     "check:idle": "node scripts/check-idle.mjs",
     "check:palette": "node scripts/check-palette.mjs",
+    "check:palette-use": "node scripts/check-palette-use.mjs",
     "check:soundcheck": "node scripts/check-soundcheck.mjs",
     "check:obs": "node scripts/check-obs.mjs",
     "check:reel": "node scripts/check-reel.mjs",
