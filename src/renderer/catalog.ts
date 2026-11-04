@@ -195,6 +195,21 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
   },
 ]
 
+/**
+ * Effects that show fewer than the palette's three colours, measured on the
+ * rendered frame by `yarn check:palette-use` (pure R/G/B palette; one colour
+ * ≥ 75% of the chroma = 1, one under 10% = 2). Anything not listed shows all
+ * three. The grid puts a badge on these, so a monochrome look is a choice the
+ * VJ sees and not a palette that seems to do nothing. The four at 1 are
+ * monochrome by design (hazard stripes, a black sun, rain code, tribal ink).
+ */
+export const EFFECT_PALETTE_USE: Partial<Record<EffectId, 1 | 2>> = {
+  eclipse: 1, chevrons: 1, matrix: 1, tribal: 1,
+  faces: 2, spaceghost: 2, cage: 2, reactor: 2, warp: 2, inkflow: 2, starfield: 2, plasmaglobe: 2,
+  ascii: 2, pipes: 2, fluid: 2, reaction: 2, galaxy: 2, orbits: 2, lasers: 2, strobegrid: 2,
+  ps2towers: 2, fire: 2, caustics: 2, vortex: 2, mesh: 2, pulsar: 2, snowride: 2,
+}
+
 export const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
   { label: 'Acido', colors: ['#00ff88', '#ff00ff', '#4444ff'] },
   { label: 'Fuoco', colors: ['#ff4400', '#ffaa00', '#ff0066'] },

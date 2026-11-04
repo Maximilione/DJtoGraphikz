@@ -19,6 +19,14 @@ uniform float nodes;
 uniform float multiplier;
 uniform float linew;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 #define TAU 6.28318530718
 
 // Times-table string art: node i is joined to node (i * m) mod N. As m drifts
@@ -72,8 +80,9 @@ void main() {
   }
 
   float line = 1.0 - smoothstep(w, w * 2.6, near);
-  float hue = clamp(near * 3.0, 0.0, 1.0);
-  vec3 tint = mix(uColor2, uColor1, hue);
+  // the palette goes round the circle, turning slowly. By distance to the
+  // nearest chord (mix(c2, c1, near * 3)) every line itself was colour 2.
+  vec3 tint = pal3(atan(p.y, p.x) / TAU + uTime * 0.02);
 
   // line art is mostly black by construction, so the ink and the accumulated
   // chord glow both have to carry more than they would in a filled effect

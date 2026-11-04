@@ -17,6 +17,14 @@ uniform float uLineBoost;
 
 varying vec2 vUv;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 #define PI 3.14159265359
 #define TAU 6.28318530718
 
@@ -63,9 +71,10 @@ void main() {
     // Sharp line
     float line = smoothstep(max(lineW, fwidth(d) * fwK), 0.0, d);
 
-    // Color gradient based on wave index
-    vec3 wColor = mix(uColor1, uColor2, fi);
-    wColor = mix(wColor, uColor3, sin(fi * PI + t * 0.2) * 0.5 + 0.5);
+    // Colour by wave index, the whole palette across the stack, drifting.
+    // It was mix(mix(c1, c2, fi), c3, sin(fi*PI…)*0.5+0.5): that weight never
+    // drops below ~0.5, so colour 3 painted most of every wave.
+    vec3 wColor = pal3(fi + t * 0.03);
 
     // Opacity fades for outer waves
     float fade = 1.0 - abs(fi - 0.5) * 1.5;
