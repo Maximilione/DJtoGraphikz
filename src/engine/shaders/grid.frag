@@ -21,6 +21,14 @@ uniform float uLineBoost;
 
 varying vec2 vUv;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 #define PI 3.14159265359
 
 float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -85,10 +93,13 @@ void main() {
     float wave = sin(z * wavefreq - t * 3.0 - uBarPhase * 6.28) * 0.5 + 0.5;
     wave *= wave; wave *= wave;   // wave^4
 
-    color += uColor1 * (grid * 1.7 + halo * 0.35) * fog * (1.0 + uBeat * 0.8 + uBassHit);
+    // the floor is most of the frame: bands of the whole palette roll toward
+    // the camera instead of the floor being colour 1 alone
+    vec3 floorCol = pal3(z * 0.04 - t * 0.04);
+    color += floorCol * (grid * 1.7 + halo * 0.35) * fog * (1.0 + uBeat * 0.8 + uBassHit);
     color += uColor3 * wave * fog * (0.25 * halo + 0.9 * grid) * (0.5 + uBass);
     // idle floor: a dim glow on the ground plane, so the horizon reads in silence
-    color += uColor1 * fog * 0.25 * (1.0 - 0.5 * uEnergy);
+    color += floorCol * fog * 0.25 * (1.0 - 0.5 * uEnergy);
 
     // Grid intersection highlights
     float intersect = lineX * lineZ;

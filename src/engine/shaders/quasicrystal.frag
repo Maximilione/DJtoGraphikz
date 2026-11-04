@@ -20,6 +20,14 @@ uniform float qfreq;
 uniform float contrast;
 uniform float uLineBoost;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 #define PI 3.14159265359
 
 // A quasicrystal: N plane waves at evenly spaced angles, summed. Five or more
@@ -78,10 +86,13 @@ void main() {
   // the boost widens the lit part of each fringe (capped: never a flat field)
   vec3 edge = vec3(1.0) - smoothstep(vec3(0.0), vec3(min(0.55 * (1.0 + 1.5 * uLineBoost) / k, 0.5)), abs(w));
 
-  vec3 c = mix(uColor3 * 0.07, uColor1, band);
-  c = mix(c, uColor2, smoothstep(0.6, 1.0, band));
+  // Lit fringes take the palette by sector, turning slowly: band is ~0 or ~1
+  // (tanh), so the old mix(…, uColor2, smoothstep(0.6, 1.0, band)) painted
+  // every lit fringe in colour 2 alone.
+  float hue = atan(q.y, q.x) / 6.2831853 + r2 * 0.8 + uBeatClock * 0.015;
+  vec3 c = mix(pal3(hue + 0.5) * 0.07, pal3(hue), band);
   float flare = 0.3 + 0.9 * uHigh + 0.9 * uBassHit + 0.5 * uBeat;
-  c += uColor2 * edge.y * flare;
+  c += pal3(hue + 0.33) * edge.y * flare;
   // chromatic fringe: only the part of the red/blue edge the green one lacks
   c += (edge - vec3(edge.y)) * (0.12 + 0.55 * uBassHit) * mix(uColor1, uColor2, 0.5) * 2.0;
   c *= 0.75 + 0.5 * uEnergy;

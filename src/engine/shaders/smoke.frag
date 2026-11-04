@@ -15,6 +15,14 @@ uniform vec3 uColor3;
 
 varying vec2 vUv;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 // Visible pass: the density field the advection wrote, shaded like smoke lit
 // from the side. The relief comes from the density gradient.
 
@@ -32,10 +40,12 @@ void main() {
   // soft saturation: the old clamp(d*2.4) hit 1 over most of the plume and
   // painted it a flat slab of color2
   float t = 1.0 - exp(-d * 2.2);
-  vec3 c = mix(uColor3 * 0.06, uColor1, smoothstep(0.02, 0.35, t));
-  c = mix(c, uColor2, smoothstep(0.45, 0.95, t));
+  // the plume walks the palette with density and drifts across the frame:
+  // a fixed c1 → c2 ramp left it colour 1, since t seldom gets near 0.95
+  float hue = t * 0.5 + uv.x * 0.45 + uv.y * 0.2 + uTime * 0.02;
+  vec3 c = mix(uColor3 * 0.06, pal3(hue), smoothstep(0.02, 0.35, t));
   c *= 0.35 + 1.0 * lit;
-  c += uColor2 * pow(t, 3.0) * (0.3 + 0.8 * uBeat);
+  c += pal3(hue + 0.33) * pow(t, 3.0) * (0.3 + 0.8 * uBeat);
   c *= 1.4 + 0.4 * uEnergy;
 
   float vig = smoothstep(1.4, 0.3, length((uv - 0.5) * vec2(1.5, 1.0)));

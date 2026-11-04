@@ -20,6 +20,14 @@ uniform float tentacles;
 uniform float drift;
 uniform float glow;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 // Medusae: bioluminescent jellyfish drifting in a deep blue-black water, on
 // four parallax depths. Pure 2D, no raymarch. Each layer is a grid of cells
 // with at most one jellyfish per cell (hash spawn, jittered position). The
@@ -77,8 +85,11 @@ void main() {
 
   // deep water: lighter towards the surface, with a slow low-res haze
   float fog = fbm3(p * 1.2 + vec2(0.0, -T * 0.05));
-  vec3 col = mix(uColor3 * 0.025, uColor3 * 0.10, vUv.y);
-  col += uColor3 * 0.12 * fog * (1.0 + 1.2 * uBass);
+  // the water fills the frame, so it shades along the palette, 2 in the deep,
+  // 3, then 1 near the surface, instead of being colour 3 everywhere
+  vec3 water = pal3(0.45 + 0.45 * vUv.y + 0.06 * fog);
+  vec3 col = water * mix(0.025, 0.10, vUv.y);
+  col += water * 0.12 * fog * (1.0 + 1.2 * uBass);
   col += mix(uColor3, uColor2, 0.4) * 0.03 * pow(max(0.0, sin(p.x * 3.0 + fog * 2.0)), 8.0) * vUv.y * (1.0 + uMid);
 
   for (int L = 0; L < 4; L++) {
@@ -164,7 +175,8 @@ void main() {
       }
       tent = min(tent, 1.0);
 
-      vec3 jc = mix(uColor1, uColor2, hash12(id + 5.0));
+      // each bell its own palette colour (colour 3 too: it was only the water)
+      vec3 jc = pal3(hash12(id + 5.0));
       vec3 c = jc * (fill * 0.6 + gon * 0.7)
              + mix(jc, vec3(1.0), 0.3) * rim
              + jc * tent * 0.8
@@ -176,7 +188,9 @@ void main() {
       c += jc * halo * smoothstep(rimY - 0.6, rimY + 0.15, lp.y);
 
       // far layers fade into the water colour
-      c = mix(c * mix(0.35, 1.0, fl), c * uColor3 * 1.6 * 0.5 + c * 0.2, 1.0 - fl);
+      // far layers fade into the water colour. Was c * uColor3: a product of
+      // two palette colours, black whenever they share no channel.
+      c = mix(c * mix(0.35, 1.0, fl), mix(c, uColor3 * dot(c, vec3(0.3333)), 0.5) * 0.5, 1.0 - fl);
       float a = clamp(fill + tent * 0.6 + gon * 0.3 + rim * 0.5, 0.0, 1.0);
       layerCol += c;
       layerA = max(layerA, a);

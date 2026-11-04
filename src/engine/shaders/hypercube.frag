@@ -21,6 +21,14 @@ uniform float rotspeed;
 uniform float glow;
 uniform float scale;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 // Hypercube: a tesseract — an outer cube and an inner cube with corresponding
 // vertices wired together — raymarched as thin metal edges in a dark, lightly
 // foggy hangar. The two cubes carry independent multi-axis rotations (not a
@@ -151,7 +159,8 @@ void main() {
     // squared by hand: pow() on a base that rounds to -1e-7 is undefined
     float e = 1.0 - max(dot(n, -rd), 0.0);
     float rim = e * e;
-    vec3 edgeCol = mix(uColor2, uColor1, 0.3);
+    // faces by orientation, along the palette: the whole body was colour 2
+    vec3 edgeCol = pal3(0.5 + 0.33 * n.x + 0.2 * n.y + 0.1 * n.z + uTime * 0.02);
     col += edgeCol * (0.5 + 0.5 * rim) * 1.2;
     col += vec3(1.0) * rim * 0.3;
   }
