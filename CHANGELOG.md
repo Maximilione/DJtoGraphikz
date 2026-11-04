@@ -2,6 +2,14 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.78.0-beta] — 2026-11-04
+
+### Added
+- **Badge palette sugli effetti** (e5cfc7f): gli effetti che usano solo 1 o 2 colori della palette invece di tutti e 3 sono marcati in lista, cosi' si vede a colpo d'occhio quali seguono la palette per intero.
+
+### Fixed
+- **14 effetti non usavano tutti e tre i colori della palette** (a64028d): negli shader mancava il riferimento al terzo colore, corretto.
+
 ## [0.77.0-beta] — 2026-10-20
 
 ### Added
