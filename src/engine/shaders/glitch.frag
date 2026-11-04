@@ -76,9 +76,10 @@ void main() {
   float gVal = pg.y * 0.3 + pg.z * 0.7;
   float bVal = pb.x * 0.5 + pb.y * 0.5;
 
-  color.r = uColor1.r * rVal + uColor2.r * pr.z * 0.5;
-  color.g = uColor1.g * gVal * 0.5 + uColor3.g * rVal * 0.5;
-  color.b = uColor2.b * bVal + uColor3.b * pb.y * 0.3;
+  // one palette colour per layer. It used to take one CHANNEL of each colour
+  // (color.r from uColor1.r…), which bent every palette toward red/blue and
+  // dropped colour 2 and 3 whenever they lacked that channel
+  color = (uColor1 * rVal + uColor2 * gVal + uColor3 * bVal) * 0.7;
 
   // Big glitch blocks on beat (block size clamped: at full intensity it hit
   // zero, the division made NaN and the blocks silently disappeared)

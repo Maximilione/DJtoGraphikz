@@ -15,6 +15,14 @@ uniform float ringfreq;
 
 varying vec2 vUv;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 #define PI 3.14159265359
 
 void main() {
@@ -47,14 +55,10 @@ void main() {
   rings = pow(rings, 2.0 + mid * 3.0);
 
   // Color from plasma value
-  // one sin/cos pair: sin(hue + 2.094) and cos(hue + 1.047) by angle addition
-  float hue = v * 3.0 + t * 0.3;
-  float sh = sin(hue), ch = cos(hue);
-  vec3 c1 = uColor1 * (sh * 0.5 + 0.5);
-  vec3 c2 = uColor2 * ((-0.499658 * sh + 0.866223 * ch) * 0.5 + 0.5);
-  vec3 c3 = uColor3 * ((0.500171 * ch - 0.865927 * sh) * 0.5 + 0.5);
-
-  vec3 color = c1 + c2 * rings + c3 * (v * 0.5 + 0.5);
+  // The plasma value walks the palette loop. Was c1 + c2 * rings + c3 * …:
+  // colour 1 at full weight everywhere, colour 2 only on the sparse rings.
+  float hue = (v * 3.0 + t * 0.3) * 0.1591549;
+  vec3 color = pal3(hue) * (0.75 + 0.5 * rings) + pal3(hue + 0.5) * 0.2 * (v * 0.5 + 0.5);
   color *= 0.7;
 
   // Energy-reactive brightness. The gains compound (0.7 × energy × beat ×
@@ -67,7 +71,7 @@ void main() {
   // Pulsing center — measured on uv0: at zoom 0.3 the zoomed radius never
   // left the glow and the whole frame was a flat pastel wash
   float glow = exp(-r0 * 2.5) * (0.3 + beat * 0.6);
-  color += (uColor1 + uColor2) * glow;
+  color += pal3(t * 0.05) * 1.6 * glow;
 
   gl_FragColor = vec4(color, 1.0);
 }

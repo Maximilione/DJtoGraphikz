@@ -20,6 +20,14 @@ uniform vec2 uResolution;
 
 varying vec2 vUv;
 
+// The palette as a loop, 1 → 2 → 3 → 1, with a plateau on each colour so the
+// three read as three and not as their blends.
+vec3 pal3(float x) {
+  x = fract(x) * 3.0;
+  float f = smoothstep(0.25, 0.75, fract(x));
+  return x < 1.0 ? mix(uColor1, uColor2, f) : x < 2.0 ? mix(uColor2, uColor3, f) : mix(uColor3, uColor1, f);
+}
+
 #define PI 3.14159265359
 #define TAU 6.28318530718
 
@@ -70,7 +78,9 @@ void main() {
   // horizontal blinds cut into the sun (only inside the disc)
   if (disc > 0.0) disc *= 0.55 + 0.45 * smoothstep(0.3, 0.7, sin(uv.y * 90.0 + t * 2.0));
   color += mix(uColor1, uColor2, uv.y * 2.0) * disc;
-  color += uColor2 * (0.035 / (sd + 0.05)) * (0.8 + uEnergy + uBassHit);
+  // the sun's 1/r glow spreads over the whole sky: colours 1 and 3, so the
+  // sky (2 → 3) and the ridges are not drowned in colour 2
+  color += mix(uColor1, uColor3, 0.5) * (0.035 / (sd + 0.05)) * (0.8 + uEnergy + uBassHit);
   color += mix(uColor1, vec3(1.0), 0.4) * exp(-max(sd - sunR, 0.0) * 9.0) * 0.25 * (1.0 + 1.5 * uBassHit);
 
   // ridge rows: from horizon (far) to bottom (near), scrolling with the music
@@ -94,12 +104,14 @@ void main() {
     float w = min(max(0.03 * (1.0 + 2.5 * uLineBoost), rpx * (3.0 + 4.0 * uLineBoost)), 0.22);
     float line = smoothstep(w, 0.0, lineD) * (1.0 - 0.65 * smoothstep(0.08, 0.25, rpx));
     float fade = 0.3 + 0.7 * depth01;              // nearer = brighter, far ridges still read
-    vec3 lc = mix(uColor2, uColor1, fract(row * 0.23));
+    // each ridge one step along the palette loop: colour 3 too, which was
+    // only on the faint verticals
+    vec3 lc = pal3(fract(row * 0.23));
     color += lc * line * fade * (1.0 + glowamt * 0.6 + uBassHit * 1.2);
     // glow under the lines
     color += lc * smoothstep(0.4, 0.0, lineD) * 0.2 * glowamt * fade * (1.0 + uBass);
     // ground haze so a silent room is not black below the horizon
-    color += uColor2 * 0.1 * depth01 * (0.5 + 0.5 * glowamt);
+    color += lc * 0.1 * depth01 * (0.5 + 0.5 * glowamt);   // in the ridge's colour
     // grid verticals
     float vx = abs(fract(x * (2.0 + depth01 * 6.0) + sin(row) * 0.3) - 0.5);
     color += uColor3 * smoothstep(min(max(0.02, fwidth(vx) * (3.0 + 4.0 * uLineBoost)), 0.2), 0.0, vx) * 0.2 * fade * (1.0 + uBassHit);
