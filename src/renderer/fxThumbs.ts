@@ -25,6 +25,10 @@ export function getThumb(id: string): string | undefined {
   return thumbs[id]
 }
 
+export function allThumbs(): Record<string, string> {
+  return thumbs
+}
+
 export function onThumbs(fn: () => void): () => void {
   listeners.add(fn)
   return () => { listeners.delete(fn) }
