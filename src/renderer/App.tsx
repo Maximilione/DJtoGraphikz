@@ -30,6 +30,7 @@ import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, 
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
 import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
+import { allThumbs, onThumbs } from './fxThumbs'
 import { allPalettes } from './palettes'
 import { sanitizeCmd, stepPalette, type Known } from './phoneCmd'
 import { AUDIO_SOURCES } from '@engine/EffectParams'
@@ -85,6 +86,7 @@ function cmdToastLabel(type: string, v: any): string {
   switch (type) {
     case 'effect': return `Effetto ${v}`
     case 'post': return `Post ${v}`
+    case 'postClear': return 'Post FX rimossi'
     case 'palette': return 'Palette'
     case 'crossfade': return `Crossfade ${Math.round(v * 100)}%`
     case 'deckB': return `Deck B ${v}`
@@ -549,6 +551,16 @@ export function App() {
       eng.dispose()
       setEngine(null)
     }
+  }, [])
+
+  // Effect thumbnails to the phone grid: once now, then on every capture
+  // (debounced — a fresh session captures one per effect change)
+  useEffect(() => {
+    let t = 0
+    const push = () => { try { window.api?.sendRemoteThumbs(allThumbs()) } catch (_) {} }
+    push()
+    const off = onThumbs(() => { clearTimeout(t); t = window.setTimeout(push, 2000) })
+    return () => { off(); clearTimeout(t) }
   }, [])
 
   // Enumerate displays for the monitor picker
@@ -1093,6 +1105,7 @@ export function App() {
         case 'panic': panic(); break
         case 'effect': toggleVJ(false); pickEffect(engine, v); break
         case 'post': engine.togglePost(v); break
+        case 'postClear': engine.setActivePosts([]); break
         case 'palette': engine.setColors(v[0], v[1], v[2]); break
         case 'crossfade': engine.setCrossfade(v); break
         case 'deckB': engine.setDeckBEffect(v); break

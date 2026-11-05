@@ -56,7 +56,7 @@ export function sanitizeCmd(cmd: unknown, k: Known): RemoteCmd | null {
   if (own(RANGES, t)) return fin(v) ? ok(clamp(v, ...RANGES[t])) : null
 
   switch (t) {
-    case 'panic': case 'tap': case 'cameraReset': case 'saveScene': return ok()
+    case 'panic': case 'tap': case 'cameraReset': case 'saveScene': case 'postClear': return ok()
     case 'seqNext': case 'seqPrev': case 'seqStop': return ok()
     case 'seqStart': return ok(v)                           // validSeqIndex in the player
     case 'release': return str(v) ? ok(v) : null
