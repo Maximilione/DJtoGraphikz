@@ -50,6 +50,7 @@ check('comando senza tipo o non oggetto: scartato', () => {
   for (const bad of [null, undefined, 5, 'x', [], {}, { type: 3 }]) assert.equal(sanitizeCmd(bad, K), null)
 })
 check('tipo sconosciuto scartato', () => assert.equal(S('rm-rf', 1), null))
+check('postClear: passa senza valore', () => assert.deepEqual(S('postClear', 'x'), { type: 'postClear' }))
 check('id sconosciuti (effetto, post, deck B, genere, blend, transizione) scartati', () => {
   assert.equal(S('effect', 'nope'), null)
   assert.equal(S('deckB', '__proto__'), null)

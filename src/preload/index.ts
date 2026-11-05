@@ -99,6 +99,7 @@ const api = {
   sendRemoteDefs: (defs: unknown) => ipcRenderer.send('remote:defs', defs),
   sendRemoteLooks: (looks: { index: number; name: string; thumb: string }[]) =>
     ipcRenderer.send('remote:looks', looks),
+  sendRemoteThumbs: (thumbs: Record<string, string>) => ipcRenderer.send('remote:thumbs', thumbs),
   // AutoVJ status pushed by the renderer so the phone stays in sync
   sendRemoteVj: (vj: { enabled: boolean; genre: string }) => ipcRenderer.send('remote:vj', vj),
   // Sequence (scaletta) status for the phone: list + what is playing
