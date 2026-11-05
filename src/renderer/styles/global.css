@@ -456,6 +456,9 @@ input[type="range"]:active::-webkit-slider-thumb {
 /* palette badge: the effect shows only 1 or 2 of the three colours (EFFECT_PALETTE_USE) */
 .fx-btn .fx-pal { margin-left: auto; flex-shrink: 0; font-size: 7px; letter-spacing: 1px; line-height: 1; opacity: 0.55; }
 .fx-btn.active .fx-pal { opacity: 0.9; }
+.fx-btn .fx-fav { margin-left: auto; flex-shrink: 0; font-size: 9px; line-height: 1; color: var(--warning); }
+.fx-btn .fx-fav + .fx-pal { margin-left: 4px; }
+.fx-quick { margin-bottom: var(--s3); }
 .fx-btn-lg { padding: 10px var(--s4); gap: var(--s3); }
 .fx-btn-lg .fx-ico { font-size: var(--fs-icon); opacity: 1; }
 

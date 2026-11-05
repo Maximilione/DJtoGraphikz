@@ -658,6 +658,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     </section>
 
     <section id="tab-fx" hidden>
+      <div id="favwrap" hidden><div class="sect">&#9733; Preferiti</div><div class="grid3" id="favs"></div></div>
       <div id="fxgroups"></div>
       <div class="sect">Parametri effetto</div>
       <div id="params"></div>
@@ -753,6 +754,7 @@ const prev = {}            // dirty-check cache for structural updates
 let dragging = {}          // range keys currently touched — poll must not move them
 const timers = {}, pending = {}
 const fxBtns = {}, blendBtns = {}
+let favBtns = {}
 let paramEls = {}, chainEls = {}
 const GRADE_KEYS = ['exposure', 'contrast', 'saturation', 'lift', 'vignette']
 const local = { autovj: false }
@@ -970,11 +972,35 @@ async function refreshLooks(rev){
 
 // ---- effect thumbnails behind the effect buttons (like the desktop grid) ----
 function paintThumbs(){
-  for (const id in fxBtns) {
-    const t = thumbs[id]
-    fxBtns[id].style.background = t ? 'linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), url("' + t + '") center / cover' : ''
-    fxBtns[id].classList.toggle('thumb', !!t)
-  }
+  ;[fxBtns, favBtns].forEach(function(m){
+    for (const id in m) {
+      const t = thumbs[id]
+      m[id].style.background = t ? 'linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), url("' + t + '") center / cover' : ''
+      m[id].classList.toggle('thumb', !!t)
+    }
+  })
+}
+// favourites set on the desktop (right-click on an effect), rebuilt only when the list changes
+function renderFavs(ids){
+  const sig = ids.join(',')
+  if (prev.favs === sig || !defs) return
+  prev.favs = sig
+  const grid = $('favs')
+  grid.textContent = ''
+  favBtns = {}
+  const byId = {}
+  ;(defs.effects || []).forEach(function(e){ byId[e.id] = e })
+  ids.forEach(function(id){
+    const e = byId[id]
+    if (!e) return
+    const b = el('button', '', e.label)
+    b.addEventListener('click', function(){ cmd({ type: 'effect', value: e.id }) })
+    b.classList.toggle('on', id === prev.fx)
+    favBtns[id] = b
+    grid.appendChild(b)
+  })
+  $('favwrap').hidden = !Object.keys(favBtns).length
+  paintThumbs()
 }
 let thumbsFetching = false
 async function refreshThumbs(rev){
@@ -1143,6 +1169,7 @@ function renderExt(x, e, bpm){
     setOn($('onlymine'), !!x.onlyMine)
     setText($('vjinfo'), 'Fase ' + x.phase + ' - ' + x.scenes + ' scene mie per questo genere')
     renderOverlays(x.overlays || [])
+    renderFavs(x.favs || [])
   }
   const c = e.cycle
   if (c) {
@@ -1256,6 +1283,7 @@ async function pollOnce(){
   if (prev.fx !== e.activeEffect) {
     prev.fx = e.activeEffect
     for (const k in fxBtns) fxBtns[k].classList.toggle('on', k === e.activeEffect)
+    for (const k in favBtns) favBtns[k].classList.toggle('on', k === e.activeEffect)
   }
   const psig = (e.paramDefs || []).map(function(d){ return d.key }).join(',') + '|' + e.activeEffect
   if (prev.psig !== psig) { prev.psig = psig; rebuildParams(e) }

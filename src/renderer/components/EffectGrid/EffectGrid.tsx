@@ -1,7 +1,8 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { EffectId } from '@engine/Engine'
-import { EFFECT_CATEGORIES, EFFECT_PALETTE_USE } from '../../catalog'
+import { ALL_EFFECTS, EFFECT_CATEGORIES, EFFECT_PALETTE_USE } from '../../catalog'
 import { getThumb, onThumbs, thumbBackground } from '../../fxThumbs'
+import { getFavs, getPhase, getRecent, isFav, onPicks, suggestedNow, toggleFav } from '../../fxPicks'
 
 interface EffectGridProps {
   activeId: EffectId | null
@@ -31,9 +32,13 @@ const folded = new Set<string>()
 
 const matches = (fx: { label: string; id: string }, q: string) => fx.label.toLowerCase().includes(q) || fx.id.includes(q)
 
+const BY_ID = new Map(ALL_EFFECTS.map(fx => [fx.id, fx]))
+const PHASE_LABEL: Record<string, string> = { break: 'break', build: 'build', groove: 'groove', peak: 'peak' }
+
 export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: EffectGridProps) {
   const [, force] = useState(0)
   useEffect(() => onThumbs(() => force(n => n + 1)), [])
+  useEffect(() => onPicks(() => force(n => n + 1)), [])
   const q = search.trim().toLowerCase()
   // the filter was computed twice per render (once for "no results", once per category)
   const shownByCat = useMemo(
@@ -41,35 +46,56 @@ export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 's
     [q],
   )
 
+  const button = (fx: { id: EffectId; label: string; icon: string }, row = '') => {
+    const isActive = activeId === fx.id
+    const thumb = getThumb(fx.id)
+    const pal = EFFECT_PALETTE_USE[fx.id]
+    const fav = isFav(fx.id)
+    return (
+      <button
+        key={row + fx.id}
+        onClick={() => onPick(fx.id)}
+        onContextMenu={e => { e.preventDefault(); toggleFav(fx.id) }}
+        className={`fx-btn${size === 'lg' ? ' fx-btn-lg' : ''}${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
+        title={`Effetto ${fx.label}${pal ? ` — usa ${pal === 1 ? 'un solo colore' : 'due colori'} della palette` : ''} · tasto destro: ${fav ? 'togli dai' : 'aggiungi ai'} preferiti`}
+        style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
+      >
+        <span className="fx-ico">{fx.icon}</span>
+        <span className="fx-name">{fx.label}</span>
+        {fav && <span className="fx-fav" aria-label="preferito">★</span>}
+        {pal && <span className="fx-pal" aria-label={`${pal} ${pal === 1 ? 'colore' : 'colori'}`}>{'●'.repeat(pal)}</span>}
+      </button>
+    )
+  }
+
+  // Quick rows: hidden while searching (the search is already the quick way)
+  const quick = q ? [] : ([
+    [`Adatti ora · ${PHASE_LABEL[getPhase()]}`, suggestedNow()],
+    ['★ Preferiti', getFavs()],
+    ['Recenti', getRecent()],
+  ] as [string, EffectId[]][]).filter(([, ids]) => ids.length > 0)
+  const quickRows = quick.map(([name, ids]) => (
+    <div key={name} className="fx-quick">
+      <div className="cat-label">{name}</div>
+      <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
+        {ids.map(id => BY_ID.get(id)).filter(fx => !!fx).map(fx => button(fx!, name))}
+      </div>
+    </div>
+  ))
+
   if (q && shownByCat.every(list => list.length === 0)) {
     return <div className="u-hint">Nessun effetto per «{search.trim()}»</div>
   }
 
   return (
     <>
+      {quickRows}
       {EFFECT_CATEGORIES.map((cat, ci) => {
         const shown = shownByCat[ci]
         if (shown.length === 0) return null
         const grid = (
           <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
-              {shown.map(fx => {
-                const isActive = activeId === fx.id
-                const thumb = getThumb(fx.id)
-                const pal = EFFECT_PALETTE_USE[fx.id]
-                return (
-                  <button
-                    key={fx.id}
-                    onClick={() => onPick(fx.id)}
-                    className={`fx-btn${size === 'lg' ? ' fx-btn-lg' : ''}${isActive ? ' active' : ''}${thumb ? ' fx-thumb' : ''}`}
-                    title={pal ? `Effetto ${fx.label} — usa ${pal === 1 ? 'un solo colore' : 'due colori'} della palette` : `Effetto ${fx.label}`}
-                    style={thumb ? { background: thumbBackground(thumb, isActive) } : undefined}
-                   >
-                    <span className="fx-ico">{fx.icon}</span>
-                    <span className="fx-name">{fx.label}</span>
-                    {pal && <span className="fx-pal" aria-label={`${pal} ${pal === 1 ? 'colore' : 'colori'}`}>{'●'.repeat(pal)}</span>}
-                  </button>
-                )
-              })}
+              {shown.map(fx => button(fx))}
           </div>
         )
         // Simple mode: always open, no folding to get lost in

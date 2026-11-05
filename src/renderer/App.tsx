@@ -31,6 +31,7 @@ import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
 import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
 import { allThumbs, onThumbs } from './fxThumbs'
+import { getFavs, setPickContext } from './fxPicks'
 import { allPalettes } from './palettes'
 import { sanitizeCmd, stepPalette, type Known } from './phoneCmd'
 import { AUDIO_SOURCES } from '@engine/EffectParams'
@@ -59,8 +60,9 @@ const SETTINGS_KEY = 'djtographikz-settings'
 const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact-v2'
 const BEATFLASH_KEY = 'djtographikz-beatflash'
 
-// Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
-const HOTKEY_EFFECTS: EffectId[] = ALL_EFFECTS.slice(0, 10).map(fx => fx.id)
+// Hotkey maps: 1-0 = ten fixed effects (the first ten of the old panel order:
+// regrouping the catalog must not move muscle memory), QWER = common post toggles
+const HOTKEY_EFFECTS: EffectId[] = ['tunnel', 'kaleidoscope', 'voronoi', 'sacred', 'mandala', 'hexagons', 'rings', 'moire', 'neonpoly', 'truchet']
 const HOTKEY_POSTS: Record<string, PostId> = { q: 'bloom', w: 'feedback', e: 'chromatic', r: 'rgb-split' }
 
 // Catalog for the phone remote: derived from the one catalog, never re-typed.
@@ -563,6 +565,9 @@ export function App() {
     return () => { off(); clearTimeout(t) }
   }, [])
 
+  // "Adatti ora" row of the effect grid follows the genre and the live phase
+  useEffect(() => { setPickContext(vjGenre, vjStatus.phase) }, [vjGenre, vjStatus.phase])
+
   // Enumerate displays for the monitor picker
   useEffect(() => {
     window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {})
@@ -1056,6 +1061,7 @@ export function App() {
       phase: vj.getPhase(),
       onlyMine: getOnlyMine(),
       scenes: loadUserScenes().filter(sc => sc.genre === genre).length,
+      favs: getFavs(),
       overlays: engine.getOverlays().filter(o => !o.id.startsWith('seq:')).slice(0, 24)
         .map(o => ({ id: o.id, name: o.name.slice(0, 40), visible: o.visible, opacity: Math.round(o.opacity * 100) / 100 })),
     }
