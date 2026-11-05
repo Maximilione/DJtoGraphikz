@@ -32,6 +32,7 @@
     "check:intensity": "node scripts/check-intensity.mjs",
     "check:presence": "node scripts/check-presence.mjs",
     "check:lineboost": "node scripts/check-lineboost.mjs",
+    "check:pipes": "node scripts/check-pipes.mjs",
     "check:mappings": "node scripts/check-mappings.mjs",
     "check:sequenza": "node scripts/check-sequenza.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
