@@ -114,7 +114,7 @@ export const FAMILY: Record<EffectId, Family> = {
   chainfence: 'tunnel',
   turbine: 'object',
   reactor: 'radial',
-  pipes: 'tunnel',
+  pipes: 'object',
   isoblocks: 'grid',
   vegabulge: 'grid',
   isocontour: 'lines',

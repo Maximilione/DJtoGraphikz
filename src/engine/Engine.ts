@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { LINE_BOOST_DEFAULT, sanitizeLineBoost } from './lineBoost'
+import { pipesWalk, PIPES_TEX_WIDTH } from './pipesWalk'
 import { PRESENCE_DEFAULT, sanitizePresence } from './presence'
 import { IMPACT_DEFAULT, IMPACT_NEUTRAL, impactActive, newImpactRuntime, sanitizeImpact, stepImpact, type ImpactOut, type ImpactState } from './impact'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
@@ -570,11 +571,12 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
-  // drawn into a 75% buffer and upscaled: the raymarch crawls along the
+  // drawn into a half-size buffer and upscaled: the raymarch crawls along the
   // fractal's surface and cost ~22 ms a frame at 1080p, over the 60 fps
-  // budget on its own. Same framing (uResolution is the buffer's), half the
-  // GPU work, slightly softer.
-  mandelbulb: { passes: [{ frag: mandelbulbFrag, buffer: 'M', scale: 0.75 }], main: upscaleFrag },
+  // budget on its own (75% was still too slow on a 4K output, where the
+  // buffer alone was 4.7 Mpx). Same framing (uResolution is the buffer's),
+  // a quarter of the GPU work, softer — the upscale sharpens a touch.
+  mandelbulb: { passes: [{ frag: mandelbulbFrag, buffer: 'M', scale: 0.5 }], main: upscaleFrag },
   galaxy: { build: (u) => buildPointCloud(u, 768, galaxyVert, galaxyFrag) },
   // a loaded 3D model (or the procedural default); see meshModel.ts
   mesh: { build: buildMesh },
@@ -702,6 +704,11 @@ export class Engine {
   private static readonly SPECTRUM_BINS = 512
   private spectrumPixels = new Uint8Array(Engine.SPECTRUM_BINS * 4)
   private spectrumTex: THREE.DataTexture | null = null
+  // pipes: the pipework walked once a frame on the CPU (pipesWalk.ts), one
+  // float texel per chunk header / run; pipesTime is the clock it was built for
+  private pipesPixels = new Float32Array(PIPES_TEX_WIDTH * 4)
+  private pipesTex: THREE.DataTexture | null = null
+  private pipesTime = NaN
   private usingCustom = false
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
@@ -1180,6 +1187,7 @@ export class Engine {
       uFrame: { value: 0 },
       ...paramUniforms,
       ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
+      ...(id === 'pipes' ? { uPipes: { value: this.getPipesTexture() } } : {}),
       // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
       // applyEffectUniforms computes them once a frame instead of per vertex
       ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),
@@ -1848,6 +1856,17 @@ export class Engine {
       this.spectrumTex = tex
     }
     return this.spectrumTex
+  }
+
+  private getPipesTexture(): THREE.DataTexture {
+    if (!this.pipesTex) {
+      const tex = new THREE.DataTexture(this.pipesPixels, PIPES_TEX_WIDTH, 1, THREE.RGBAFormat, THREE.FloatType)
+      tex.minFilter = tex.magFilter = THREE.NearestFilter
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+      tex.needsUpdate = true
+      this.pipesTex = tex
+    }
+    return this.pipesTex
   }
 
   /**
@@ -3730,6 +3749,16 @@ export class Engine {
     if (u.uHighTime) u.uHighTime.value = this.highTime
     if (u.uResolution) u.uResolution.value = this.resolution
     if (u.uFrame) u.uFrame.value = this.frameCounter
+    if (u.uPipes) {
+      // pipes: rebuild the pipework when the clock moved (every material of
+      // the effect shares the texture, so a frame walks it once)
+      if (this.pipesTime !== this.effectTime) {
+        pipesWalk(this.effectTime, this.pipesPixels)
+        this.getPipesTexture().needsUpdate = true
+        this.pipesTime = this.effectTime
+      }
+      u.uPipes.value = this.getPipesTexture()
+    }
     if (u.uCamRot) {
       // galaxy.vert camera: the formulas the shader had (tilt swings with the
       // bar, yaw drifts with both clocks); float64 here, so no mod is needed
@@ -4022,6 +4051,7 @@ export class Engine {
     this.postGeometry.dispose()
     this.whiteTexture?.dispose()
     this.spectrumTex?.dispose()
+    this.pipesTex?.dispose()
     for (const t of Object.values(this.customTextures)) t.dispose()
     this.customTextures = {}
     this.stateListeners.clear()

@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.79.0-beta] — 2026-11-05
+
+### Added
+- **Anteprime effetti sul telefono** (5ed583b): i pulsanti effetto del telecomando mostrano dietro l'etichetta la stessa thumbnail della griglia desktop, aggiornata quando il desktop ne cattura una nuova.
+- **Tasto "Rimuovi tutti i post FX" sul telefono** (5ed583b): sotto la catena Post FX, svuota la catena in un colpo (comando `postClear`).
+
+### Changed
+- **Pipes rifatto come il vero screensaver 3D Pipes** (ab93760, c880d24): camera fissa su nero, tubi lucidi che crescono cella per cella con giunti sferici, reset a schermo pieno. Il cammino e' calcolato una volta per frame su CPU (`pipesWalk.ts`) e lo shader scarta i blocchi con test AABB: 85 -> 7.5 ms/frame a 1080p, niente piu' downscale adattivo.
+- **Mandelbulb 2-3x piu' veloce** (9574c91): buffer al 50% con nitidezza nell'upscale, marcia limitata alla sfera del frattale, 48 passi, AO a 2 campioni (4K: 37 -> 13 ms).
+
 ## [0.78.0-beta] — 2026-11-04
 
 ### Added
