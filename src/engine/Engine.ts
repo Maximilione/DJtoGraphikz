@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { Key } from './audio/KeyDetector'
 import { AudioAnalyzer } from './audio/AudioAnalyzer'
 import { LINE_BOOST_DEFAULT, sanitizeLineBoost } from './lineBoost'
-import { pipesWalk, PIPES_TEX_WIDTH } from './pipesWalk'
+import { pipesWalk, pipesCount, PIPES_EPOCH, PIPES_TEX_WIDTH } from './pipesWalk'
 import { PRESENCE_DEFAULT, sanitizePresence } from './presence'
 import { IMPACT_DEFAULT, IMPACT_NEUTRAL, impactActive, newImpactRuntime, sanitizeImpact, stepImpact, type ImpactOut, type ImpactState } from './impact'
 import { TrackChangeDetector, type TrackChangeEvent } from './audio/TrackChange'
@@ -709,6 +709,8 @@ export class Engine {
   private pipesPixels = new Float32Array(PIPES_TEX_WIDTH * 4)
   private pipesTex: THREE.DataTexture | null = null
   private pipesTime = NaN
+  private pipesEpoch = NaN   // screen the pipe count was latched for
+  private pipesN = 0
   private usingCustom = false
   private customShaderSource = ''
   private effectTime = 0     // param-speed-driven clock for effect shaders
@@ -3753,7 +3755,10 @@ export class Engine {
       // pipes: rebuild the pipework when the clock moved (every material of
       // the effect shares the texture, so a frame walks it once)
       if (this.pipesTime !== this.effectTime) {
-        pipesWalk(this.effectTime, this.pipesPixels)
+        // the pipe count is fixed for the whole screen: density changes land on the next one
+        const ep = Math.floor(this.effectTime / PIPES_EPOCH)
+        if (ep !== this.pipesEpoch) { this.pipesEpoch = ep; this.pipesN = pipesCount(u.density?.value ?? 1, ep) }
+        pipesWalk(this.effectTime, this.pipesPixels, this.pipesN)
         this.getPipesTexture().needsUpdate = true
         this.pipesTime = this.effectTime
       }

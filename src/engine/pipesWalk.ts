@@ -30,7 +30,8 @@ const JR = R * 1.32
 const BOX = [7, 4, 4]
 const GROW = 4.5
 const STAGGER = 1.4
-const EPOCH = 26
+export const PIPES_EPOCH = 26
+const EPOCH = PIPES_EPOCH
 
 /** integer hash of three small integers, 0..1 */
 function hash(a: number, b: number, c: number): number {
@@ -41,12 +42,22 @@ function hash(a: number, b: number, c: number): number {
   return (h >>> 0) / 4294967296
 }
 
-/** Fill `out` (PIPES_TEX_WIDTH * 4 floats) with the pipework at effect time `time` */
-export function pipesWalk(time: number, out: Float32Array): void {
+/**
+ * Pipes on screen `ep` for a `density` of 0.3..2 (2..7 pipes). The caller reads
+ * it once per screen: counted every frame, a density moving mid-screen (an old
+ * LFO mapping, an audio band) popped already-grown pipes in and out.
+ */
+export function pipesCount(density: number, ep: number): number {
+  const d = Math.max(0.3, Math.min(2, Number.isFinite(density) ? density : 1))
+  return Math.max(2, Math.min(PIPES_NPIPE, Math.floor(2 + 2.6 * d + hash(ep, 1, 1))))
+}
+
+/** Fill `out` (PIPES_TEX_WIDTH * 4 floats) with the first `count` pipes at effect time `time` */
+export function pipesWalk(time: number, out: Float32Array, count = PIPES_NPIPE): void {
   out.fill(0)
   const ep = Math.floor(time / EPOCH)
   const local = time - ep * EPOCH
-  for (let i = 0; i < PIPES_NPIPE; i++) {
+  for (let i = 0; i < Math.min(count, PIPES_NPIPE); i++) {
     const grown = (local - i * STAGGER) * GROW
     if (grown <= 0) break
     const base = i * PIPES_PIPE_TEXELS
