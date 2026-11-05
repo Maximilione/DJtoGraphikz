@@ -53,6 +53,19 @@ def to_es300(frag: str, tone: bool) -> str:
     return head + frag
 
 
+def pipes_texture(t: float) -> list[float] | None:
+    """pipes reads its pipework from a float texture the Engine builds once a
+    frame (src/engine/pipesWalk.ts): run the same module through node so the
+    preview draws the same pipes the app would at this time."""
+    js = pathlib.Path("/tmp/djg-pipesWalk.cjs")
+    subprocess.run([str(REPO / "node_modules/.bin/esbuild"), str(REPO / "src/engine/pipesWalk.ts"),
+                    "--format=cjs", f"--outfile={js}", "--log-level=error"], check=True, timeout=60)
+    out = subprocess.run(["node", "-e", f"const w=require('{js}');const a=new Float32Array(w.PIPES_TEX_WIDTH*4);"
+                          f"w.pipesWalk({t},a);process.stdout.write(JSON.stringify(Array.from(a)))"],
+                         capture_output=True, text=True, check=True, timeout=60)
+    return json.loads(out.stdout)
+
+
 def effect_params(effect: str) -> str:
     ep = (REPO / "src/engine/EffectParams.ts").read_text()
     block = re.search(re.escape(effect) + r":\s*\[(.*?)\]", ep, re.S)
@@ -69,7 +82,8 @@ def build_page(effect: str, t: float, audio: list[float]) -> pathlib.Path:
     # a point cloud is blended additively into a float buffer and tone mapped
     # once at the end, the way the app's master stage does it — tone mapping
     # each sprite instead would wash the whole swarm out
-    main = to_es300((REPO / f"src/engine/shaders/{effect}.frag").read_text(), tone=not points)
+    frag_src = (REPO / f"src/engine/shaders/{effect}.frag").read_text()
+    main = to_es300(frag_src, tone=not points)
     vert = to_es300_vert(vert_path.read_text()) if points else None
     sim_path = REPO / f"src/engine/shaders/{effect}.sim.frag"
     sim = to_es300(sim_path.read_text(), tone=False) if sim_path.exists() else None
@@ -86,6 +100,7 @@ def build_page(effect: str, t: float, audio: list[float]) -> pathlib.Path:
         "w": int(os.environ.get("DJG_W", 960)), "h": int(os.environ.get("DJG_H", 540)),
         # the sim's buffer letter, so the preview binds the same uniform names
         "buf": (re.search(r"uniform sampler2D tBuffer(\w+)", sim).group(1) if sim else "A"),
+        "pipes": pipes_texture(t) if "uniform sampler2D uPipes" in frag_src else None,
     }
 
     html = """<!DOCTYPE html><html><body style="margin:0">
@@ -145,6 +160,7 @@ function setCommon(p, time) {
     const l = gl.getUniformLocation(p, 'uCamRot'); if (l) gl.uniform4f(l, Math.cos(yw), Math.sin(yw), Math.cos(tl), Math.sin(tl)); }
   u3(p, 'uColor1', 0.0, 1.0, 0.53); u3(p, 'uColor2', 1.0, 0.0, 1.0); u3(p, 'uColor3', 0.27, 0.27, 1.0);
   ui(p, 'uSpectrum', 0);
+  if (CFG.pipes) ui(p, 'uPipes', 2);
 __PARAMS__}
 
 // fullscreen triangle
@@ -175,6 +191,19 @@ gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+// uPipes: the pipework at time t, one RGBA32F texel per chunk header / run
+if (CFG.pipes) {
+  const tex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, CFG.pipes.length / 4, 1, 0, gl.RGBA, gl.FLOAT, new Float32Array(CFG.pipes));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE0);
 }
 
 function attrib(p) {
