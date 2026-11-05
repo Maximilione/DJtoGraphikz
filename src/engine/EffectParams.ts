@@ -419,9 +419,9 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 0.3, max: 2, default: 1 },
   ],
   pipes: [
-    { key: 'speed', label: 'Velocità', min: 0.1, max: 3, default: 1.1 },
-    { key: 'density', label: 'Densità', min: 0.3, max: 2, default: 1 },
-    { key: 'glow', label: 'Bagliore', min: 0.3, max: 2, default: 1 },
+    { key: 'speed', label: 'Crescita', min: 0.1, max: 3, default: 1.1 },
+    { key: 'density', label: 'Tubi', min: 0.3, max: 2, default: 1 },
+    { key: 'glow', label: 'Lucido', min: 0.3, max: 2, default: 1 },
   ],
   isoblocks: [
     { key: 'size', label: 'Cubi', min: 4, max: 16, default: 9 },
