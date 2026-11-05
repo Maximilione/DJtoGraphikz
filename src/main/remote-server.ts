@@ -53,6 +53,10 @@ let remoteDefs: Record<string, unknown> | null = null
 let remoteLooks: unknown[] = []
 // Bumped on every looks push; the page re-fetches thumbs only when it changes
 let looksRev = 0
+// Effect thumbnails (id -> jpeg dataURL) for the phone's effect grid, same rev rule
+let remoteThumbs: Record<string, string> = {}
+let thumbsRev = 0
+const THUMB_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/
 
 // osc-server reads the same caches — one source of truth for catalogs/state
 export const getRemoteDefs = () => remoteDefs
@@ -266,7 +270,7 @@ export function setupRemoteServer(
     if (req.method === 'GET' && url === '/state') {
       if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
       res.setHeader('Cache-Control', 'no-store')
-      json(res, 200, { engine: engineState(), looksRev, audio: lastAudio, vj: lastVj, seq: lastSeq, ext: lastExt })
+      json(res, 200, { engine: engineState(), looksRev, thumbsRev, audio: lastAudio, vj: lastVj, seq: lastSeq, ext: lastExt })
       return
     }
 
@@ -282,6 +286,14 @@ export function setupRemoteServer(
         looks: remoteLooks,
         looksRev,
       })
+      return
+    }
+
+    // Effect thumbnails: re-fetched only when thumbsRev bumps
+    if (req.method === 'GET' && url === '/thumbs') {
+      if (!authorized(req)) { json(res, 401, { error: 'unauthorized' }); return }
+      res.setHeader('Cache-Control', 'no-store')
+      json(res, 200, { thumbs: remoteThumbs, thumbsRev })
       return
     }
 
@@ -358,6 +370,19 @@ export function setupRemoteServer(
   ipcMain.on('remote:looks', (_e, looks) => {
     remoteLooks = Array.isArray(looks) ? looks : []
     looksRev++
+  })
+
+  // Effect thumbnails pushed by App on boot and after each capture. Only jpeg
+  // dataURLs pass: the page puts them in a CSS url("...")
+  ipcMain.on('remote:thumbs', (_e, thumbs) => {
+    const next: Record<string, string> = {}
+    if (thumbs && typeof thumbs === 'object') {
+      for (const [id, url] of Object.entries(thumbs)) {
+        if (/^[\w-]{1,48}$/.test(id) && typeof url === 'string' && url.length < 64 * 1024 && THUMB_RE.test(url)) next[id] = url
+      }
+    }
+    remoteThumbs = next
+    thumbsRev++
   })
 
   ipcMain.handle('remote:info', () => ({
@@ -502,6 +527,8 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   /* ---- FX ---- */
   .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s2); }
   .grid3 button { padding:12px 4px; font-size:12px; }
+  .grid3 button.thumb { min-height:56px; color:#fff; text-shadow:0 1px 3px #000; }
+  .grid3 button.thumb.on { color:var(--acc); }
   .prow { display:flex; align-items:center; gap:var(--s3); }
   .plbl { width:78px; flex:none; font-size:11px; letter-spacing:1.2px; text-transform:uppercase;
     color:var(--mute); font-family:ui-monospace,monospace; }
@@ -656,6 +683,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       </div>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
+      <button class="gap" id="postclear" style="width:100%">Rimuovi tutti i post FX</button>
       <div class="addgrid" id="postadd"></div>
       <div class="sect">Intensità</div>
       <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
@@ -720,6 +748,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 let token = localStorage.getItem('djg-token') || ''
 let defs = null            // catalogs from /defs
 let looksRev = -1
+let thumbsRev = -1, thumbs = {}
 const prev = {}            // dirty-check cache for structural updates
 let dragging = {}          // range keys currently touched — poll must not move them
 const timers = {}, pending = {}
@@ -853,6 +882,8 @@ function buildStatic(){
     wrap.appendChild(g)
   })
 
+  $('postclear').addEventListener('click', function(){ cmd({ type: 'postClear' }) })
+
   const db = $('deckb')
   ;(defs.effects || []).forEach(function(e){ db.appendChild(new Option(e.label, e.id)) })
   db.addEventListener('change', function(){ cmd({ type: 'deckB', value: db.value }) })
@@ -937,6 +968,29 @@ async function refreshLooks(rev){
   finally { looksFetching = false }
 }
 
+// ---- effect thumbnails behind the effect buttons (like the desktop grid) ----
+function paintThumbs(){
+  for (const id in fxBtns) {
+    const t = thumbs[id]
+    fxBtns[id].style.background = t ? 'linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), url("' + t + '") center / cover' : ''
+    fxBtns[id].classList.toggle('thumb', !!t)
+  }
+}
+let thumbsFetching = false
+async function refreshThumbs(rev){
+  if (thumbsFetching) return
+  thumbsFetching = true
+  try {
+    const r = await tfetch('/thumbs', { headers: auth() }, 6000)
+    if (r.status === 401) return logout()
+    const d = await r.json()
+    thumbs = d.thumbs || {}
+    paintThumbs()
+    thumbsRev = rev
+  } catch (_) {}
+  finally { thumbsFetching = false }
+}
+
 // ---- active-effect params (rebuilt only when the def set changes) ----
 function rebuildParams(e){
   const wrap = $('params')
@@ -1001,6 +1055,7 @@ function rebuildPostUI(e){
     chainEls[id] = r
   })
   if (!active.length) chain.appendChild(el('div', 'hint', 'Nessun post attivo'))
+  $('postclear').disabled = !active.length
 
   const add = $('postadd')
   add.textContent = ''
@@ -1173,6 +1228,7 @@ async function pollOnce(){
   conn(true)
 
   if (typeof j.looksRev === 'number' && j.looksRev !== looksRev) refreshLooks(j.looksRev)
+  if (typeof j.thumbsRev === 'number' && j.thumbsRev !== thumbsRev) refreshThumbs(j.thumbsRev)
 
   const e = j.engine
   if (!e || !defs) return
