@@ -40,9 +40,9 @@ uniform float glow;
 // an axis-aligned capsule (its rounded cap is the growing tip), each
 // finished run ends in a ball joint.
 //
-// `density` sets how many pipes grow per screen (2..7). It is read live, so
-// lowering it drops the newest pipes at once: map it to something slow,
-// never to an LFO or a fast audio band.
+// `density` sets how many pipes grow per screen (2..7). The engine reads it
+// once per screen (pipesCount) and writes only those pipes into the texture,
+// so a moving density never pops grown pipes in or out mid-screen.
 
 const int NPIPE = 7;
 const int NCHUNK = 6;         // 6 chunks x 4 runs = 24 runs per pipe
@@ -122,7 +122,6 @@ void main() {
 
   float ep = floor(uTime / EPOCH);
   float local = uTime - ep * EPOCH;
-  float nPipe = clamp(floor(2.0 + 2.6 * clamp(density, 0.3, 2.0) + hash(ep, 1.0, 1.0)), 2.0, float(NPIPE));
 
   // fixed screensaver camera, only a slow sway so the screen is never frozen.
   // Long lens from far back: the same framing as a wide lens up close, but
@@ -142,7 +141,6 @@ void main() {
 
   if (hitsBox(ro, ird, -BOX - JR, BOX + JR, tBest)) {
     for (int i = 0; i < NPIPE; i++) {
-      if (float(i) >= nPipe) break;
       int base = i * PIPE_TEXELS;
       // two pipes sharing a grid line would z-fight; a hair of radius apart
       // lets the fatter one win cleanly

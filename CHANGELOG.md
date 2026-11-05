@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.79.1-beta] — 2026-11-05
+
+### Fixed
+- **Pipes: tubi che comparivano dal nulla per un istante** (2f10bd8): il numero di tubi veniva ricalcolato ogni frame da `density`, e un mapping su quel parametro (il vecchio LFO rimasto nelle impostazioni salvate, o una banda audio) faceva apparire e sparire tubi gia' cresciuti. Ora e' fissato una volta per schermata. Nuovo `check:pipes`.
+
 ## [0.79.0-beta] — 2026-11-05
 
 ### Added
