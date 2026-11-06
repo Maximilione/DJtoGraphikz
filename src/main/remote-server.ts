@@ -417,12 +417,12 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>DJtoGraphikz Remote</title>
-<meta name="theme-color" content="#0a0a0e">
+<meta name="theme-color" content="#08080c">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a0a0e'/><path d='M8 14a8 8 0 0 1 16 0' stroke='%2300ff88' stroke-width='2.5' fill='none'/><rect x='5' y='13' width='4' height='8' rx='2' fill='%2300ff88'/><rect x='23' y='13' width='4' height='8' rx='2' fill='%2300ff88'/><ellipse cx='16' cy='20' rx='6' ry='4' fill='none' stroke='%2300ff88' stroke-width='2'/><circle cx='16' cy='20' r='2' fill='%2300ff88'/></svg>">
 <style>
   :root {
-    --bg:#0a0a0e; --panel:#131318; --panel2:#1a1a22; --line:#26262f;
-    --ink:#e8e8f0; --mute:#8888a0; --acc:#00ff88; --danger:#ff4455;
+    --bg:#08080c; --panel:#1b1b25; --panel2:#272733; --line:#2c2c3a;
+    --ink:#ecedf4; --mute:#adadc4; --acc:#00ff88; --danger:#ff4d5e; --frozen:#5cd0ff; --armed:#ffaa00;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -520,7 +520,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .seqnav button { flex:1; min-height:76px; font-size:17px; font-weight:700; letter-spacing:1px; }
   #seqnext { border-color:var(--acc); color:var(--acc); }
   #seqstop { width:100%; min-height:56px; font-weight:700; letter-spacing:1px; }
-  button.armed { border-color:var(--danger); color:var(--danger); background:rgba(255,68,85,.14); }
+  button.armed { border:1px dashed var(--armed); color:var(--armed); background:rgba(255,170,0,.12); }
   #seqlist button { display:flex; width:100%; min-height:60px; align-items:center; justify-content:space-between;
     gap:var(--s3); padding:0 var(--s4); margin-bottom:var(--s2); font-size:15px; text-align:left; }
   .lookgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s2); }
@@ -621,6 +621,172 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       calc(78px + env(safe-area-inset-left)); }
     .lookgrid { grid-template-columns:repeat(8,1fr); }
   }
+
+  /* ==== REDESIGN "Banco del pollice" ==== */
+  :root {
+    --panel3:#272733; --r:8px;
+    --dock:131px;                     /* #strip 64 + #tabs 48 + padding: pins sit on it */
+    --docksafe:calc(var(--dock) + env(safe-area-inset-bottom));
+  }
+  button, select, .look, .seg, .setuprow, .chainrow { border-radius:var(--r); }
+  button { font-weight:600; }
+  /* on = outline and tint; a full green is only for what is on the wall */
+  button.on { background:rgba(0,255,136,.10); border-color:var(--acc); color:var(--acc); box-shadow:none; }
+  .sect { text-transform:none; letter-spacing:0; font-size:13px; font-weight:600; font-family:inherit; }
+  .sect { color:var(--mute); margin:24px 0 10px; }
+  .sect:first-child { margin-top:8px; }
+
+  /* faders: a hardware cap, not a browser slider. --v is written by fill() */
+  input[type=range] { -webkit-appearance:none; appearance:none; height:44px; border-radius:6px;
+    background:linear-gradient(var(--mute),var(--mute)) 0 50% / var(--v,0%) 8px no-repeat,
+               linear-gradient(var(--panel3),var(--panel3)) 0 50% / 100% 8px no-repeat; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:36px;
+    border-radius:5px; background:var(--ink); border:0; box-shadow:0 0 0 2px var(--bg); }
+  input[type=range]::-moz-range-thumb { width:20px; height:36px; border-radius:5px; background:var(--ink); border:0; }
+
+  /* ---- #wall: what is on the projector right now, read-only, at a glance ---- */
+  #wall { position:sticky; top:0; z-index:20; background:var(--panel);
+    padding:calc(8px + env(safe-area-inset-top)) var(--s3) 2px; }
+  /* the line under the header is the live palette */
+  #wall::after { content:''; position:absolute; left:0; right:0; bottom:-3px; height:3px;
+    background:var(--pal, var(--line)); }
+  .wrow { display:flex; align-items:center; gap:var(--s2); min-height:44px; }
+  #wtitle { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  #wkick { color:var(--mute); }
+  #wname { font-size:20px; font-weight:700; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #tb_setup { flex:none; min-height:44px; min-width:64px; font-size:11px; letter-spacing:1.2px;
+    background:none; font-family:ui-monospace,monospace; color:var(--mute); display:flex; align-items:center; justify-content:center; gap:6px; }
+  #tb_setup .dot { margin:0; }
+  #tb_setup.on { background:var(--panel3); border-color:var(--line); color:var(--ink); }
+  #wall .srow2 { margin:0; gap:var(--s3); }
+  #wall .srow2 input { height:40px; }
+  #wall .pval { width:40px; }
+  /* the only full-surface colours on the page: nobody misses them with the phone at hip height */
+  #wall[data-s=black] { background:var(--danger); color:#000; }
+  #wall[data-s=freeze] { background:var(--frozen); color:#000; }
+  #wall.lost { background:var(--danger); color:#000; }
+  #wall.lost #wkick, #wall.lost .micro, #wall.lost #tb_setup { color:#000; }
+  #wall[data-s] #wkick, #wall[data-s] .micro, #wall[data-s] .pval, #wall[data-s] #tb_setup { color:#000; }
+  #wall[data-s] #tb_setup { border-color:rgba(0,0,0,.45); }
+  #wall[data-s] input[type=range] { background:linear-gradient(#000,#000) 0 50% / var(--v,0%) 8px no-repeat,
+    linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)) 0 50% / 100% 8px no-repeat; }
+  #wall[data-s] input[type=range]::-webkit-slider-thumb { background:#000; box-shadow:none; }
+  #lost { position:static; inset:auto; margin:6px calc(-1 * var(--s3)) 0; flex-direction:row; gap:8px; padding:8px var(--s3);
+    border-bottom:0; }
+  #lost .big { font-size:13px; }
+  #lost .sub { display:none; }
+
+  /* ---- #dock: safety row + tabs, in the thumb arc ---- */
+  #dock { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--panel);
+    border-top:1px solid var(--line); padding:8px var(--s3) env(safe-area-inset-bottom); }
+  #strip { position:static; background:none; border:0; padding:0; display:grid;
+    grid-template-columns:1.5fr .9fr 1fr 1fr; gap:var(--s2); }
+  #panic { margin-left:10px; }
+  #strip.fail { border:0; outline:2px solid var(--danger); outline-offset:3px; background:none; border-radius:var(--r); }
+  #strip button { min-height:64px; padding:0 2px; font-family:ui-monospace,monospace; font-size:14px; font-weight:800;
+    letter-spacing:.5px; background:var(--panel2); }
+  #blackout { font-size:18px !important; background:#000; border-color:var(--mute); }
+  #blackout.on { background:var(--danger); border-color:var(--danger); color:#000; }
+  #freeze { color:var(--frozen); border-color:var(--frozen); background:rgba(92,208,255,.12); }
+  #freeze.on { background:var(--frozen); border-color:var(--frozen); color:#000; }
+  #panic { color:var(--danger); border:2px solid var(--danger); background:rgba(255,77,94,.10); }
+  #panic.armed { border:1px dashed var(--armed); color:var(--armed); background:rgba(255,170,0,.12); }
+  #tap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; }
+  #tap .micro { font-size:10px; }
+  #bpm { font-size:22px; line-height:1.1; }
+  #tabs { position:static; background:none; border:0; padding:14px 0 4px; gap:0; }
+  #tabs button { min-height:48px; flex-direction:row; font-size:12px; font-weight:700; border-radius:0; color:var(--mute); }
+  #tabs button.on { background:none; color:var(--ink); box-shadow:inset 0 3px 0 var(--ink); }
+
+  main { padding:calc(var(--s3) + 3px) var(--s3) var(--docksafe); }
+
+  /* ---- .pin: each tab's main gesture rests on the dock ---- */
+  /* min-height + margin-top:auto: a filtered category must not lift the chips from under the thumb */
+  main > section { display:flex; flex-direction:column; min-height:calc(100vh - var(--docksafe) - 109px); }
+  main > section > .pin { margin-top:auto; }
+  main > section > :nth-last-child(2) { margin-bottom:var(--s4); }
+  .pin { position:sticky; bottom:var(--docksafe); z-index:10; margin-top:var(--s4);
+    background:var(--panel2); border:1px solid var(--line); border-bottom:0; border-radius:12px 12px 0 0;
+    padding:var(--s2); margin-left:calc(-1 * var(--s3)); margin-right:calc(-1 * var(--s3)); }
+
+  /* LIVE */
+  .lookgrid[data-d="2"] { grid-template-columns:repeat(2,1fr); }
+  .lookgrid[data-d="3"] { grid-template-columns:repeat(3,1fr); }
+  .lookgrid[data-d="4"] { grid-template-columns:repeat(4,1fr); }
+  .look { aspect-ratio:16/10; border-radius:var(--r); }
+  .lookgrid[data-d="2"] .look { aspect-ratio:16/9; }
+  .look .n { top:5px; left:5px; padding:1px 6px; border-radius:4px; background:rgba(0,0,0,.72); text-shadow:none; font-size:12px; font-weight:700; }
+  .look .nm { font-size:13px; padding:4px 7px; background:rgba(0,0,0,.72); }
+  .lookgrid[data-d="4"] .look .nm { font-size:11px; padding:2px 4px; }
+  .look.flash { border-color:var(--acc); box-shadow:inset 0 0 0 2px var(--acc); }
+  .empty-note { border:1px dashed var(--line); border-radius:var(--r); padding:20px var(--s4); color:var(--mute); font-size:14px; line-height:1.5; }
+  .empty-note b { display:block; color:var(--ink); margin-bottom:2px; }
+  #autovj { flex:1.4; min-height:60px; font-size:15px; letter-spacing:1px; }
+  details.fold { border:1px solid var(--line); border-radius:var(--r); margin-top:var(--s3); padding:0 var(--s3); background:var(--panel); }
+  details.fold > summary { min-height:52px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; list-style:none;
+    font-size:12px; letter-spacing:1.2px; text-transform:uppercase; font-family:ui-monospace,monospace; color:var(--ink); }
+  details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary::after { content:'+'; color:var(--mute); font-size:18px; }
+  details.fold[open] > summary::after { content:'−'; }
+  details.fold[open] { padding-bottom:var(--s3); }
+  #seqstep { font-size:18px; margin:2px 0 8px; }
+  .seqnav { margin:0; }
+  .seqnav button { min-height:68px; font-size:15px; }
+  #seqstop { flex:.8; width:auto; min-height:68px; font-size:12px; color:var(--mute); }
+  #seqprev { flex:.8; }
+  #seqnext { flex:2; background:rgba(0,255,136,.10); color:var(--acc); border-color:var(--acc); font-size:20px; }
+
+  /* FX */
+  .grid3 { gap:6px; }
+  .grid3 button { min-height:60px; font-size:13px; }
+  .grid3 button.thumb.on, .grid3 button.on { box-shadow:inset 0 0 0 2px var(--acc); border-color:var(--acc); color:#fff; }
+  #pwrap { margin-top:0; }
+  #fxcats { display:flex; gap:6px; overflow-x:auto; padding:6px; scrollbar-width:none; }
+  #fxcats::-webkit-scrollbar { display:none; }
+  #fxcats button { flex:none; min-height:44px; padding:0 14px; font-size:12px; font-family:ui-monospace,monospace; background:var(--panel); }
+  #fxcats button.on { background:var(--panel3); border-color:var(--ink); color:var(--ink); }
+
+  /* MIX */
+  .xnames { display:flex; justify-content:space-between; gap:var(--s3); font-size:13px; padding:2px 4px 0; }
+  .xnames span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .xnames b { color:var(--mute); margin-right:6px; font-family:ui-monospace,monospace; }
+  .xrow input { height:52px; }
+  .seg button.on { background:var(--panel3); color:var(--ink); box-shadow:inset 0 -2px 0 var(--ink); }
+  .seg button { font-weight:700; }
+
+  /* COLORI */
+  .palbtn.on { background:var(--panel3); border-color:var(--acc); box-shadow:inset 0 0 0 2px var(--acc); }
+  .palbtn.on .plabel { color:var(--ink); }
+  .palbtn .sw span { width:20px; height:20px; }
+  .pin .bigrow button { min-height:60px; font-size:14px; }
+
+  #pair { justify-content:flex-start; padding-top:16vh; }
+  #pair h1 { color:var(--ink); font-size:20px; letter-spacing:1.5px; text-transform:none; }
+  #pairbtn { background:rgba(0,255,136,.10); color:var(--acc); border:1px solid var(--acc); }
+
+  @media (orientation: landscape) and (max-height: 500px) {
+    :root { --dock:0px; }
+    #dock { display:contents; }
+    #tabs { position:fixed; background:var(--panel); padding:6px 4px 6px calc(4px + env(safe-area-inset-left)); justify-content:center; }
+    #tabs button { flex:none; min-width:64px; box-shadow:none; }
+    #tabs button.on { box-shadow:inset 3px 0 0 var(--ink); }
+    #strip { position:fixed; top:0; bottom:0; right:0; z-index:21; width:calc(100px + env(safe-area-inset-right));
+      padding:6px calc(6px + env(safe-area-inset-right)) 6px 6px; background:var(--panel);
+      border-left:1px solid var(--line); grid-template-columns:1fr; grid-template-rows:1.4fr 1fr 1fr .9fr; }
+    #strip button { min-height:0; }
+    #wall { padding-left:calc(84px + env(safe-area-inset-left)); padding-right:calc(112px + env(safe-area-inset-right)); }
+    #wall .wrow { min-height:36px; }
+    main { padding:var(--s3) calc(112px + env(safe-area-inset-right)) var(--s4) calc(84px + env(safe-area-inset-left)); }
+    .pin { bottom:0; margin-left:0; margin-right:0; }
+    .lookgrid[data-d] { grid-template-columns:repeat(4,1fr); }
+  }
+  @media (max-height: 640px) and (orientation: portrait) {
+    #strip button { min-height:56px; }
+    :root { --dock:124px; }
+    #tabs button { min-height:42px; }
+    #wall .wrow { min-height:36px; }
+    #wname { font-size:17px; }
+  }
 </style>
 </head>
 <body>
@@ -634,60 +800,61 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 </div>
 
 <div id="app" hidden>
-  <header id="strip">
-    <div class="srow">
-      <button id="blackout">BLACK</button>
-      <button id="freeze">FREEZE</button>
-      <button id="tap">TAP</button>
-      <div class="bpmbox"><span id="bpm" class="mono">--</span><span id="bpmlbl" class="micro">BPM</span></div>
-      <button id="panic">PANIC</button>
+  <header id="wall">
+    <div class="wrow">
+      <div id="wtitle"><span id="wkick" class="micro">IN ONDA</span><span id="wname">&mdash;</span></div>
+      <span id="ver" class="micro"></span>
+      <button id="tb_setup" aria-label="Info e connessione"><i id="conn2" class="dot"></i>INFO</button>
     </div>
     <div class="srow2">
       <span class="micro">MASTER</span>
       <input type="range" id="master" min="0" max="1" step="0.01" value="1">
-      <span id="ver" class="micro"></span>
+      <span id="master_v" class="pval"></span>
     </div>
+    <div id="lost" hidden><i class="dot"></i><div class="big">COLLEGAMENTO PERSO</div><div class="sub">riprovo in automatico</div></div>
   </header>
 
   <main>
     <section id="tab-live">
-      <div id="seqnow" hidden>
-        <div class="micro" id="seqname"></div>
-        <div class="seqstep mono" id="seqstep"></div>
-        <div class="seqnav">
-          <button id="seqprev">&laquo; INDIETRO</button>
-          <button id="seqnext">AVANTI &raquo;</button>
-        </div>
-        <button id="seqstop">STOP SCALETTA</button>
-      </div>
-      <div class="sect">Look Bank</div>
+      <div class="sect">Look</div>
       <div class="lookgrid" id="looks"></div>
       <div class="sect">Auto VJ</div>
       <div class="row">
         <button id="autovj">AUTO VJ</button>
         <select id="genre" aria-label="Genere"></select>
       </div>
-      <div class="row gap"><button id="scenesave">SALVA SCENA</button><button id="onlymine">SOLO MIE SCENE</button></div>
       <div class="hint" id="vjinfo"></div>
-      <div class="sect">BPM</div>
-      <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
-      <div class="hint" id="bpmext" hidden></div>
-      <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
       <div class="sect" id="seqsect">Scalette</div>
       <div id="seqlist"></div>
       <div class="hint" id="seqhint" hidden></div>
+      <details class="fold"><summary>Tempo</summary>
+        <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
+        <div class="hint" id="bpmext" hidden></div>
+        <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
+      </details>
+      <details class="fold"><summary>Scene Auto VJ</summary>
+        <div class="row"><button id="scenesave">SALVA SCENA</button><button id="onlymine">SOLO MIE SCENE</button></div>
+      </details>
+      <div id="seqnow" class="pin" hidden>
+        <div class="micro" id="seqname"></div>
+        <div class="seqstep mono" id="seqstep"></div>
+        <div class="seqnav">
+          <button id="seqstop">STOP</button>
+          <button id="seqprev">&laquo;</button>
+          <button id="seqnext">AVANTI &raquo;</button>
+        </div>
+      </div>
     </section>
 
     <section id="tab-fx" hidden>
-      <details id="pwrap"><summary id="pname" class="sect" style="min-height:48px;display:flex;align-items:center;cursor:pointer">Parametri</summary><div id="params"></div></details>
+      <details id="pwrap" class="fold"><summary id="pname">Parametri</summary><div id="params"></div></details>
       <div id="favwrap" hidden><div class="sect">&#9733; Preferiti</div><div class="grid3" id="favs"></div></div>
       <div id="fxgroups"></div>
+      <div id="fxcats" class="pin"></div>
     </section>
 
     <section id="tab-mix" hidden>
-      <div class="sect">Crossfader</div>
-      <div class="xrow"><span class="xl">A</span><input type="range" id="xfade" min="0" max="1" step="0.01" value="0"><span class="xl">B</span></div>
-      <div class="sect">Effetto Deck B</div>
+            <div class="sect">Effetto Deck B</div>
       <select id="deckb"></select>
       <div class="sect">Blend / maschera</div>
       <div class="seg" id="blend"></div>
@@ -707,8 +874,8 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
       <button class="gap" id="postclear" style="width:100%">Rimuovi tutti i post FX</button>
-      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Aggiungi post FX</summary><div class="addgrid" id="postadd"></div></details>
-      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Immagine</summary>
+      <details class="fold"><summary>Aggiungi post FX</summary><div class="addgrid" id="postadd"></div></details>
+      <details class="fold"><summary>Immagine</summary>
       <div class="sect">Spessore linee</div>
       <div class="prow"><input type="range" id="lboost" min="0" max="1" step="0.01" value="0.5"><span class="pval" id="lboost_v">0.5</span></div>
       <div class="sect">Presenza proiettore</div>
@@ -716,23 +883,26 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Motion Blur</div>
       <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
       </details>
-      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Camera</summary>
+      <details class="fold"><summary>Camera</summary>
       <div class="prow"><span class="plbl">Zoom</span><input type="range" id="camzoom" min="0.2" max="4" step="0.05" value="1"><span class="pval" id="camzoom_v">1</span></div>
       <div class="prow"><span class="plbl">Rotaz.</span><input type="range" id="camrot" min="-180" max="180" step="1" value="0"><span class="pval" id="camrot_v">0</span></div>
       <div class="prow"><span class="plbl">Mosaico</span><input type="range" id="camtile" min="1" max="8" step="1" value="1"><span class="pval" id="camtile_v">1</span></div>
       <div class="prow"><span class="plbl">Spinta</span><input type="range" id="campush" min="0" max="1" step="0.05" value="0"><span class="pval" id="campush_v">0</span></div>
       <button class="gap" id="camreset" style="width:100%">Azzera inquadratura</button>
       </details>
-      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Transizione</summary>
+      <details class="fold"><summary>Transizione</summary>
       <select id="trtype"></select>
       <div class="prow" style="margin-top:8px"><span class="plbl">Durata</span><input type="range" id="trdur" min="0" max="3" step="0.1" value="0.8"><span class="pval" id="trdur_v">0.8</span></div>
       </details>
+      <div class="pin">
+        <div class="xnames"><span><b>A</b><span id="xa"></span></span><span><b>B</b><span id="xb"></span></span></div>
+        <div class="xrow"><input type="range" id="xfade" min="0" max="1" step="0.01" value="0" aria-label="Crossfader"></div>
+      </div>
     </section>
 
     <section id="tab-color" hidden>
       <div class="sect">Palette</div>
-      <div class="row bigrow"><button id="palprev">&laquo; PRECEDENTE</button><button id="palnext">SUCCESSIVA &raquo;</button></div>
-      <div class="palgrid gap" id="palgrid"></div>
+      <div class="palgrid" id="palgrid"></div>
       <div class="sect">Cicla palette</div>
       <div class="row bigrow"><button id="cycon">CICLA</button><button id="cycbeat">A TEMPO</button></div>
       <div class="prow gap"><span class="plbl" id="cyclbl">Ogni (s)</span><input type="range" id="cycval" min="1" max="60" step="1" value="10"><span class="pval" id="cycval_v">10</span></div>
@@ -742,30 +912,33 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="prow"><span class="plbl">Saturazione</span><input type="range" id="g_saturation" min="0" max="2" step="0.05" value="1.1"><span class="pval" id="gv_saturation"></span></div>
       <div class="prow"><span class="plbl">Neri</span><input type="range" id="g_lift" min="0" max="0.3" step="0.01" value="0"><span class="pval" id="gv_lift"></span></div>
       <div class="prow"><span class="plbl">Vignetta</span><input type="range" id="g_vignette" min="0" max="1.5" step="0.05" value="0.25"><span class="pval" id="gv_vignette"></span></div>
+      <div class="pin"><div class="row bigrow"><button id="palprev">&laquo; PRECEDENTE</button><button id="palnext">SUCCESSIVA &raquo;</button></div></div>
     </section>
 
     <section id="tab-setup" hidden>
       <div class="sect">Info</div>
       <div class="setuprow"><span class="micro">Versione app</span><span id="sver" class="mono"></span></div>
       <div class="setuprow"><span class="micro">Stato</span><span><i id="conn" class="dot"></i><span id="connt">—</span></span></div>
+      <div class="hint">Se in alto compare COLLEGAMENTO PERSO: DJtoGraphikz &egrave; chiusa o il wifi &egrave; caduto. Il telefono riprova da solo; riapri l'app o controlla la rete. Da quel momento BLACK dal telefono non arriva.</div>
       <div class="hint">Imposta il blocco automatico del telefono su Mai per la durata del set: lo schermo spento ferma il remote.</div>
       <button id="unpair">SCOLLEGA</button>
     </section>
   </main>
 
-  <div id="lost" hidden>
-    <i class="dot"></i>
-    <div class="big">APP NON RAGGIUNGIBILE</div>
-    <div class="sub">DJtoGraphikz &egrave; chiusa o il wifi &egrave; caduto. Riprovo in automatico &mdash; riapri l'app o controlla la rete.</div>
+  <div id="dock">
+    <div id="strip">
+      <button id="blackout">BLACK</button>
+      <button id="tap"><span id="bpm" class="mono">--</span><span id="bpmlbl" class="micro">TAP</span></button>
+      <button id="freeze">FREEZE</button>
+      <button id="panic">PANIC</button>
+    </div>
+    <nav id="tabs">
+      <button id="tb_live" class="on">LIVE</button>
+      <button id="tb_fx">EFFETTI</button>
+      <button id="tb_mix">MIX</button>
+      <button id="tb_color">COLORI</button>
+    </nav>
   </div>
-
-  <nav id="tabs">
-    <button id="tb_live" class="on"><span class="ti">&#9673;</span>LIVE</button>
-    <button id="tb_fx"><span class="ti">&#10022;</span>FX</button>
-    <button id="tb_mix"><span class="ti">&#8644;</span>MIX</button>
-    <button id="tb_color"><span class="ti">&#9687;</span>COLORI</button>
-    <button id="tb_setup"><span class="ti">&#9881;</span>INFO</button>
-  </nav>
 </div>
 
 <script>
@@ -913,15 +1086,19 @@ function wireRange(inp, key, make, valEl){
   inp.addEventListener('input', function(){
     const v = parseFloat(inp.value)
     if (valEl) valEl.textContent = fmtV(v)
+    fill(inp)
     slide(key, make(v))
   }, { passive: true })
   inp.addEventListener('change', function(){ flush(key, make(parseFloat(inp.value))) })
+  fill(inp)
 }
 // Poll-side updates: never touch a slider the user is dragging
 function setRange(inp, v){
   if (!inp || dragging[inp.dataset.dk]) return
   if (Math.abs(parseFloat(inp.value) - v) > 1e-9) inp.value = v
+  fill(inp)
 }
+function fill(inp){ inp.style.setProperty('--v', (inp.value - inp.min) / (inp.max - inp.min) * 100 + '%') }
 function setText(node, t){ if (node && node.textContent !== t) node.textContent = t }
 function setOn(node, on){ if (node) node.classList.toggle('on', on) }
 
@@ -987,8 +1164,22 @@ function buildStatic(){
     if (!byCat[e.category]) { byCat[e.category] = []; cats.push(e.category) }
     byCat[e.category].push(e)
   })
+  const chips = $('fxcats')
+  const pick = function(c, chip){
+    wrap.querySelectorAll('[data-c]').forEach(function(n){ n.hidden = c !== null && n.dataset.c !== c })
+    chips.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b === chip) })
+    window.scrollTo(0, 0)
+  }
+  ;[null].concat(cats).forEach(function(c){
+    const b = el('button', c === null ? 'on' : '', c === null ? 'Tutti' : c)
+    b.addEventListener('click', function(){ pick(c, b) })
+    chips.appendChild(b)
+  })
   cats.forEach(function(c){
-    wrap.appendChild(el('div', 'sect', c))
+    const box = el('div')
+    box.dataset.c = c
+    wrap.appendChild(box)
+    box.appendChild(el('div', 'sect', c))
     const g = el('div', 'grid3')
     byCat[c].forEach(function(e){
       const b = el('button', '', e.label)
@@ -996,7 +1187,7 @@ function buildStatic(){
       fxBtns[e.id] = b
       g.appendChild(b)
     })
-    wrap.appendChild(g)
+    box.appendChild(g)
   })
 
   arm($('postclear'), 'TOCCA ANCORA PER RIMUOVERE', function(){ cmd({ type: 'postClear' }) })
@@ -1041,7 +1232,19 @@ function renderLooks(looks){
   grid.textContent = ''
   const byIdx = {}
   ;(looks || []).forEach(function(l){ byIdx[l.index] = l })
-  for (let i = 0; i < 16; i++){
+  // only the slots after the last saved one are dropped: a hole in the bank
+  // stays a hole, so look 9 is always the ninth pad
+  const n = (looks || []).reduce(function(m, l){ return Math.max(m, l.index + 1) }, 0)
+  grid.dataset.d = n <= 6 ? 2 : n <= 12 ? 3 : 4
+  if (!n) {
+    const note = el('div', 'empty-note', 'Si salvano dal computer, nel pannello Look Bank.')
+    note.prepend(el('b', '', 'Nessun look salvato'))
+    grid.style.display = 'block'
+    grid.appendChild(note)
+    return
+  }
+  grid.style.display = ''
+  for (let i = 0; i < n; i++){
     const l = byIdx[i]
     if (!l) { grid.appendChild(el('div', 'look empty', String(i + 1))); continue }
     const d = el('div', 'look')
@@ -1209,6 +1412,7 @@ function postLabel(id){
   for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i].label
   return id
 }
+function postLabelFx(id){ const f = (defs.effects || []).find(function(x){ return x.id === id }); return f ? f.label : '' }
 function fxLabel(e){
   if (e.customShader) return 'Shader'
   const list = defs.effects || []
@@ -1263,9 +1467,9 @@ function wireSeq(){
   // Stop mid-show is expensive: first tap arms it, second within 2.5s fires it
   $('seqstop').addEventListener('click', function(){
     const b = $('seqstop')
-    if (Date.now() - seqArm < 2500) { seqArm = 0; b.classList.remove('armed'); b.textContent = 'STOP SCALETTA'; seqSend({ type: 'seqStop' }); return }
-    seqArm = Date.now(); b.classList.add('armed'); b.textContent = 'TOCCA ANCORA PER FERMARE'
-    setTimeout(function(){ if (Date.now() - seqArm >= 2400) { b.classList.remove('armed'); b.textContent = 'STOP SCALETTA' } }, 2600)
+    if (Date.now() - seqArm < 2500) { seqArm = 0; b.classList.remove('armed'); b.textContent = 'STOP'; seqSend({ type: 'seqStop' }); return }
+    seqArm = Date.now(); b.classList.add('armed'); b.textContent = 'CONFERMA'
+    setTimeout(function(){ if (Date.now() - seqArm >= 2400) { b.classList.remove('armed'); b.textContent = 'STOP' } }, 2600)
   })
 }
 wireSeq()
@@ -1284,7 +1488,7 @@ function renderExt(x, e, bpm){
     // the desktop shows 'Audio perso' only while it retries; 'stopped' is a choice
     const lostAudio = x.audio === 'reconnecting'
     $('bpm').style.color = lostAudio ? 'var(--danger)' : ''
-    setText($('bpmlbl'), lostAudio ? 'AUDIO' : 'BPM')
+    setText($('bpmlbl'), lostAudio ? 'AUDIO' : 'TAP')
     const ext = $('bpmext')
     ext.hidden = !(x.bpmMode === 'midi' || x.bpmMode === 'prodjlink')
     if (!ext.hidden) setText(ext, (x.bpmMode === 'midi' ? 'Tempo da MIDI clock' : 'Tempo da Pro DJ Link') + ': TAP e ±1 lo sostituiscono, si riattiva solo dal desktop')
@@ -1386,6 +1590,11 @@ async function pollOnce(){
   const bpm = (j.audio && j.audio.bpm) || e.bpm
   setText($('bpm'), bpm ? String(Math.round(bpm)) : '--')
   setRange($('master'), num(e.brightness, 1))
+  if (!dragging.master) setText($('master_v'), Math.round(num(e.brightness, 1) * 100) + '%')
+  const wall = $('wall')
+  if (e.blackout) wall.dataset.s = 'black'; else if (e.frozen) wall.dataset.s = 'freeze'; else delete wall.dataset.s
+  setText($('wkick'), e.blackout ? 'BLACK' : e.frozen ? 'FREEZE' : 'IN ONDA')
+  setText($('wname'), fxLabel(e))
 
   // AutoVJ: desktop is the source of truth; optimistic tap corrected here
   if (j.vj) {
@@ -1427,6 +1636,8 @@ async function pollOnce(){
 
   // MIX
   setRange($('xfade'), num(e.crossfade, 0))
+  setText($('xa'), fxLabel(e))
+  setText($('xb'), postLabelFx(e.deckBEffect))
   const db = $('deckb')
   if (e.deckBEffect && document.activeElement !== db && db.value !== e.deckBEffect) db.value = e.deckBEffect
   if (prev.blend !== e.blendMode) {
@@ -1479,6 +1690,7 @@ async function pollOnce(){
   const pal = (e.colors || []).join(',')
   if (prev.pal !== pal) {
     prev.pal = pal
+    $('wall').style.setProperty('--pal', 'linear-gradient(90deg,' + e.colors.join(',') + ')')
     document.querySelectorAll('.palbtn').forEach(function(b){
       b.classList.toggle('on', b.dataset.c === pal)
     })
@@ -1488,10 +1700,12 @@ async function pollOnce(){
 let connFails = 0
 function conn(ok){
   $('conn').classList.toggle('ok', ok)
+  $('conn2').classList.toggle('ok', ok)
   setText($('connt'), ok ? 'Connesso' : 'Offline')
   connFails = ok ? 0 : connFails + 1
   // one missed poll can be wifi hiccup; two means the app is gone
   $('lost').hidden = connFails < 2
+  $('wall').classList.toggle('lost', connFails >= 2)
 }
 
 // ---- static wiring ----
@@ -1517,7 +1731,8 @@ function wireStatic(){
     cmd({ type: 'freeze', value: on }).then(function(ok){ if (ok === false) btn.classList.toggle('on', !on) })
   })
   $('tap').addEventListener('click', function(){ cmd({ type: 'tap' }) })
-  $('panic').addEventListener('click', function(){ buzz(40); cmd({ type: 'panic' }).then(poll) })
+  // two taps: the phone has no Annulla, and PANIC now sits in the thumb arc
+  arm($('panic'), 'CONFERMA', function(){ buzz(40); cmd({ type: 'panic' }).then(poll) })
 
   document.querySelectorAll('#bpmmode button').forEach(function(b){
     b.addEventListener('click', function(){ cmd({ type: 'bpmMode', value: b.dataset.m }).then(poll) })
@@ -1556,6 +1771,7 @@ function wireStatic(){
   arm($('unpair'), 'TOCCA ANCORA PER SCOLLEGARE', logout)
 
   wireRange($('master'), 'master', function(v){ return { type: 'brightness', value: v } })
+  $('master').addEventListener('input', function(){ $('master_v').textContent = Math.round(this.value * 100) + '%' })
   wireRange($('xfade'), 'xfade', function(v){ return { type: 'crossfade', value: v } })
   wireRange($('mblur'), 'mblur', function(v){ return { type: 'motionBlur', value: v } }, $('mblur_v'))
   wireRange($('msoft'), 'msoft', function(v){ return { type: 'maskSoft', value: v } }, $('msoft_v'))
