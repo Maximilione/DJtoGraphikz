@@ -1,6 +1,7 @@
 import type { Engine, PostId } from '@engine/Engine'
 import { MIDI_CLOCK } from '@engine/audio/MidiClock'
 import { readJson, writeJson } from './storage'
+import { pushToast } from './components/Toasts/Toasts'
 import { momentary } from './momentary'
 
 // Web MIDI learn — bindings route through the same dispatchCmd used by the
@@ -60,6 +61,8 @@ export const MIDI_TARGETS: MidiTarget[] = [
   { id: 'blackout', label: 'Blackout', group: 'Trigger', hold: 'toggle', toCmd: (_v, e) => ({ type: 'blackout', value: !e.isBlackout() }) },
   { id: 'freeze', label: 'Freeze', group: 'Trigger', hold: 'toggle', toCmd: (_v, e) => ({ type: 'freeze', value: !e.isFrozen() }) },
   { id: 'autovj', label: 'Auto VJ', group: 'Trigger', hold: 'toggle', toCmd: () => ({ type: 'autovj', value: '__toggle__' }) },
+  // no hold: PANIC has no inverse
+  { id: 'panic', label: 'Panic', group: 'Trigger', toCmd: () => ({ type: 'panic' }) },
   ...Array.from({ length: 16 }, (_, i) => ({
     id: `look:${i}`, label: `Look ${i + 1}`, group: 'Look Bank', hold: 'preset' as const,
     toCmd: () => ({ type: 'look', value: i }),
@@ -176,9 +179,14 @@ class MidiEngine {
     const changed = msg !== this.lastMessage
     this.lastMessage = msg
 
-    // Learn mode: bind and consume
+    // Learn mode: bind and consume. setBinding steals the message from any
+    // other target in silence: say so, or the Blackout stops answering mid-show.
     if (this.learnTarget && value > 0) {
-      this.setBinding(this.learnTarget, { kind, ch, num })
+      const b = { kind, ch, num }
+      const prevId = Object.keys(this.bindings).find(id => id !== this.learnTarget && this.bindings[id].kind === kind && this.bindings[id].ch === ch && this.bindings[id].num === num)
+      const prevLabel = prevId && MIDI_TARGETS.find(t => t.id === prevId)?.label
+      if (prevLabel) pushToast(`${bindingLabel(b)} spostato da ${prevLabel}`, 'midi-steal')
+      this.setBinding(this.learnTarget, b)
       this.learnTarget = null
       this.notify()
       return
@@ -225,7 +233,23 @@ class MidiEngine {
       }
       this.dispatch(cmd)
     } else {
-      // Faders: notes act as 0/1 switches, CC passes through
+      // Faders: notes act as 0/1 switches, CC passes through. A sweep is
+      // hundreds of messages a second and every one rebuilt the engine
+      // snapshot: the last value per target goes once per frame. Timer, not
+      // rAF: macOS pauses rAF for a window under the DJ software.
+      this.faderPending.set(target, value)
+      if (!this.faderTimer) this.faderTimer = window.setTimeout(this.flushFaders, 16)
+    }
+  }
+
+  private faderPending = new Map<MidiTarget, number>()
+  private faderTimer = 0
+  private flushFaders = () => {
+    this.faderTimer = 0
+    const batch = [...this.faderPending]
+    this.faderPending.clear()
+    if (!this.engine || !this.dispatch) return
+    for (const [target, value] of batch) {
       const cmd = target.toCmd(value, this.engine)
       if (cmd) this.dispatch(cmd)
     }

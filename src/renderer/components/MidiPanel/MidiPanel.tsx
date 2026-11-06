@@ -14,6 +14,17 @@ interface MidiPanelProps {
  * The controllers themselves are started by App with the engine — this panel
  * is Pro-only, and starting them here left MIDI and pads dead in Live mode.
  */
+/**
+ * Rendered as the Panel's first child: the Panel unmounts its children when
+ * collapsed (accordion) and App unmounts MidiPanel outside Pro, so this
+ * cleanup disarms a Learn left pending — the next pad touched mid-show was
+ * being bound instead of acting.
+ */
+function LearnGuard() {
+  useEffect(() => () => { midi.cancelLearn(); gamepad.cancelLearn() }, [])
+  return null
+}
+
 export function MidiPanel({ engine }: MidiPanelProps) {
   const [, force] = useReducer((x: number) => x + 1, 0)
 
@@ -40,7 +51,8 @@ export function MidiPanel({ engine }: MidiPanelProps) {
   }
 
   return (
-    <Panel id="midi" title="MIDI" defaultCollapsed group="right">
+    <Panel id="midi" title="MIDI e gamepad" defaultCollapsed group="right" active={midi.deviceNames.length > 0 || gamepad.padNames.length > 0}>
+      <LearnGuard />
       <div className="midi-panel">
         <div className="midi-status">
           {!midi.supported ? 'Web MIDI non disponibile'
@@ -50,7 +62,7 @@ export function MidiPanel({ engine }: MidiPanelProps) {
         </div>
         {learning && (
           <div className="midi-learning">
-            Muovi un controllo MIDI per assegnarlo…{' '}
+            Muovi un controllo per «{MIDI_TARGETS.find(t => t.id === learning)?.label}»…{' '}
             <button className="btn btn-secondary btn-sm" title="Annulla l'assegnazione MIDI" onClick={() => midi.cancelLearn()}>Annulla</button>
           </div>
         )}
@@ -61,10 +73,11 @@ export function MidiPanel({ engine }: MidiPanelProps) {
               const b = midi.getBinding(t.id)
               return (
                 <div key={t.id} className="midi-row">
-                  <span className="midi-label">{t.label}</span>
+                  <span className="midi-label" title={t.label}>{t.label}</span>
                   <span className="midi-binding">{bindingLabel(b)}</span>
                   <button
                     className={`btn btn-sm ${learning === t.id ? 'btn-danger' : 'btn-secondary'}`}
+                    aria-label={`Learn ${t.label}`}
                     title={learning === t.id ? 'Annulla learn' : 'Assegna un controllo MIDI: premi e poi muovi un knob/pad'}
                     onClick={() => (learning === t.id ? midi.cancelLearn() : midi.learn(t.id))}
                   >
@@ -72,7 +85,7 @@ export function MidiPanel({ engine }: MidiPanelProps) {
                   </button>
                   {b && (
                     <button className="btn btn-secondary btn-sm" title="Rimuovi binding"
-                      onClick={() => clearWithUndo(t.id, t.label)} aria-label="Rimuovi binding">✕</button>
+                      onClick={() => clearWithUndo(t.id, t.label)} aria-label={`Rimuovi binding ${t.label}`}>✕</button>
                   )}
                 </div>
               )
@@ -88,7 +101,7 @@ export function MidiPanel({ engine }: MidiPanelProps) {
         </div>
         {gpLearning && (
           <div className="midi-learning">
-            Premi un pulsante o muovi un asse del gamepad…{' '}
+            Premi un pulsante o muovi un asse per «{MIDI_TARGETS.find(t => t.id === gpLearning)?.label}»…{' '}
             <button className="btn btn-secondary btn-sm" title="Annulla l'assegnazione gamepad" onClick={() => gamepad.cancelLearn()}>Annulla</button>
           </div>
         )}
@@ -96,10 +109,11 @@ export function MidiPanel({ engine }: MidiPanelProps) {
           const b = gamepad.getBinding(t.id)
           return (
             <div key={t.id} className="midi-row">
-              <span className="midi-label">{t.label}</span>
+              <span className="midi-label" title={t.label}>{t.label}</span>
               <span className="midi-binding">{gpBindingLabel(b)}</span>
               <button
                 className={`btn btn-sm ${gpLearning === t.id ? 'btn-danger' : 'btn-secondary'}`}
+                aria-label={`Learn gamepad ${t.label}`}
                 title={gpLearning === t.id ? 'Annulla learn' : 'Assegna un pulsante o asse del gamepad'}
                 onClick={() => (gpLearning === t.id ? gamepad.cancelLearn() : gamepad.learn(t.id))}
               >
@@ -107,13 +121,20 @@ export function MidiPanel({ engine }: MidiPanelProps) {
               </button>
               {b && (
                 <button className="btn btn-secondary btn-sm" title="Rimuovi binding gamepad"
-                  onClick={() => gamepad.clearBinding(t.id)} aria-label="Rimuovi binding gamepad">✕</button>
+                  onClick={() => {
+                    gamepad.clearBinding(t.id)
+                    pushToast(`Binding gamepad rimosso: ${t.label}`, `gp-clear-${t.id}`, { label: 'Annulla', fn: () => gamepad.setBinding(t.id, b) })
+                  }} aria-label={`Rimuovi binding gamepad ${t.label}`}>✕</button>
               )}
             </div>
           )
         })}
         {gamepad.padNames.length > 0 && (
-          <button className="btn btn-secondary btn-sm" title="Rimuove tutti i binding del gamepad" onClick={() => gamepad.clearAll()}>Azzera gamepad</button>
+          <button className="btn btn-secondary btn-sm" title="Rimuove tutti i binding del gamepad" onClick={() => {
+            const snap = MIDI_TARGETS.flatMap(t => { const b = gamepad.getBinding(t.id); return b ? [[t.id, b] as const] : [] })
+            gamepad.clearAll()
+            pushToast('Gamepad azzerato', 'gp-clear', { label: 'Annulla', fn: () => snap.forEach(([id, b]) => gamepad.setBinding(id, b)) })
+          }}>Azzera gamepad</button>
         )}
       </div>
     </Panel>
