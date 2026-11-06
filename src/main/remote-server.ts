@@ -426,6 +426,9 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     --s1:4px; --s2:8px; --s3:12px; --s4:16px;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  /* a long press on a look opened the image menu / text selection and cut the hold short */
+  .look, button { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+  .look img { pointer-events:none; }
   [hidden] { display:none !important; }
   html { height:100%; }
   body {
@@ -455,8 +458,11 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   }
   input[type=range] {
     width:100%; height:44px; accent-color:var(--acc); background:transparent;
-    touch-action:pan-x;
+    /* pan-y: a swipe that starts on a slider still scrolls the page (MIX is all sliders) */
+    touch-action:pan-y;
   }
+  /* the two performance faders keep the old rule: a slightly diagonal drag must not turn into a scroll */
+  #xfade, #master { touch-action:pan-x; }
   .row { display:flex; gap:var(--s2); align-items:center; }
   .row > * { flex:1; }
 
@@ -475,25 +481,27 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     font-size:15px; letter-spacing:2px; border:0; }
 
   /* ---- top strip ---- */
-  #strip { position:sticky; top:0; z-index:20; background:rgba(10,10,14,.94);
-    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  #strip { position:sticky; top:0; z-index:20; background:var(--bg);
     border-bottom:1px solid var(--line);
     padding:calc(8px + env(safe-area-inset-top)) var(--s3) var(--s2); }
+  /* a command that did not get through: iOS ignores vibrate, so the strip says it */
+  #strip.fail { border-bottom:2px solid var(--danger); background:rgba(255,68,85,.18); }
   .srow { display:flex; gap:var(--s2); align-items:stretch; }
   .srow button { flex:1; font-weight:700; font-size:12px; letter-spacing:1px; min-height:48px; }
   #panic { border-color:var(--danger); color:var(--danger); }
   #panic:active { background:rgba(255,68,85,.25); }
   .bigrow button { min-height:56px; font-size:15px; font-weight:700; }
   .gap { margin-top:var(--s2); }
-  #blackout.on { border-color:var(--danger); color:var(--danger);
-    background:rgba(255,68,85,.14); box-shadow:0 0 12px rgba(255,68,85,.25); }
+  /* filled when on: an 8-14% tint on black was not readable, and these two stop the wall */
+  #blackout.on { border-color:var(--danger); color:#000; background:var(--danger); box-shadow:0 0 12px rgba(255,68,85,.25); }
+  #freeze.on { color:#000; background:var(--acc); }
   .bpmbox { width:64px; flex:none; display:flex; flex-direction:column; align-items:center;
     justify-content:center; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; gap:1px; }
   #bpm { font-size:16px; font-weight:700; color:var(--ink); }
   .srow2 { display:flex; gap:var(--s2); align-items:center; margin-top:var(--s1); }
   .srow2 input { flex:1; height:36px; }
-  #ver { flex:none; opacity:.7; }
+  #ver { flex:none; opacity:.7; color:var(--acc); }
 
   /* ---- layout ---- */
   main { padding:var(--s3) var(--s3) calc(84px + env(safe-area-inset-bottom)); }
@@ -512,7 +520,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .seqnav button { flex:1; min-height:76px; font-size:17px; font-weight:700; letter-spacing:1px; }
   #seqnext { border-color:var(--acc); color:var(--acc); }
   #seqstop { width:100%; min-height:56px; font-weight:700; letter-spacing:1px; }
-  #seqstop.armed { border-color:var(--danger); color:var(--danger); background:rgba(255,68,85,.14); }
+  button.armed { border-color:var(--danger); color:var(--danger); background:rgba(255,68,85,.14); }
   #seqlist button { display:flex; width:100%; min-height:60px; align-items:center; justify-content:space-between;
     gap:var(--s3); padding:0 var(--s4); margin-bottom:var(--s2); font-size:15px; text-align:left; }
   .lookgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s2); }
@@ -556,13 +564,17 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     font-family:ui-monospace,monospace; box-shadow:none; }
   .seg button.on { background:rgba(0,255,136,.14); box-shadow:none; }
   .seg button + button { border-left:1px solid var(--line); }
-  .chainrow { display:flex; align-items:center; gap:var(--s2); background:var(--panel);
+  /* 10 modes on one row overflowed a hidden box: luma and audio were unreachable in portrait */
+  #blend { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); }
+  #blend button { font-size:11px; }
+  /* name and buttons on one line, the wet slider full width under them: it had ~56-110px */
+  .chainrow { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2); background:var(--panel);
     border:1px solid var(--line); border-radius:10px; padding:4px var(--s2);
     margin-bottom:var(--s2); }
-  .chainrow .nm { width:66px; flex:none; font-size:12px; font-family:ui-monospace,monospace;
+  .chainrow .nm { flex:1; min-width:0; font-size:12px; font-family:ui-monospace,monospace;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .chainrow input { flex:1; height:40px; }
-  .chainrow button { flex:none; min-height:42px; min-width:42px; padding:0;
+  .chainrow input { order:3; flex:1 0 100%; height:40px; }
+  .chainrow button { flex:none; min-height:46px; min-width:46px; padding:0;
     background:var(--panel2); font-size:14px; border-radius:8px; }
   .addgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s2);
     margin-top:var(--s2); }
@@ -583,10 +595,12 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%;
     background:var(--danger); margin-right:6px; }
   .dot.ok { background:var(--acc); }
-  /* full-screen banner when the app stops answering (2+ failed polls) */
-  #lost { position:fixed; inset:0; z-index:99; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:12px; text-align:center;
-    background:rgba(0,0,0,.88); backdrop-filter:blur(4px); padding:24px; }
+  /* banner when the app stops answering (2+ failed polls): never over the
+     buttons — /state can time out while /cmd still lands, and BLACK must stay reachable */
+  #lost { position:fixed; inset:auto 0 calc(72px + env(safe-area-inset-bottom)) 0; z-index:99;
+    pointer-events:none; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:6px; text-align:center;
+    background:#2a0a10; border-top:1px solid var(--danger); border-bottom:1px solid var(--danger); padding:12px; }
   #lost .big { font-size:20px; font-weight:800; color:var(--danger); letter-spacing:1px; }
   #lost .sub { font-size:13px; color:var(--mute); max-width:280px; line-height:1.5; }
   #lost .dot { animation: lostpulse 1.2s infinite; }
@@ -601,7 +615,8 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       border-right:1px solid var(--line);
       padding:6px 6px 6px calc(6px + env(safe-area-inset-left)); }
     #tabs button { flex:none; min-width:58px; }
-    #strip { padding-left:calc(78px + env(safe-area-inset-left)); }
+    #strip { padding-left:calc(78px + env(safe-area-inset-left)); padding-right:calc(var(--s3) + env(safe-area-inset-right)); }
+    #lost { left:78px; bottom:0; }
     main { padding:var(--s3) calc(var(--s3) + env(safe-area-inset-right)) var(--s4)
       calc(78px + env(safe-area-inset-left)); }
     .lookgrid { grid-template-columns:repeat(8,1fr); }
@@ -612,7 +627,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 
 <div id="pair">
   <h1>DJTOGRAPHIKZ</h1>
-  <p>Inserisci il codice mostrato nell'app</p>
+  <p>Inserisci il codice: nell'app, icona telefono in alto</p>
   <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="------" autocomplete="one-time-code" autofocus>
   <div id="err"></div>
   <button id="pairbtn">COLLEGA</button>
@@ -624,8 +639,8 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <button id="blackout">BLACK</button>
       <button id="freeze">FREEZE</button>
       <button id="tap">TAP</button>
+      <div class="bpmbox"><span id="bpm" class="mono">--</span><span id="bpmlbl" class="micro">BPM</span></div>
       <button id="panic">PANIC</button>
-      <div class="bpmbox"><span id="bpm" class="mono">--</span><span class="micro">BPM</span></div>
     </div>
     <div class="srow2">
       <span class="micro">MASTER</span>
@@ -636,19 +651,6 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 
   <main>
     <section id="tab-live">
-      <div class="sect">Look Bank</div>
-      <div class="lookgrid" id="looks"></div>
-      <div class="sect">Auto VJ</div>
-      <div class="row">
-        <button id="autovj">AUTO VJ</button>
-        <select id="genre" aria-label="Genere"></select>
-      </div>
-      <div class="row gap"><button id="scenesave">+ SCENA (look attuale)</button><button id="onlymine">SOLO LE MIE</button></div>
-      <div class="hint" id="vjinfo"></div>
-      <div class="sect">BPM</div>
-      <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
-      <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
-      <div class="sect">Scalette</div>
       <div id="seqnow" hidden>
         <div class="micro" id="seqname"></div>
         <div class="seqstep mono" id="seqstep"></div>
@@ -658,15 +660,28 @@ const REMOTE_PAGE = `<!DOCTYPE html>
         </div>
         <button id="seqstop">STOP SCALETTA</button>
       </div>
+      <div class="sect">Look Bank</div>
+      <div class="lookgrid" id="looks"></div>
+      <div class="sect">Auto VJ</div>
+      <div class="row">
+        <button id="autovj">AUTO VJ</button>
+        <select id="genre" aria-label="Genere"></select>
+      </div>
+      <div class="row gap"><button id="scenesave">SALVA SCENA</button><button id="onlymine">SOLO MIE SCENE</button></div>
+      <div class="hint" id="vjinfo"></div>
+      <div class="sect">BPM</div>
+      <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
+      <div class="hint" id="bpmext" hidden></div>
+      <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
+      <div class="sect" id="seqsect">Scalette</div>
       <div id="seqlist"></div>
       <div class="hint" id="seqhint" hidden></div>
     </section>
 
     <section id="tab-fx" hidden>
+      <details id="pwrap"><summary id="pname" class="sect" style="min-height:48px;display:flex;align-items:center;cursor:pointer">Parametri</summary><div id="params"></div></details>
       <div id="favwrap" hidden><div class="sect">&#9733; Preferiti</div><div class="grid3" id="favs"></div></div>
       <div id="fxgroups"></div>
-      <div class="sect">Parametri effetto</div>
-      <div id="params"></div>
     </section>
 
     <section id="tab-mix" hidden>
@@ -676,7 +691,9 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <select id="deckb"></select>
       <div class="sect">Blend / maschera</div>
       <div class="seg" id="blend"></div>
-      <div class="prow"><span class="plbl">Bordo</span><input type="range" id="msoft" min="0" max="1" step="0.01" value="0.25"><span class="pval" id="msoft_v">0.25</span></div>
+      <div class="prow" id="msoftrow" hidden><span class="plbl">Bordo</span><input type="range" id="msoft" min="0" max="1" step="0.01" value="0.25"><span class="pval" id="msoft_v">0.25</span></div>
+      <div class="sect">Intensità</div>
+      <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
       <div id="vdeck" hidden>
         <div class="sect">Deck B video</div>
         <div class="seg" id="vdmode"><button data-e="0">EFFETTO</button><button data-e="1">VIDEO</button></div>
@@ -690,24 +707,26 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
       <button class="gap" id="postclear" style="width:100%">Rimuovi tutti i post FX</button>
-      <div class="addgrid" id="postadd"></div>
-      <div class="sect">Intensità</div>
-      <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
+      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Aggiungi post FX</summary><div class="addgrid" id="postadd"></div></details>
+      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Immagine</summary>
       <div class="sect">Spessore linee</div>
       <div class="prow"><input type="range" id="lboost" min="0" max="1" step="0.01" value="0.5"><span class="pval" id="lboost_v">0.5</span></div>
       <div class="sect">Presenza proiettore</div>
       <div class="prow"><input type="range" id="presence" min="0" max="1" step="0.01" value="0"><span class="pval" id="presence_v">0</span></div>
-      <div class="sect">Camera</div>
+      <div class="sect">Motion Blur</div>
+      <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
+      </details>
+      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Camera</summary>
       <div class="prow"><span class="plbl">Zoom</span><input type="range" id="camzoom" min="0.2" max="4" step="0.05" value="1"><span class="pval" id="camzoom_v">1</span></div>
       <div class="prow"><span class="plbl">Rotaz.</span><input type="range" id="camrot" min="-180" max="180" step="1" value="0"><span class="pval" id="camrot_v">0</span></div>
       <div class="prow"><span class="plbl">Mosaico</span><input type="range" id="camtile" min="1" max="8" step="1" value="1"><span class="pval" id="camtile_v">1</span></div>
       <div class="prow"><span class="plbl">Spinta</span><input type="range" id="campush" min="0" max="1" step="0.05" value="0"><span class="pval" id="campush_v">0</span></div>
-      <button id="camreset">Azzera inquadratura</button>
-      <div class="sect">Motion Blur</div>
-      <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
-      <div class="sect">Transizione</div>
+      <button class="gap" id="camreset" style="width:100%">Azzera inquadratura</button>
+      </details>
+      <details><summary class="sect" style="min-height:44px;display:flex;align-items:center;cursor:pointer">Transizione</summary>
       <select id="trtype"></select>
       <div class="prow" style="margin-top:8px"><span class="plbl">Durata</span><input type="range" id="trdur" min="0" max="3" step="0.1" value="0.8"><span class="pval" id="trdur_v">0.8</span></div>
+      </details>
     </section>
 
     <section id="tab-color" hidden>
@@ -717,19 +736,19 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Cicla palette</div>
       <div class="row bigrow"><button id="cycon">CICLA</button><button id="cycbeat">A TEMPO</button></div>
       <div class="prow gap"><span class="plbl" id="cyclbl">Ogni (s)</span><input type="range" id="cycval" min="1" max="60" step="1" value="10"><span class="pval" id="cycval_v">10</span></div>
-      <div class="sect">Grade</div>
-      <div class="prow"><span class="plbl">Exposure</span><input type="range" id="g_exposure" min="0.2" max="2" step="0.05" value="1.1"><span class="pval" id="gv_exposure"></span></div>
-      <div class="prow"><span class="plbl">Contrast</span><input type="range" id="g_contrast" min="0.5" max="2" step="0.05" value="1.05"><span class="pval" id="gv_contrast"></span></div>
-      <div class="prow"><span class="plbl">Satur</span><input type="range" id="g_saturation" min="0" max="2" step="0.05" value="1.1"><span class="pval" id="gv_saturation"></span></div>
-      <div class="prow"><span class="plbl">Lift</span><input type="range" id="g_lift" min="0" max="0.3" step="0.01" value="0"><span class="pval" id="gv_lift"></span></div>
-      <div class="prow"><span class="plbl">Vignette</span><input type="range" id="g_vignette" min="0" max="1.5" step="0.05" value="0.25"><span class="pval" id="gv_vignette"></span></div>
+      <div class="sect">Regolazione colore</div>
+      <div class="prow"><span class="plbl">Esposizione</span><input type="range" id="g_exposure" min="0.2" max="2" step="0.05" value="1.1"><span class="pval" id="gv_exposure"></span></div>
+      <div class="prow"><span class="plbl">Contrasto</span><input type="range" id="g_contrast" min="0.5" max="2" step="0.05" value="1.05"><span class="pval" id="gv_contrast"></span></div>
+      <div class="prow"><span class="plbl">Saturazione</span><input type="range" id="g_saturation" min="0" max="2" step="0.05" value="1.1"><span class="pval" id="gv_saturation"></span></div>
+      <div class="prow"><span class="plbl">Neri</span><input type="range" id="g_lift" min="0" max="0.3" step="0.01" value="0"><span class="pval" id="gv_lift"></span></div>
+      <div class="prow"><span class="plbl">Vignetta</span><input type="range" id="g_vignette" min="0" max="1.5" step="0.05" value="0.25"><span class="pval" id="gv_vignette"></span></div>
     </section>
 
     <section id="tab-setup" hidden>
       <div class="sect">Info</div>
       <div class="setuprow"><span class="micro">Versione app</span><span id="sver" class="mono"></span></div>
       <div class="setuprow"><span class="micro">Stato</span><span><i id="conn" class="dot"></i><span id="connt">—</span></span></div>
-      <div class="setuprow"><span class="micro">Sync</span><span class="mono" style="font-size:12px">polling 1.5s</span></div>
+      <div class="hint">Imposta il blocco automatico del telefono su Mai per la durata del set: lo schermo spento ferma il remote.</div>
       <button id="unpair">SCOLLEGA</button>
     </section>
   </main>
@@ -745,7 +764,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     <button id="tb_fx"><span class="ti">&#10022;</span>FX</button>
     <button id="tb_mix"><span class="ti">&#8644;</span>MIX</button>
     <button id="tb_color"><span class="ti">&#9687;</span>COLORI</button>
-    <button id="tb_setup"><span class="ti">&#9881;</span>SETUP</button>
+    <button id="tb_setup"><span class="ti">&#9881;</span>INFO</button>
   </nav>
 </div>
 
@@ -789,25 +808,98 @@ function tfetch(url, opt, ms){
 }
 
 // No automatic retry: blackout and freeze are states, and a retry after a
-// timeout of a command that did land would undo it. A failed send buzzes so
-// the DJ knows to look at the wall and tap again.
-async function cmd(c){
+// timeout of a command that did land would undo it. A failed send buzzes and
+// lights the strip (iOS ignores vibrate) so the DJ knows to look at the wall
+// and tap again. Returns false on failure; a 4xx is the app refusing, still reachable.
+let failTimer = 0
+function fail(net){
+  buzz([60, 40, 60])
+  $('strip').classList.add('fail')
+  clearTimeout(failTimer)
+  failTimer = setTimeout(function(){ $('strip').classList.remove('fail') }, 1500)
+  if (net) conn(false)
+}
+async function send(c){
   try {
     const r = await tfetch('/cmd', { method: 'POST', headers: auth(), body: JSON.stringify(c) }, 4000)
-    if (r.status === 401) return logout()
-    if (!r.ok) buzz([60, 40, 60])
-  } catch (_) { buzz([60, 40, 60]) }
+    if (r.status === 401) { logout(); return false }
+    if (!r.ok) { fail(false); return false }
+    return true
+  } catch (_) { fail(true); return false }
 }
+// A click waited up to 1.5 s for the next poll to show anything: one poll
+// ~120 ms after the command (the app applies state within 33 ms). Debounced,
+// so a burst of taps is one poll; sliders use send() and do not trigger it.
+let pollSoonTimer = 0, wantPoll = false
+function pollSoon(){
+  clearTimeout(pollSoonTimer)
+  pollSoonTimer = setTimeout(function(){ if (polling) wantPoll = true; else poll() }, 120)
+}
+function cmd(c){ return send(c).then(function(ok){ pollSoon(); return ok }) }
 
 // Throttled slider sends: at most one every 90ms while the finger moves (a
 // trailing-only timer never fired during a drag: input events come every
-// ~16ms and kept re-arming it), flush on release
+// ~16ms and kept re-arming it), flush on release. One request in flight per
+// slider: ~11 unawaited POSTs a second with a 4 s timeout filled the browser's
+// connections on bad wifi and BLACK queued behind stale values.
 function slide(k, c){
   pending[k] = c
   if (timers[k]) return
-  timers[k] = setTimeout(function(){ timers[k] = 0; cmd(pending[k]) }, 90)
+  const id = timers[k] = setTimeout(async function(){
+    const v = pending[k]; pending[k] = null
+    if (v) await send(v)
+    if (timers[k] === id) { timers[k] = 0; if (pending[k]) slide(k, pending[k]) }
+  }, 90)
 }
-function flush(k, c){ clearTimeout(timers[k]); timers[k] = 0; cmd(c) }
+function flush(k, c){ clearTimeout(timers[k]); timers[k] = 0; pending[k] = null; send(c) }
+
+// Press-and-hold button (looks, post-FX). The old pointerdown fired at once,
+// so a thumb scrolling over the grid put a look on the wall. Now: a tap sends
+// the plain command on pointerup; a scroll (pointercancel) sends nothing; past
+// HOLD_ARM_MS the hold press goes out and the release follows the finger, with
+// the duration measured here (heldMs), immune to wifi jitter. holding keeps
+// the poll from rebuilding the node under the finger.
+const HOLD_ARM_MS = 120
+let holding = 0
+function holdBtn(node, makePress, relValue, onFire){
+  let timer = 0, down = 0, armed = false
+  const done = function(){ if (down) { down = 0; holding-- } clearTimeout(timer); timer = 0 }
+  node.addEventListener('pointerdown', function(ev){
+    if (down) return
+    ev.preventDefault()
+    down = performance.now(); holding++
+    armed = false
+    timer = setTimeout(function(){
+      timer = 0; armed = true
+      if (onFire) onFire()
+      cmd(makePress(true))
+    }, HOLD_ARM_MS)
+  })
+  node.addEventListener('pointerup', function(){
+    if (!down) return
+    if (armed) { const ms = Math.round(performance.now() - down); done(); cmd({ type: 'release', value: relValue, heldMs: ms }); return }
+    done()
+    if (onFire) onFire()
+    cmd(makePress(false))
+  })
+  const cancel = function(){
+    if (!down) return
+    if (armed) { const ms = Math.round(performance.now() - down); done(); cmd({ type: 'release', value: relValue, heldMs: ms }); return }
+    done()   // a scroll: nothing was sent
+  }
+  node.addEventListener('pointercancel', cancel)
+  node.addEventListener('pointerleave', cancel)
+}
+// Two taps for a destructive button: the first arms it for 2.5 s
+function arm(btn, armedText, fn){
+  const label = btn.textContent
+  let at = 0
+  btn.addEventListener('click', function(){
+    if (Date.now() - at < 2500) { at = 0; btn.classList.remove('armed'); btn.textContent = label; fn(); return }
+    at = Date.now(); btn.classList.add('armed'); btn.textContent = armedText
+    setTimeout(function(){ if (Date.now() - at >= 2400) { btn.classList.remove('armed'); btn.textContent = label } }, 2600)
+  })
+}
 
 // Wire a range input: throttle + drag-key + optional live value readout
 function wireRange(inp, key, make, valEl){
@@ -832,15 +924,19 @@ document.addEventListener('pointerdown', function(e){
   if (t && t.type === 'range' && t.dataset.dk) dragging[t.dataset.dk] = true
   if (t && t.closest && t.closest('button')) buzz(10)
 }, { passive: true })
-document.addEventListener('pointerup', function(){ dragging = {} }, { passive: true })
-document.addEventListener('pointercancel', function(){ dragging = {} }, { passive: true })
+// 800 ms later, not at once: a poll in flight carried the old value and the
+// slider jumped back for a moment; and lifting another finger (BLACK during a
+// crossfader drag) must not drop the shield on the fader either
+document.addEventListener('pointerup', function(){ setTimeout(function(){ dragging = {} }, 800) }, { passive: true })
+document.addEventListener('pointercancel', function(){ setTimeout(function(){ dragging = {} }, 800) }, { passive: true })
+document.addEventListener('visibilitychange', function(){ if (document.hidden) holding = 0 })
 
 // ---- pairing ----
 async function pair(){
   const code = $('code').value
   if (code.length < 6) return
   try {
-    const r = await fetch('/pair', { method: 'POST', body: JSON.stringify({ code: code }) })
+    const r = await tfetch('/pair', { method: 'POST', body: JSON.stringify({ code: code }) }, 4000)
     const j = await r.json()
     if (j.token) { token = j.token; localStorage.setItem('djg-token', token); enter() }
     else { $('err').textContent = j.error || 'Errore'; $('code').value = '' }
@@ -855,14 +951,15 @@ function enter(){
 
 async function boot(){
   try {
-    const r = await fetch('/defs', { headers: auth() })
+    // 8 s: /defs carries the look thumbnails. A hung wifi used to leave an empty page for ever.
+    const r = await tfetch('/defs', { headers: auth() }, 8000)
     if (r.status === 401) return logout()
     defs = await r.json()
-  } catch (_) { setTimeout(boot, 1200); return }
+  } catch (_) { conn(false); setTimeout(boot, 1200); return }
+  conn(true)
   buildStatic()
   renderLooks(defs.looks || [])
   looksRev = defs.looksRev || 0
-  setText($('ver'), 'v' + (defs.version || '?'))
   setText($('sver'), 'v' + (defs.version || '?'))
   poll()
   setInterval(poll, 1500)
@@ -889,22 +986,23 @@ function buildStatic(){
     wrap.appendChild(g)
   })
 
-  $('postclear').addEventListener('click', function(){ cmd({ type: 'postClear' }) })
+  arm($('postclear'), 'TOCCA ANCORA PER RIMUOVERE', function(){ cmd({ type: 'postClear' }) })
 
   const db = $('deckb')
   ;(defs.effects || []).forEach(function(e){ db.appendChild(new Option(e.label, e.id)) })
   db.addEventListener('change', function(){ cmd({ type: 'deckB', value: db.value }) })
 
   const seg = $('blend')
+  const bl = defs.blendLabels || {}
   ;(defs.blendModes || []).forEach(function(m){
-    const b = el('button', '', m)
+    const b = el('button', '', bl[m] || m)
     b.addEventListener('click', function(){ cmd({ type: 'blendMode', value: m }) })
     blendBtns[m] = b
     seg.appendChild(b)
   })
 
   const tt = $('trtype')
-  ;(defs.transitionTypes || []).forEach(function(t){ tt.appendChild(new Option(t, t)) })
+  ;(defs.transitionTypes || []).forEach(function(t){ tt.appendChild(typeof t === 'string' ? new Option(t, t) : new Option(t.label, t.id)) })
   tt.addEventListener('change', function(){ cmd({ type: 'transitionType', value: tt.value }) })
 
   const gs = $('genre')
@@ -940,21 +1038,11 @@ function renderLooks(looks){
     // Tap latches, hold is momentary — the same rule as the keyboard and the
     // MIDI pads. A phone in your hand is the most natural momentary controller
     // in the room, so it sends a press and a release, not a click.
-    // one release per press: on touch pointerup is followed by pointerleave,
-    // and on desktop a hover alone must not send anything
-    let held = false
-    d.addEventListener('pointerdown', function(ev){
-      ev.preventDefault()
-      held = true
+    holdBtn(d, function(hold){ return hold ? { type: 'look', value: i, hold: 'look:' + i } : { type: 'look', value: i } }, 'look:' + i, function(){
       buzz(25)
-      cmd({ type: 'look', value: i, hold: 'look:' + i })
       d.classList.add('flash')
       setTimeout(function(){ d.classList.remove('flash') }, 350)
     })
-    const letGo = function(){ if (!held) return; held = false; cmd({ type: 'release', value: 'look:' + i }) }
-    d.addEventListener('pointerup', letGo)
-    d.addEventListener('pointercancel', letGo)
-    d.addEventListener('pointerleave', letGo)
     grid.appendChild(d)
   }
 }
@@ -1043,13 +1131,17 @@ function rebuildParams(e){
     // audio mapping: source select + depth slider
     const map = el('div', 'maprow')
     const sel = document.createElement('select')
-    ;(defs.paramSources || []).forEach(function(s){ sel.appendChild(new Option(s, s)) })
+    sel.setAttribute('aria-label', 'Sorgente audio di ' + d.label)
+    const labels = defs.paramSourceLabels || {}
+    ;(defs.paramSources || []).forEach(function(s){ sel.appendChild(new Option(labels[s] || s, s)) })
     const dep = document.createElement('input')
     dep.type = 'range'; dep.min = -1; dep.max = 1; dep.step = 0.05
+    dep.setAttribute('aria-label', 'Profondita di ' + d.label)
+    dep.hidden = true   // shown only with a source, as on the desktop
     const mapCmd = function(){
       return { type: 'paramMap', value: { key: d.key, source: sel.value, depth: parseFloat(dep.value) } }
     }
-    sel.addEventListener('change', function(){ cmd(mapCmd()) })
+    sel.addEventListener('change', function(){ dep.hidden = sel.value === 'none'; cmd(mapCmd()) })
     wireRange(dep, 'pd_' + d.key, mapCmd)
     map.appendChild(sel)
     map.appendChild(dep)
@@ -1093,16 +1185,7 @@ function rebuildPostUI(e){
   ;(defs.posts || []).forEach(function(p){
     if (active.indexOf(p.id) !== -1) return
     const b = el('button', '', '+ ' + p.label)
-    let held = false
-    b.addEventListener('pointerdown', function(ev){
-      ev.preventDefault()
-      held = true
-      cmd({ type: 'post', value: p.id, hold: 'post:' + p.id })
-    })
-    const letGo = function(){ if (!held) return; held = false; cmd({ type: 'release', value: 'post:' + p.id }) }
-    b.addEventListener('pointerup', letGo)
-    b.addEventListener('pointercancel', letGo)
-    b.addEventListener('pointerleave', letGo)
+    holdBtn(b, function(hold){ return hold ? { type: 'post', value: p.id, hold: 'post:' + p.id } : { type: 'post', value: p.id } }, 'post:' + p.id)
     add.appendChild(b)
   })
 }
@@ -1111,6 +1194,12 @@ function postLabel(id){
   const list = defs.posts || []
   for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i].label
   return id
+}
+function fxLabel(e){
+  if (e.customShader) return 'Shader'
+  const list = defs.effects || []
+  for (let i = 0; i < list.length; i++) if (list[i].id === e.activeEffect) return list[i].label
+  return e.activeEffect || '—'
 }
 
 // ---- scalette: the app is the source of truth, the phone only mirrors it ----
@@ -1125,13 +1214,14 @@ function seqSend(c){
 function renderSeq(s){
   const hint = $('seqhint'), now = $('seqnow'), list = $('seqlist')
   if (!s || !s.available) {
-    now.hidden = true; list.textContent = ''; prev.seqsig = ''
+    now.hidden = true; $('seqsect').hidden = false; list.textContent = ''; prev.seqsig = ''
     hint.hidden = false
     hint.textContent = s ? 'Scalette non ancora pronte: riprovo tra un attimo.' : 'Nessuna informazione dalle scalette.'
     return
   }
   const playing = !!s.playing
   now.hidden = !playing
+  $('seqsect').hidden = playing   // AVANTI sits at the top of LIVE while it runs; the empty list title would be orphaned
   if (playing) {
     setText($('seqname'), s.name)
     setText($('seqstep'), (s.index + 1) + '/' + s.total + '  ' + s.stepName)
@@ -1172,9 +1262,18 @@ function renderExt(x, e, bpm){
     document.querySelectorAll('#bpmmode button').forEach(function(b){ setOn(b, b.dataset.m === x.bpmMode) })
     local.bpm = x.bpmMode === 'manual' ? x.manualBpm : bpm
     setOn($('onlymine'), !!x.onlyMine)
-    setText($('vjinfo'), 'Fase ' + x.phase + ' - ' + x.scenes + ' scene mie per questo genere')
+    setText($('vjinfo'), (local.autovj ? 'Fase ' + x.phase + ' · ' : '') + x.scenes + ' scene salvate per questo genere')
     renderOverlays(x.overlays || [])
     renderFavs(x.favs || [])
+    // AUTO in the strip: a tap on an effect or a look switches the Auto VJ off with no sign outside LIVE
+    setText($('ver'), local.autovj ? 'AUTO' : '')
+    // the desktop shows 'Audio perso' only while it retries; 'stopped' is a choice
+    const lostAudio = x.audio === 'reconnecting'
+    $('bpm').style.color = lostAudio ? 'var(--danger)' : ''
+    setText($('bpmlbl'), lostAudio ? 'AUDIO' : 'BPM')
+    const ext = $('bpmext')
+    ext.hidden = !(x.bpmMode === 'midi' || x.bpmMode === 'prodjlink')
+    if (!ext.hidden) setText(ext, (x.bpmMode === 'midi' ? 'Tempo da MIDI clock' : 'Tempo da Pro DJ Link') + ': TAP e ±1 lo sostituiscono, si riattiva solo dal desktop')
   }
   const c = e.cycle
   if (c) {
@@ -1246,7 +1345,7 @@ let polling = false
 async function poll(){
   if (polling || document.hidden) return
   polling = true
-  try { await pollOnce() } finally { polling = false }
+  try { await pollOnce() } finally { polling = false; if (wantPoll) { wantPoll = false; poll() } }
 }
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll() })
 
@@ -1259,8 +1358,10 @@ async function pollOnce(){
   } catch (_) { conn(false); return }
   conn(true)
 
-  if (typeof j.looksRev === 'number' && j.looksRev !== looksRev) refreshLooks(j.looksRev)
-  if (typeof j.thumbsRev === 'number' && j.thumbsRev !== thumbsRev) refreshThumbs(j.thumbsRev)
+  // not under a held look: the rebuild would destroy the node carrying the release listeners
+  if (typeof j.looksRev === 'number' && j.looksRev !== looksRev && !holding) refreshLooks(j.looksRev)
+  // thumbs serve the FX tab only: every capture made each phone fetch the whole map, on the network BLACK uses
+  if (typeof j.thumbsRev === 'number' && j.thumbsRev !== thumbsRev && !$('tab-fx').hidden) refreshThumbs(j.thumbsRev)
 
   const e = j.engine
   if (!e || !defs) return
@@ -1290,8 +1391,9 @@ async function pollOnce(){
     for (const k in fxBtns) fxBtns[k].classList.toggle('on', k === e.activeEffect)
     for (const k in favBtns) favBtns[k].classList.toggle('on', k === e.activeEffect)
   }
-  const psig = (e.paramDefs || []).map(function(d){ return d.key }).join(',') + '|' + e.activeEffect
+  const psig = (e.paramDefs || []).map(function(d){ return d.key }).join(',') + '|' + e.activeEffect + '|' + (e.customShader ? 's' : '')
   if (prev.psig !== psig) { prev.psig = psig; rebuildParams(e) }
+  setText($('pname'), 'Parametri · ' + fxLabel(e))
   // Engine buckets params under the effect id ('__custom__' for custom shaders)
   // — when a custom shader is live, its bucket wins over the stale stock one
   const ep = e.effectParams || {}
@@ -1305,6 +1407,7 @@ async function pollOnce(){
       setText(els.val, fmtV(st.value))
     }
     if (document.activeElement !== els.src && els.src.value !== st.source) els.src.value = st.source
+    els.dep.hidden = st.source === 'none'
     setRange(els.dep, st.depth)
   })
 
@@ -1315,9 +1418,18 @@ async function pollOnce(){
   if (prev.blend !== e.blendMode) {
     prev.blend = e.blendMode
     for (const m in blendBtns) blendBtns[m].classList.toggle('on', m === e.blendMode)
+    // Bordo matters for a mask only, as on the desktop
+    const modes = defs.blendModes || []
+    $('msoftrow').hidden = modes.indexOf(e.blendMode) < modes.indexOf('split-v')
   }
   const csig = (e.activePost || []).join(',')
-  if (prev.chain !== csig) { prev.chain = csig; rebuildPostUI(e) }
+  // not under a held post: the rebuild drops the button that carries the release, and the strobe stays on
+  if (prev.chain !== csig && !holding) { prev.chain = csig; rebuildPostUI(e) }
+  // transition: the select showed the first type and 0.8 whatever the desktop or a look had set
+  const tt = $('trtype')
+  if (e.transitionType && document.activeElement !== tt && tt.value !== e.transitionType) tt.value = e.transitionType
+  const td = num(e.transitionDuration, 0.8)
+  if (!dragging['trdur']) { setRange($('trdur'), td); setText($('trdur_v'), fmtV(td)) }
   if (e.postAmounts) {
     for (const id in chainEls) {
       if (e.postAmounts[id] != null) setRange(chainEls[id], e.postAmounts[id])
@@ -1377,16 +1489,18 @@ function wireStatic(){
   })
 
   // blackout/freeze: optimistic toggle, next poll confirms
+  // an optimistic ON that did not get through must come back: a retap then
+  // sends the intent again instead of cancelling it
   $('blackout').addEventListener('click', function(){
     buzz(25)
-    const on = !this.classList.contains('on')
-    this.classList.toggle('on', on)
-    cmd({ type: 'blackout', value: on })
+    const btn = this, on = !btn.classList.contains('on')
+    btn.classList.toggle('on', on)
+    cmd({ type: 'blackout', value: on }).then(function(ok){ if (ok === false) btn.classList.toggle('on', !on) })
   })
   $('freeze').addEventListener('click', function(){
-    const on = !this.classList.contains('on')
-    this.classList.toggle('on', on)
-    cmd({ type: 'freeze', value: on })
+    const btn = this, on = !btn.classList.contains('on')
+    btn.classList.toggle('on', on)
+    cmd({ type: 'freeze', value: on }).then(function(ok){ if (ok === false) btn.classList.toggle('on', !on) })
   })
   $('tap').addEventListener('click', function(){ cmd({ type: 'tap' }) })
   $('panic').addEventListener('click', function(){ buzz(40); cmd({ type: 'panic' }).then(poll) })
@@ -1425,7 +1539,7 @@ function wireStatic(){
     cmd({ type: 'autovj', value: local.autovj })
   })
 
-  $('unpair').addEventListener('click', logout)
+  arm($('unpair'), 'TOCCA ANCORA PER SCOLLEGARE', logout)
 
   wireRange($('master'), 'master', function(v){ return { type: 'brightness', value: v } })
   wireRange($('xfade'), 'xfade', function(v){ return { type: 'crossfade', value: v } })
@@ -1445,13 +1559,20 @@ function wireStatic(){
   })
 
   // bottom tab bar — hidden tabs are display:none, no offscreen work
+  // one document scroll for all tabs: from the bottom of LIVE, MIX opened mid-page
   const tabs = ['live', 'fx', 'mix', 'color', 'setup']
+  const scrolls = {}
+  let cur = 'live'
   tabs.forEach(function(t){
     $('tb_' + t).addEventListener('click', function(){
+      scrolls[cur] = window.scrollY
       tabs.forEach(function(o){
         $('tab-' + o).hidden = o !== t
         $('tb_' + o).classList.toggle('on', o === t)
       })
+      cur = t
+      window.scrollTo(0, scrolls[t] || 0)
+      pollSoon()   // the FX tab fetches its thumbnails on the first poll with it visible
     })
   })
 }

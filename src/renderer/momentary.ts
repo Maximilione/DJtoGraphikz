@@ -56,11 +56,13 @@ export class Momentary {
    * Release. Returns true when the press counted as a hold and was undone,
    * so the caller can tell the user which of the two things happened.
    */
-  release(key: string): boolean {
+  release(key: string, heldMs?: number): boolean {
     const p = this.held.get(key)
     if (!p) return false
     this.held.delete(key)
-    if (performance.now() - p.at < HOLD_MS) return false
+    // The phone measures the hold itself: press and release are two HTTP
+    // posts and club wifi jitter is of the order of HOLD_MS.
+    if ((heldMs ?? performance.now() - p.at) < HOLD_MS) return false
     // the revert runs inside a MIDI/gamepad/IPC handler: a throw there must
     // not take the caller's loop down with it
     try { p.revert() } catch (e) { console.error('[momentary] revert', e); return false }

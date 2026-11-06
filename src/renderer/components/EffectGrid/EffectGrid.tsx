@@ -85,7 +85,7 @@ export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 's
       <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
         {ids.map(id => BY_ID.get(id)).filter(fx => !!fx).map(fx => button(fx!, name))}
         {pad && Array.from({ length: SUGGESTED_MAX - ids.length }, (_, i) => (
-          <button key={`pad${i}`} className="fx-btn" style={{ visibility: 'hidden' }} tabIndex={-1} aria-hidden="true" />
+          <div key={`pad${i}`} className="fx-btn" style={{ visibility: 'hidden' }} aria-hidden="true" />
         ))}
       </div>
     </div>

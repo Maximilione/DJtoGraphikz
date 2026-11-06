@@ -29,7 +29,8 @@ import { QuickGuide } from './components/Help/QuickGuide'
 import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
-import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
+import { ALL_EFFECTS, POST_CATEGORIES, TRANSITIONS } from './catalog'
+import { SOURCE_META } from './components/ParamControls/ParamControls'
 import { allThumbs, onThumbs } from './fxThumbs'
 import { getFavs, setPickContext } from './fxPicks'
 import { allPalettes } from './palettes'
@@ -542,7 +543,10 @@ export function App() {
         palettes: allPalettes(),
         genres: (Object.keys(GENRE_CONFIGS) as Genre[]).map(id => ({ id, label: GENRE_CONFIGS[id].label })),
         blendModes: BLEND_MODES,
-        transitionTypes: Object.keys(TRANSITION_TYPES),
+        // the phone shows these: labels travel with the ids, never re-typed there
+        blendLabels: { 'split-v': 'split V', 'split-h': 'split O', radial: 'radiale', luma: 'luma', audio: 'audio', difference: 'diff' },
+        transitionTypes: TRANSITIONS.map(t => ({ id: t.id, label: t.label })),
+        paramSourceLabels: Object.fromEntries(AUDIO_SOURCES.map(s => [s, s === 'none' ? 'Audio: no' : SOURCE_META[s].label])),
       })
     } catch (_) {}
 
@@ -1159,6 +1163,7 @@ export function App() {
       onlyMine: getOnlyMine(),
       scenes: loadUserScenes().filter(sc => sc.genre === genre).length,
       favs: getFavs(),
+      audio: engine.audioAnalyzer.getStatus(),
       overlays: engine.getOverlays().filter(o => !o.id.startsWith('seq:')).slice(0, 24)
         .map(o => ({ id: o.id, name: o.name.slice(0, 40), visible: o.visible, opacity: Math.round(o.opacity * 100) / 100 })),
     }
@@ -1190,7 +1195,7 @@ export function App() {
     // The phone sends a press and a release, so a look or a post-FX held with
     // a thumb behaves like a held key. `hold` names the press; `release`
     // undoes it if it lasted.
-    if (cmd.type === 'release') { momentary.release(`remote:${v}`); return }
+    if (cmd.type === 'release') { momentary.release(`remote:${v}`, cmd.heldMs); return }
     if (cmd.hold) {
       if (cmd.type === 'look') {
         const before = engine.createPreset('prima del richiamo')
