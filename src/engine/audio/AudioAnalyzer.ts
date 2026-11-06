@@ -568,9 +568,14 @@ export class AudioAnalyzer {
   // ---- Public configuration ----
 
   setBpmMode(mode: BpmMode) {
+    // Only on entering tap: Space, the phone and MIDI set the mode before
+    // every tap(), so clearing here each time left one tap and never a tempo.
+    if (mode === 'tap' && this.bpmMode !== 'tap') this.tapTimes = []
     this.bpmMode = mode
-    if (mode === 'tap') this.tapTimes = []
   }
+
+  /** Stopped by the user (or never started), as opposed to lost and retrying */
+  isUserStopped(): boolean { return this.userStopped }
 
   /** Is a MIDI clock actually ticking right now? (Offer the mode, or explain it.) */
   hasMidiClock(): boolean { return this.midiClock.read(performance.now()).running }
