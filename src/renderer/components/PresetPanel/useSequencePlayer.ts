@@ -58,7 +58,7 @@ export function useSequencePlayer(engine: Engine | null) {
     setStepIndex(p => manualStep(p, playingSeq?.steps.length ?? 0, true, 1))  // manual skip always wraps
   }, [playingSeq])
 
-  const start = useCallback((seq: Sequence) => {
+  const start = useCallback((seq: Sequence, from = 0) => {
     if (seq.steps.length === 0) return
     // Beat and Canzone wait for the signal: with the audio off the playlist
     // sat on step 1 for ever, shown as playing. Said once, start not blocked.
@@ -67,7 +67,7 @@ export function useSequencePlayer(engine: Engine | null) {
       pushToast("Audio fermo: la scaletta non avanzera' finche' non riparte. Usa N per forzare", 'seq-noaudio', undefined, 'err')
     }
     setPlayingSeq(seq)
-    setStepIndex(0)
+    setStepIndex(from)
     setPlaying(true)
   }, [engine])
 

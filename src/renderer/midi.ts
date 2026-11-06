@@ -250,8 +250,10 @@ class MidiEngine {
     this.faderPending.clear()
     if (!this.engine || !this.dispatch) return
     for (const [target, value] of batch) {
-      const cmd = target.toCmd(value, this.engine)
-      if (cmd) this.dispatch(cmd)
+      try {
+        const cmd = target.toCmd(value, this.engine)
+        if (cmd) this.dispatch(cmd)
+      } catch (err) { this.warnOnce(err) }
     }
   }
 
