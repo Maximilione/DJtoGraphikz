@@ -18,8 +18,23 @@ export function shouldIgnoreHotkey(e: KeyboardEvent): boolean {
   const el = e.target
   if (!(el instanceof HTMLElement)) return false
 
+  // Cmd+P (print) ran PANIC, Cmd+B the blackout, Cmd+V saved a reel. Ctrl
+  // alone is filtered too; Ctrl+Alt is AltGr on Windows, where [ ] (the
+  // master) live on Italian keyboards.
+  if (e.metaKey || (e.ctrlKey && !e.altKey)) return true
+
   const tag = el.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+  if (tag === 'INPUT') {
+    const t = (el as HTMLInputElement).type
+    // A slider keeps the focus after a drag and that is the commonest gesture
+    // of the night: B, F and P must still work from there. No hotkey uses the
+    // arrows, Home/End or PgUp/PgDn, the only keys a range owns.
+    if (t === 'range') return false
+    // a checkbox, radio or colour owns only its activation keys, like a button
+    if (t === 'checkbox' || t === 'radio' || t === 'color') return e.key === ' ' || e.key === 'Enter'
+    return true
+  }
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true
   if (el.isContentEditable) return true
 
   // A focusable that is not a button owns the plain keys: the user is inside a
