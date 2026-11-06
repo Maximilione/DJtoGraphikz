@@ -95,8 +95,24 @@ export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 's
     return <div className="u-hint">Nessun effetto di serie per «{search.trim()}»</div>
   }
 
+  // One click to a category (the wide Pro bench only; hidden elsewhere by CSS):
+  // open it and scroll it to the top of the list.
+  const jump = (name: string) => {
+    folded.delete(name)
+    force(n => n + 1)
+    requestAnimationFrame(() => document.getElementById(`fxcat-${name}`)?.scrollIntoView({ block: 'start' }))
+  }
+  const jumpRow = size === 'sm' && !q && (
+    <div className="fx-jump">
+      {EFFECT_CATEGORIES.map(cat => (
+        <button key={cat.name} className="pill" onClick={() => jump(cat.name)} title={`Vai a ${cat.name}`}>{cat.name}</button>
+      ))}
+    </div>
+  )
+
   return (
     <>
+      {jumpRow}
       {quickRows}
       {EFFECT_CATEGORIES.map((cat, ci) => {
         const shown = shownByCat[ci]
@@ -111,7 +127,7 @@ export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 's
         const activeHere = cat.effects.find(fx => fx.id === activeId)
         return (
           <details
-            key={cat.name} className="fx-cat"
+            key={cat.name} id={`fxcat-${cat.name}`} className="fx-cat"
             open={!!q || !folded.has(cat.name)}
             onToggle={e => {
               if (q) return // a search forces every match open: not the user's choice

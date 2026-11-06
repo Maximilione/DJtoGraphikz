@@ -377,12 +377,8 @@ function EffectPanelImpl({ engine, onManual }: EffectPanelProps) {
             {(tab.id === 'fx' || tab.on) && <span className={`tab-count${tab.on ? ' on' : ''}`} title={tab.hint}>{tab.count}</span>}
           </button>
         ))}
-      </div>
-
-      <div style={{ padding: 'var(--s2)' }}>
-        {/* ====== EFFECTS TAB ====== */}
         {section === 'fx' && (
-          <div className="u-col">
+          <>
             {/* Search */}
             <div className="u-row fx-search">
               <input
@@ -401,12 +397,19 @@ function EffectPanelImpl({ engine, onManual }: EffectPanelProps) {
 
             {/* Active effect indicator */}
             <div className="active-banner">
-              <div className="status-dot on" />
+              <span className="air-tag">In onda</span>
               <span className="active-banner-label" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                In onda · {isfActive ? isfActive.replace(/\.(fs|frag|glsl)$/i, '') : customOn ? 'Shader custom' : effectLabel(activeEffect)}{onB ? ' · nascosto, crossfader su B' : ''}
+                {isfActive ? isfActive.replace(/\.(fs|frag|glsl)$/i, '') : customOn ? 'Shader custom' : effectLabel(activeEffect)}{onB ? ' · nascosto, crossfader su B' : ''}
               </span>
             </div>
+          </>
+        )}
+      </div>
 
+      <div className="fx-body">
+        {/* ====== EFFECTS TAB ====== */}
+        {section === 'fx' && (
+          <div className="u-col fx-cols">
             <div className={`fx-params u-col${search ? ' searching' : ''}`}>
             {/* Per-effect params + audio mapping */}
             <ParamControls engine={engine} key={activeEffect} />
