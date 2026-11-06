@@ -63,7 +63,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
   // When multiple cameras exist we show an inline picker instead of adding blindly
   // A big GIF or a long video takes seconds to decode: say so instead of
   // looking frozen. Same idiom as IsfBrowser — disable and swap the label.
-  const [busy, setBusy] = useState<'img' | 'video' | null>(null)
+  const [busy, setBusy] = useState<'img' | 'video' | 'seq' | null>(null)
   const [webcamChoices, setWebcamChoices] = useState<MediaDeviceInfo[] | null>(null)
   const [webcamError, setWebcamError] = useState<string | null>(null)
   const [library, setLibrary] = useState<LibraryItem[]>([])
@@ -151,7 +151,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
 
   const importSequence = useCallback(async () => {
     if (!engine) return
-    setBusy('video')
+    setBusy('seq')
     try {
       const seq = await window.api?.pickSequence()
       if (!seq) return
@@ -167,8 +167,10 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
     }
   }, [engine, refresh])
 
-  const addFromLibrary =useCallback(async (item: LibraryItem) => {
+  const addFromLibrary = useCallback(async (item: LibraryItem) => {
     if (!engine) return
+    // busy: a big GIF decodes for seconds and a second click added a twin
+    setBusy(IMAGE_RE.test(item.name) ? 'img' : 'video')
     try {
       if (IMAGE_RE.test(item.name)) {
         await engine.addOverlay(item.name, await readLibraryImage(item.path, item.name))
@@ -176,12 +178,16 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
         // a 3D model is not an overlay: it becomes the `mesh` effect's model
         engine.setMeshModelFile({ name: item.name, path: item.path })
         engine.setEffect('mesh')
+        pushToast(`Effetto Mesh: ${item.name}`, 'mesh-model')
       } else {
         await engine.addVideoOverlay(item.name, { kind: 'video', path: item.path })
       }
       refresh()
     } catch (err) {
       console.error('[Library] add failed:', err)
+      pushToast(`Non riesco a caricare ${item.name}`, undefined, undefined, 'err')
+    } finally {
+      setBusy(null)
     }
   }, [engine, refresh])
 
@@ -197,11 +203,15 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
       } catch { /* unreadable — fall through to delete without undo */ }
     }
     // The two cases are not the same thing and must not say the same thing:
-    // an image can be put back, a video is gone from disk for good.
-    if (!dataUrl && !window.confirm(
-      `Cancellare "${item.name}" dal disco?\nQuesta non si puo' annullare.`)) return
-
-    await window.api?.libraryDelete(item.name).catch(() => {})
+    // an image can be put back, a video is gone from disk for good. The
+    // confirmation is the row's own second tap (LibraryRow): window.confirm
+    // froze this renderer, which feeds audio and state to the projectors.
+    try {
+      await window.api?.libraryDelete(item.name)
+    } catch (err) {
+      pushToast(`Non riesco a cancellare ${item.name}: ${(err as Error).message}`, `lib-del-${item.name}`, undefined, 'err')
+      return
+    }
     loadLibrary()
     if (dataUrl) {
       const saved = dataUrl
@@ -282,7 +292,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
             {busy === 'video' ? 'Carico…' : '🎬 Video'}
           </button>
           <button onClick={importSequence} disabled={busy !== null} title="Importa una cartella di frame numerati (PNG/JPG/WebP/AVIF, con alpha) come overlay animato">
-            🎞 Sequenza
+            {busy === 'seq' ? 'Carico…' : '🎞 Sequenza'}
           </button>
           <button onClick={onWebcamClick} title="Aggiungi la webcam come overlay">📷 Webcam</button>
         </div>
@@ -331,6 +341,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
               <LibraryRow
                 key={item.path}
                 item={item}
+                disabled={busy !== null}
                 onAdd={() => addFromLibrary(item)}
                 onDelete={() => deleteFromLibrary(item)}
               />
@@ -340,7 +351,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
 
         {overlays.length === 0 && (
           <div className="media-empty">
-            Nessun media. Aggiungi un'immagine, un video o la webcam.
+            {library.length ? 'Nessun media in onda. Tocca un file della Libreria.' : "Nessun media. Aggiungi un'immagine, un video o la webcam."}
           </div>
         )}
 
@@ -439,7 +450,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
 
             {/* Displacement: the overlay warps the visuals instead of covering them */}
             <SliderRow
-              label="Displace"
+              label="Displace" labelTitle="L'overlay deforma i visual invece di coprirli"
               value={overlay.displace}
               min={0} max={0.5} step={0.01}
               onChange={v => updateOverlay(overlay.id, { displace: v })}
@@ -452,25 +463,47 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
 }
 
 /** One saved asset: click = add as overlay, ✕ = delete from disk. */
-function LibraryRow({ item, onAdd, onDelete }: {
+function LibraryRow({ item, disabled, onAdd, onDelete }: {
   item: LibraryItem
+  disabled?: boolean
   onAdd: () => void
   onDelete: () => void
 }) {
   const isImage = IMAGE_RE.test(item.name)
+  const isModel = MODEL_RE.test(item.name)
   // a file that will not decode (moved, corrupt) shows the icon, not a broken image
   const [broken, setBroken] = useState(false)
+  // A deletion with no undo (video, model, unreadable image) asks with a
+  // second tap on the same button, armed for 3 s; a double click does not count.
+  const [armed, setArmed] = useState(0)
+  const armTimer = useRef(0)
+  useEffect(() => () => clearTimeout(armTimer.current), [])
+  const needsArm = !isImage || broken
+  const del = () => {
+    if (!needsArm) { onDelete(); return }
+    const now = performance.now()
+    if (armed) {
+      if (now - armed < 400) return
+      clearTimeout(armTimer.current); setArmed(0); onDelete(); return
+    }
+    setArmed(now)
+    armTimer.current = window.setTimeout(() => setArmed(0), 3000)
+  }
 
   return (
     <div className="media-lib-row">
-      <button type="button" className="btn media-lib-item" onClick={onAdd} title="Aggiungi come overlay">
+      <button type="button" className="btn media-lib-item" onClick={onAdd} disabled={disabled}
+        title={isModel ? "Usa come modello dell'effetto Mesh (cambia l'effetto in onda)" : 'Aggiungi come overlay'}>
         {isImage && !broken
           ? <img className="media-lib-thumb" src={thumbUrl(item.path)} loading="lazy" decoding="async" alt="" onError={() => setBroken(true)} />
-          : <span className="media-lib-icon">{isImage ? '🖼' : '🎬'}</span>}
+          : <span className="media-lib-icon">{isImage ? '🖼' : isModel ? '🧊' : '🎬'}</span>}
         <span className="media-lib-name">{item.name}</span>
-        <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : 'VIDEO'}</span>
+        <span className="media-badge">{isImage ? (/\.gif$/i.test(item.name) ? 'GIF' : 'IMG') : isModel ? '3D' : 'VIDEO'}</span>
       </button>
-      <button className="btn btn-ghost btn-sm danger" onClick={onDelete} title="Cancella dalla libreria" aria-label="Cancella dalla libreria">✕</button>
+      <button className={`btn btn-ghost btn-sm danger${armed ? ' active' : ''}`} onClick={del}
+        title={armed ? 'Tocca ancora: cancella dal disco, senza annulla' : 'Cancella dalla libreria'} aria-label="Cancella dalla libreria">
+        {armed ? 'Sicuro?' : '✕'}
+      </button>
     </div>
   )
 }
@@ -487,10 +520,13 @@ function VideoThumb({ video }: { video: HTMLVideoElement }) {
       canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
     }
     draw()
-    // ponytail: 2fps preview is plenty for a 64px thumbnail
-    const id = setInterval(draw, 500)
-    return () => clearInterval(id)
   }, [video])
+  // ponytail: 2fps preview is plenty for a 64px thumbnail; paused while the window is hidden
+  useVisibleInterval(() => {
+    const canvas = canvasRef.current
+    if (!canvas || video.readyState < 2) return
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+  }, 500)
 
   return <canvas ref={canvasRef} className="media-thumb" width={114} height={64} />
 }
