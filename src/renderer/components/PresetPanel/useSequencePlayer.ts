@@ -10,6 +10,7 @@ import { enterStep, clearStepOverlays } from './sequencePlayer'
 import { readLibraryImage } from '../OverlayPanel/OverlayPanel'
 import { shouldIgnoreHotkey } from '../../hotkeys'
 import { guardListener } from '../../safeListener'
+import { pushToast } from '../Toasts/Toasts'
 
 const STORAGE_KEY_PLAYLISTS = 'djtographikz-playlists'
 
@@ -59,10 +60,16 @@ export function useSequencePlayer(engine: Engine | null) {
 
   const start = useCallback((seq: Sequence) => {
     if (seq.steps.length === 0) return
+    // Beat and Canzone wait for the signal: with the audio off the playlist
+    // sat on step 1 for ever, shown as playing. Said once, start not blocked.
+    const a = engine?.audioAnalyzer
+    if ((seq.mode === 'beats' || seq.mode === 'track') && a && !a.isRunning && !a.hasMidiClock() && !a.hasProLink()) {
+      pushToast("Audio fermo: la scaletta non avanzera' finche' non riparte. Usa N per forzare", 'seq-noaudio', undefined, 'err')
+    }
     setPlayingSeq(seq)
     setStepIndex(0)
     setPlaying(true)
-  }, [])
+  }, [engine])
 
   const stop = useCallback(() => {
     setPlaying(false)
