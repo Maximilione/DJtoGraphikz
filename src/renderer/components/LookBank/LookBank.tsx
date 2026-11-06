@@ -8,7 +8,9 @@ import { Panel } from '../Panel/Panel'
 
 /** bare: the grid alone, no Panel — Live and Simple draw it full height. A Panel folded in Pro
  *  used to take the looks away from Live as well, body unmounted. */
-function LookBankImpl({ engine, onManual, bare }: { engine: Engine; onManual?: () => (() => void) | undefined; bare?: boolean }) {
+function LookBankImpl({ engine, onManual, bare, compactEmpty }: { engine: Engine; onManual?: () => (() => void) | undefined; bare?: boolean; compactEmpty?: boolean }) {
+  // Simple: one empty slot is enough to show the gesture; the other fourteen were a wall of '+'
+  const [showAll, setShowAll] = useState(false)
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
   // What the triggers and the undo toasts read: the state as it is now, not
   // the render they were created in. With `looks` in their deps the window
@@ -172,7 +174,7 @@ function LookBankImpl({ engine, onManual, bare }: { engine: Engine; onManual?: (
   })
 
   const grid = (
-      <div className="look-bank-grid">
+      <div className={`look-bank-grid${compactEmpty && !showAll ? ' compact-empty' : ''}`}>
         {bare && looks.every(l => !l) && (
           <p className="look-empty-hint">Nessun look salvato. Tocca un pad per salvare quello che vedi in anteprima.</p>
         )}
@@ -193,7 +195,8 @@ function LookBankImpl({ engine, onManual, bare }: { engine: Engine; onManual?: (
               title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10} (tieni premuto: momentaneo)` : ''}`}
               onClick={e => e.shiftKey ? saveLook(i) : trigger(i)}
             />
-            {look.thumb && <img src={look.thumb} alt="" />}
+            {look.thumb ? <img src={look.thumb} alt="" />
+              : <span className="look-fill" style={{ background: `linear-gradient(135deg, ${look.preset.colors.join(', ')})` }} />}
             <span className="look-num" title={last === i ? 'Ultimo richiamato' : undefined}>{i + 1}</span>
             {renaming === i ? (
               <input
@@ -242,6 +245,11 @@ function LookBankImpl({ engine, onManual, bare }: { engine: Engine; onManual?: (
             <span className="look-num">{i + 1}</span>
           </button>
         ))}
+        {compactEmpty && looks.some(l => !l) && (
+          <button className="btn btn-ghost btn-sm look-showall" onClick={() => setShowAll(v => !v)}>
+            {showAll ? 'Nascondi gli slot vuoti' : 'Mostra tutti gli slot'}
+          </button>
+        )}
       </div>
   )
   return bare ? grid : <Panel id="looks" title="Look Bank">{grid}</Panel>

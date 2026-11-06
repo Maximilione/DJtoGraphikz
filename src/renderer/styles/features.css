@@ -494,3 +494,81 @@
 .live-safety .btn-freeze { min-height: 64px; }
 .live-safety .btn-panic { min-height: 64px; margin-top: var(--s6); }
 .mode-live .bottom-bar { font-size: var(--fs-sm); min-height: 24px; }
+
+/* ============================================================
+   SIMPLE: un percorso — 1 Musica, 2 Stile, 3 Via
+   ============================================================ */
+.mode-simple .sidebar { position: relative; }
+.simple-panel { gap: 0; padding: 0; min-height: 100%; }
+.sf-step { padding: var(--s5); border-bottom: 1px solid var(--line); }
+.sf-step.current { background: var(--bg2); box-shadow: inset 3px 0 0 var(--sel-line); }
+.sf-step.next { opacity: 0.7; }
+.sf-head { display: flex; align-items: center; gap: var(--s3); min-height: 32px; }
+.sf-num {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font: 700 var(--fs-md) var(--font-mono);
+  background: var(--bg3); color: var(--text-primary);
+  flex-shrink: 0;
+}
+.sf-step.done .sf-num { background: var(--text-primary); color: var(--on-fill); }
+.sf-step.done .sf-num::before { content: '✓'; }
+.sf-step.done .sf-num { font-size: 0; }
+.sf-step.done .sf-num::before { font-size: var(--fs-sm); }
+.sf-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); }
+.sf-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); color: var(--text-secondary); text-align: right; }
+.sf-body { display: flex; flex-direction: column; gap: var(--s4); margin-top: var(--s4); }
+.sf-body .panel { margin: 0 calc(-1 * var(--s5)); }
+.sf-warn { padding: var(--s3) var(--s4); border-radius: var(--r-sm); background: var(--state-armed-bg); border: 1px solid var(--state-armed); color: var(--state-armed); font-size: var(--fs-sm); line-height: 1.4; }
+.audio-go { min-height: 48px; font-size: var(--fs-lg); }
+/* genres as tiles: pick by the colours */
+.sf-genres { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.genre-tile { flex-direction: column; align-items: flex-start; gap: var(--s2); min-height: 44px; padding: var(--s3) var(--s4); text-align: left; }
+.genre-tile .genre-label { font-size: var(--fs-sm); font-weight: 600; }
+.genre-tile .genre-swatches { display: flex; gap: 3px; }
+.genre-tile .genre-swatches span { width: 10px; height: 10px; border-radius: 2px; display: block; }
+.genre-tile.active { background: var(--sel-bg); border-color: var(--sel-line); }
+/* step 3 stays in view: the footer of the column */
+.sf-go-wrap { margin-top: auto; position: sticky; bottom: 0; background: var(--bg0); border-bottom: 0; border-top: 1px solid var(--line); }
+.sf-go-wrap.current { background: var(--bg2); }
+.sf-go { width: 100%; flex-direction: column; gap: var(--s1); min-height: 64px; padding: var(--s4); }
+.sf-go-title { display: inline-flex; align-items: center; gap: var(--s3); font-size: var(--fs-lg); font-weight: 700; }
+.sf-go .sf-num { background: var(--state-on); color: var(--on-fill); }
+.sf-go-sub { font-size: var(--fs-xs); font-weight: 400; color: var(--state-on); opacity: 0.85; }
+.sf-card { display: flex; flex-direction: column; gap: var(--s4); }
+.sf-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.sf-now { font-size: var(--fs-xl); font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sf-phases { display: flex; gap: var(--s2); }
+.sf-phases span { flex: 1; text-align: center; padding: var(--s1) 0; border-radius: var(--r-sm); font-size: var(--fs-xs); color: var(--text-muted); background: var(--bg1); }
+.sf-phases span.on { color: var(--on-fill); background: var(--state-on); font-weight: 600; }
+/* Pro: the setup under a fold */
+.audio-fold > summary { cursor: pointer; min-height: var(--h-ctl); display: flex; align-items: center; font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
+.audio-fold > summary:hover { color: var(--text-primary); }
+.audio-fold[open] > summary { margin-bottom: var(--s3); }
+
+/* tabs under the preview */
+.simple-tabs { flex-shrink: 0; align-items: center; }
+.simple-tabs .tab { flex: 0 0 auto; padding: 0 var(--s6); min-height: 40px; font-size: var(--fs-md); }
+.simple-tabs-hint { margin-left: auto; padding: 0 var(--s5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.simple-deck-body { flex: 0 0 auto; height: clamp(190px, 34vh, 380px); overflow-y: auto; padding: var(--s4); border-top: 1px solid var(--line); }
+.mode-simple .fx-grid-lg { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.mode-simple .pal-grid-lg { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.mode-simple .live-lookbank { flex: 0 0 auto; height: clamp(190px, 34vh, 380px); padding: var(--s4); }
+.mode-simple .look-bank-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--s4); }
+/* one empty slot shows the gesture; the rest hide until asked */
+.look-bank-grid.compact-empty .look-slot.empty ~ .look-slot.empty { display: none; }
+.look-bank-grid.compact-empty .look-slot.empty::after { content: 'Salva quello che vedi'; font-size: var(--fs-sm); color: var(--text-secondary); }
+.look-showall { grid-column: 1 / -1; justify-self: start; }
+.look-fill { position: absolute; inset: 0; opacity: 0.6; pointer-events: none; }
+.mode-simple .look-slot .look-name { font-size: var(--fs-sm); padding: 2px var(--s3); }
+.preview-note {
+  position: absolute;
+  bottom: 10px;
+  left: 14px;
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-sm);
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+}

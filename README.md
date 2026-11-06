@@ -28,9 +28,9 @@ On first launch the app asks for **microphone/audio input** access (to listen to
 
 ## First night in 5 steps
 
-1. **Audio in** — the onboarding asks for the input: line-in from the mixer, or the microphone. No cable? Drop an mp3 on the Audio panel and rehearse on that.
+1. **Audio in** — Simple mode is a three-step path: **1 Musica** asks where the music comes from (line-in from the mixer, or the microphone) and tells you when it actually hears it; **2 Stile** picks the genre from colour tiles; **3 Grafiche in automatico** starts the Auto VJ. No cable? "Niente mixer? Prova con un brano" rehearses on an mp3.
 2. **Output** — pick the projector in the monitor selector and press **Fullscreen**. Save the room as a **venue**: next time it is one click.
-3. **Genre** — choose the Auto VJ genre. From here the app runs the night on its own.
+3. **Genre** — step 2 of the path. From here the app runs the night on its own; the card under step 3 says what it is doing (phase, current effect) and lets you hold an effect.
 4. **Soundcheck** — one button in the top bar: a green/red list in a few seconds (audio in, output really drawing, fps, ArtNet, phone, disk).
 5. **Emergency keys** — **B** blackout, **F** freeze, **P** panic. Hold any of them for a momentary, tap to latch. **?** opens the cheat sheet.
 

@@ -1,15 +1,12 @@
-import React, { useState, useCallback } from 'react'
-import type { Engine, EffectId } from '@engine/Engine'
+import React, { useEffect, useState, type ReactNode } from 'react'
 import type { Genre, Phase } from '@engine/AutoVJ'
-import { allPalettes } from '../../palettes'
-import { EffectGrid } from '../EffectGrid/EffectGrid'
-import { AutoVJControl } from '../AutoVJ/AutoVJControl'
-import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
-import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
-import { pickEffect } from '../../autoMapping'
+import { GENRE_CONFIGS } from '@engine/AutoVJ'
+import type { EffectId } from '@engine/Engine'
+import { GENRES, effectLabel } from '../../catalog'
+import { PHASE_LABEL } from '../AutoVJ/AutoVJControl'
+import type { SimpleFlow } from '../../simpleFlow'
 
 interface SimplePanelProps {
-  engine: Engine | null
   vjEnabled: boolean
   vjGenre: Genre
   vjStatus: { current: string; count: number; phase: Phase }
@@ -17,59 +14,124 @@ interface SimplePanelProps {
   onVJToggle: (on: boolean) => void
   onVJGenre: (g: Genre) => void
   onVJHold: (held: boolean) => void
+  /** does the app hear the music — from App, at most 2 Hz */
+  flow: SimpleFlow
+  bpm: number
+  /** the AudioPanel in its simple variant: mounted by App so its boundary key survives */
+  audio: ReactNode
 }
 
-/** Simple mode: the few controls a first-time VJ actually needs, big enough to hit in the dark. */
-export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, vjHeld, onVJToggle, onVJGenre, onVJHold }: SimplePanelProps) {
-  const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
-  const [activePalette, setActivePalette] = useState(0)
+const PHASES: Phase[] = ['break', 'build', 'groove', 'peak']
 
-  // Sync from engine on mount (boot restore may not emit), then subscribe:
-  // state changes come from ANY surface (phone remote, AutoVJ, hotkeys, presets)
-  React.useEffect(() => {
-    if (!engine) return
-    const sync = (effect: EffectId, colors: [string, string, string]) => {
-      setActiveEffect(effect)
-      // -1 lights nothing: the Auto VJ's own palettes are not in the grid, and
-      // the previous tile stayed lit on colours that were not on the wall
-      setActivePalette(allPalettes().findIndex(p => p.colors.every((c, i) => c.toLowerCase() === colors[i])))
-    }
-    sync(engine.getCurrentEffect(), engine.getCurrentColors())
-    return engine.onState(state => sync(state.activeEffect, state.colors))
-  }, [engine])
+/**
+ * Simple mode as a path: 1 Musica, 2 Stile, 3 Via. One step is current and
+ * shows its controls; the ones done fold into a row with a "Cambia"; the
+ * next is dimmed but never disabled. A step closes once and never reopens
+ * on its own — a break in the music must not make the column jump.
+ */
+export function SimplePanel({ vjEnabled, vjGenre, vjStatus, vjHeld, onVJToggle, onVJGenre, onVJHold, flow, bpm, audio }: SimplePanelProps) {
+  const [musicDone, setMusicDone] = useState(false)
+  const [styleOpen, setStyleOpen] = useState(false)
+  useEffect(() => { if (flow === 'sento') setMusicDone(true) }, [flow])
+  // once the Auto VJ is on, the style is chosen: the tiles fold
+  useEffect(() => { if (vjEnabled) setStyleOpen(false) }, [vjEnabled])
 
-  // Thumbnails: capture from the live engine ~1.5s after each effect change
-  useFxThumbs(engine, activeEffect)
-
-  const selectEffect = useCallback((id: EffectId) => {
-    if (!engine) return
-    pickEffect(engine, id)
-    setActiveEffect(id)
-    onVJToggle(false) // manual pick takes over from Auto VJ
-  }, [engine, onVJToggle])
-
-  const selectPalette = useCallback((i: number) => {
-    if (!engine) return
-    engine.setColors(...allPalettes()[i].colors)
-    setActivePalette(i)
-  }, [engine])
+  const step = !musicDone ? 1 : !vjEnabled ? 2 : 3
+  const cls = (n: number) => `sf-step${step === n ? ' current' : n < step ? ' done' : ' next'}`
+  const genreLabel = GENRES.find(g => g.id === vjGenre)?.label ?? vjGenre
+  const showTiles = step === 2 || styleOpen
 
   return (
     <div className="panel simple-panel">
-      <AutoVJControl
-        size="lg"
-        enabled={vjEnabled} genre={vjGenre} status={vjStatus}
-        onToggle={onVJToggle} onGenre={onVJGenre}
-        held={vjHeld} onHold={onVJHold}
-      />
+      {/* 1 — Musica */}
+      <section className={cls(1)}>
+        <header className="sf-head">
+          <span className="sf-num">1</span>
+          <span className="sf-title">Musica</span>
+          {musicDone && (
+            <>
+              <span className="sf-sum">
+                {flow === 'sento' ? `Ti sento${bpm > 0 ? ` · ${bpm} BPM` : ''}` : flow === 'fermo' ? 'Audio fermo' : 'Silenzio'}
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setMusicDone(false)}>Cambia</button>
+            </>
+          )}
+        </header>
+        {!musicDone && (
+          <div className="sf-body">
+            {audio}
+            {flow === 'silenzio' && (
+              <div className="sf-warn" role="status">
+                Non arriva suono. Controlla cavo o volume, oppure scegli un altro ingresso. Musica molto bassa? Alza il Gain in Regolazioni audio.
+              </div>
+            )}
+            {flow === 'attesa' && <div className="u-hint">Metti un brano: appena lo sento passo al passo 2.</div>}
+          </div>
+        )}
+      </section>
 
-      {/* Effects — big grid, no tabs, no search */}
-      <div className="simple-section">EFFETTI</div>
-      <EffectGrid activeId={vjEnabled ? null : activeEffect} onPick={selectEffect} size="lg" />
+      {/* 2 — Stile */}
+      <section className={cls(2)}>
+        <header className="sf-head">
+          <span className="sf-num">2</span>
+          <span className="sf-title">Stile</span>
+          {!showTiles && (
+            <>
+              <span className="sf-sum">{genreLabel}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setStyleOpen(true)}>Cambia</button>
+            </>
+          )}
+        </header>
+        {showTiles && (
+          <div className="sf-body">
+            <div className="sf-genres">
+              {GENRES.map(g => (
+                <button
+                  key={g.id}
+                  className={`btn genre-tile${vjGenre === g.id ? ' active' : ''}`}
+                  aria-pressed={vjGenre === g.id}
+                  title={g.desc}
+                  onClick={() => { onVJGenre(g.id as Genre); setStyleOpen(false) }}
+                >
+                  <span className="genre-label">{g.label}</span>
+                  <span className="genre-swatches">
+                    {GENRE_CONFIGS[g.id as Genre].palettes[0].map((c, j) => <span key={j} style={{ background: c }} />)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
-      {/* Palettes — swatch row */}
-      <div className="simple-section">COLORI</div>
-      <PaletteGrid size="lg" isActive={i => activePalette === i} onPick={selectPalette} />
+      {/* 3 — Via: one big button, then the card that says what the machine is doing */}
+      <section className={`${cls(3)} sf-go-wrap`}>
+        {!vjEnabled ? (
+          <button className="btn btn-primary sf-go" onClick={() => onVJToggle(true)} title="Accende l'Auto VJ">
+            <span className="sf-go-title"><span className="sf-num">3</span> Grafiche in automatico</span>
+            <span className="sf-go-sub">Auto VJ: cambia tutto da solo, a tempo</span>
+          </button>
+        ) : (
+          <div className="sf-card">
+            <div className="sf-card-head">
+              <span className="air-tag">Auto VJ in regia</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => onVJToggle(false)} title="Spegne l'Auto VJ: comandi tu">Spegni Auto VJ</button>
+            </div>
+            <div className="sf-now">Ora: {vjStatus.current ? effectLabel(vjStatus.current as EffectId) : '—'}</div>
+            <div className="sf-phases" title="In che momento del pezzo siamo, secondo l'Auto VJ">
+              {PHASES.map(ph => <span key={ph} className={ph === vjStatus.phase ? 'on' : ''}>{PHASE_LABEL[ph]}</span>)}
+            </div>
+            <button
+              className={`btn${vjHeld ? ' is-armed' : ''}`}
+              aria-pressed={vjHeld}
+              onClick={() => onVJHold(!vjHeld)}
+              title="Tiene fermo il look attuale — fasi e palette continuano a seguire la musica sotto, pronte a ripartire"
+            >
+              {vjHeld ? 'Riprendi i cambi' : 'Tieni questo effetto'}
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
