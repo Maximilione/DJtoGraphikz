@@ -6,7 +6,7 @@ import { pushToast } from '../Toasts/Toasts'
 import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
 import { Panel } from '../Panel/Panel'
 
-function LookBankImpl({ engine }: { engine: Engine }) {
+function LookBankImpl({ engine, onManual }: { engine: Engine; onManual?: () => void }) {
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
   // What the triggers and the undo toasts read: the state as it is now, not
   // the render they were created in. With `looks` in their deps the window
@@ -105,11 +105,12 @@ function LookBankImpl({ engine }: { engine: Engine }) {
   const trigger = useCallback((i: number) => {
     const look = looksRef.current[i]
     if (!look) return
+    onManual?.()   // a recalled look takes over from the Auto VJ, as the phone's look does
     engine.applyPreset(look.preset)
     setActive(i)
     clearTimeout(activeTimer.current)
     activeTimer.current = window.setTimeout(() => setActive(prev => (prev === i ? -1 : prev)), 600)
-  }, [engine])
+  }, [engine, onManual])
   useEffect(() => () => clearTimeout(activeTimer.current), [])
 
   // Shift+1..9, Shift+0 → slots 1-10. e.code so shifted symbol layouts don't break.
@@ -180,7 +181,7 @@ function LookBankImpl({ engine }: { engine: Engine }) {
             <button
               type="button"
               className="btn look-hit"
-              title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10}` : ''}`}
+              title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10} (tieni premuto: momentaneo)` : ''}`}
               onClick={e => e.shiftKey ? saveLook(i) : trigger(i)}
             />
             {look.thumb && <img src={look.thumb} alt="" />}
