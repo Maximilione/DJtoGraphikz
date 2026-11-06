@@ -775,7 +775,8 @@ let defs = null            // catalogs from /defs
 let looksRev = -1
 let thumbsRev = -1, thumbs = {}
 const prev = {}            // dirty-check cache for structural updates
-let dragging = {}          // range keys currently touched — poll must not move them
+const dragging = {}        // range keys currently touched — poll must not move them
+const dragPtr = {}         // pointerId -> range key
 const timers = {}, pending = {}
 const fxBtns = {}, blendBtns = {}
 let favBtns = {}
@@ -860,31 +861,36 @@ function flush(k, c){ clearTimeout(timers[k]); timers[k] = 0; pending[k] = null;
 // the duration measured here (heldMs), immune to wifi jitter. holding keeps
 // the poll from rebuilding the node under the finger.
 const HOLD_ARM_MS = 120
+const HOLD_MS = 250        // momentary.ts: a release under this leaves the press latched
 let holding = 0
+const activeHolds = new Set()
 function holdBtn(node, makePress, relValue, onFire){
-  let timer = 0, down = 0, armed = false
-  const done = function(){ if (down) { down = 0; holding-- } clearTimeout(timer); timer = 0 }
+  let timer = 0, down = 0, armed = false, pressed = null
+  const done = function(){ if (down) { down = 0; holding--; activeHolds.delete(cancel) } clearTimeout(timer); timer = 0 }
+  // POSTs race on slow wifi: a release landing first finds nothing to undo
+  const release = function(ms){ const p = pressed; pressed = null; Promise.resolve(p).then(function(){ cmd({ type: 'release', value: relValue, heldMs: ms }) }) }
   node.addEventListener('pointerdown', function(ev){
     if (down) return
     ev.preventDefault()
-    down = performance.now(); holding++
+    down = performance.now(); holding++; activeHolds.add(cancel)
     armed = false
     timer = setTimeout(function(){
       timer = 0; armed = true
       if (onFire) onFire()
-      cmd(makePress(true))
+      pressed = cmd(makePress(true))
     }, HOLD_ARM_MS)
   })
   node.addEventListener('pointerup', function(){
     if (!down) return
-    if (armed) { const ms = Math.round(performance.now() - down); done(); cmd({ type: 'release', value: relValue, heldMs: ms }); return }
+    if (armed) { const ms = Math.round(performance.now() - down); done(); release(ms); return }
     done()
     if (onFire) onFire()
     cmd(makePress(false))
   })
   const cancel = function(){
     if (!down) return
-    if (armed) { const ms = Math.round(performance.now() - down); done(); cmd({ type: 'release', value: relValue, heldMs: ms }); return }
+    // a cancel is never a tap: past the threshold, or a slow scroll latches
+    if (armed) { const ms = Math.round(performance.now() - down); done(); release(Math.max(ms, HOLD_MS)); return }
     done()   // a scroll: nothing was sent
   }
   node.addEventListener('pointercancel', cancel)
@@ -921,15 +927,22 @@ function setOn(node, on){ if (node) node.classList.toggle('on', on) }
 
 document.addEventListener('pointerdown', function(e){
   const t = e.target
-  if (t && t.type === 'range' && t.dataset.dk) dragging[t.dataset.dk] = true
+  if (t && t.type === 'range' && t.dataset.dk) { dragging[t.dataset.dk] = true; dragPtr[e.pointerId] = t.dataset.dk }
   if (t && t.closest && t.closest('button')) buzz(10)
 }, { passive: true })
 // 800 ms later, not at once: a poll in flight carried the old value and the
 // slider jumped back for a moment; and lifting another finger (BLACK during a
 // crossfader drag) must not drop the shield on the fader either
-document.addEventListener('pointerup', function(){ setTimeout(function(){ dragging = {} }, 800) }, { passive: true })
-document.addEventListener('pointercancel', function(){ setTimeout(function(){ dragging = {} }, 800) }, { passive: true })
-document.addEventListener('visibilitychange', function(){ if (document.hidden) holding = 0 })
+function endDrag(e){
+  const k = dragPtr[e.pointerId]
+  if (!k) return
+  delete dragPtr[e.pointerId]
+  setTimeout(function(){ if (!Object.values(dragPtr).includes(k)) delete dragging[k] }, 800)
+}
+document.addEventListener('pointerup', endDrag, { passive: true })
+document.addEventListener('pointercancel', endDrag, { passive: true })
+// a locked screen may never deliver pointerup: end the holds, or a strobe stays on
+document.addEventListener('visibilitychange', function(){ if (document.hidden) [...activeHolds].forEach(function(c){ c() }) })
 
 // ---- pairing ----
 async function pair(){
@@ -1057,6 +1070,7 @@ async function refreshLooks(rev){
     const r = await tfetch('/defs', { headers: auth() }, 4000)
     if (r.status === 401) return logout()
     const d = await r.json()
+    if (holding) return   // rebuilding the grid would orphan the node under the finger; the poll retries
     renderLooks(d.looks || [])
     looksRev = rev
   } catch (_) {}

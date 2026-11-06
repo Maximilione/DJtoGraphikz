@@ -2023,6 +2023,7 @@ export class Engine {
 
   isUsingCustomShader(): boolean { return this.usingCustom }
   getCustomShaderSource(): string { return this.usingCustom ? this.customShaderSource : '' }
+  getCustomImageInputs(): string[] { return this.usingCustom ? this.customImageInputs : [] }
 
   private paramBucket(): Record<string, ParamState> {
     const key = this.usingCustom ? '__custom__' : this.currentEffect

@@ -223,6 +223,26 @@ const CRASH_MAX = 4
  */
 const SELFTEST = !!process.env.DJG_SELFTEST
 
+// True while the user has to decide: the caller must cancel the close or quit.
+let closeConfirmed = false
+let closeAsking = false
+function askBeforeClosing(): boolean {
+  if (SELFTEST || closeConfirmed || !controlWindow || !liveOutputs().some(o => o.win.isAlwaysOnTop())) return false
+  if (closeAsking) return true
+  closeAsking = true
+  dialog.showMessageBox(controlWindow, {
+    type: 'warning',
+    message: 'Il proiettore è a schermo intero',
+    detail: 'Chiudere la finestra di controllo spegne tutte le uscite.',
+    buttons: ['Resta', 'Chiudi e spegni il proiettore'],
+    defaultId: 0, cancelId: 0,
+  }).then(r => {
+    closeAsking = false
+    if (r.response === 1) { closeConfirmed = true; app.quit() }
+  }).catch(() => { closeAsking = false })
+  return true
+}
+
 /**
  * Headless-ish tests: under the self-test every window is fully transparent,
  * click-through and unfocusable, so a 5-minute sweep no longer takes over a
@@ -716,25 +736,7 @@ app.whenReady().then(async () => {
   // console closes every wall: with a projector in fullscreen it asks first.
   // Async dialog: a sync one blocks main, which relays state and audio to
   // the outputs.
-  let closeConfirmed = false
-  let closeAsking = false
-  controlWindow.on('close', e => {
-    if (SELFTEST || closeConfirmed || !liveOutputs().some(o => o.win.isAlwaysOnTop())) return
-    e.preventDefault()
-    quitting = false   // before-quit already set it on Cmd+Q; the recoveries must stay armed
-    if (closeAsking || !controlWindow) return
-    closeAsking = true
-    dialog.showMessageBox(controlWindow, {
-      type: 'warning',
-      message: 'Il proiettore è a schermo intero',
-      detail: 'Chiudere la finestra di controllo spegne tutte le uscite.',
-      buttons: ['Resta', 'Chiudi e spegni il proiettore'],
-      defaultId: 0, cancelId: 0,
-    }).then(r => {
-      closeAsking = false
-      if (r.response === 1) { closeConfirmed = true; app.quit() }
-    }).catch(() => { closeAsking = false })
-  })
+  controlWindow.on('close', e => { if (askBeforeClosing()) e.preventDefault() })
 
   controlWindow.on('closed', () => {
     controlWindow = null
@@ -817,7 +819,12 @@ app.whenReady().then(async () => {
   })
 })
 
-app.on('before-quit', () => { quitting = true })
+// Asked here and not only in the window's close: app.quit() closes every window
+// and a preventDefault on the control one would not spare the projector's.
+app.on('before-quit', e => {
+  if (askBeforeClosing()) { e.preventDefault(); return }
+  quitting = true
+})
 
 app.on('window-all-closed', () => {
   app.quit()

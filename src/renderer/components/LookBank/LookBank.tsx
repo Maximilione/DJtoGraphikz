@@ -6,7 +6,7 @@ import { pushToast } from '../Toasts/Toasts'
 import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
 import { Panel } from '../Panel/Panel'
 
-function LookBankImpl({ engine, onManual }: { engine: Engine; onManual?: () => void }) {
+function LookBankImpl({ engine, onManual }: { engine: Engine; onManual?: () => (() => void) | undefined }) {
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
   // What the triggers and the undo toasts read: the state as it is now, not
   // the render they were created in. With `looks` in their deps the window
@@ -105,11 +105,12 @@ function LookBankImpl({ engine, onManual }: { engine: Engine; onManual?: () => v
   const trigger = useCallback((i: number) => {
     const look = looksRef.current[i]
     if (!look) return
-    onManual?.()   // a recalled look takes over from the Auto VJ, as the phone's look does
+    const restoreVj = onManual?.()   // a recalled look takes over from the Auto VJ, as the phone's look does
     engine.applyPreset(look.preset)
     setActive(i)
     clearTimeout(activeTimer.current)
     activeTimer.current = window.setTimeout(() => setActive(prev => (prev === i ? -1 : prev)), 600)
+    return restoreVj
   }, [engine, onManual])
   useEffect(() => () => clearTimeout(activeTimer.current), [])
 
@@ -130,8 +131,8 @@ function LookBankImpl({ engine, onManual }: { engine: Engine; onManual?: () => v
       // Held, this is momentary — and going back means restoring the look that
       // was on screen, which is not the same as recalling a different slot.
       const before = engine.createPreset('prima del richiamo')
-      trigger(i)
-      momentary.press(`look:${i}`, () => engine.applyPreset(before))
+      const restoreVj = trigger(i)
+      momentary.press(`look:${i}`, () => { engine.applyPreset(before); restoreVj?.() })
     }
     // Shift can come up before the digit does, so the release is read off
     // e.code alone and never off shiftKey.

@@ -10,6 +10,7 @@ import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
 import { PresetPanel } from './components/PresetPanel/PresetPanel'
 import { seqCommand } from './components/PresetPanel/seqRemote'
 import { useSequencePlayer } from './components/PresetPanel/useSequencePlayer'
+import type { Sequence } from './components/PresetPanel/sequences'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
@@ -901,11 +902,15 @@ export function App() {
   // A pick from the Pro grid or a Look Bank click takes over from the Auto VJ,
   // as 1-0, the phone, MIDI and the Simple grid already did: otherwise the
   // next scene replaced it and the click looked broken.
+  // Returns what puts it back, for a held look that gets released.
   const onManual = useCallback(() => {
-    if (!vjRef.current.isEnabled()) return
+    if (!vjRef.current.isEnabled()) return undefined
+    const heldWas = vjRef.current.isHeld()
+    const restore = () => { toggleVJ(true); if (heldWas) toggleVJHold(true) }
     toggleVJ(false)
-    pushToast('Auto VJ spento: scelta manuale', 'vj-manual', { label: 'Riattiva', fn: () => toggleVJ(true) })
-  }, [toggleVJ])
+    pushToast('Auto VJ spento: scelta manuale', 'vj-manual', { label: 'Riattiva', fn: restore })
+    return restore
+  }, [toggleVJ, toggleVJHold])
 
   const changeVJGenre = useCallback((g: Genre) => {
     vjRef.current.setGenre(g)
@@ -961,12 +966,25 @@ export function App() {
   // Undo: a P one key from [ wipes a post chain built by hand. The snapshot
   // survives a double P (the reflex in a panic), or the second one would
   // save the clean state and there would be nothing to go back to.
-  const panicUndo = useRef<{ at: number; preset: Preset; vj: boolean; intensity: number; roll: number } | null>(null)
+  const panicUndo = useRef<{
+    at: number; preset: Preset; vj: boolean; held: boolean; intensity: number; roll: number
+    brightness: number; blackout: boolean; frozen: boolean
+    seq: { list: Sequence; step: number } | null
+  } | null>(null)
+  const seqNow = useRef(seqPlayer)
+  seqNow.current = seqPlayer
   const panic = useCallback(() => {
     if (!engine) return
     const now = performance.now()
     if (!panicUndo.current || now - panicUndo.current.at > 5000) {
-      panicUndo.current = { at: now, preset: engine.createPreset('prima del panic'), vj: vjRef.current.isEnabled(), intensity: intensityRef.current, roll: engine.getBeatRoll() as 0 | 4 | 8 | 16 }
+      const s = seqNow.current
+      panicUndo.current = {
+        at: now, preset: engine.createPreset('prima del panic'),
+        vj: vjRef.current.isEnabled(), held: vjRef.current.isHeld(),
+        intensity: intensityRef.current, roll: engine.getBeatRoll() as 0 | 4 | 8 | 16,
+        brightness: engine.getBrightness(), blackout: engine.isBlackout(), frozen: engine.isFrozen(),
+        seq: s.playing && s.playingSeq ? { list: s.playingSeq, step: s.stepIndex } : null,
+      }
     }
     const u = panicUndo.current
     engine.setActivePosts([])
@@ -981,16 +999,21 @@ export function App() {
     engine.setBeatRoll(0); setBeatRollUi(0)
     seqPlayer.stop()
     toggleVJ(false)
-    pushToast(`PANIC · post, crossfade, intensità e beat-roll azzerati${u.vj ? ', Auto VJ spento' : ''}`, 'panic-undo', {
+    pushToast(`PANIC · post, crossfade, intensità e beat-roll azzerati${u.vj ? ', Auto VJ spento' : ''}${u.seq ? ', scaletta fermata' : ''}`, 'panic-undo', {
       label: 'Annulla',
       fn: () => {
         engine.applyPreset(u.preset)
         engine.setIntensity(u.intensity); setIntensity(u.intensity)
         engine.setBeatRoll(u.roll as 0 | 4 | 8 | 16); setBeatRollUi(u.roll)
-        if (u.vj) toggleVJ(true)
+        engine.setBrightness(u.brightness); setBrightness(u.brightness)
+        engine.setBlackout(u.blackout); setBlackout(u.blackout)
+        engine.setFreeze(u.frozen); setFrozen(u.frozen)
+        if (u.vj) { toggleVJ(true); if (u.held) toggleVJHold(true) }
+        if (u.seq) seqNow.current.start(u.seq.list, u.seq.step)
+        panicUndo.current = null   // spent: a later P must snapshot afresh
       },
     })
-  }, [engine, toggleVJ, seqPlayer.stop])
+  }, [engine, toggleVJ, toggleVJHold, seqPlayer.stop])
 
   const changeMode = useCallback((m: UIMode) => {
     setMode(m)
@@ -1143,6 +1166,12 @@ export function App() {
       if (e.detail === 0) return
       const btn = (e.target as HTMLElement | null)?.closest?.('button')
       if (btn && btn === document.activeElement) btn.blur()
+      // a checkbox owns Space too; a click on its label focuses it only after
+      // this capture listener, hence the deferred read
+      setTimeout(() => {
+        const a = document.activeElement
+        if (a instanceof HTMLInputElement && (a.type === 'checkbox' || a.type === 'radio')) a.blur()
+      }, 0)
     }
     // a select keeps the focus after a pick and a digit then type-aheads it
     const onChange = (e: Event) => {
@@ -1315,14 +1344,14 @@ export function App() {
     if (!EXT_STABLE.has(cmd.type)) pushPhoneExt()
   }, [engine, pushPhoneExt, toggleVJ, toggleVJHold, changeVJGenre, panic, tapBpm])
 
-  // The Auto VJ and a playlist would fight for the wall: the playlist wins
-  // the moment it starts, from the panel, the phone or OSC alike.
+  // The Auto VJ and a playlist would fight for the wall: the playlist wins,
+  // when it starts and if the Auto VJ is turned on under it, from any surface.
   useEffect(() => {
     if (seqPlayer.playing && vjRef.current.isEnabled()) {
       toggleVJ(false)
       pushToast('Auto VJ spento: guida la scaletta', 'vj-seq')
     }
-  }, [seqPlayer.playing, toggleVJ])
+  }, [seqPlayer.playing, vjEnabled, toggleVJ])
 
   // A controller whose cable drops goes quiet with no word anywhere but the
   // MIDI panel, collapsed and Pro-only. The bottom bar is in every mode.

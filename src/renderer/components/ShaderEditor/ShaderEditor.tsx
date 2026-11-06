@@ -326,11 +326,12 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
   const meta = useRef<{ params: EffectParam[]; imageInputs: string[] } | null>(null)
   // a template or a .frag replaced hand-written code with no way back
   const replaceCode = useCallback((next: string) => {
-    const prev = code
+    const prev = code, prevMeta = meta.current
+    meta.current = null
     setCode(next)
     setError(null)
     if (prev !== next && !TEMPLATES.some(t => t.code === prev)) {
-      pushToast('Codice sostituito', 'shader-replace', { label: 'Annulla', fn: () => setCode(prev) })
+      pushToast('Codice sostituito', 'shader-replace', { label: 'Annulla', fn: () => { setCode(prev); meta.current = prevMeta } })
     }
   }, [code])
 
@@ -364,7 +365,6 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
 
   // Load template
   const loadTemplate = useCallback((idx: number) => {
-    meta.current = null
     replaceCode(TEMPLATES[idx].code)
   }, [replaceCode])
 
@@ -515,7 +515,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
             className="btn btn-secondary btn-sm"
             style={{ flex: 1 }}
             title="Carica un file .frag/.glsl nell'editor"
-            onClick={() => pickTextFile('.frag,.glsl,.txt', text => { meta.current = null; replaceCode(text) })}
+            onClick={() => pickTextFile('.frag,.glsl,.txt', text => replaceCode(text))}
           >
             Importa .frag
           </button>

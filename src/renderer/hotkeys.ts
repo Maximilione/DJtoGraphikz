@@ -16,12 +16,14 @@ export function shouldIgnoreHotkey(e: KeyboardEvent): boolean {
   // a synthetic event on window/document has no element target: nothing to
   // inspect, and `hasAttribute` below would throw inside the global listener
   const el = e.target
-  if (!(el instanceof HTMLElement)) return false
 
   // Cmd+P (print) ran PANIC, Cmd+B the blackout, Cmd+V saved a reel. Ctrl
   // alone is filtered too; Ctrl+Alt is AltGr on Windows, where [ ] (the
-  // master) live on Italian keyboards.
+  // master) live on Italian keyboards. Before the element check: a focused
+  // SVG corner handle is not an HTMLElement.
   if (e.metaKey || (e.ctrlKey && !e.altKey)) return true
+
+  if (!(el instanceof HTMLElement)) return false
 
   const tag = el.tagName
   if (tag === 'INPUT') {
