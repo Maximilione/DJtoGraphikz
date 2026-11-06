@@ -111,16 +111,16 @@ function AutoVJPanelImpl({ engine, vj, vjEnabled, vjGenre, vjStatus, vjHeld, onT
           <div style={{ paddingLeft: '6px', lineHeight: '1.6' }}>
             {(['break', 'build', 'groove', 'peak'] as Phase[]).map(ph => (
               <div key={ph}>
-                <span style={{ color: 'var(--accent)' }}>{PHASE_LABEL[ph]}:</span>{' '}
+                <span style={{ color: 'var(--text-primary)' }}>{PHASE_LABEL[ph]}:</span>{' '}
                 {config.scenes.filter(sc => sc.phase === ph).map(sc => effectLabel(sc.effect)).join(', ')}
               </div>
             ))}
             <div>
-              <span style={{ color: 'var(--accent)' }}>Frase:</span>{' '}
+              <span style={{ color: 'var(--text-primary)' }}>Frase:</span>{' '}
               {config.phraseBars} battute nel groove, {Math.max(2, config.phraseBars / 2)} al picco, {config.phraseBars * 2} in pausa
             </div>
             <div>
-              <span style={{ color: 'var(--accent)' }}>Cambio:</span>{' '}
+              <span style={{ color: 'var(--text-primary)' }}>Cambio:</span>{' '}
               {config.cut.seconds}s sul groove · 2.5s verso la pausa · taglio secco sul drop
             </div>
             {/* Palette swatches */}

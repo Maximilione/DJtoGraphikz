@@ -1,17 +1,9 @@
 /* Usability features (U1.x) — additive on top of global.css tokens */
 
-/* U1.1 — PANIC: danger styling, ma discreto finché non ci passi sopra */
-.btn-panic {
-  background: transparent;
-  border: 1px solid var(--danger);
-  color: var(--danger);
-  opacity: 0.65;
-}
-.btn-panic:hover {
-  opacity: 1;
-  background: var(--danger);
-  color: #fff;
-}
+/* Densita' per modalita': un token alza i controlli e il testo. Qui e non in
+   global.css perche' check-contrast legge la prima occorrenza di ogni token. */
+.mode-simple { --h-ctl: 32px; --h-emg: 40px; --h-head: 36px; --h-range: 32px; }
+.mode-live { --h-ctl: 44px; --h-emg: 56px; --h-range: 40px; --fs-ctl: var(--fs-md); --cap-w: 16px; --cap-h: 30px; }
 
 /* U1.2 — beat dot: flash gestito via mutazione DOM diretta (nessun setState per frame) */
 .beat-dot {
@@ -101,7 +93,7 @@
 /* D6 — occhio del logo prima del titolo */
 .tb-eye {
   display: inline-flex;
-  color: var(--accent);
+  color: var(--text-secondary);
 }
 
 /* master slider (era inline width:90px) */
@@ -219,7 +211,7 @@
   padding: var(--s1) var(--s4);
   cursor: pointer;
 }
-.preview-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.preview-toggle:hover { color: var(--text-primary); border-color: var(--line-strong); }
 
 /* ---- Param mapping chips + editor (ParamControls v2) ---- */
 .pm-row { display: flex; flex-direction: column; gap: 2px; }
@@ -327,46 +319,23 @@
 .top-bar .btn, .top-bar select, .mode-switch button { min-height: 28px; }
 .tb-select { max-width: 150px; text-overflow: ellipsis; }
 
-/* BPM sempre visibile accanto al beat dot */
+/* BPM: il numero si legge da un metro, a larghezza fissa cosi' il trio di
+   emergenza alla sua destra non si sposta tra '—' e '128' */
 .beat-dot { width: 12px; height: 12px; }
 .tb-bpm {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s2);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
   white-space: nowrap;
-  min-width: 56px;
 }
-.tb-bpm b { color: var(--text-primary); font-size: var(--fs-md); }
+.tb-bpm b { color: var(--text-primary); font: 700 var(--fs-2xl) var(--font-mono); line-height: 1; min-width: 3ch; text-align: right; }
 
-/* BLACK e PANIC: pericolosi, ma diversi tra loro.
-   BLACK = nero pieno col bordo chiaro (acceso: rosso pieno);
-   PANIC = rosso con bordo spesso, sempre ben visibile. */
-.btn-black {
-  background: #000;
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
-  font-weight: 700;
-  letter-spacing: 0.6px;
-}
-.btn-black:hover:not(:disabled) { background: #000; border-color: var(--text-primary); }
-.btn-black.on {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-.btn-black.on:hover:not(:disabled) { background: var(--danger-dim); border-color: var(--danger-dim); }
-.btn-panic {
-  opacity: 1;
-  border-width: 2px;
-  background: rgba(255, 68, 85, 0.14);
-  font-weight: 700;
-  letter-spacing: 0.6px;
-}
-
-/* Preview: il pulsante e l'etichetta restano cliccabili / leggibili */
+/* Preview: il pulsante resta cliccabile */
 .preview-toggle { min-height: 28px; }
-.preview-label { font-size: var(--fs-xs); color: var(--text-secondary); }
 
 /* Deck: crossfader largo, le altre voci vanno a capo */
 .deck-bar { gap: var(--s3) var(--s4); padding-top: var(--s3); padding-bottom: var(--s3); }
@@ -395,20 +364,6 @@
 .mode-simple .tb-extra { display: none; }
 
 /* LIVE: tutto grande, leggibile da lontano */
-.mode-live .top-bar { padding: var(--s4) var(--s6); gap: var(--s5); min-height: 56px; }
-.mode-live .top-bar .btn, .mode-live .top-bar select, .mode-live .mode-switch button { min-height: 44px; }
-.mode-live .mode-switch button { font-size: var(--fs-md); padding: var(--s2) var(--s6); }
-.mode-live .top-bar .deck-label { font-size: var(--fs-md); }
-.mode-live .tb-master { width: 200px; }
-.mode-live .tb-bpm { font-size: var(--fs-lg); min-width: 80px; }
-.mode-live .tb-bpm b { font-size: var(--fs-2xl); }
-.mode-live .beat-dot { width: 18px; height: 18px; }
-.mode-live .btn-black, .mode-live .btn-panic, .mode-live [title^="Freeze"] {
-  min-width: 104px;
-  font-size: var(--fs-lg);
-  font-weight: 700;
-}
-.mode-live .live-lookbank { max-height: 260px; padding: var(--s4); }
 .mode-live .live-lookbank .look-bank-grid { gap: var(--s4); }
 .mode-live .look-slot .look-num { font-size: var(--fs-xl); padding: 0 var(--s4); }
 .mode-live .look-slot .look-name { font-size: var(--fs-sm); padding: 2px var(--s3); }
@@ -444,13 +399,13 @@
 }
 
 /* PanelBoundary: a panel that threw, kept out of the rest of the show */
-.panel-error .panel-header { color: var(--danger, #e5484d); cursor: default; }
+.panel-error .panel-header { color: var(--danger); cursor: default; }
 .panel-error-body { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 12px; }
 .panel-error-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.8; }
 
 /* focus ring inside the clipped tiles: .mode-switch and .look-slot have overflow hidden */
 .mode-switch button:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -2px; }
-.look-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.look-hit:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .look-slot .look-edit:focus-visible, .look-slot .look-del:focus-visible { outline-offset: -2px; }
 /* Pro under 1100px: 300px of centre, 8 columns of 34px — nothing readable */
 @media (max-width: 1099px) { .mode-pro .live-lookbank .look-bank-grid { grid-template-columns: repeat(4, 1fr); } }
