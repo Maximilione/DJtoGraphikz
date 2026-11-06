@@ -10,7 +10,7 @@ interface ParamControlsProps {
 }
 
 // Short labels + a color class per source: the chip reads at a glance
-const SOURCE_META: Record<AudioSource, { label: string; cls: string }> = {
+export const SOURCE_META: Record<AudioSource, { label: string; cls: string }> = {
   'none': { label: '—', cls: 'none' },
   'bass': { label: 'BASSI', cls: 'bass' },
   'mid': { label: 'MEDI', cls: 'mid' },
