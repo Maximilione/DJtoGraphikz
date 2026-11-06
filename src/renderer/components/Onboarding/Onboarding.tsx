@@ -124,8 +124,8 @@ export function Onboarding({ onDone }: OnboardingProps) {
           <>
             <h2>Il tuo primo look</h2>
             <p className="onboarding-hint">
-              Il Look Bank è una griglia 4×4: click su uno slot salva quello che vedi,
-              <b> Shift+1-0</b> lo richiama al volo.
+              Il Look Bank ha 16 slot: click su uno vuoto salva quello che vedi, click su uno pieno
+              lo richiama, <b>Shift+click</b> lo sovrascrive. <b>Shift+1-0</b> richiama i primi dieci.
               <br /><br />
               Trovi già <b>8 look di fabbrica</b> pronti negli slot 1-8: parti da lì e sovrascrivili quando vuoi.
             </p>
@@ -138,7 +138,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
             <p className="onboarding-hint">
               Collega il proiettore o un secondo schermo: l'output va in fullscreen da solo.
               <br /><br />
-              Scorciatoie: <b>B</b> blackout · <b>F</b> freeze · <b>[</b> / <b>]</b> luminosità · <b>?</b> aiuto
+              Scorciatoie: <b>B</b> blackout · <b>F</b> freeze · <b>P</b> panic · <b>[</b> / <b>]</b> luminosità · <b>?</b> aiuto
             </p>
             <div className="onboarding-summary">
               <div><span>Audio</span>{devices.find(d => d.deviceId === deviceId)?.label || 'Default'}</div>

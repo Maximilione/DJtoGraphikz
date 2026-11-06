@@ -51,18 +51,19 @@ let thumbCanvas: HTMLCanvasElement | null = null
  * through engine.screenshot(): a full-res PNG encode plus a decode to an
  * ImageBitmap, 20-80 ms of main thread and a few MB, just to shrink it.
  */
-function grabFrame(engine: Engine): Promise<string | null> {
+export function grabFrame(engine: Engine, w = W, h = H, quality = 0.6): Promise<string | null> {
   return new Promise(resolve => {
     let off = () => {}
     const timer = setTimeout(() => { off(); resolve(null) }, 2000) // renderer idle: give up, next effect change retries
     off = engine.onFrameRendered(src => {
       off(); clearTimeout(timer)
       try {
-        const c = thumbCanvas ??= Object.assign(document.createElement('canvas'), { width: W, height: H })
+        const c = thumbCanvas ??= document.createElement('canvas')
+        c.width = w; c.height = h   // shared with the look thumbs, which are another size
         const ctx = c.getContext('2d')
         if (!ctx) return resolve(null)
-        ctx.drawImage(src, 0, 0, W, H)
-        resolve(c.toDataURL('image/jpeg', 0.6))
+        ctx.drawImage(src, 0, 0, w, h)
+        resolve(c.toDataURL('image/jpeg', quality))
       } catch { resolve(null) }
     })
   })

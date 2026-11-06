@@ -454,3 +454,5 @@
 .look-slot .look-edit:focus-visible, .look-slot .look-del:focus-visible { outline-offset: -2px; }
 /* Pro under 1100px: 300px of centre, 8 columns of 34px — nothing readable */
 @media (max-width: 1099px) { .mode-pro .live-lookbank .look-bank-grid { grid-template-columns: repeat(4, 1fr); } }
+/* the corner being nudged by keyboard: :focus, the focus also comes from the mouse */
+.mapping-corner:focus circle:last-of-type { stroke: var(--text-primary); }

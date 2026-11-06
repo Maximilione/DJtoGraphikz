@@ -323,7 +323,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
             title="Testo da mostrare sopra i visual (Invio per aggiungere)"
             value={textValue}
             onChange={e => setTextValue(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') addText() }}
+            onKeyDown={e => { if (e.key === 'Enter') { addText(); e.currentTarget.blur() } }}   /* the hotkeys come back after Invio */
           />
           <input
             type="color"

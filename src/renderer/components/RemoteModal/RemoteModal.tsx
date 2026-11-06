@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { pushToast } from '../Toasts/Toasts'
+import { NO_NETWORK_HINT } from '../../soundcheck'
 
 interface RemoteModalProps {
   onClose: () => void
@@ -18,13 +19,17 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
     // the encoder is loaded here and not with the app: a modal opened once a
     // night does not belong in the chunk every start parses
     const QRCode = (await import('qrcode')).default
+    // dark on light with the standard 4-module quiet zone: inverted QRs with
+    // a 1-module margin are what the picky phone cameras refuse
     setQr(await QRCode.toDataURL(data.url, {
-      width: 220, margin: 1,
-      color: { dark: '#e8e8f0', light: '#0a0a0e' },
+      width: 260, margin: 4,
+      color: { dark: '#000000', light: '#ffffff' },
     }))
   }
 
-  useEffect(() => { load().catch(console.error) }, [])
+  const [err, setErr] = useState('')
+  useEffect(() => { load().catch(e => setErr((e as Error).message)) }, [])
+  const noNetwork = !!info?.url && /\/\/127\./.test(info.url)
 
   // Escape closes: without it a modal could only be dismissed with the mouse.
   useEffect(() => {
@@ -41,7 +46,10 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
         <p className="onboarding-hint">
           Telefono sulla <b>stessa rete wifi</b>: inquadra il QR, poi inserisci il codice di abbinamento.
         </p>
-        {qr && <img src={qr} alt="QR" style={{ borderRadius: '8px', width: '220px', height: '220px' }} />}
+        <p className="onboarding-hint">Imposta il blocco automatico del telefono su Mai per la durata del set: lo schermo spento ferma il remote.</p>
+        {noNetwork && <div className="u-error">{NO_NETWORK_HINT}</div>}
+        {err && <div className="u-error">Remote non disponibile: {err}</div>}
+        {qr && <img src={qr} alt="QR" style={{ borderRadius: '8px', width: '260px', height: '260px' }} />}
         {info && (
           <>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>
@@ -92,7 +100,7 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
               }
             }}
           >
-            Nuovo codice
+            Scollega tutti e nuovo codice
           </button>
           <button className="btn btn-primary btn-sm" title="Chiudi la finestra" onClick={onClose}>Chiudi</button>
         </div>
