@@ -361,6 +361,8 @@ export interface Preset {
   effectParams?: Record<string, Record<string, ParamState>>
   customShader?: string
   customParams?: EffectParam[]
+  /** the shader's image inputs: absent in old looks, which then inherit the current ones as before */
+  customImageInputs?: string[]
 }
 
 /**
@@ -3044,6 +3046,7 @@ export class Engine {
       effectParams: JSON.parse(JSON.stringify(this.paramState)),
       customShader: this.usingCustom ? this.customShaderSource : undefined,
       customParams: this.usingCustom ? this.customParamDefs : undefined,
+      customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
     }
   }
 
@@ -3066,7 +3069,7 @@ export class Engine {
 
     if (preset.customShader) {
       if (!this.usingCustom || preset.customShader !== this.customShaderSource) {
-        this.setCustomShader(preset.customShader, preset.customParams || [])
+        this.setCustomShader(preset.customShader, preset.customParams || [], preset.customImageInputs)
       } else {
         this.emitState()
       }

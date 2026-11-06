@@ -265,6 +265,8 @@ export function App() {
   // U1.2 — beat dot (flashed via direct DOM mutation, no setState per frame) + audio status
   const beatDotRef = useRef<HTMLSpanElement>(null)
   const [audioStatus, setAudioStatus] = useState<'running' | 'reconnecting' | 'stopped'>('stopped')
+  // a lost WebGL context froze the preview with one line in the console; the Engine handles the restore
+  const [gpuLost, setGpuLost] = useState(false)
 
   // Main comes up with one output on defaults; the saved list is the truth.
   useEffect(() => { try { window.api?.setOutputs?.(outputs) } catch (_) {} }, [])
@@ -284,7 +286,11 @@ export function App() {
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const eng = new Engine(canvasRef.current)
+    const canvas = canvasRef.current
+    const onLost = () => setGpuLost(true), onRestored = () => setGpuLost(false)
+    canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
+    const eng = new Engine(canvas)
     // Persistence debounced: a synchronous localStorage write per emitted state
     // (~16/s while dragging a remote slider) blocks the render thread
     let persistTimer = 0
@@ -557,6 +563,8 @@ export function App() {
       flush()
       window.removeEventListener('pagehide', flush)
       disposed = true
+      canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
       clearTimeout(sweepTimer)
       clearInterval(dryRunTimer)
       unsubscribe()
@@ -1644,6 +1652,7 @@ export function App() {
         </div>
       </div>
 
+      {gpuLost && <div className="audio-banner">⚠ Preview persa (contesto grafico), ripristino in corso… il proiettore ha il suo motore</div>}
       {/* U1.2 — slim static banner: layout shifts once, no overlay on the preview */}
       {audioStatus === 'reconnecting' && (
         <div className="audio-banner">⚠ Audio perso — riconnessione in corso…</div>

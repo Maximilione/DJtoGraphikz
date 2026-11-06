@@ -67,6 +67,7 @@ export function DmxPanel({ engine }: DmxPanelProps) {
       <div className="u-col" style={{ gap: 8 }}>
         <div className="u-hint">
           ArtNet via rete (UDP :6454): PAR RGB che seguono palette ed energia. Nodo/interfaccia ArtNet richiesta.
+          Il Blackout (B) spegne solo il proiettore: i PAR continuano a seguire la musica.
         </div>
         <label className="slider-row" style={{ cursor: 'pointer' }}>
           <span className="label">PAR attivi</span>
