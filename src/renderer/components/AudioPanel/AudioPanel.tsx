@@ -210,7 +210,7 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
       if (running !== audioActive) {
         setAudioActive(running)
         if (running) startDraw()
-        else cancelAnimationFrame(animFrameRef.current)
+        else { cancelAnimationFrame(animFrameRef.current); clearSpectrum() }
       }
       // automatic recovery gave up (permission denied): say why instead of "Audio fermo"
       const fatal = engine.audioAnalyzer.lastError
@@ -307,6 +307,7 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
     engine.audioAnalyzer.stop()
     setAudioActive(false)
     cancelAnimationFrame(animFrameRef.current)
+    clearSpectrum()
   }
 
   const handleBpmMode = useCallback((mode: BpmMode) => {
@@ -342,8 +343,20 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
     setInputGain(val)
   }, [engine])
 
+  // a stopped analysis left the last frame up, bars high and 'Beat: YES'
+  const clearSpectrum = () => {
+    const c = canvasRef.current   // the panel may be collapsed: no canvas
+    if (!c) return
+    const ctx = c.getContext('2d')!
+    ctx.fillStyle = '#0a0a0a'
+    ctx.fillRect(0, 0, c.width, c.height)
+  }
+
   const drawSpectrum = () => {
-    if (!canvasRef.current || !engine) return
+    if (!engine) return
+    // Panel collapsed: the canvas is unmounted, but the loop must survive or
+    // BPM and confidence freeze on the last value once it is opened again.
+    if (!canvasRef.current) { animFrameRef.current = requestAnimationFrame(drawSpectrum); return }
     const ctx = canvasRef.current.getContext('2d')!
     const w = canvasRef.current.width
     const h = canvasRef.current.height
@@ -360,12 +373,14 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
       const step = Math.max(1, Math.floor(data.length / barCount))
       const barW = w / barCount
 
+      ctx.globalAlpha = 0.45   // green text over green bars was 1.1:1 with the music loud
       for (let i = 0; i < barCount; i++) {
         const byte = data[i * step]
         const barH = byte / 255 * h
         ctx.fillStyle = BAR_COLORS[byte]
         ctx.fillRect(i * barW, h - barH, barW - 1, barH)
       }
+      ctx.globalAlpha = 1
 
       // Beat flash overlay
       if (audioData.beatDetected) beatFlashRef.current = 1.0
@@ -389,12 +404,11 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
 
       ctx.fillStyle = '#00ff88'
       ctx.font = '11px monospace'
-      ctx.fillText(`BPM: ${audioData.bpm.toFixed(0)}`, 4, 12)
-      ctx.fillText(`Energy: ${(audioData.energy * 100).toFixed(0)}%`, 4, 24)
+      ctx.fillText(`Energia: ${(audioData.energy * 100).toFixed(0)}%`, 4, 12)   // the BPM is in the title above
       ctx.textAlign = 'right'   // right-hand column hugs the edge instead of running past it
-      ctx.fillText(`Bass: ${(audioData.bass * 100).toFixed(0)}%`, w - 4, 12)
-      ctx.fillText(`Beat: ${audioData.beatDetected ? 'YES' : '-'}`, w - 4, 24)
-      if (audioData.key) ctx.fillText(`Key: ${keyName(audioData.key)} ${(audioData.key.confidence * 100).toFixed(0)}%`, w - 4, 36)
+      ctx.fillText(`Bassi: ${(audioData.bass * 100).toFixed(0)}%`, w - 4, 12)
+      ctx.fillText(`Beat ${audioData.beatDetected ? '●' : '–'}`, w - 4, 24)
+      if (audioData.key) ctx.fillText(`Tonalità: ${keyName(audioData.key)} ${(audioData.key.confidence * 100).toFixed(0)}%`, w - 4, 36)
       ctx.textAlign = 'left'
 
       // the Auto VJ's phase lamps, bottom row: what the machine hears the
@@ -439,7 +453,7 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
         {error && !file.name && (
           <div className="u-error u-col" style={{ gap: 'var(--s2)' }} role="alert">
             <span>{error}</span>
-            <button className="btn btn-sm" onClick={retryDevices} style={{ alignSelf: 'flex-start' }}>Riprova</button>
+            <button className="btn btn-sm" onClick={async () => { await refreshDevices(true); if (!audioActive) await startAudio() }} style={{ alignSelf: 'flex-start' }}>Riprova</button>
           </div>
         )}
 
@@ -458,27 +472,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
             <span className="u-hint" style={{ minWidth: 0, flex: 1 }}>Stai usando il microfono di sistema.</span>
             <button className="btn btn-sm" title={externalCard.label} onClick={() => {
               setSelectedDevice(externalCard.deviceId)
-              engine?.audioAnalyzer.start(externalCard.deviceId).catch(() => {})
+              engine?.audioAnalyzer.start(externalCard.deviceId).catch(err => setError(audioErrorHelp(err, 'Errore audio')))
             }}>Usa {externalCard.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '')}</button>
           </div>
         )}
-
-        {/* S5: what the wall does when the music stops and the Auto VJ is off */}
-        {/* not a .slider-row: its labels are a fixed 74px each, and four of them
-            plus a number field and a select do not fit a 260px column */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s2)', minWidth: 0 }} title="Con l'Auto VJ spento: dopo questi secondi senza musica l'uscita sfuma su questo effetto, e torna da sola quando la musica riparte">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-            <input type="checkbox" checked={idle.enabled} onChange={e => setIdleCfg({ enabled: e.target.checked })} />
-            <span className="label">Silenzio dopo</span>
-          </label>
-          <input type="number" min={3} max={120} key={idle.seconds} defaultValue={idle.seconds} style={{ width: 48 }}
-            onBlur={e => setIdleCfg({ seconds: Math.max(3, Math.min(120, +e.target.value | 0)) })}
-            onKeyDown={blurOnEnter} aria-label="Secondi di silenzio" />
-          <span className="label">s →</span>
-          <select style={{ flex: '1 1 90px', minWidth: 0 }} value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto in idle">
-            {effectOptions}
-          </select>
-        </div>
 
         {/* Dry run: the same analysis, on a file you can rewind. Everything
             about beat, BPM and envelope was otherwise only testable at a gig. */}
@@ -539,7 +536,12 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           <div className="label">Dispositivo ({devices.length} trovati)</div>
           <select
             value={selectedDevice}
-            onChange={e => setSelectedDevice(e.target.value)}
+            onChange={e => {
+              const id = e.target.value
+              setSelectedDevice(id)
+              // with the audio on, the menu said B while the analysis stayed on A
+              if (audioActive) engine?.audioAnalyzer.start(id).catch(err => setError(audioErrorHelp(err, 'Errore audio')))
+            }}
             title="Sorgente audio da analizzare"
             style={{ width: '100%' }}
           >
@@ -633,9 +635,9 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
               color: 'var(--text-primary)',
               fontFamily: 'var(--font-mono)',
             }}>
-              {displayBpm}
+              {bpmMode === 'manual' || bpmMode === 'tap' ? manualBpm : (audioActive || clock.seen || link.live) ? displayBpm : '—'}
             </span>
-            {bpmMode === 'auto' && confidence > 0 && (
+            {bpmMode === 'auto' && audioActive && confidence > 0 && (
               <span className="u-hint" style={{
                 marginLeft: '6px',
                 color: confidence > 0.5 ? 'var(--accent)' : 'var(--text-muted)',
@@ -765,11 +767,7 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           {bpmMode === 'auto' && (
             <div className="u-row">
               <div className="u-hint" style={{ flex: 1 }}>
-                {audioActive
-                  ? (confidence > 0.5
-                    ? `Rilevato: ${displayBpm} BPM`
-                    : 'In ascolto…')
-                  : 'Avvia l\'audio per rilevare il BPM'}
+                {!audioActive ? 'Avvia l\'audio per rilevare il BPM' : null}
               </div>
               {audioActive && (
                 <button
@@ -777,11 +775,29 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
                   onClick={() => engine?.audioAnalyzer.resetBpm()}
                   title="Rileva di nuovo il BPM (usa al cambio traccia)"
                 >
-                  Reset
+                  Rileva di nuovo
                 </button>
               )}
             </div>
           )}
+        </div>
+
+        {/* S5: what the wall does when the music stops and the Auto VJ is off */}
+        {/* not a .slider-row: its labels are a fixed 74px each, and four of them
+            plus a number field and a select do not fit a 260px column */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s2)', minWidth: 0 }} title="Con l'Auto VJ spento: dopo questi secondi senza musica l'uscita sfuma su questo effetto, e torna da sola quando la musica riparte">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', minHeight: 28 }}>
+            <input type="checkbox" checked={idle.enabled} onChange={e => setIdleCfg({ enabled: e.target.checked })} />
+            <span className="label">Se silenzio per</span>
+          </label>
+          <input type="number" min={3} max={120} key={idle.seconds} defaultValue={idle.seconds} style={{ width: 48 }}
+            onBlur={e => setIdleCfg({ seconds: Math.max(3, Math.min(120, +e.target.value | 0)) })}
+            onKeyDown={blurOnEnter} aria-label="Secondi di silenzio" />
+          <span className="label">s →</span>
+          <select style={{ flex: '1 1 90px', minWidth: 0 }} value={idle.effect} onChange={e => setIdleCfg({ effect: e.target.value as IdleSettings['effect'] })} aria-label="Effetto durante il silenzio">
+            {effectOptions}
+          </select>
+          <span className="u-hint" style={{ flexBasis: '100%' }}>Solo con Auto VJ e scaletta spenti</span>
         </div>
       </div>
     </Panel>

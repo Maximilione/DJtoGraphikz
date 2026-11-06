@@ -48,14 +48,16 @@ export function frameStats(rgba: ArrayLike<number>): FrameStats {
   return { mean, std: Math.sqrt(Math.max(0, sq / n - mean * mean)), bright: lit / n }
 }
 
-export function judgeInput(signalS: number): Row {
+export function judgeInput(signalS: number, running = true): Row {
   const s = Math.min(INPUT_WINDOW_S, signalS)
   return {
     id: 'input', name: 'Ingresso audio',
     status: s >= INPUT_MIN_S ? 'ok' : s > 0 ? 'warn' : 'err',
     detail: s > 0
       ? `segnale per ${s.toFixed(1)} s su ${INPUT_WINDOW_S}`
-      : 'nessun segnale: controlla sorgente e guadagno nel pannello Audio',
+      // an input that is off is not a cable problem
+      : !running ? 'audio fermo: avvialo prima del controllo (Semplice o Pro)'
+      : 'nessun segnale: controlla sorgente e Gain ingresso nel pannello Ingresso audio',
   }
 }
 
@@ -91,11 +93,15 @@ export function judgeDmx(enabled: boolean, host: string, res: { ok: boolean; err
   }
 }
 
+export const NO_NETWORK_HINT = 'Nessuna rete: collega il computer al wifi o a un hotspot, poi riapri'
+
 export function judgeRemote(info: { url: string } | null): Row {
+  // 127.0.0.1 is the fallback with no network interface: a QR the phone cannot open
+  const local = !!info?.url && /\/\/127\./.test(info.url)
   return {
     id: 'remote', name: 'Remote dal telefono',
-    status: info?.url ? 'ok' : 'err',
-    detail: info?.url ?? 'server remoto non attivo',
+    status: !info?.url ? 'err' : local ? 'warn' : 'ok',
+    detail: !info?.url ? 'server remoto non attivo' : local ? NO_NETWORK_HINT : info.url,
   }
 }
 
