@@ -63,7 +63,7 @@ export function DmxPanel({ engine }: DmxPanelProps) {
   if (!engine) return null
 
   return (
-    <Panel id="dmx" title="Luci DMX" defaultCollapsed group="right" active={cfg.enabled || pm.enabled}>
+    <Panel id="dmx" title="DMX" defaultCollapsed group="right" active={cfg.enabled || pm.enabled}>
       <div className="u-col" style={{ gap: 8 }}>
         <div className="u-hint">
           ArtNet via rete (UDP :6454): PAR RGB che seguono palette ed energia. Nodo/interfaccia ArtNet richiesta.
