@@ -4,6 +4,32 @@ import { Panel } from '../Panel/Panel'
 import { universesFor, type PixelMapConfig } from '../../pixelmap'
 import { loadDmxConfig, saveDmxConfig, type DmxConfig } from '../../useDmxOutput'
 
+/**
+ * A field applied on blur or Invio, never per keystroke: typing "12" sent the
+ * lights to universe 1, and a cleared Canale snapped to 1 before the 5 landed.
+ * Same schema as OutputsPanel's resolution fields. The value is rewritten after
+ * the clamp, because a clamp back to the saved value does not change the key.
+ */
+function CommitInput({ value, onCommit, min, max, ...rest }: {
+  value: number | string
+  onCommit: (raw: string) => void
+  min?: number
+  max?: number
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'defaultValue'>) {
+  const commit = (e: React.FocusEvent<HTMLInputElement>) => {
+    onCommit(e.currentTarget.value)
+    e.currentTarget.value = String(value)   // overwritten by the remount when the value did change
+  }
+  return <input key={String(value)} defaultValue={value} min={min} max={max} {...rest}
+    onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+}
+
+/** clamp a typed integer, falling back to `cur` on nonsense */
+const int = (raw: string, cur: number, lo: number, hi: number) => {
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : cur
+}
+
 interface DmxPanelProps {
   engine: Engine | null
 }
@@ -29,42 +55,49 @@ export function DmxPanel({ engine }: DmxPanelProps) {
 
   const pm = cfg.pixelMap
   const setPm = (patch: Partial<PixelMapConfig>) => set({ pixelMap: { ...pm, ...patch } })
+  // fixtures past channel 512 stay dark in silence (useDmxOutput breaks the loop there)
+  const chPerFixture = cfg.hasDimmer ? 4 : 3
+  const fit = Math.floor((513 - cfg.baseChannel) / chPerFixture)
+  const uni = universesFor(pm.cols, pm.rows)
 
   if (!engine) return null
 
   return (
-    <Panel id="dmx" title="Luci DMX" defaultCollapsed group="right" active={cfg.enabled}>
+    <Panel id="dmx" title="Luci DMX" defaultCollapsed group="right" active={cfg.enabled || pm.enabled}>
       <div className="u-col" style={{ gap: 8 }}>
         <div className="u-hint">
           ArtNet via rete (UDP :6454): PAR RGB che seguono palette ed energia. Nodo/interfaccia ArtNet richiesta.
         </div>
         <label className="slider-row" style={{ cursor: 'pointer' }}>
-          <span className="label">Attivo</span>
+          <span className="label">PAR attivi</span>
           <input type="checkbox" checked={cfg.enabled} onChange={e => set({ enabled: e.target.checked })} />
         </label>
         <div className="slider-row">
           <span className="label">Nodo IP</span>
-          <input type="text" placeholder="broadcast" value={cfg.host}
-            onChange={e => set({ host: e.target.value })}
+          <CommitInput type="text" placeholder="broadcast" value={cfg.host} aria-label="IP del nodo ArtNet"
+            onCommit={v => set({ host: v.trim() })}
             style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
         </div>
         <div className="slider-row">
           <span className="label">Universo</span>
-          <input type="number" min={0} max={32767} value={cfg.universe}
-            onChange={e => set({ universe: Math.max(0, +e.target.value | 0) })} style={{ width: 64 }} />
+          <CommitInput type="number" min={0} max={32767} value={cfg.universe} aria-label="Universo PAR"
+            onCommit={v => set({ universe: int(v, cfg.universe, 0, 32767) })} style={{ width: 64 }} />
           <span className="label" style={{ marginLeft: 8 }}>Canale</span>
-          <input type="number" min={1} max={509} value={cfg.baseChannel}
-            onChange={e => set({ baseChannel: Math.max(1, Math.min(509, +e.target.value | 0)) })} style={{ width: 64 }} />
+          <CommitInput type="number" min={1} max={509} value={cfg.baseChannel} aria-label="Canale iniziale"
+            onCommit={v => set({ baseChannel: int(v, cfg.baseChannel, 1, 509) })} style={{ width: 64 }} />
         </div>
         <div className="slider-row">
           <span className="label">Fixture</span>
-          <input type="number" min={1} max={128} value={cfg.fixtures}
-            onChange={e => set({ fixtures: Math.max(1, Math.min(128, +e.target.value | 0)) })} style={{ width: 64 }} />
+          <CommitInput type="number" min={1} max={128} value={cfg.fixtures} aria-label="Numero di fixture"
+            onCommit={v => set({ fixtures: int(v, cfg.fixtures, 1, 128) })} style={{ width: 64 }} />
           <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
             <input type="checkbox" checked={cfg.hasDimmer} onChange={e => set({ hasDimmer: e.target.checked })} />
             <span className="label">Dimmer+RGB</span>
           </label>
         </div>
+        {cfg.fixtures > fit && (
+          <div className="u-hint" style={{ color: 'var(--warning)' }}>Solo {fit} fixture entrano nell'universo: le altre restano spente</div>
+        )}
         <div className="slider-row">
           <span className="label">Dimmer da</span>
           <select value={cfg.dimmerSource} onChange={e => set({ dimmerSource: e.target.value as DmxConfig['dimmerSource'] })}>
@@ -80,9 +113,11 @@ export function DmxPanel({ engine }: DmxPanelProps) {
         </div>
 
         <div className="u-hint" style={{ marginTop: 8 }}>
-          <b>Pixel map</b> — il frame campionato alla risoluzione del pannello LED, {universesFor(pm.cols, pm.rows)} universi da 170 pixel.
-          sACN multicast (239.255.x.y:5568) regge decine di universi; ArtNet in broadcast allaga la rete oltre quattro.
+          <b>Pixel map</b> — il frame campionato sul pannello LED, {uni} {uni === 1 ? 'universo' : 'universi'} da 170 pixel.
         </div>
+        {pm.protocol === 'artnet' && !pm.host.trim() && uni > 4 && (
+          <div className="u-hint" style={{ color: 'var(--warning)' }}>ArtNet in broadcast allaga la rete oltre 4 universi: usa sACN o un IP</div>
+        )}
         <label className="slider-row" style={{ cursor: 'pointer' }}>
           <span className="label">Pixel map</span>
           <input type="checkbox" checked={pm.enabled} onChange={e => setPm({ enabled: e.target.checked })} />
@@ -93,9 +128,9 @@ export function DmxPanel({ engine }: DmxPanelProps) {
         </label>
         <div className="slider-row">
           <span className="label">Pixel</span>
-          <input type="number" min={1} max={1024} value={pm.cols} onChange={e => setPm({ cols: Math.max(1, Math.min(1024, +e.target.value | 0)) })} style={{ width: 56 }} aria-label="Colonne" />
+          <CommitInput type="number" min={1} max={1024} value={pm.cols} onCommit={v => setPm({ cols: int(v, pm.cols, 1, 1024) })} style={{ width: 56 }} aria-label="Colonne" />
           <span>×</span>
-          <input type="number" min={1} max={1024} value={pm.rows} onChange={e => setPm({ rows: Math.max(1, Math.min(1024, +e.target.value | 0)) })} style={{ width: 56 }} aria-label="Righe" />
+          <CommitInput type="number" min={1} max={1024} value={pm.rows} onCommit={v => setPm({ rows: int(v, pm.rows, 1, 1024) })} style={{ width: 56 }} aria-label="Righe" />
           <label style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
             <input type="checkbox" checked={pm.snake} onChange={e => setPm({ snake: e.target.checked })} />
             <span className="label">Serpentina</span>
@@ -103,14 +138,14 @@ export function DmxPanel({ engine }: DmxPanelProps) {
         </div>
         <div className="slider-row">
           <span className="label">Universo</span>
-          <input type="number" min={0} max={63999} value={pm.universe} onChange={e => setPm({ universe: Math.max(0, +e.target.value | 0) })} style={{ width: 64 }} />
+          <CommitInput type="number" min={0} max={63999} value={pm.universe} onCommit={v => setPm({ universe: int(v, pm.universe, 0, 63999) })} style={{ width: 64 }} aria-label="Universo pixel map" />
           <span className="label" style={{ marginLeft: 8 }}>fps</span>
-          <input type="number" min={1} max={60} value={pm.fps} onChange={e => setPm({ fps: Math.max(1, Math.min(60, +e.target.value | 0)) })} style={{ width: 48 }} />
+          <CommitInput type="number" min={1} max={60} value={pm.fps} onCommit={v => setPm({ fps: int(v, pm.fps, 1, 60) })} style={{ width: 48 }} aria-label="fps pixel map" />
         </div>
         <div className="slider-row">
           <span className="label">Destinazione</span>
-          <input type="text" placeholder={pm.protocol === 'sacn' ? 'multicast' : 'broadcast'} value={pm.host}
-            onChange={e => setPm({ host: e.target.value })}
+          <CommitInput type="text" placeholder={pm.protocol === 'sacn' ? 'multicast' : 'broadcast'} value={pm.host} aria-label="Destinazione pixel map"
+            onCommit={v => setPm({ host: v.trim() })}
             style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
         </div>
       </div>
