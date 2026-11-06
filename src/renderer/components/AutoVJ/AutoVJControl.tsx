@@ -1,5 +1,6 @@
 import type { Genre, Phase } from '@engine/AutoVJ'
-import { GENRES } from '../../catalog'
+import { GENRES, effectLabel } from '../../catalog'
+import type { EffectId } from '@engine/Engine'
 
 interface AutoVJControlProps {
   enabled: boolean
@@ -38,9 +39,10 @@ export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, held 
         <div className={`toggle${enabled ? ' active' : ''}`} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="row-title">{enabled ? 'Auto VJ attivo' : 'Auto VJ'}</div>
-          <div className="row-sub">
+          {/* one line, no count: wrapping moved 'Ferma qui' under the pointer as scenes changed */}
+          <div className="row-sub" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {enabled
-              ? `${status.count} cambi · ${PHASE_LABEL[status.phase]} · ora: ${status.current || '—'}`
+              ? `${PHASE_LABEL[status.phase]} · ora: ${status.current ? effectLabel(status.current as EffectId) : '—'}`
               : 'Fa tutto da solo, a tempo di musica'}
           </div>
         </div>
@@ -51,7 +53,7 @@ export function AutoVJControl({ enabled, genre, status, onToggle, onGenre, held 
           onClick={() => onHold(!held)}
           title="Tiene fermo il look attuale — fasi e palette continuano a seguire la musica sotto, pronte a ripartire"
         >
-          {held ? '⏸ In pausa' : '⏸ Ferma qui'}
+          {held ? '▶ Riprendi' : '⏸ Ferma qui'}
         </button>
       )}
       <select

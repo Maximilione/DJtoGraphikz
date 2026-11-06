@@ -13,6 +13,7 @@ import { enterStep, clearStepOverlays, paramsFromScreen } from './sequencePlayer
 import { readLibraryImage, IMAGE_RE, type LibraryItem } from '../OverlayPanel/OverlayPanel'
 import { pushToast } from '../Toasts/Toasts'
 import { Panel } from '../Panel/Panel'
+import { effectLabel } from '../../catalog'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { saveBlob } from '../../download'
 
@@ -48,7 +49,12 @@ function savePresetsToStorage(presets: Preset[]): boolean {
   return writeJson(STORAGE_KEY_PRESETS, presets)
 }
 
-export function PresetPanel({ engine, player }: PresetPanelProps) {
+// The draft lives in this panel, which Pro alone mounts: a hop to Live to
+// check the wall threw the unsaved playlist away. Module memory, no storage.
+// shortcut: lost on restart, by design (quota); persist to disk if asked for.
+let kept: { draft: Sequence; index: number } | null = null
+
+function PresetPanelImpl({ engine, player }: PresetPanelProps) {
   const { sequences, persist, playingSeq, stepIndex, playing, step, stop: stopSequence, next: seqNext, prev: seqPrev } = player
   const [tab, setTab] = useState<'presets' | 'playlist' | 'plugin'>('presets')
 
@@ -63,12 +69,13 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
   sequencesRef.current = sequences
 
   // Sequences (saved) + the one open in the editor
-  const [draft, setDraft] = useState<Sequence>(() => ({
+  const [draft, setDraft] = useState<Sequence>(() => kept?.draft ?? ({
     name: '', steps: [], loop: true, mode: 'timer', defaultHold: 8,
   }))
   // index into `sequences` when the draft came from a saved one — that is what
   // makes Salva overwrite instead of piling up a new copy every time
-  const [editingIndex, setEditingIndex] = useState(-1)
+  const [editingIndex, setEditingIndex] = useState(() => kept && kept.index < sequences.length ? kept.index : -1)
+  useEffect(() => { kept = { draft, index: editingIndex } }, [draft, editingIndex])
 
   // Looks available as sources for new steps
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
@@ -182,9 +189,22 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     setDraft(d => ({ ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) }))
   }, [])
 
+  // Removing or replacing the step on trial left its graphics on the wall
+  // with no ■ to take them down. Only while no playlist runs: the phone can
+  // start one with trialStep still set, and its overlays are 'seq:' too.
+  const playingRef = useRef(playing); playingRef.current = playing
+  const trialRef = useRef(trialStep); trialRef.current = trialStep
+  const endTrial = useCallback(() => {
+    if (trialRef.current >= 0 && engine && !playingRef.current) clearStepOverlays(engine)
+    setTrialStep(-1)
+  }, [engine])
+  useEffect(() => { if (playing) setTrialStep(-1) }, [playing])
+  useEffect(() => () => { if (trialRef.current >= 0 && engine && !playingRef.current) clearStepOverlays(engine) }, [engine])
+
   const removeStep = useCallback((i: number) => {
+    endTrial()
     setDraft(d => ({ ...d, steps: d.steps.filter((_, j) => j !== i) }))
-  }, [])
+  }, [endTrial])
 
   const duplicateStep = useCallback((i: number) => {
     setDraft(d => ({ ...d, steps: [...d.steps.slice(0, i + 1), { ...d.steps[i] }, ...d.steps.slice(i + 1)] }))
@@ -274,16 +294,27 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     }))
   }, [])
 
+  // Svuota and ✎ threw a whole draft away with one click, next to 'Salva come nuova'
+  const offerDraftUndo = useCallback(() => {
+    const prev = draft, idx = editingIndex
+    if (prev.steps.length === 0) return
+    pushToast('Editor sostituito', 'seq-draft', { label: 'Annulla', fn: () => { setDraft(prev); setEditingIndex(idx < sequencesRef.current.length ? idx : -1) } })
+  }, [draft, editingIndex])
+
   const newDraft = useCallback(() => {
+    endTrial()
+    offerDraftUndo()
     setDraft({ name: '', steps: [], loop: true, mode: 'timer', defaultHold: 8 })
     setEditingIndex(-1)
-  }, [])
+  }, [endTrial, offerDraftUndo])
 
   /** Open a saved sequence in the editor — the whole point of this rewrite */
   const editSequence = useCallback((i: number) => {
+    endTrial()
+    if (i !== editingIndex) offerDraftUndo()
     setDraft(migrate(sequences[i]))
     setEditingIndex(i)
-  }, [sequences])
+  }, [sequences, editingIndex, endTrial, offerDraftUndo])
 
   const saveDraft = useCallback((asNew = false) => {
     const name = draft.name.trim()
@@ -350,7 +381,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
   }, [sequences, persist])
 
   return (
-    <Panel id="presets" title="Preset & Scalette" group="right">
+    <Panel id="presets" title="Preset & Scalette" group="right" active={playing}>
       <div className="u-col" style={{ gap: '10px' }}>
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: '4px' }}>
@@ -375,7 +406,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                 type="text"
                 value={presetName}
                 onChange={e => setPresetName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && savePreset()}
+                onKeyDown={e => { if (e.key === 'Enter') { savePreset(); e.currentTarget.blur() } }}
                 placeholder="Nome preset…"
                 title="Nome del preset da salvare"
                 style={{ flex: 1, minWidth: 0 }}
@@ -397,10 +428,9 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                       }} />
                     ))}
                   </div>
-                  <span className="row-title" style={{ color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span className="row-title" title={`${p.name} · ${effectLabel(p.effect as EffectId)}`} style={{ color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.name}
                   </span>
-                  <span className="row-sub">{p.effect}</span>
                   <button className="btn btn-secondary btn-sm" onClick={() => applyPreset(p)} title="Applica preset" aria-label="Applica preset">
                     ▶
                   </button>
@@ -449,13 +479,39 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                 {playingSeq.mode === 'manual' && (
                   <div className="u-hint" style={{ marginTop: '2px' }}>avanza con Succ / N, indietro con Prec / Shift+N</div>
                 )}
+                {/* the most pressed control of a running set: big, and Stop kept away from Succ */}
                 <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                  <button className="btn btn-secondary btn-sm" title="Passo precedente" onClick={seqPrev}>Prec</button>
-                  <button className="btn btn-secondary btn-sm" title="Passo successivo" onClick={seqNext}>Succ</button>
-                  <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} title="Ferma la scaletta" onClick={stopSequence}>Stop</button>
+                  <button className="btn btn-secondary" style={{ flex: 1, minHeight: 36 }} title="Passo precedente" onClick={seqPrev}>Prec</button>
+                  <button className="btn btn-secondary" style={{ flex: 1, minHeight: 36 }} title="Passo successivo" onClick={seqNext}>Succ</button>
+                  <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', marginLeft: 'var(--s6)' }} title="Ferma la scaletta" onClick={stopSequence}>Stop</button>
                 </div>
               </div>
             )}
+
+            {/* Saved sequences */}
+            <div className="cat-label" style={{ color: 'var(--accent)', marginTop: '4px' }}>
+              Scalette salvate
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '150px', overflowY: 'auto' }}>
+              {sequences.map((seq, i) => (
+                <div key={i} className={`row-item${playing && playingSeq === seq ? ' active' : ''}`} style={{ cursor: 'default' }}>
+                  <span className="row-title" title={seq.name} style={{ color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {seq.name}
+                  </span>
+                  <span className="row-sub" style={{ flexShrink: 0 }}>
+                    {seq.steps.length} passi · {usesHold(seq.mode) ? `${totalHold(seq)}${HOLD_LIMITS[seq.mode].unit}` : MODE_LABELS[seq.mode].toLowerCase()}
+                  </span>
+                  <button className="btn btn-secondary btn-sm" onClick={() => startSequence(seq)} disabled={playing && playingSeq === seq} title="Avvia la scaletta" aria-label="Avvia la scaletta">▶</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => editSequence(i)} title="Apri nell'editor" aria-label="Apri nell'editor">✎</button>
+                  <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteSequence(i)} title="Elimina la scaletta" aria-label="Elimina la scaletta">×</button>
+                </div>
+              ))}
+              {sequences.length === 0 && (
+                <div className="u-hint" style={{ textAlign: 'center', padding: 'var(--s2)' }}>
+                  Nessuna scaletta salvata
+                </div>
+              )}
+            </div>
 
             {/* ---- Editor ---- */}
             <div className="cat-label" style={{ color: 'var(--accent)' }}>
@@ -504,7 +560,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                         title="Nome del passo"
                         style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
                       />
-                      <button className={`btn btn-ghost btn-sm${trialStep === i ? ' active' : ''}`} title={trialStep === i ? 'Togli la prova dallo schermo' : 'Prova: mostra look e grafica di questo passo senza avviare la scaletta'} onClick={() => tryStep(i)} disabled={playing} aria-label="Prova questo passo">{trialStep === i ? '■' : 'Prova'}</button>
+                      <button className={`btn btn-ghost btn-sm${trialStep === i ? ' active' : ''}`} title={trialStep === i ? 'Togli le grafiche della prova (il look resta)' : 'Prova: mostra look e grafica di questo passo in uscita, senza avviare la scaletta'} onClick={() => tryStep(i)} disabled={playing} aria-label="Prova questo passo">{trialStep === i ? '■' : 'Prova'}</button>
                       <button className="btn btn-ghost btn-sm" title="Duplica il passo" onClick={() => duplicateStep(i)} aria-label="Duplica il passo">⧉</button>
                       <button className="btn btn-ghost btn-sm danger" title="Togli il passo" onClick={() => removeStep(i)} aria-label="Togli il passo">×</button>
                     </div>
@@ -529,14 +585,14 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                         </>
                       ) : (
                         <span className="u-hint" style={{ flex: 1 }}>
-                          {draft.mode === 'track' ? 'fino alla prossima canzone' : 'fino ad Avanti'}
+                          {draft.mode === 'track' ? 'fino alla prossima canzone' : 'fino a Succ / N'}
                         </span>
                       )}
                       <select
                         value={st.transition ?? ''}
                         title="Transizione con cui entrare in questo passo"
                         onChange={e => updateStep(i, { transition: (e.target.value || undefined) as TransitionType | undefined })}
-                        style={{ fontSize: 'var(--fs-xs)', flexShrink: 0 }}
+                        style={{ fontSize: 'var(--fs-xs)', flex: '0 1 96px', minWidth: 0 }}
                       >
                         <option value="">transizione: come impostata</option>
                         {TRANSITIONS.map(t => (
@@ -632,6 +688,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
             )}
 
             {/* Advance mode + default hold + loop */}
+            <div className="label">Avanzamento</div>
             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               {(Object.keys(MODE_LABELS) as SequenceMode[]).map(m => (
                 <button key={m} className={`pill${draft.mode === m ? ' active' : ''}`} onClick={() => setMode(m)} title={
@@ -643,7 +700,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                   {MODE_LABELS[m]}
                 </button>
               ))}
-              <button className={`pill${draft.loop ? ' active' : ''}`} title="Alla fine ricomincia da capo" onClick={() => setDraft(d => ({ ...d, loop: !d.loop }))}>
+              <button className={`pill${draft.loop ? ' active' : ''}`} style={{ marginLeft: 'auto' }} title="Alla fine ricomincia da capo" onClick={() => setDraft(d => ({ ...d, loop: !d.loop }))}>
                 Loop
               </button>
             </div>
@@ -671,7 +728,7 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
                 type="text"
                 value={draft.name}
                 onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && saveDraft()}
+                onKeyDown={e => { if (e.key === 'Enter') { saveDraft(); e.currentTarget.blur() } }}
                 placeholder="Nome scaletta…"
                 title="Nome della scaletta"
                 style={{ flex: 1, minWidth: 0 }}
@@ -684,34 +741,9 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
               <button className="btn btn-secondary" style={{ flex: 1 }} title="Salva come una scaletta nuova, lasciando intatta quella aperta" onClick={() => saveDraft(true)} disabled={!draft.name.trim() || draft.steps.length === 0}>
                 Salva come nuova
               </button>
-              <button className="btn btn-secondary" style={{ flex: 1 }} title="Svuota l'editor" onClick={newDraft} disabled={draft.steps.length === 0 && !draft.name}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} title="Svuota l'editor: la scaletta salvata resta" onClick={newDraft} disabled={draft.steps.length === 0 && !draft.name}>
                 Svuota
               </button>
-            </div>
-
-            {/* Saved sequences */}
-            <div className="cat-label" style={{ color: 'var(--accent)', marginTop: '4px' }}>
-              Scalette salvate
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '150px', overflowY: 'auto' }}>
-              {sequences.map((seq, i) => (
-                <div key={i} className={`row-item${playingSeq === seq ? ' active' : ''}`} style={{ cursor: 'default' }}>
-                  <span className="row-title" style={{ color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {seq.name}
-                  </span>
-                  <span className="row-sub">
-                    {seq.steps.length} passi · {usesHold(seq.mode) ? `${totalHold(seq)}${HOLD_LIMITS[seq.mode].unit}` : MODE_LABELS[seq.mode].toLowerCase()}
-                  </span>
-                  <button className="btn btn-secondary btn-sm" onClick={() => startSequence(seq)} title="Avvia la scaletta" aria-label="Avvia la scaletta">▶</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => editSequence(i)} title="Apri nell'editor" aria-label="Apri nell'editor">✎</button>
-                  <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteSequence(i)} title="Elimina la scaletta" aria-label="Elimina la scaletta">×</button>
-                </div>
-              ))}
-              {sequences.length === 0 && (
-                <div className="u-hint" style={{ textAlign: 'center', padding: 'var(--s2)' }}>
-                  Nessuna scaletta salvata
-                </div>
-              )}
             </div>
 
             {/* Import / Export */}
@@ -725,3 +757,6 @@ export function PresetPanel({ engine, player }: PresetPanelProps) {
     </Panel>
   )
 }
+
+/** Memoised: App re-renders on every Intensita'/Master tick; the props are stable (player from useMemo). */
+export const PresetPanel = React.memo(PresetPanelImpl)
