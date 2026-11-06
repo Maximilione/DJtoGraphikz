@@ -55,7 +55,8 @@ function remove(id: number) {
 // lives 5s instead of 2.5s.
 export function pushToast(msg: string, key = msg, action?: ToastAction, level: ToastLevel = 'info') {
   const now = Date.now()
-  const dismissMs = action ? ACTION_DISMISS_MS : DISMISS_MS
+  // an error read off the mixer, not the screen, needs the longer life too
+  const dismissMs = action || level === 'err' ? ACTION_DISMISS_MS : DISMISS_MS
   const existing = toasts.find(t => t.key === key && now - t.ts < COLLAPSE_MS)
   if (existing) {
     existing.msg = msg
