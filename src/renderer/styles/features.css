@@ -99,21 +99,16 @@
 /* master slider (era inline width:90px) */
 .tb-master { width: 90px; min-height: 28px; min-width: 60px; flex-shrink: 1; }
 
-/* U4.1 — modalità live: preview massima + striscia Look Bank sotto */
-.live-layout .preview-container { padding: var(--s5); }
+/* Look Bank under the preview (Simple, Pro); Live puts it in the grid below */
 .live-lookbank {
-  flex-shrink: 0;
-  max-height: 220px;
+  flex: 1 1 0;
+  min-height: 160px;
   overflow-y: auto;
   padding: var(--s2);
   border-top: 1px solid var(--line);
   background: var(--bg0);
 }
-.live-lookbank .panel { margin-bottom: 0; }
-/* pro: the Look Bank takes the space under the deck instead of a 220px strip */
-.main-area:not(.live-layout) .live-lookbank { flex: 1 1 0; min-height: 160px; max-height: none; }
-/* la griglia 4x4 del LookBank si distende in orizzontale (8 colonne, 2 righe) */
-.live-lookbank .look-bank-grid { grid-template-columns: repeat(8, 1fr); }
+.live-lookbank .panel { margin-bottom: 0; border-bottom: 0; }
 
 /* U4.2 — flash accent sul bordo della preview a ogni beat.
    Opacity mutata via DOM diretto (come il beat dot), transition 180ms. */
@@ -363,9 +358,6 @@
 /* SIMPLE: niente rumore — restano modalita', intensita', master e le tre emergenze */
 .mode-simple .tb-extra { display: none; }
 
-/* LIVE: tutto grande, leggibile da lontano */
-.mode-live .live-lookbank .look-bank-grid { gap: var(--s4); }
-.mode-live .look-slot .look-num { font-size: var(--fs-xl); padding: 0 var(--s4); }
 .mode-live .look-slot .look-name { font-size: var(--fs-sm); padding: 2px var(--s3); }
 /* in Live niente modifica/elimina: un tocco sbagliato davanti al pubblico costa un look */
 .mode-live .look-slot .look-edit, .mode-live .look-slot .look-del { display: none; }
@@ -408,6 +400,97 @@
 .look-hit:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .look-slot .look-edit:focus-visible, .look-slot .look-del:focus-visible { outline-offset: -2px; }
 /* Pro under 1100px: 300px of centre, 8 columns of 34px — nothing readable */
-@media (max-width: 1099px) { .mode-pro .live-lookbank .look-bank-grid { grid-template-columns: repeat(4, 1fr); } }
+
 /* the corner being nudged by keyboard: :focus, the focus also comes from the mouse */
 .mapping-corner:focus circle:last-of-type { stroke: var(--text-primary); }
+
+/* ============================================================
+   Top bar a una riga, menu Strumenti, stato del muro
+   ============================================================ */
+.app-layout { position: relative; }
+.top-bar { flex-wrap: nowrap; min-height: 44px; }
+.top-bar .tb-group { flex-wrap: nowrap; }
+.tb-faders { gap: var(--s5); }
+.tb-safety { gap: var(--s3); }
+.tb-safety .btn-panic { margin-left: var(--s3); }
+.fader { display: inline-flex; align-items: center; gap: var(--s3); }
+.fader .deck-label { letter-spacing: 0; text-transform: none; font-family: var(--font-sans); font-weight: 500; color: var(--text-secondary); }
+.fader-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--text-primary); min-width: 4ch; text-align: right; }
+.tb-master { width: 90px; }
+/* the logo text is the first thing to go when the row is tight */
+@media (max-width: 1399px) { .top-bar .title { display: none; } .tb-master { width: 70px; } }
+.output-chip { flex: 0 1 180px; }
+.output-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-tools { position: relative; display: inline-flex; }
+.tb-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s4);
+  background: var(--bg2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.tb-menu > .btn { justify-content: flex-start; }
+.tb-menu label { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); font-size: var(--fs-sm); color: var(--text-secondary); min-height: var(--h-ctl); }
+.tb-menu label select { max-width: 150px; }
+.tb-menu-sub { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--bg1); border-radius: var(--r-sm); }
+
+/* ============================================================
+   LIVE: monitor · pad · rail
+   ============================================================ */
+.mode-live { --live-mon: 42%; }
+.mode-live .top-bar { height: 40px; min-height: 40px; --h-ctl: 28px; padding: 0 var(--s5); }
+.mode-live .mode-switch button { min-height: 28px; padding: 0 var(--s3); font-size: var(--fs-2xs); }
+.mode-live .banner-stack { position: absolute; top: 40px; left: 0; width: var(--live-mon); min-width: 300px; z-index: 20; display: flex; flex-direction: column; }
+.live-layout .center-area {
+  display: grid;
+  grid-template-columns: minmax(300px, var(--live-mon)) minmax(0, 1fr) clamp(124px, 10vw, 180px);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: 'prev pads rail' 'dir pads rail';
+}
+.live-layout .preview-container { grid-area: prev; flex: none; max-height: 52vh; aspect-ratio: var(--out-aspect, 16 / 9); min-width: 0; min-height: 0; overflow: hidden; padding: var(--s3); border-bottom: 1px solid var(--line); }
+.live-layout .live-lookbank { grid-area: pads; max-height: none; overflow-y: auto; padding: var(--s4); border-top: 0; border-left: 1px solid var(--line); }
+.live-layout .live-lookbank .look-bank-grid { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(0, 1fr)); grid-auto-rows: 25%; height: 100%; gap: var(--s4); position: relative; }
+.live-layout .look-slot { aspect-ratio: auto; min-height: 0; }
+.live-layout .look-slot.empty { background: var(--bg0); border-style: dashed; }
+.live-layout .look-slot.empty::after { content: ''; }
+.live-layout .look-slot .look-num { font-size: var(--fs-2xl); padding: 0 var(--s3); line-height: 1.2; }
+.live-layout .look-slot:nth-child(n+11) .look-num { color: var(--text-muted); background: rgba(0, 0, 0, 0.55); }
+.live-layout .look-slot .look-name { font-size: var(--fs-lg); padding: var(--s2) var(--s3); background: var(--bg0); color: var(--text-primary); }
+.look-empty-hint { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: var(--s7); font-size: var(--fs-lg); color: var(--text-secondary); pointer-events: none; z-index: 1; }
+
+.live-director { grid-area: dir; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.ld-row { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) var(--s5); border-bottom: 1px solid var(--line); min-height: 0; }
+.ld-row:last-child { border-bottom: 0; }
+.ld-tempo { flex-direction: row; align-items: center; gap: var(--s4); }
+.ld-label { font-size: var(--fs-xs); font-weight: 600; color: var(--text-muted); }
+.ld-tempo .ld-label { min-width: 60px; }
+.ld-tempo .beat-dot { width: 22px; height: 22px; }
+.ld-tempo .tb-bpm b { font-size: var(--fs-hero); }
+.ld-now { font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-director .btn { min-height: 44px; font-size: var(--fs-md); }
+.live-director select { min-height: 36px; }
+@media (max-height: 619px) { .ld-label, .ld-now { display: none; } .ld-row { padding: var(--s2) var(--s4); } }
+
+.live-rail { grid-area: rail; display: flex; flex-direction: column; background: var(--bg1); border-left: 1px solid var(--line); min-height: 0; }
+.live-faders { flex: 1; display: flex; justify-content: center; gap: var(--s5); padding: var(--s4) var(--s3); min-height: 0; }
+.live-faders .fader { flex-direction: column; justify-content: flex-end; gap: var(--s2); min-height: 0; }
+.live-faders .deck-label { font-size: var(--fs-xs); }
+.live-faders .fader-value { font-size: var(--fs-lg); min-width: 0; text-align: center; }
+/* vertical fader: the range stands up with writing-mode; the cap lies flat */
+.live-faders input[type="range"] { writing-mode: vertical-lr; direction: rtl; width: 44px; height: auto; flex: 1; min-height: 120px; --cap-w: 36px; --cap-h: 16px; }
+.live-faders input[type="range"]::-webkit-slider-runnable-track { width: 6px; height: 100%; background: linear-gradient(to top, var(--text-primary) var(--p, 0%), var(--slider-track) var(--p, 0%)); }
+.live-faders input[type="range"]::-webkit-slider-thumb { margin-top: 0; margin-left: calc((6px - var(--cap-w)) / 2); }
+.live-safety { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3); }
+.live-safety .btn-emg { min-width: 0; width: 100%; font-size: var(--fs-lg); padding-inline: var(--s3); }
+.live-safety .btn-black { min-height: 88px; }
+.live-safety .btn-freeze { min-height: 64px; }
+.live-safety .btn-panic { min-height: 64px; margin-top: var(--s6); }
+.mode-live .bottom-bar { font-size: var(--fs-sm); min-height: 24px; }

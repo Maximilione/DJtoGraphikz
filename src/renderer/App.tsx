@@ -30,7 +30,8 @@ import { QuickGuide } from './components/Help/QuickGuide'
 import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
-import { ALL_EFFECTS, POST_CATEGORIES, TRANSITIONS } from './catalog'
+import { PHASE_LABEL } from './components/AutoVJ/AutoVJControl'
+import { ALL_EFFECTS, POST_CATEGORIES, TRANSITIONS, effectLabel } from './catalog'
 import { SOURCE_META } from './components/ParamControls/ParamControls'
 import { allThumbs, onThumbs } from './fxThumbs'
 import { getFavs, setPickContext } from './fxPicks'
@@ -1411,6 +1412,106 @@ export function App() {
     return () => { offBeat(); offDevices(); offTrack() }
   }, [engine])
 
+  // Strumenti menu: closes on Esc and on a click outside (the GIF menu never did)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  /** the scaletta picked in the Live Regia, before it starts */
+  const [liveSeq, setLiveSeq] = useState(0)
+  const toolsRef = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!toolsOpen) return
+    const onDown = (e: MouseEvent) => { if (!toolsRef.current?.contains(e.target as Node)) { setToolsOpen(false); setGifMenu(false) } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setToolsOpen(false); setGifMenu(false) } }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [toolsOpen])
+
+  // The pieces that move between the top bar (Simple, Pro) and the Live rail:
+  // one handler each, rendered in exactly one place per mode. beatDotRef is a
+  // single ref, so the tempo block is mounted once.
+  const tempo = (
+    <>
+      <span
+        ref={beatDotRef}
+        className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
+        title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
+      />
+      <span className="tb-bpm" title="BPM rilevato (la modalita' BPM si cambia da Regolazioni audio, in Simple o Pro)">
+        <b>{audioStatus === 'running' && bpm > 0 ? bpm : '—'}</b> BPM
+      </span>
+    </>
+  )
+  const faders = (
+    <>
+      <label className="fader" title="Intensità: un comando invece di cinque cursori — a zero la scena e' quella che hai impostato (I)">
+        <span className="deck-label">Intensità</span>
+        <input
+          className="tb-master"
+          type="range" min={0} max={1} step={0.01}
+          value={intensity}
+          style={{ '--p': `${intensity * 100}%` } as React.CSSProperties}
+          onChange={e => {
+            const v = parseFloat(e.target.value)
+            setIntensity(v)
+            engine?.setIntensity(v)
+          }}
+        />
+        <span className="fader-value">{Math.round(intensity * 100)}%</span>
+      </label>
+      <label className="fader" title="Luminosità master ([ / ])">
+        <span className="deck-label">Master</span>
+        <input
+          className="tb-master"
+          type="range" min={0} max={1} step={0.01}
+          value={brightness}
+          style={{ '--p': `${brightness * 100}%` } as React.CSSProperties}
+          onChange={e => {
+            const v = parseFloat(e.target.value)
+            setBrightness(v)
+            engine?.setBrightness(v)
+          }}
+        />
+        <span className="fader-value">{Math.round(brightness * 100)}%</span>
+      </label>
+    </>
+  )
+  const safety = (
+    <>
+      <button
+        className={`btn btn-emg btn-black${blackout ? ' on' : ''}`}
+        onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
+        aria-pressed={blackout}
+        title="Blackout (B)"
+      >
+        BLACK<kbd className="emg-key" aria-hidden="true">B</kbd>
+      </button>
+      <button
+        className={`btn btn-emg btn-freeze${frozen ? ' on' : ''}`}
+        onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
+        aria-pressed={frozen}
+        title="Freeze (F)"
+      >
+        FREEZE<kbd className="emg-key" aria-hidden="true">F</kbd>
+      </button>
+      <button
+        className="btn btn-emg btn-panic"
+        onClick={panic}
+        title="PANIC — azzera post, crossfade, motion blur, intensità, beat-roll, blackout e freeze, ferma scaletta e Auto VJ (P)"
+      >
+        PANIC<kbd className="emg-key" aria-hidden="true">P</kbd>
+      </button>
+    </>
+  )
+  const recButton = (
+    <button
+      className={`btn btn-sm${recording ? ' btn-danger' : ''}`}
+      onClick={toggleRecording}
+      title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
+      aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
+      {recording ? <><IconStop /> REC</> : <><IconRecord />{mode === 'live' ? ' Registra' : ''}</>}
+    </button>
+  )
+
   return (
     <div className={`app-layout mode-${mode}`}>
       {/* modals get a boundary each, like the panels: a throw in one must not take App (and the engine) down */}
@@ -1434,19 +1535,14 @@ export function App() {
       {showCheatSheet && <PanelBoundary name="Scorciatoie"><CheatSheet onClose={() => setShowCheatSheet(false)} /></PanelBoundary>}
       {showQuickGuide && <PanelBoundary name="Guida"><QuickGuide onClose={() => setShowQuickGuide(false)} /></PanelBoundary>}
 
-      {/* Top bar — D4: controlli raggruppati (identità · modalità · master · output · aiuto) */}
+      {/* Top bar: one row. Identity · mode · faders · BLACK FREEZE PANIC · output · tools.
+          In Live the faders and the trio live in the rail on the right and the
+          tools fold into the Strumenti menu, so nothing moves during a set. */}
       <div className="top-bar">
         <div className="tb-group">
           <span className="tb-eye"><IconEye /></span>
           <span className="title">DJtoGraphikz</span>
-          <span
-            ref={beatDotRef}
-            className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
-            title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
-          />
-          <span className="tb-bpm" title="BPM rilevato (la modalita' BPM si cambia dal pannello Audio, in Simple o Pro)">
-            <b>{audioStatus === 'running' && bpm > 0 ? bpm : '—'}</b> BPM
-          </span>
+          {mode !== 'live' && tempo}
         </div>
 
         {/* Simple / Pro / Live switch */}
@@ -1477,150 +1573,45 @@ export function App() {
               LIVE
             </button>
           </div>
-          {mode === 'live' && (
-            // Live had no sign of the Auto VJ and no way back on: 1-0 and PANIC
-            // switch it off in silence. Fixed width: BLACK and PANIC must not move.
-            <button
-              className={`btn btn-sm ${vjEnabled ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ minWidth: 118 }}
-              onClick={() => toggleVJ(!vjEnabled)}
-              aria-pressed={vjEnabled}
-              title={vjEnabled ? 'Auto VJ acceso: clic per spegnerlo' : 'Auto VJ spento: clic per riaccenderlo'}
-            >
-              AUTO VJ{vjEnabled && vjHeld ? ' · HOLD' : ''}
-            </button>
-          )}
         </div>
 
-        <div className="tb-group">
-          <span className="deck-label" title="Intensità: alza insieme velocità, reattività, densità e il wet dei post-FX (I)">Intensità</span>
-          <input
-            className="tb-master"
-            type="range" min={0} max={1} step={0.01}
-            value={intensity}
-            style={{ '--p': `${intensity * 100}%` } as React.CSSProperties}
-            onChange={e => {
-              const v = parseFloat(e.target.value)
-              setIntensity(v)
-              engine?.setIntensity(v)
-            }}
-            title="Intensità: un comando invece di cinque cursori — a zero la scena e' quella che hai impostato (I)"
-          />
-        </div>
-
-        <div className="tb-group">
-          <span className="deck-label" title="Luminosità master ([ / ])">Master</span>
-          <input
-            className="tb-master"
-            type="range" min={0} max={1} step={0.01}
-            value={brightness}
-            style={{ '--p': `${brightness * 100}%` } as React.CSSProperties}
-            onChange={e => {
-              const v = parseFloat(e.target.value)
-              setBrightness(v)
-              engine?.setBrightness(v)
-            }}
-            title="Luminosità master ([ / ])"
-          />
+        {mode !== 'live' && (
+          <>
+            <div className="tb-group tb-faders">{faders}</div>
+            <div className="tb-group tb-safety">{safety}</div>
+          </>
+        )}
+        {seqPlayer.playing && seqPlayer.playingSeq && mode !== 'live' && (
+          // a playlist started from the phone drove the wall with no trace in Simple
           <button
-            className={`btn btn-emg btn-black${blackout ? ' on' : ''}`}
-            onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
-            aria-pressed={blackout}
-            title="Blackout (B)"
+            className="btn btn-sm"
+            style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            onClick={seqPlayer.stop}
+            title="Ferma la scaletta"
           >
-            BLACK<kbd className="emg-key" aria-hidden="true">B</kbd>
+            ■ {seqPlayer.playingSeq.name} {seqPlayer.stepIndex + 1}/{seqPlayer.playingSeq.steps.length}
           </button>
-          <button
-            className={`btn btn-emg btn-freeze${frozen ? ' on' : ''}`}
-            onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
-            aria-pressed={frozen}
-            title="Freeze (F)"
-          >
-            FREEZE<kbd className="emg-key" aria-hidden="true">F</kbd>
-          </button>
-          <button
-            className="btn btn-emg btn-panic"
-            onClick={panic}
-            title="PANIC — azzera post, crossfade, motion blur, intensità, beat-roll, blackout e freeze, ferma scaletta e Auto VJ (P)"
-          >
-            PANIC<kbd className="emg-key" aria-hidden="true">P</kbd>
-          </button>
-          {seqPlayer.playing && seqPlayer.playingSeq && (
-            // a playlist started from the phone drove the wall with no trace in Simple or Live
-            <button
-              className="btn btn-sm btn-secondary"
-              style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-              onClick={seqPlayer.stop}
-              title="Ferma la scaletta"
-            >
-              ■ {seqPlayer.playingSeq.name} {seqPlayer.stepIndex + 1}/{seqPlayer.playingSeq.steps.length}
-            </button>
-          )}
-        </div>
+        )}
 
         <div className="spacer" />
 
         <div className="tb-group tb-right">
-          <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
-            <IconCamera />
-          </button>
-          <button
-            className={`btn btn-sm ${recording ? 'btn-danger' : 'btn-secondary tb-extra'}`}
-            onClick={toggleRecording}
-            title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
-           aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
-            {recording ? <IconStop /> : <IconRecord />}
-          </button>
-          <span className="tb-extra" style={{ position: 'relative', display: 'inline-flex' }}>
-            <button className="btn btn-secondary btn-sm" disabled={!!gifBusy}
-              onClick={() => setGifMenu(m => !m)}
-              title="Esporta una GIF in loop dalla preview" aria-label="Esporta una GIF in loop dalla preview"
-              aria-expanded={gifMenu}>
-              {gifBusy ?? 'GIF'}
-            </button>
-            {gifMenu && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 50, padding: 'var(--s3)',
-                display: 'flex', flexDirection: 'column', gap: 'var(--s2)', background: 'var(--bg-panel, #1a1a1f)',
-                border: '1px solid var(--border, #333)', borderRadius: 6, minWidth: 190 }}>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Durata
-                  <select value={gifOpt.secs} disabled={gifOpt.bars && bpm > 0}
-                    onChange={e => setGifOpt(o => ({ ...o, secs: +e.target.value }))}>
-                    {[3, 5, 8].map(s => <option key={s} value={s}>{s} s</option>)}
-                  </select>
-                </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Larghezza
-                  <select value={gifOpt.width} onChange={e => setGifOpt(o => ({ ...o, width: +e.target.value }))}>
-                    {[320, 480, 640].map(s => <option key={s} value={s}>{s} px</option>)}
-                  </select>
-                </label>
-                <label title={bpm > 0 ? 'Cattura 1-2 battute esatte al BPM corrente: il loop non scatta' : 'BPM non rilevato: usa i secondi'}
-                  style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input type="checkbox" checked={gifOpt.bars} disabled={!(bpm > 0)}
-                    onChange={e => setGifOpt(o => ({ ...o, bars: e.target.checked }))} />
-                  Loop a battuta
-                </label>
-                <button className="btn btn-sm btn-danger" onClick={startGif}>Cattura GIF</button>
-              </div>
-            )}
-          </span>
-          {reelArmed && (
-            <button className="btn btn-secondary btn-sm tb-extra" onClick={() => reelRef.current?.save()}
-              title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)"
-              aria-label="Salva il reel degli ultimi 15–30 s">
-              <span style={{ color: 'var(--accent)' }}>●</span> Reel
+          {mode !== 'live' && (
+            <button className="btn btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
+              <IconCamera />
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
-            <IconPhone />
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowSoundcheck(true)} title="Soundcheck: ingresso, proiettore, fps, DMX, telefono e disco in pochi secondi">
-            Soundcheck
-          </button>
+          {(recording || mode !== 'live') && recButton}
+          {mode !== 'live' && (
+            <button className="btn btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
+              <IconPhone />
+            </button>
+          )}
           {outputInfo && (outputInfo.open ? (
             <span className="chip output-chip" title="Stato della finestra di output">
               <IconMonitor size={14} />
-              Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
-              {(outputInfo.count ?? 1) > 1 ? ` +${(outputInfo.count ?? 1) - 1}` : ''}
+              <span className="output-chip-name">Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
+              {(outputInfo.count ?? 1) > 1 ? ` +${(outputInfo.count ?? 1) - 1}` : ''}</span>
               {(outputInfo.count ?? 1) < outputs.length && (
                 // a secondary wall that closed or crashed out: main recreates the missing ones on the list
                 <button className="btn btn-sm output-reopen" onClick={() => window.api?.setOutputs?.(outputs)} title="Un'uscita secondaria è chiusa — riaprila">
@@ -1638,56 +1629,113 @@ export function App() {
               Riapri output
             </button>
           ))}
-          {displays.length > 1 && (
-            <select
-              className="tb-extra tb-select"
-              value={primaryOut.displayId ?? ''}
-              onChange={e => {
-                const id = parseInt(e.target.value)
-                if (!isNaN(id)) setOutputs(outputs.map((o, i) => i === 0 ? { ...o, displayId: id } : o))
-              }}
-              title="Sposta la finestra di output su un display"
+          <span className="tb-tools" ref={toolsRef}>
+            <button
+              className={`btn btn-sm${toolsOpen ? ' active' : ''}`}
+              onClick={() => setToolsOpen(o => !o)}
+              aria-expanded={toolsOpen}
+              title="Strumenti: foto, registrazione, GIF, reel, telefono, soundcheck, uscita"
             >
-              <option value="" disabled>Output su…</option>
-              {displays.map(d => (
-                <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
-              ))}
-            </select>
-          )}
-          <select
-            className="tb-extra tb-select"
-            value={outputRes}
-            onChange={e => {
-              const [w, h] = e.target.value.split('x').map(Number)
-              setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
-            }}
-            title="Risoluzione di uscita del proiettore"
-          >
-            <option value="1280x720">720p</option>
-            <option value="1920x1080">1080p</option>
-            <option value="2560x1440">1440p</option>
-            <option value="3840x2160">4K</option>
-            {/* the Uscite panel allows any size — never show a wrong value here */}
-            {!['1280x720', '1920x1080', '2560x1440', '3840x2160'].includes(outputRes) && (
-              <option value={outputRes}>{outputRes}</option>
+              {gifBusy ?? 'Strumenti'} ▾
+            </button>
+            {toolsOpen && (
+              <div className="tb-menu" role="menu">
+                {mode === 'live' && (
+                  <>
+                    <button className="btn btn-sm" onClick={screenshot} title="Screenshot PNG"><IconCamera /> Foto</button>
+                    {!recording && recButton}
+                    <button className="btn btn-sm" onClick={() => { setShowRemote(true); setToolsOpen(false) }} title="Remote dal telefono (QR + codice)"><IconPhone /> Telefono</button>
+                  </>
+                )}
+                <button className="btn btn-sm" disabled={!!gifBusy}
+                  onClick={() => setGifMenu(m => !m)}
+                  title="Esporta una GIF in loop dalla preview"
+                  aria-expanded={gifMenu}>
+                  {gifBusy ?? 'GIF…'}
+                </button>
+                {gifMenu && (
+                  <div className="tb-menu-sub">
+                    <label>Durata
+                      <select value={gifOpt.secs} disabled={gifOpt.bars && bpm > 0}
+                        onChange={e => setGifOpt(o => ({ ...o, secs: +e.target.value }))}>
+                        {[3, 5, 8].map(s => <option key={s} value={s}>{s} s</option>)}
+                      </select>
+                    </label>
+                    <label>Larghezza
+                      <select value={gifOpt.width} onChange={e => setGifOpt(o => ({ ...o, width: +e.target.value }))}>
+                        {[320, 480, 640].map(s => <option key={s} value={s}>{s} px</option>)}
+                      </select>
+                    </label>
+                    <label title={bpm > 0 ? 'Cattura 1-2 battute esatte al BPM corrente: il loop non scatta' : 'BPM non rilevato: usa i secondi'}>
+                      <input type="checkbox" checked={gifOpt.bars} disabled={!(bpm > 0)}
+                        onChange={e => setGifOpt(o => ({ ...o, bars: e.target.checked }))} />
+                      Loop a battuta
+                    </label>
+                    <button className="btn btn-sm btn-primary" onClick={() => { startGif(); setToolsOpen(false) }}>Cattura GIF</button>
+                  </div>
+                )}
+                {reelArmed && (
+                  <button className="btn btn-sm" onClick={() => reelRef.current?.save()}
+                    title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)">
+                    <span style={{ color: 'var(--state-on)' }}>●</span> Salva reel
+                  </button>
+                )}
+                <button className="btn btn-sm" onClick={() => { setShowSoundcheck(true); setToolsOpen(false) }} title="Soundcheck: ingresso, proiettore, fps, DMX, telefono e disco in pochi secondi">
+                  Soundcheck
+                </button>
+                {displays.length > 1 && (
+                  <label>Output su
+                    <select
+                      className="tb-select"
+                      value={primaryOut.displayId ?? ''}
+                      onChange={e => {
+                        const id = parseInt(e.target.value)
+                        if (!isNaN(id)) setOutputs(outputs.map((o, i) => i === 0 ? { ...o, displayId: id } : o))
+                      }}
+                      title="Sposta la finestra di output su un display"
+                    >
+                      <option value="" disabled>Output su…</option>
+                      {displays.map(d => (
+                        <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>Risoluzione
+                  <select
+                    className="tb-select"
+                    value={outputRes}
+                    onChange={e => {
+                      const [w, h] = e.target.value.split('x').map(Number)
+                      setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
+                    }}
+                    title="Risoluzione di uscita del proiettore"
+                  >
+                    <option value="1280x720">720p</option>
+                    <option value="1920x1080">1080p</option>
+                    <option value="2560x1440">1440p</option>
+                    <option value="3840x2160">4K</option>
+                    {/* the Uscite panel allows any size — never show a wrong value here */}
+                    {!['1280x720', '1920x1080', '2560x1440', '3840x2160'].includes(outputRes) && (
+                      <option value={outputRes}>{outputRes}</option>
+                    )}
+                  </select>
+                </label>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => {
+                    window.api?.toggleOutputFullscreen()
+                    // fullscreen flips have no dedicated event — re-read after the switch
+                    setTimeout(refreshOutputInfo, 400)
+                  }}
+                  title="Fullscreen della finestra di output">
+                  <IconFullscreen /> Fullscreen output
+                </button>
+              </div>
             )}
-          </select>
+          </span>
           <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              window.api?.toggleOutputFullscreen()
-              // fullscreen flips have no dedicated event — re-read after the switch
-              setTimeout(refreshOutputInfo, 400)
-            }}
-            title="Fullscreen della finestra di output"
-           aria-label="Fullscreen della finestra di output">
-            <IconFullscreen />
-          </button>
-        </div>
-
-        <div className="tb-group">
-          <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-sm"
             onClick={() => setShowHelpMenu(v => !v)}
             title="Aiuto — scorciatoie, guida, configurazione (?)"
            aria-label="Aiuto — scorciatoie, guida, configurazione (?)">
@@ -1696,6 +1744,9 @@ export function App() {
         </div>
       </div>
 
+      {/* Banners: one stack. Static in Simple and Pro; in Live it floats over
+          the monitor, so pads and rail never move while something is wrong. */}
+      <div className="banner-stack">
       {gpuLost && <div className="audio-banner">⚠ Preview persa (contesto grafico), ripristino in corso… il proiettore ha il suo motore</div>}
       {/* U1.2 — slim static banner: layout shifts once, no overlay on the preview */}
       {audioStatus === 'reconnecting' && (
@@ -1735,6 +1786,7 @@ export function App() {
           </button>
         </div>
       )}
+      </div>
 
       {/* Main layout — U4.1: in live niente sidebar, solo preview + Look Bank */}
       <div className={`main-area${mode === 'live' ? ' live-layout' : ''}`}>
@@ -1804,10 +1856,78 @@ export function App() {
           {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
           {engine && (
             <div className="live-lookbank">
-              <PanelBoundary name="Look Bank"><LookBank engine={engine} onManual={onManual} /></PanelBoundary>
+              <PanelBoundary name="Look Bank"><LookBank engine={engine} onManual={onManual} bare={mode !== 'pro'} /></PanelBoundary>
             </div>
           )}
           {fxCenter && <div className="center-fx"><PanelBoundary name="Effetti"><EffectPanel engine={engine} onManual={onManual} /></PanelBoundary></div>}
+          {mode === 'live' && (
+            <>
+              {/* Regia: who is driving the wall — tempo, Auto VJ, scaletta. Same
+                  data the top bar and the panels already have, nothing new at audio rate. */}
+              <div className="live-director">
+                <div className="ld-row ld-tempo">
+                  <span className="ld-label">Tempo</span>
+                  {tempo}
+                </div>
+                <div className="ld-row">
+                  <span className="ld-label">Auto VJ</span>
+                  <div className="u-row">
+                    <button
+                      className={`btn ${vjEnabled ? 'btn-primary' : ''}`}
+                      style={{ flex: 1 }}
+                      onClick={() => toggleVJ(!vjEnabled)}
+                      aria-pressed={vjEnabled}
+                      title={vjEnabled ? 'Auto VJ acceso: clic per spegnerlo' : 'Auto VJ spento: clic per riaccenderlo'}
+                    >
+                      {vjEnabled ? 'Acceso' : 'Spento'}
+                    </button>
+                    <button
+                      className={`btn${vjHeld ? ' is-armed' : ''}`}
+                      disabled={!vjEnabled}
+                      onClick={() => toggleVJHold(!vjHeld)}
+                      aria-pressed={vjHeld}
+                      title="Tiene fermo il look attuale — fasi e palette continuano a seguire la musica sotto"
+                    >
+                      {vjHeld ? 'Riprendi' : 'Tieni'}
+                    </button>
+                  </div>
+                  <div className="u-hint ld-now">
+                    {vjEnabled ? `${PHASE_LABEL[vjStatus.phase]} · ora: ${vjStatus.current ? effectLabel(vjStatus.current as EffectId) : '—'}` : 'Comandi tu'}
+                  </div>
+                </div>
+                <div className="ld-row">
+                  <span className="ld-label">Scaletta</span>
+                  <select
+                    value={seqPlayer.playingSeq ? seqPlayer.sequences.indexOf(seqPlayer.playingSeq) : liveSeq}
+                    onChange={e => setLiveSeq(+e.target.value)}
+                    disabled={seqPlayer.playing}
+                    title="Scaletta da avviare"
+                  >
+                    {seqPlayer.sequences.length === 0 && <option value={-1}>Nessuna scaletta</option>}
+                    {seqPlayer.sequences.map((sq, i) => <option key={i} value={i}>{sq.name} · {sq.steps.length}</option>)}
+                  </select>
+                  <div className="u-row">
+                    <button className="btn" disabled={!seqPlayer.playing} onClick={seqPlayer.prev} title="Passo precedente" aria-label="Passo precedente">◀</button>
+                    <button
+                      className={`btn${seqPlayer.playing ? ' btn-primary' : ''}`}
+                      style={{ flex: 1 }}
+                      disabled={!seqPlayer.playing && !seqPlayer.sequences[liveSeq]}
+                      onClick={() => seqPlayer.playing ? seqPlayer.stop() : seqPlayer.start(seqPlayer.sequences[liveSeq])}
+                      title={seqPlayer.playing ? 'Ferma la scaletta' : 'Avvia la scaletta (spegne l\'Auto VJ)'}
+                    >
+                      {seqPlayer.playing && seqPlayer.playingSeq ? `Ferma · ${seqPlayer.stepIndex + 1}/${seqPlayer.playingSeq.steps.length}` : 'Avvia'}
+                    </button>
+                    <button className="btn" disabled={!seqPlayer.playing} onClick={seqPlayer.next} title="Passo successivo" aria-label="Passo successivo">▶</button>
+                  </div>
+                </div>
+              </div>
+              {/* Rail: faders and the trio in the same corner at every window size */}
+              <div className="live-rail">
+                <div className="live-faders">{faders}</div>
+                <div className="live-safety">{safety}</div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right sidebar — pro only */}
