@@ -56,6 +56,8 @@ import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
 import { migrateKeystone, type OutputCfg } from './outputs'
 
 type UIMode = 'simple' | 'pro' | 'live'
+type WallState = 'air' | 'black' | 'frozen' | 'off'
+const WALL_LABEL: Record<WallState, string> = { air: 'IN ONDA', black: 'BLACK', frozen: 'FREEZE', off: 'ANTEPRIMA' }
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
 const SETTINGS_KEY = 'djtographikz-settings'
@@ -158,7 +160,8 @@ function FpsLabel({ engine }: { engine: Engine | null }) {
       lastTime = now
     })
   }, [engine])
-  const color = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
+  // a healthy number has no colour: the colour is for when something is wrong
+  const color = fps > 55 ? 'var(--text-muted)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
   return <span style={{ color }}>{fps} FPS</span>
 }
 
@@ -219,8 +222,6 @@ export function App() {
       writeString(PREVIEW_COMPACT_KEY, c ? '0' : '1')
       return !c
     })
-    // engine resizes on window resize — the class toggle alone doesn't fire it
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
   }, [])
 
   // U4.2 — flash del bordo preview sul beat (opt-in, persistito)
@@ -652,6 +653,17 @@ export function App() {
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes
   }, [engine, primaryOut.width, primaryOut.height])
 
+  // The engine sizes the preview on the window resize event only; the box it
+  // sits in changes with the mode, the drawer, the compact toggle and the Live
+  // grid. One observer on that box fires the same event for all of them.
+  useEffect(() => {
+    const box = canvasRef.current?.parentElement
+    if (!engine || !box) return
+    const ro = new ResizeObserver(() => window.dispatchEvent(new Event('resize')))
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [engine])
+
   // U1.3 — output window status: on mount + whenever main signals a change
   useEffect(() => {
     refreshOutputInfo()
@@ -1015,11 +1027,14 @@ export function App() {
     })
   }, [engine, toggleVJ, toggleVJHold, seqPlayer.stop])
 
+  // One word for the state of the wall, on the preview's frame and tag. The
+  // output window closed means the preview is only a preview: saying IN ONDA
+  // would be false. Black also with the master at zero, as the banner does.
+  const wallState: WallState = !outputInfo?.open ? 'off' : blackout || brightness < 0.05 ? 'black' : frozen ? 'frozen' : 'air'
+
   const changeMode = useCallback((m: UIMode) => {
     setMode(m)
     writeString(MODE_KEY, m)
-    // engine resizes on window resize — the layout change alone doesn't fire it
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
   }, [])
 
   const finishOnboarding = useCallback(async (result: OnboardingResult | null) => {
@@ -1478,7 +1493,7 @@ export function App() {
         </div>
 
         <div className="tb-group">
-          <span className="deck-label" title="Intensità: alza insieme velocità, reattività, densità e il wet dei post-FX (I)">INTENS.</span>
+          <span className="deck-label" title="Intensità: alza insieme velocità, reattività, densità e il wet dei post-FX (I)">Intensità</span>
           <input
             className="tb-master"
             type="range" min={0} max={1} step={0.01}
@@ -1494,7 +1509,7 @@ export function App() {
         </div>
 
         <div className="tb-group">
-          <span className="deck-label" title="Luminosità master ([ / ])">MASTER</span>
+          <span className="deck-label" title="Luminosità master ([ / ])">Master</span>
           <input
             className="tb-master"
             type="range" min={0} max={1} step={0.01}
@@ -1508,27 +1523,27 @@ export function App() {
             title="Luminosità master ([ / ])"
           />
           <button
-            className={`btn btn-sm btn-black${blackout ? ' on' : ''}`}
+            className={`btn btn-emg btn-black${blackout ? ' on' : ''}`}
             onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
             aria-pressed={blackout}
             title="Blackout (B)"
           >
-            BLACK
+            BLACK<kbd className="emg-key" aria-hidden="true">B</kbd>
           </button>
           <button
-            className={`btn btn-sm ${frozen ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-emg btn-freeze${frozen ? ' on' : ''}`}
             onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
             aria-pressed={frozen}
             title="Freeze (F)"
           >
-            FREEZE
+            FREEZE<kbd className="emg-key" aria-hidden="true">F</kbd>
           </button>
           <button
-            className="btn btn-sm btn-panic"
+            className="btn btn-emg btn-panic"
             onClick={panic}
             title="PANIC — azzera post, crossfade, motion blur, intensità, beat-roll, blackout e freeze, ferma scaletta e Auto VJ (P)"
           >
-            PANIC
+            PANIC<kbd className="emg-key" aria-hidden="true">P</kbd>
           </button>
           {seqPlayer.playing && seqPlayer.playingSeq && (
             // a playlist started from the phone drove the wall with no trace in Simple or Live
@@ -1767,6 +1782,7 @@ export function App() {
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
           <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
+               data-wall={wallState}
                style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
             {mode !== 'live' && (
@@ -1780,7 +1796,10 @@ export function App() {
             )}
             {/* U4.2 — bordo che lampeggia sul beat (opacity via DOM diretto) */}
             <div ref={beatFlashRef} className="beat-flash" />
-            <span className="preview-label">PREVIEW</span>
+            <span className="preview-label">
+              <span className={`air-tag ${wallState}`}>{WALL_LABEL[wallState]}</span>
+              {outputInfo?.open ? outputInfo.display : 'proiettore non collegato'}
+            </span>
           </div>
           {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
           {engine && (
@@ -1817,7 +1836,7 @@ export function App() {
         <span>|</span>
         <span>{outputRes}</span>
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}
-        {frozen && <><span>|</span><span style={{ color: 'var(--accent)' }}>FROZEN</span></>}
+        {frozen && <><span>|</span><span style={{ color: 'var(--state-frozen)' }}>FREEZE</span></>}
         {beatRoll > 0 && <><span>|</span><span style={{ color: 'var(--warning)' }}>ROLL 1/{beatRoll}</span></>}
         {recording && <><span>|</span><span style={{ color: 'var(--danger)' }}>REC</span></>}
         {midiLost && <><span>|</span><span style={{ color: 'var(--warning)' }}>MIDI scollegato</span></>}

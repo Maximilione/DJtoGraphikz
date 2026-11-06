@@ -35,7 +35,7 @@ const PHONE: [string, string][] = [
 function Section({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
     <div>
-      <h3 style={{ color: 'var(--accent)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 8px' }}>
+      <h3 style={{ color: 'var(--text-primary)', fontSize: 13, margin: '0 0 8px' }}>
         {title}
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px', alignItems: 'baseline' }}>
