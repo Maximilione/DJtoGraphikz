@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { addUserPalette, allPalettes, userPalettes } from '../../palettes'
 import { DEFAULT_GRADE, type Engine, type EffectId, type PostId, type TransitionType, type Grade } from '@engine/Engine'
 import type { EffectParam } from '@engine/EffectParams'
@@ -521,7 +522,8 @@ function EffectPanelImpl({ engine, onManual }: EffectPanelProps) {
               )}
             </div>
             {isfBrowserOpen && (
-              <IsfBrowser onClose={() => setIsfBrowserOpen(false)} onImported={onIsfImported} />
+              // portal: a fixed modal inside the container-type strip stays trapped in it
+              createPortal(<IsfBrowser onClose={() => setIsfBrowserOpen(false)} onImported={onIsfImported} />, document.body)
             )}
             </div>
           </div>

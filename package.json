@@ -34,6 +34,7 @@
     "check:lineboost": "node scripts/check-lineboost.mjs",
     "check:pipes": "node scripts/check-pipes.mjs",
     "check:fxpicks": "node scripts/check-fxpicks.mjs",
+    "check:simpleflow": "node scripts/check-simpleflow.mjs",
     "check:mappings": "node scripts/check-mappings.mjs",
     "check:sequenza": "node scripts/check-sequenza.mjs",
     "check:sequences": "node scripts/check-sequences.mjs",
