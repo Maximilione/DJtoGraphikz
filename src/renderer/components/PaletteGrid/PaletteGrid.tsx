@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { addUserPalette, allPalettes, isUserPalette, onPalettes, pixelsFromImageFile, removeUserPalette } from '../../palettes'
+import { MAX_USER, addUserPalette, allPalettes, isUserPalette, onPalettes, pixelsFromImageFile, removeUserPalette, userPalettes } from '../../palettes'
 import { paletteFromPixels } from '../../paletteFromImage'
 import { pushToast } from '../Toasts/Toasts'
 
@@ -23,6 +23,12 @@ interface PaletteGridProps {
  * The last slot takes a picture (Q2): drop the club's flyer or logo on it, or
  * click it to choose a file, and its colours become a palette of yours.
  */
+/** addUserPalette drops the oldest beyond MAX_USER: say so before it happens */
+export function warnPaletteLimit() {
+  const u = userPalettes()
+  if (u.length >= MAX_USER) pushToast(`Limite ${MAX_USER} palette: rimossa la più vecchia (${u[0].label})`, 'pal-limit')
+}
+
 export function PaletteGrid({ isActive, onPick, title, size = 'md' }: PaletteGridProps) {
   const [, bump] = useState(0)
   useEffect(() => onPalettes(() => bump(n => n + 1)), [])
@@ -31,10 +37,12 @@ export function PaletteGrid({ isActive, onPick, title, size = 'md' }: PaletteGri
   const palettes = allPalettes()
 
   const fromFile = async (file: File | undefined) => {
-    if (!file || !file.type.startsWith('image/')) return
+    if (!file) return   // a cancelled dialog is not an error
+    if (!file.type.startsWith('image/')) { pushToast('Nessuna palette da questo file', 'palette-img', undefined, 'err'); return }
     try {
       const colors = paletteFromPixels(await pixelsFromImageFile(file))
-      if (!colors) return
+      if (!colors) { pushToast('Nessuna palette da questo file', 'palette-img', undefined, 'err'); return }
+      warnPaletteLimit()
       const idx = addUserPalette({ label: file.name.replace(/\.[^.]+$/, '').slice(0, 14) || 'Mia', colors })
       onPick(idx)
     } catch {
@@ -55,7 +63,12 @@ export function PaletteGrid({ isActive, onPick, title, size = 'md' }: PaletteGri
             aria-pressed={active}
             className={`btn pal-btn${active ? ' active' : ''}`}
             onClick={() => onPick(i)}
-            onContextMenu={mine ? (e => { e.preventDefault(); removeUserPalette(i) }) : undefined}
+            onContextMenu={mine && size !== 'sm' ? (e => {
+              // not in the cycle chooser: its tooltip says Includi/Escludi, no word of removal
+              e.preventDefault()
+              removeUserPalette(i)
+              pushToast(`Palette ${preset.label} rimossa`, 'pal-del', { label: 'Annulla', fn: () => addUserPalette({ label: preset.label, colors: preset.colors }) })
+            }) : undefined}
             title={title ? title(i, preset.label) : preset.plugin ? `Palette ${preset.label} (plugin)` : mine ? `Palette ${preset.label} (tua — tasto destro per rimuoverla)` : `Palette ${preset.label}`}
           >
             <span className="pal-swatches">

@@ -36,9 +36,13 @@ export function VenuePanel({ capture, apply }: VenuePanelProps) {
     if (!n) return
     const v = capture(n)
     if (!v) { pushToast('Motore non pronto — riprova fra un istante', 'venue-capture', undefined, 'err'); return }
+    // upsert replaces a same-named profile (case-insensitive) with no word of it
+    const prev = venues
+    const existed = venues.some(x => x.name.toLowerCase() === n.toLowerCase())
     if (!store(upsertVenue(venues, v))) return
     setName('')
-    pushToast(`Posto "${n}" salvato`)
+    if (existed) pushToast(`Posto "${n}" aggiornato`, 'venue-save', { label: 'Annulla', fn: () => store(prev) })
+    else pushToast(`Posto "${n}" salvato`)
   }
 
   return (
@@ -53,20 +57,28 @@ export function VenuePanel({ capture, apply }: VenuePanelProps) {
         {venues.map(v => (
           <div key={v.name} className="slider-row">
             <button className="btn btn-secondary btn-sm" style={{ flex: 1, textAlign: 'left' }}
-              onClick={() => apply(v)}
+              onClick={() => {
+                // a click rewrites the whole room with the projector on: keep the way back
+                const before = capture('stato precedente')
+                apply(v)
+                if (before) pushToast('Configurazione precedente conservata', 'venue-undo', { label: 'Annulla', fn: () => apply(before) })
+              }}
               title={`Carica ${v.name} — ${v.outputRes}`}>
               {v.name}
             </button>
             <span className="label" style={{ fontFamily: 'var(--font-mono)' }}>{v.outputRes}</span>
             <button className="btn btn-secondary btn-sm"
-              onClick={() => store(venues.filter(x => x.name !== v.name))}
+              onClick={() => {
+                const prev = venues
+                if (store(venues.filter(x => x.name !== v.name))) pushToast(`Posto "${v.name}" eliminato`, `venue-del-${v.name}`, { label: 'Annulla', fn: () => store(prev) })
+              }}
               title={`Elimina ${v.name}`} aria-label={`Elimina ${v.name}`}>×</button>
           </div>
         ))}
         <div className="slider-row">
           <input type="text" value={name} placeholder="Nome del posto"
             onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save() }}
+            onKeyDown={e => { if (e.key === 'Enter') { save(); e.currentTarget.blur() } }}
             style={{ flex: 1, fontSize: 'var(--fs-xs)' }} />
           <button className="btn btn-secondary btn-sm" onClick={save} disabled={!name.trim()}
             title="Salva la configurazione attuale con questo nome">Salva</button>

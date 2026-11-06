@@ -12,7 +12,7 @@ export interface Known {
   sources: ReadonlySet<string>
 }
 
-export interface RemoteCmd { type: string; value?: unknown; source?: string; hold?: string }
+export interface RemoteCmd { type: string; value?: unknown; source?: string; hold?: string; heldMs?: number }
 
 const fin = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x))
@@ -59,7 +59,13 @@ export function sanitizeCmd(cmd: unknown, k: Known): RemoteCmd | null {
     case 'panic': case 'tap': case 'cameraReset': case 'saveScene': case 'postClear': return ok()
     case 'seqNext': case 'seqPrev': case 'seqStop': return ok()
     case 'seqStart': return ok(v)                           // validSeqIndex in the player
-    case 'release': return str(v) ? ok(v) : null
+    case 'release': {
+      if (!str(v)) return null
+      const out = ok(v)
+      // the phone's own measure of the hold, see momentary.release
+      if (fin(cmd.heldMs) && cmd.heldMs >= 0) out.heldMs = cmd.heldMs
+      return out
+    }
     case 'effect': case 'deckB': return str(v) && k.effects.has(v) ? ok(v) : null
     case 'post': return str(v) && k.posts.has(v) ? ok(v) : null
     case 'postAmount':

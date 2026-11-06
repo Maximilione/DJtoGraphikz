@@ -23,26 +23,27 @@ interface PanelProps {
  * different things. This is the one way.
  *
  * The rule, so a third way does not grow back: a *panel* folds with this
- * component; an inline hint inside a panel folds with a native `<details>`.
- * Nothing else folds.
+ * component, at the first level of a column; a sub-block inside a panel folds
+ * with a native `<details>`. Nothing else folds.
  *
- * The body is not wrapped: each panel keeps its own layout element. It is also
- * not rendered while collapsed, which is why a folded panel costs nothing.
+ * The body is wrapped in `.panel-body` (display:contents by default, so each
+ * panel keeps its own layout element); the Pro rail turns it into the drawer.
+ * It is not rendered while collapsed, which is why a folded panel costs nothing.
  */
 export function Panel({ id, title, children, defaultCollapsed = false, group, active }: PanelProps) {
   const [collapsed, toggleCollapsed] = usePanelCollapsed(id, defaultCollapsed, group)
 
   return (
-    <div className="panel">
+    <div className={`panel${collapsed ? ' is-closed' : ''}${active ? ' is-on' : ''}`}>
       <button type="button"
         aria-expanded={!collapsed} className="panel-header"
         onClick={toggleCollapsed}
         title={collapsed ? `Espandi ${title}` : `Comprimi ${title}`}
       >
         <span>{title}{active && <i className="panel-dot" title="Attivo" aria-label="Attivo" />}</span>
-        <span aria-hidden="true">{collapsed ? '+' : '\u2212'}</span>
+        <span className="panel-chev" aria-hidden="true">{collapsed ? '▸' : '▾'}</span>
       </button>
-      {!collapsed && children}
+      {!collapsed && <div className="panel-body">{children}</div>}
     </div>
   )
 }

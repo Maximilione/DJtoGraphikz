@@ -5,6 +5,7 @@
  * copies of presets with neither.
  */
 import type { Engine, Preset } from '@engine/Engine'
+import { grabFrame } from './fxThumbs'
 import { readJson, readString, writeJson, writeString } from './storage'
 
 export interface SavedLook {
@@ -72,25 +73,16 @@ export function persistLooks(looks: (SavedLook | null)[]): boolean {
   return true
 }
 
-/** Grab the next rendered frame and downscale it to a 160x90 JPEG dataURL */
+/**
+ * Grab the next rendered frame and downscale it to a 160x90 JPEG dataURL.
+ * Straight off the canvas in the frame callback, like the effect thumbs: the
+ * old route was a full-res PNG screenshot (~33 MB RGBA at 4K) decoded again
+ * just to shrink it, inside the frame, while saving a look mid-set — and it
+ * hung for ever on an idle renderer; grabFrame gives up after 2 s.
+ */
 export async function makeThumb(engine: Engine): Promise<string> {
   try {
-    const blob = await engine.screenshot()
-    if (!blob) return ''
-    // decode already downscaled: the screenshot is at output resolution
-    // (~33 MB RGBA at 4K) and only ever gets drawn at 160x90
-    const bmp = await createImageBitmap(blob, { resizeWidth: 160, resizeHeight: 90, resizeQuality: 'medium' })
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width = 160
-      canvas.height = 90
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return ''
-      ctx.drawImage(bmp, 0, 0, 160, 90)
-      return canvas.toDataURL('image/jpeg', 0.7)
-    } finally {
-      bmp.close()
-    }
+    return (await grabFrame(engine, 160, 90, 0.7)) ?? ''
   } catch {
     return ''
   }

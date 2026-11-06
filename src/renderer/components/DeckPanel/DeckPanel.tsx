@@ -5,7 +5,7 @@ import { type VideoDeck, VIDEO_DECK_DEFAULT, BARS_PER_CLIP_CHOICES, acceptsVideo
 import { NumberInput } from '../NumberInput/NumberInput'
 import { pushToast } from '../Toasts/Toasts'
 import { SEQ_DEFAULT_FPS } from '../../../shared/imageSequence'
-import { ALL_EFFECTS } from '../../catalog'
+import { EFFECT_CATEGORIES } from '../../catalog'
 
 const MASK_FIRST = BLEND_MODES.indexOf('split-v')
 const MASK_LABELS: Partial<Record<BlendMode, string>> = {
@@ -65,6 +65,8 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
       // the dialog also lists mkv: Chromium's <video> does not play it, and
       // neither HAP path (ours or <video>'s) understands it — see videoDeck.ts
       const ok = (files || []).filter(f => acceptsVideo(f.name))
+      const dropped = (files || []).length - ok.length
+      if (dropped) pushToast(`${dropped} file non supportati: usa mp4 H.264, webm o HAP`, 'deck-clips', undefined, 'err')
       if (ok.length) engine?.addVideoClips(ok)
     } catch (e) {
       console.error('[Deck] clip non caricate:', e)
@@ -91,24 +93,27 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
     const clips = video.clips.map((c, j) => j === i ? { ...c, bpm } : c)
     engine?.setVideoDeck({ clips })
   }
-  const removeClip = (i: number) => engine?.setVideoDeck({ clips: video.clips.filter((_, j) => j !== i) })
+  const removeClip = (i: number) => {
+    if (!engine) return
+    const removed = video.clips[i]
+    // the index did not follow the list: removing a clip before the current one
+    // jumped the wall to the next clip. clipStartBeat passed so bars is kept.
+    engine.setVideoDeck({ clips: video.clips.filter((_, j) => j !== i), clip: i < video.clip ? video.clip - 1 : video.clip, clipStartBeat: video.clipStartBeat })
+    pushToast(`Clip ${removed.name} tolta`, `clip-del-${i}`, { label: 'Annulla', fn: () => {
+      const d = engine.getVideoDeck()   // the list now, not as it was: a clip added meanwhile stays
+      const at = Math.min(i, d.clips.length)
+      engine.setVideoDeck({ clips: [...d.clips.slice(0, at), removed, ...d.clips.slice(at)], clip: d.clip >= at ? d.clip + 1 : d.clip, clipStartBeat: d.clipStartBeat })
+    } })
+  }
 
   return (
     <>
       {video.enabled && (
         <div className="deck-clips" title="Playlist del deck B: mp4 (H.264), webm o HAP (Hap1/Hap5) — altre varianti HAP e ProRes vanno convertiti prima">
           <span className="deck-label">CLIP</span>
-          {video.clips.length === 0 && <span style={{ color: 'var(--text-muted)' }}>nessuna clip — ＋ per aggiungere mp4/webm</span>}
-          {video.clips.map((c, i) => (
-            <span key={c.path + i} className={`deck-clip${i === video.clip ? ' active' : ''}`} title={c.path}>
-              <span onClick={() => engine?.setVideoDeck({ clip: i })} style={{ cursor: 'pointer' }}>{c.name}</span>
-              {c.frames && <NumberInput value={c.fps ?? SEQ_DEFAULT_FPS} min={1} max={120} step={1} suffix="fps" onChange={v => setClipFps(i, v)} />}
-              <NumberInput value={c.bpm} min={40} max={300} step={1} suffix="bpm" onChange={v => setClipBpm(i, v)} />
-              <button className="btn btn-sm" title="Togli la clip" onClick={() => removeClip(i)}>✕</button>
-            </span>
-          ))}
-          <button className="btn btn-sm" title="Aggiungi clip (mp4 H.264 / webm)" onClick={addClips}>＋</button>
-          <button className="btn btn-sm" title="Aggiungi una cartella di frame numerati (PNG/JPG/WebP/AVIF) come clip: il bpm della clip e gli fps ne fissano la durata" onClick={addSequence}>＋🎞</button>
+          {/* controls first: long file names pushed them off the strip, behind a horizontal scroll */}
+          <button className="btn btn-sm" title="Aggiungi clip (mp4 H.264 / webm)" onClick={addClips}>＋ Clip</button>
+          <button className="btn btn-sm" title="Aggiungi una cartella di frame numerati (PNG/JPG/WebP/AVIF) come clip: il bpm della clip e gli fps ne fissano la durata" onClick={addSequence}>＋ Sequenza</button>
           <span className="deck-label" title="Ogni quante battute cambia clip (sul giro di battuta)">OGNI</span>
           <select
             value={video.barsPerClip}
@@ -117,10 +122,19 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
           >
             {BARS_PER_CLIP_CHOICES.map(n => <option key={n} value={n}>{n} {n === 1 ? 'battuta' : 'battute'}</option>)}
           </select>
+          {video.clips.length === 0 && <span style={{ color: 'var(--text-muted)' }}>nessuna clip — ＋ Clip per aggiungere mp4/webm</span>}
+          {video.clips.map((c, i) => (
+            <span key={c.path + i} className={`deck-clip${i === video.clip ? ' active' : ''}`} title={c.path}>
+              <button className="btn btn-ghost btn-sm deck-clip-name" aria-pressed={i === video.clip} onClick={() => engine?.setVideoDeck({ clip: i })}>{c.name}</button>
+              {c.frames && <NumberInput value={c.fps ?? SEQ_DEFAULT_FPS} min={1} max={120} step={1} suffix="fps" onChange={v => setClipFps(i, v)} />}
+              <NumberInput value={c.bpm} min={40} max={300} step={1} suffix="bpm" onChange={v => setClipBpm(i, v)} />
+              <button className="btn btn-sm" title="Togli la clip" onClick={() => removeClip(i)}>✕</button>
+            </span>
+          ))}
         </div>
       )}
       <div className="deck-bar">
-        <span className="deck-label">A</span>
+        <span className="deck-label deck-ab">A</span>
         <input
           type="range" min={0} max={1} step={0.01}
           value={crossfade}
@@ -128,14 +142,20 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
           style={{ flex: 1, '--p': `${crossfade * 100}%` } as React.CSSProperties}
           title="Crossfader tra deck A e deck B"
         />
-        <span className="deck-label">B</span>
+        <span className="deck-label deck-ab">B</span>
 
+        <span className="deck-sep" />
+        <span className="deck-label">Deck B</span>
         <button className={`pill${video.enabled ? '' : ' active'}`} title="Deck B = effetto GLSL" onClick={() => engine?.setVideoDeck({ enabled: false })}>Effetto</button>
         <button className={`pill${video.enabled ? ' active' : ''}`} title="Deck B = playlist di clip video a tempo" onClick={() => engine?.setVideoDeck({ enabled: true })}>Video</button>
 
         {!video.enabled && (
           <select value={deckB} onChange={e => changeDeckB(e.target.value as EffectId)} title="Effetto sul deck B">
-            {ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>)}
+            {EFFECT_CATEGORIES.map(c => (
+              <optgroup key={c.name} label={c.name}>
+                {c.effects.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>)}
+              </optgroup>
+            ))}
           </select>
         )}
 
@@ -165,6 +185,7 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
           />
         </>}
 
+        <span className="deck-sep" />
         <span className="deck-label" title="Motion blur temporale">BLUR</span>
         <input
           type="range" min={0} max={0.95} step={0.05}
