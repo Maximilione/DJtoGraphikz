@@ -489,7 +489,7 @@ function PresetPanelImpl({ engine, player }: PresetPanelProps) {
             )}
 
             {/* Saved sequences */}
-            <div className="cat-label" style={{ color: 'var(--accent)', marginTop: '4px' }}>
+            <div className="cat-label" style={{ marginTop: '4px' }}>
               Scalette salvate
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '150px', overflowY: 'auto' }}>
@@ -514,7 +514,7 @@ function PresetPanelImpl({ engine, player }: PresetPanelProps) {
             </div>
 
             {/* ---- Editor ---- */}
-            <div className="cat-label" style={{ color: 'var(--accent)' }}>
+            <div className="cat-label">
               {editingIndex >= 0 ? `Modifica: ${sequences[editingIndex]?.name ?? ''}` : 'Nuova scaletta'}
             </div>
 
