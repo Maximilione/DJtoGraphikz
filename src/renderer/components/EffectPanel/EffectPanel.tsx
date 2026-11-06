@@ -115,6 +115,7 @@ function EffectPanelImpl({ engine, onManual }: EffectPanelProps) {
     setCycleInterval(Math.round(engine.getCycleInterval() / 1000))
     setCycleBeats(engine.getCycleBeatsPerSwitch())
     setCustomSrc(engine.getCustomShaderSource())
+    setCustomImageInputs(engine.getCustomImageInputs())
     setOnB(engine.getCrossfade() >= 0.999)
     // the engine restores its cycle list; the grid showed every palette lit
     const cyc = engine.getCyclePalettes().map(c => c.join())
