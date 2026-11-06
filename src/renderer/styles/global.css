@@ -515,6 +515,9 @@ input[type="range"]:active::-webkit-slider-thumb {
   min-width: 0;
 }
 .slider-row > :not(.label):not(input[type="range"]) { grid-row: 1; }
+/* A row with no slider (DMX universe/channel, Risoluzione, Posti) is not this
+   grid: every .label was forced into row 1 column 1 and they overprinted. */
+.slider-row:not(:has(input[type="range"])) { display: flex; flex-wrap: wrap; row-gap: var(--s2); }
 .slider-row input[type="range"] {
   grid-row: 2;
   grid-column: 1 / -1;
@@ -1097,7 +1100,7 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   color: var(--danger);
 }
 .look-slot .look-edit {
-  right: 22px;
+  right: 28px;   /* .look-del is 28px wide: at 22px it covered rename's edge */
   border-radius: 0 0 0 4px;
   color: var(--text-primary);
 }
@@ -1121,6 +1124,7 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
 /* .look-slot input.look-rename (0,2,1) beats the global input rules by coming later */
 .look-slot input.look-rename {
   position: absolute;
+  z-index: 2;   /* above .look-hit (z 1): a click to move the caret applied the look on the wall */
   left: 0;
   right: 0;
   bottom: 0;
@@ -1138,6 +1142,7 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
 /* Media panel — unified add row + media cards */
 .media-add {
   display: flex;
+  flex-wrap: wrap;   /* four nowrap buttons overflowed the 300px column */
   gap: var(--s2);
 }
 
@@ -1220,6 +1225,8 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   padding: 0;
   width: 28px;
   height: 14px;
+  min-height: 14px;   /* .btn's 28px turned the switch into a square */
+  border: none;
   border-radius: 7px;
   background: var(--bg3);
   position: relative;
@@ -1240,7 +1247,10 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   transition: transform var(--t-fast);
 }
 
-.media-toggle.on { background: var(--accent); }
+/* 28px of hit area kept, around a 14px switch */
+.media-toggle::before { content: ''; position: absolute; inset: -7px 0; }
+/* .btn:hover:not(:disabled) (0,3,0) beat .on: the knob went black on grey right after the click */
+.media-toggle.on, .media-toggle.on:hover:not(:disabled) { background: var(--accent); }
 .media-toggle.on::after { transform: translateX(14px); background: #000; }
 
 .media-name {
@@ -1348,6 +1358,8 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   display: flex;
   flex-direction: column;
   gap: var(--s2);
+  max-height: 180px;   /* the library grows for ever; the cards on air sat under it */
+  overflow-y: auto;
   padding: var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -1441,7 +1453,7 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   padding: var(--s1) 0;
 }
 .midi-last { color: var(--accent); }
-.midi-learning { color: var(--accent); font-size: var(--fs-xs); display: flex; align-items: center; gap: 6px; }
+.midi-learning { color: var(--accent); font-size: var(--fs-xs); display: flex; align-items: center; gap: 6px; position: sticky; top: 0; z-index: 1; background: var(--bg1); padding: 4px 0; }
 .midi-group {
   font-size: var(--fs-xs);
   font-weight: 700;
@@ -1457,7 +1469,8 @@ input[type="color"]:focus { border-color: var(--accent-dim); }
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
   color: var(--text-secondary);
-  width: 80px;
+  min-width: 80px;
+  white-space: nowrap;   /* "Note 127 ch16" is 13 mono chars: 80px wrapped it */
   text-align: right;
 }
 
