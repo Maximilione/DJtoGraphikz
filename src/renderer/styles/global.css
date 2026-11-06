@@ -718,6 +718,7 @@ input[type="range"]:active::-webkit-slider-thumb {
   padding: var(--s3);
   position: relative;
   background: #000;
+  min-height: 0;   /* else the canvas's inline height keeps the box from shrinking */
 }
 
 .preview-canvas {
@@ -813,26 +814,7 @@ input[type="range"]:active::-webkit-slider-thumb {
   padding-top: var(--s5);   /* a .panel without a header */
 }
 
-/* Simple mode is the same row as everywhere else, with more air. */
-.row-item.lg {
-  gap: 10px;
-  padding: var(--s5);
-  border-radius: var(--r-md);
-}
-.row-item.lg .row-title { font-size: var(--fs-md); font-weight: 600; }
-.row-item.lg .row-sub { margin-top: var(--s1); }
-
 .vj-genre { width: 100%; }
-.vj-genre.lg { padding: var(--s4); font-size: var(--fs-sm); }
-
-.simple-section {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 3px;
-  margin-top: var(--s2);
-}
 
 
 

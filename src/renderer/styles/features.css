@@ -402,6 +402,7 @@
 .center-fx .fx-btn { min-height: 40px; }
 .center-fx .fx-jump { display: flex; flex-wrap: wrap; gap: 3px; position: sticky; top: 0; z-index: 2; background: var(--bg1); padding: var(--s2) 0; }
 .center-fx .fx-jump .pill { flex: 0 0 auto; }
+.center-fx .fx-cat { scroll-margin-top: 44px; }   /* a jump must not land under the sticky row */
 /* centro largo: libreria a sinistra, parametri a lato, due scroll */
 @container (min-width: 560px) {
   .fx-panel .fx-cols { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 40cqw, 380px); grid-template-rows: minmax(0, 1fr); gap: var(--s2); align-items: stretch; min-height: 0; }
@@ -473,8 +474,10 @@
    Top bar a una riga, menu Strumenti, stato del muro
    ============================================================ */
 .app-layout { position: relative; }
-.top-bar { flex-wrap: nowrap; min-height: 44px; }
-.top-bar .tb-group { flex-wrap: nowrap; }
+.top-bar { min-height: 44px; }
+/* Simple and Pro wrap: on one line a narrow window slid the tools over PANIC */
+.mode-live .top-bar, .mode-live .top-bar .tb-group { flex-wrap: nowrap; }
+.btn[aria-expanded="true"] { border-color: var(--sel-line); }
 .tb-faders { gap: var(--s5); }
 .tb-safety { gap: var(--s3); }
 .tb-safety .btn-panic { margin-left: var(--s3); }
@@ -529,6 +532,7 @@
 .live-layout .look-slot .look-num { font-size: var(--fs-2xl); padding: 0 var(--s3); line-height: 1.2; }
 .live-layout .look-slot:nth-child(n+11) .look-num { color: var(--text-muted); background: rgba(0, 0, 0, 0.55); }
 .live-layout .look-slot .look-name { font-size: var(--fs-lg); padding: var(--s2) var(--s3); background: var(--bg0); color: var(--text-primary); }
+.look-bank-grid { position: relative; }
 .look-empty-hint { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: var(--s7); font-size: var(--fs-lg); color: var(--text-secondary); pointer-events: none; z-index: 1; }
 
 .live-director { grid-area: dir; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
