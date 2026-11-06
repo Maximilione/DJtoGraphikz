@@ -56,6 +56,10 @@ const CROPS: [string, [number, number, number, number]][] = [
   ['Metà dx', [0.5, 0, 0.5, 1]],
   ['Striscia alta', [0, 0.66, 1, 0.34]],
   ['Striscia bassa', [0, 0, 1, 0.34]],
+  // three walls side by side: the only crop nothing in the UI could produce
+  ['Terzo sx', [0, 0, 1 / 3, 1]],
+  ['Terzo centro', [1 / 3, 0, 1 / 3, 1]],
+  ['Terzo dx', [2 / 3, 0, 1 / 3, 1]],
 ]
 
 const sameCrop = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 0.005)
@@ -145,7 +149,7 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
               </div>
               <div className="u-row" style={{ gap: 4, flexWrap: 'wrap' }}>
                 {PRESETS.map(([label, w, h]) => (
-                  <button key={label} className="btn btn-secondary btn-sm"
+                  <button key={label} className={`btn btn-sm ${o.width === w && o.height === h ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => set(open, { width: w, height: h })}
                     title={`${w}×${h}`}>{label}</button>
                 ))}
@@ -165,8 +169,10 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
               </div>
 
               <SliderRow label="Gamma" value={o.gamma} min={0.4} max={2.4} step={0.05}
+                labelTitle="Correzione dei mezzitoni per questa uscita: 1 = neutro"
                 onChange={v => set(open, { gamma: v })} />
-              <SliderRow label="Tetto" value={o.brightness} min={0} max={1} step={0.01} percent
+              <SliderRow label="Luminosità massima" value={o.brightness} min={0} max={1} step={0.01} percent
+                labelTitle="Luminosità massima di questa uscita — il LED schiaccia i neri e a bianco pieno è inguardabile"
                 title="Luminosità massima di questa uscita — il LED schiaccia i neri e a bianco pieno è inguardabile"
                 onChange={v => set(open, { brightness: v })} />
 
@@ -207,7 +213,7 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
  *
  * The React state follows at once; the synchronous write and the IPC are
  * throttled to ~30 Hz, leading and trailing (same shape as sendState in App).
- * A keystone drag is pointermove at up to 240 Hz, the Gamma and Tetto sliders
+ * A keystone drag is pointermove at up to 240 Hz, the Gamma and Luminosità massima sliders
  * one event per pixel: each used to be a setItem plus an IPC round trip that
  * resized the output windows. The last value always lands.
  */

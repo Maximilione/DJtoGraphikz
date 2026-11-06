@@ -6,7 +6,11 @@ import { pushToast } from '../Toasts/Toasts'
 import { loadLooks, persistLooks, makeThumb, SLOTS, type SavedLook } from '../../looks'
 import { Panel } from '../Panel/Panel'
 
-function LookBankImpl({ engine }: { engine: Engine }) {
+/** bare: the grid alone, no Panel — Live and Simple draw it full height. A Panel folded in Pro
+ *  used to take the looks away from Live as well, body unmounted. */
+function LookBankImpl({ engine, onManual, bare, compactEmpty }: { engine: Engine; onManual?: () => (() => void) | undefined; bare?: boolean; compactEmpty?: boolean }) {
+  // Simple: one empty slot is enough to show the gesture; the other fourteen were a wall of '+'
+  const [showAll, setShowAll] = useState(false)
   const [looks, setLooks] = useState<(SavedLook | null)[]>(loadLooks)
   // What the triggers and the undo toasts read: the state as it is now, not
   // the render they were created in. With `looks` in their deps the window
@@ -14,6 +18,8 @@ function LookBankImpl({ engine }: { engine: Engine }) {
   const looksRef = useRef(looks)
   looksRef.current = looks
   const [active, setActive] = useState(-1)
+  // the last pad recalled: stays marked, honestly named — nothing knows whether it is still on the wall
+  const [last, setLast] = useState(-1)
   const activeTimer = useRef(0)
   // U3.3 — inline rename + drag&drop reorder
   const [renaming, setRenaming] = useState(-1)
@@ -105,11 +111,14 @@ function LookBankImpl({ engine }: { engine: Engine }) {
   const trigger = useCallback((i: number) => {
     const look = looksRef.current[i]
     if (!look) return
+    const restoreVj = onManual?.()   // a recalled look takes over from the Auto VJ, as the phone's look does
     engine.applyPreset(look.preset)
     setActive(i)
+    setLast(i)
     clearTimeout(activeTimer.current)
     activeTimer.current = window.setTimeout(() => setActive(prev => (prev === i ? -1 : prev)), 600)
-  }, [engine])
+    return restoreVj
+  }, [engine, onManual])
   useEffect(() => () => clearTimeout(activeTimer.current), [])
 
   // Shift+1..9, Shift+0 → slots 1-10. e.code so shifted symbol layouts don't break.
@@ -129,8 +138,9 @@ function LookBankImpl({ engine }: { engine: Engine }) {
       // Held, this is momentary — and going back means restoring the look that
       // was on screen, which is not the same as recalling a different slot.
       const before = engine.createPreset('prima del richiamo')
-      trigger(i)
-      momentary.press(`look:${i}`, () => engine.applyPreset(before))
+      const lastWas = last
+      const restoreVj = trigger(i)
+      momentary.press(`look:${i}`, () => { engine.applyPreset(before); restoreVj?.(); setLast(lastWas) })
     }
     // Shift can come up before the digit does, so the release is read off
     // e.code alone and never off shiftKey.
@@ -144,7 +154,7 @@ function LookBankImpl({ engine }: { engine: Engine }) {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [trigger, engine])
+  }, [trigger, engine, last])
 
   const commitRename = useCallback(() => {
     if (renaming >= 0) renameLook(renaming, renameText)
@@ -163,13 +173,15 @@ function LookBankImpl({ engine }: { engine: Engine }) {
     },
   })
 
-  return (
-    <Panel id="looks" title="Look Bank">
-      <div className="look-bank-grid">
+  const grid = (
+      <div className={`look-bank-grid${compactEmpty && !showAll ? ' compact-empty' : ''}`}>
+        {bare && looks.every(l => !l) && (
+          <p className="look-empty-hint">Nessun look salvato. Tocca un pad per salvare quello che vedi in anteprima.</p>
+        )}
         {looks.map((look, i) => look ? (
           <div
             key={i}
-            className={`look-slot${active === i ? ' active' : ''}${dragOver === i ? ' drag-over' : ''}`}
+            className={`look-slot${active === i ? ' active' : ''}${last === i ? ' last' : ''}${dragOver === i ? ' drag-over' : ''}`}
             draggable={renaming !== i}
             onDragStart={() => { dragFrom.current = i }}
             {...dropHandlers(i)}
@@ -180,11 +192,12 @@ function LookBankImpl({ engine }: { engine: Engine }) {
             <button
               type="button"
               className="btn look-hit"
-              title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10}` : ''}`}
+              title={`${look.name} — click: applica · Shift+click: sovrascrivi · trascina per riordinare${i < 10 ? ` · Shift+${(i + 1) % 10} (tieni premuto: momentaneo)` : ''}`}
               onClick={e => e.shiftKey ? saveLook(i) : trigger(i)}
             />
-            {look.thumb && <img src={look.thumb} alt="" />}
-            <span className="look-num">{i + 1}</span>
+            {look.thumb ? <img src={look.thumb} alt="" />
+              : <span className="look-fill" style={{ background: `linear-gradient(135deg, ${look.preset.colors.join(', ')})` }} />}
+            <span className="look-num" title={last === i ? 'Ultimo richiamato' : undefined}>{i + 1}</span>
             {renaming === i ? (
               <input
                 className="look-rename"
@@ -232,9 +245,14 @@ function LookBankImpl({ engine }: { engine: Engine }) {
             <span className="look-num">{i + 1}</span>
           </button>
         ))}
+        {compactEmpty && looks.some(l => !l) && (
+          <button className="btn btn-ghost btn-sm look-showall" onClick={() => setShowAll(v => !v)}>
+            {showAll ? 'Nascondi gli slot vuoti' : 'Mostra tutti gli slot'}
+          </button>
+        )}
       </div>
-    </Panel>
   )
+  return bare ? grid : <Panel id="looks" title="Look Bank">{grid}</Panel>
 }
 
 /** Memoised: App re-renders on every slider tick and remote command; this panel only depends on the engine. */

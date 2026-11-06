@@ -10,7 +10,7 @@ import { activePluginPalettes, onPlugins } from './plugins'
 export interface UserPalette { label: string; colors: [string, string, string] }
 
 export const USER_PALETTES_KEY = 'djtographikz-user-palettes'
-const MAX_USER = 16
+export const MAX_USER = 16
 
 let user: UserPalette[] = sanitize(readJson<unknown>(USER_PALETTES_KEY, []))
 const listeners = new Set<() => void>()

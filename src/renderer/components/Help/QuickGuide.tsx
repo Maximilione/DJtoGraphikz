@@ -37,7 +37,7 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
       <div
         className="onboarding-card"
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: 620, maxHeight: '80vh', overflowY: 'auto' }}
+        style={{ width: 620, maxWidth: '90vw', maxHeight: '80vh', overflowY: 'auto' }}
       >
         <h2>Guida rapida</h2>
 
@@ -46,11 +46,12 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
           1. Scegli l'ingresso audio nel pannello Audio (line-in dal mixer è l'ideale).
           2. Attiva l'AutoVJ con un genere, oppure guida a mano: effetti con i tasti 1-0, post con Q/W/E/R.
           3. Quando qualcosa ti piace, salvalo come look. Da lì in poi il live è richiamare look a tempo.
+          Deck, Media, Uscite, Posti e MIDI sono in modalità PRO; LIVE mostra solo preview e Look Bank.
         </p>
 
         <h3 style={h3Style}>Look Bank</h3>
         <p style={pStyle}>
-          Griglia 4×4: click su uno slot vuoto salva lo stato corrente (effetto, post, colori, parametri).
+          Griglia da 16 slot: click su uno slot vuoto salva lo stato corrente (effetto, post, colori, parametri).
           Click su uno slot pieno lo applica; Shift+click lo sovrascrive; il pulsante ✎ lo rinomina.
           I primi 10 slot si richiamano con Shift+1-0. Alla prima apertura trovi 8 look di fabbrica.
         </p>
@@ -59,7 +60,8 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
         <p style={pStyle}>
           Ogni effetto ha 2-3 parametri propri più Speed e React. Ogni parametro può essere mappato
           all'audio (bass, mid, high, energy, beat) o a un LFO sincronizzato al BPM: scegli la sorgente
-          e regola la profondità. Depth negativa inverte il movimento. Rotella sul valore per regolarlo fine.
+          e regola la profondità. Depth negativa inverte il movimento. Rotella sul valore per regolarlo fine;
+          doppio clic sul nome riporta al default. Tasto destro su un effetto: lo aggiungi ai preferiti.
         </p>
 
         <h3 style={h3Style}>Deck A/B</h3>
@@ -90,8 +92,8 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
 
         <h3 style={h3Style}>Registrazione</h3>
         <p style={pStyle}>
-          La finestra di output si registra in video dal pannello dedicato; lo screenshot cattura
-          il frame corrente. Il rendering non si ferma durante la registrazione.
+          Il pulsante rosso in alto registra la preview in WebM; lo screenshot cattura il frame corrente.
+          I file vanno in Download. Il rendering non si ferma durante la registrazione.
         </p>
 
         <h3 style={h3Style}>Uscite</h3>

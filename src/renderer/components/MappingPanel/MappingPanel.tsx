@@ -35,8 +35,24 @@ export function MappingPanel({ engine, outputs, onChange, selected, onSelect }: 
   const apply = (next: number[]) =>
     onChange(outputs.map((o, i) => (i === sel ? { ...o, keystone: next } : o)))
 
-  const onPointerDown = (i: number) => (e: React.PointerEvent) => {
+  // Arrows nudge the focused corner: a pixel of this 255px box is ~11px on
+  // a 1920 output, too coarse for a crooked projector. ±0.001 ≈ 2px, Shift ×10.
+  const onKeyDown = (i: number) => (e: React.KeyboardEvent) => {
+    const d = e.shiftKey ? 0.01 : 0.001
+    const dx = e.key === 'ArrowLeft' ? -d : e.key === 'ArrowRight' ? d : 0
+    const dy = e.key === 'ArrowUp' ? -d : e.key === 'ArrowDown' ? d : 0
+    if (!dx && !dy) return
     e.preventDefault()
+    const next = [...corners]
+    next[i * 2] = Math.max(-0.25, Math.min(1.25, next[i * 2] + dx))
+    next[i * 2 + 1] = Math.max(-0.25, Math.min(1.25, next[i * 2 + 1] + dy))
+    apply(next)
+  }
+
+  const onPointerDown = (i: number) => (e: React.PointerEvent) => {
+    e.preventDefault()   // so the focus is given by hand below
+    const g = e.currentTarget as SVGGElement
+    g.focus()
     cleanupRef.current?.()
     dragRef.current = i
     // pointermove arrives at 120-240 Hz on a good mouse; one apply a frame is
@@ -112,7 +128,7 @@ export function MappingPanel({ engine, outputs, onChange, selected, onSelect }: 
         >
           {/* reference frame = full output */}
           <rect x={px(0)} y={py(0)} width={px(1) - px(0)} height={py(1) - py(0)}
-            fill="none" stroke="var(--border)" strokeDasharray="4 3" />
+            fill="none" stroke="var(--text-muted)" strokeDasharray="4 3" />
           {/* warped quad */}
           <polygon
             points={pts.map(p => p.join(',')).join(' ')}
@@ -121,10 +137,11 @@ export function MappingPanel({ engine, outputs, onChange, selected, onSelect }: 
             strokeWidth="1.5"
           />
           {pts.map((p, i) => (
-            <g key={i} onPointerDown={onPointerDown(i)} style={{ cursor: 'grab' }}>
+            <g key={i} className="mapping-corner" tabIndex={0} role="button" aria-label={`Angolo ${LABELS[i]}: frecce per spostarlo`}
+              onPointerDown={onPointerDown(i)} onKeyDown={onKeyDown(i)} style={{ cursor: 'grab', outline: 'none' }}>
               <circle cx={p[0]} cy={p[1]} r="9" fill="transparent" />
               <circle cx={p[0]} cy={p[1]} r="5" fill="var(--bg2)" stroke="var(--accent)" strokeWidth="1.5" />
-              <text x={p[0]} y={p[1] - 9} textAnchor="middle" fontSize="8" fill="var(--text-muted)">{LABELS[i]}</text>
+              <text x={p[0]} y={p[1] - 9} textAnchor="middle" fontSize="11" fill="var(--text-muted)">{LABELS[i]}</text>
             </g>
           ))}
         </svg>

@@ -1,7 +1,8 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from './App'
+// tokens first: features.css builds on them and must come later in the cascade
 import './styles/global.css'
+import { App } from './App'
 import { stampSchemaVersion } from './storage'
 
 // Anything that escapes React or a promise goes to the log file: a crash at

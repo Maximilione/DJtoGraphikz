@@ -74,7 +74,7 @@ function followedDevice(now: number): number {
 
 export function setupProDjLink(controlWindow: BrowserWindow): void {
   ipcMain.on('prolink:enable', (_e, on: boolean) => { if (on) start(controlWindow); else stop() })
-  app.on('before-quit', stop)
+  app.on('will-quit', stop)   // not before-quit: a cancelled quit must keep the link
 }
 
 function start(win: BrowserWindow): void {

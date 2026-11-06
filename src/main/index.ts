@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net, powerSaveBlocker, protocol, screen, session, systemPreferences } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol, screen, session, systemPreferences } from 'electron'
 import { writeFileSync } from 'fs'
 
 // Menu/dock/notifications name (the bold macOS menu-bar name in dev still reads
@@ -222,6 +222,26 @@ const CRASH_MAX = 4
  * every window comes up without focus and the app stays out of the Dock.
  */
 const SELFTEST = !!process.env.DJG_SELFTEST
+
+// True while the user has to decide: the caller must cancel the close or quit.
+let closeConfirmed = false
+let closeAsking = false
+function askBeforeClosing(): boolean {
+  if (SELFTEST || closeConfirmed || !controlWindow || !liveOutputs().some(o => o.win.isAlwaysOnTop())) return false
+  if (closeAsking) return true
+  closeAsking = true
+  dialog.showMessageBox(controlWindow, {
+    type: 'warning',
+    message: 'Il proiettore è a schermo intero',
+    detail: 'Chiudere la finestra di controllo spegne tutte le uscite.',
+    buttons: ['Resta', 'Chiudi e spegni il proiettore'],
+    defaultId: 0, cancelId: 0,
+  }).then(r => {
+    closeAsking = false
+    if (r.response === 1) { closeConfirmed = true; app.quit() }
+  }).catch(() => { closeAsking = false })
+  return true
+}
 
 /**
  * Headless-ish tests: under the self-test every window is fully transparent,
@@ -613,11 +633,13 @@ app.whenReady().then(async () => {
   })
 
   // A reel (I4) saved on the Auto VJ's drop must not pop a save dialog over the
-  // console mid-set: it goes straight to Downloads. Everything else keeps the
-  // default routine.
+  // console mid-set: it goes straight to Downloads. Same for every timestamped
+  // capture (screenshot, WebM, GIF): the recorder stops itself at 1.5 GB and
+  // popped the dialog over the console with nobody touching anything. The
+  // named exports (presets, playlists, custom-shader.frag) keep the dialog.
   session.defaultSession.on('will-download', (_e, item) => {
     const name = item.getFilename()
-    if (name.startsWith('djtographikz-reel-')) item.setSavePath(join(app.getPath('downloads'), name))
+    if (/^djtographikz-(reel-)?\d{4}-\d{2}-\d{2}T/.test(name)) item.setSavePath(join(app.getPath('downloads'), name))
   })
 
   controlWindow = createControlWindow()
@@ -626,8 +648,13 @@ app.whenReady().then(async () => {
   const primary = createOutputWindow(PRIMARY, DEFAULT_CFG)
 
   logDisplayState('avvio', controlWindow, primary.win)
-  screen.on('display-added', () => logDisplayState('display collegato', controlWindow, primaryOutput()?.win ?? null))
-  screen.on('display-removed', () => logDisplayState('display scollegato', controlWindow, primaryOutput()?.win ?? null))
+  // The renderer read the display list once at start: a projector plugged in
+  // with the app open never showed up in the pickers until a restart.
+  const notifyDisplaysChanged = () => {
+    if (controlWindow && !controlWindow.isDestroyed()) controlWindow.webContents.send('displays:changed')
+  }
+  screen.on('display-added', () => { logDisplayState('display collegato', controlWindow, primaryOutput()?.win ?? null); notifyDisplaysChanged() })
+  screen.on('display-removed', () => { logDisplayState('display scollegato', controlWindow, primaryOutput()?.win ?? null); notifyDisplaysChanged() })
   screen.on('display-metrics-changed', () => {
     logDisplayState('display cambiato', controlWindow, primaryOutput()?.win ?? null)
     keepOutputOnItsDisplay()
@@ -667,7 +694,9 @@ app.whenReady().then(async () => {
   // had the projector go to sleep with the laptop screen. Not under the gate.
   if (!SELFTEST) {
     const psb = powerSaveBlocker.start('prevent-display-sleep')
-    app.on('before-quit', () => { if (powerSaveBlocker.isStarted(psb)) powerSaveBlocker.stop(psb) })
+    // will-quit, not before-quit: a Cmd+Q answered with "Resta" (see the
+    // 'close' handler) must not leave the projector free to sleep mid-show
+    app.on('will-quit', () => { if (powerSaveBlocker.isStarted(psb)) powerSaveBlocker.stop(psb) })
   }
 
   // Forward engine state from control to output window (cache for replay).
@@ -703,6 +732,12 @@ app.whenReady().then(async () => {
     broadcastOutputs('overlay:update', id, updates)
   })
 
+  // Cmd+W and Cmd+Q sit one key from the Q and W hotkeys, and closing the
+  // console closes every wall: with a projector in fullscreen it asks first.
+  // Async dialog: a sync one blocks main, which relays state and audio to
+  // the outputs.
+  controlWindow.on('close', e => { if (askBeforeClosing()) e.preventDefault() })
+
   controlWindow.on('closed', () => {
     controlWindow = null
     for (const o of liveOutputs()) o.win.close()
@@ -724,6 +759,7 @@ app.whenReady().then(async () => {
   ipcMain.on('output:toggle-fullscreen', (_event, id: number = PRIMARY) => {
     const o = id === PRIMARY ? ensureOutputWindow() : outputs.get(id)
     if (o && !o.win.isDestroyed()) setOutputFullscreen(o, !o.win.isAlwaysOnTop())
+    notifyOutputChanged()   // the toolbar chip reads isAlwaysOnTop, set synchronously above
   })
 
   // Output window status for the control-window chip (U1.3)
@@ -783,7 +819,12 @@ app.whenReady().then(async () => {
   })
 })
 
-app.on('before-quit', () => { quitting = true })
+// Asked here and not only in the window's close: app.quit() closes every window
+// and a preventDefault on the control one would not spare the projector's.
+app.on('before-quit', e => {
+  if (askBeforeClosing()) { e.preventDefault(); return }
+  quitting = true
+})
 
 app.on('window-all-closed', () => {
   app.quit()

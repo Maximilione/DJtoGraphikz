@@ -137,6 +137,12 @@ const api = {
 
   // Display operations (id omitted = the projector, output 1)
   listDisplays: () => ipcRenderer.invoke('displays:list'),
+  /** A display was plugged in or pulled: re-read listDisplays */
+  onDisplaysChanged: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('displays:changed', handler)
+    return () => { ipcRenderer.removeListener('displays:changed', handler) }
+  },
   moveOutputToDisplay: (displayId: number, id?: number) =>
     ipcRenderer.send('output:move-to-display', displayId, id),
   toggleOutputFullscreen: (id?: number) => ipcRenderer.send('output:toggle-fullscreen', id),

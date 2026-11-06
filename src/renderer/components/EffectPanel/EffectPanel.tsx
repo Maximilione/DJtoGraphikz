@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react'
-import { allPalettes } from '../../palettes'
-import type { Engine, EffectId, PostId, TransitionType, Grade } from '@engine/Engine'
+import { createPortal } from 'react-dom'
+import { addUserPalette, allPalettes, userPalettes } from '../../palettes'
+import { DEFAULT_GRADE, type Engine, type EffectId, type PostId, type TransitionType, type Grade } from '@engine/Engine'
 import type { EffectParam } from '@engine/EffectParams'
 import { loadISF } from '@engine/IsfLoader'
 import { NumberInput } from '../NumberInput/NumberInput'
@@ -9,13 +10,15 @@ import { pickEffect } from '../../autoMapping'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
-import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
+import { PaletteGrid, warnPaletteLimit } from '../PaletteGrid/PaletteGrid'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, TRANSITIONS, effectLabel, postLabel } from '../../catalog'
 
 interface EffectPanelProps {
   engine: Engine | null
+  /** A pick by hand: App switches the Auto VJ off, as 1-0 and the phone do */
+  onManual?: () => void
 }
 
 
@@ -45,12 +48,12 @@ const CUSTOM_INDEX = -1
 // Sub-sections as tabs
 type Section = 'fx' | 'post' | 'color'
 
-function EffectPanelImpl({ engine }: EffectPanelProps) {
+function EffectPanelImpl({ engine, onManual }: EffectPanelProps) {
   const [section, setSection] = useState<Section>('fx')
   const [activeEffect, setActiveEffect] = useState<EffectId>('tunnel')
   const [activePosts, setActivePosts] = useState<Set<PostId>>(new Set(['bloom']))
   const [postChain, setPostChain] = useState<{ id: PostId; amount: number }[]>([{ id: 'bloom', amount: 1 }])
-  const [grade, setGradeState] = useState<Grade>({ contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 })
+  const [grade, setGradeState] = useState<Grade>({ ...DEFAULT_GRADE })
   const [activeColorPreset, setActiveColorPreset] = useState(0)
   const [customColors, setCustomColors] = useState<[string, string, string]>(['#ff0000', '#00ff00', '#0000ff'])
   const [transitionSpeed, setTransitionSpeed] = useState(0.5)
@@ -64,7 +67,17 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
   // ISF library (~/.djtographikz/isf)
   const [isfEffects, setIsfEffects] = useState<{ name: string; frag: string; params: EffectParam[]; imageInputs: string[] }[]>([])
   const [isfFailed, setIsfFailed] = useState<string[]>([])
-  const [isfActive, setIsfActive] = useState<string | null>(null)
+  // The shader on the wall, from the snapshot: setCustomShader leaves
+  // currentEffect alone, so the banner and the grid said "Tunnel" while an ISF,
+  // the editor's code or a look's shader was on the projector. The ISF name is
+  // derived from the source, so it survives a remount and clears when the
+  // editor or a look applies another shader.
+  const [customSrc, setCustomSrc] = useState('')
+  const [customImageInputs, setCustomImageInputs] = useState<string[]>([])
+  const customOn = !!customSrc
+  const isfActive = customOn ? isfEffects.find(f => f.frag === customSrc)?.name ?? null : null
+  // crossfader hard on B: a grid click changes deck A, which is not visible
+  const [onB, setOnB] = useState(false)
   const [isfError, setIsfError] = useState<string | null>(null)
 
   // Cycling state
@@ -102,6 +115,15 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
     setCycleBeatSync(engine.isCycleBeatSync())
     setCycleInterval(Math.round(engine.getCycleInterval() / 1000))
     setCycleBeats(engine.getCycleBeatsPerSwitch())
+    setCustomSrc(engine.getCustomShaderSource())
+    setCustomImageInputs(engine.getCustomImageInputs())
+    setOnB(engine.getCrossfade() >= 0.999)
+    // the engine restores its cycle list; the grid showed every palette lit
+    const cyc = engine.getCyclePalettes().map(c => c.join())
+    if (cyc.length >= 2) {
+      const sel = new Set(allPalettes().map((p, i) => cyc.includes(p.colors.join()) ? i : -1).filter(i => i >= 0))
+      if (sel.size >= 2) setCycleSelection(sel)
+    }
     return engine.onState(state => {
       setActiveEffect(state.activeEffect)
       // new Set / getPostChain() return fresh identities every time, so setting
@@ -123,8 +145,9 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
         setCycleInterval(Math.round(state.cycle.intervalMs / 1000))
         setCycleBeats(state.cycle.beatsPerSwitch)
       }
-      // custom shader dropped (stock effect selected anywhere) → ISF highlight off
-      if (!state.customShader) setIsfActive(null)
+      setCustomSrc(state.customShader ?? '')
+      setCustomImageInputs(prev => { const n = state.customImageInputs ?? []; return prev.length === n.length && prev.every((x, i) => x === n[i]) ? prev : n })
+      if (state.crossfade !== undefined) setOnB(state.crossfade >= 0.999)
     })
   }, [engine])
 
@@ -210,19 +233,20 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
 
   const selectEffect = useCallback((id: EffectId) => {
     if (!engine) return
+    onManual?.()
     pickEffect(engine, id)
     setActiveEffect(id)
-  }, [engine])
+  }, [engine, onManual])
 
   const selectIsf = useCallback((fx: { name: string; frag: string; params: EffectParam[]; imageInputs: string[] }) => {
     if (!engine) return
+    onManual?.()
     if (engine.setCustomShader(fx.frag, fx.params, fx.imageInputs)) {
-      setIsfActive(fx.name)
       setIsfError(null)
     } else {
       setIsfError(engine.getLastShaderError() || 'errore sconosciuto')
     }
-  }, [engine])
+  }, [engine, onManual])
 
   const togglePost = useCallback((id: PostId) => {
     if (!engine) return
@@ -257,7 +281,9 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
       engine.setColors(...allPalettes()[idx].colors)
     }
     setActiveColorPreset(idx)
-  }, [engine, customColors])
+    // the cycle would quietly replace the pick at its next turn
+    if (cycleEnabled) pushToast('Ciclo palette attivo: cambierà al prossimo giro', 'cycle-pick', { label: 'Ferma ciclo', fn: () => engine.setCycleEnabled(false) })
+  }, [engine, customColors, cycleEnabled])
 
   const updateCustomColor = useCallback((index: 0 | 1 | 2, color: string) => {
     if (!engine) return
@@ -287,6 +313,7 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
       if (palettes.length < 2) {
         setCycleEnabled(false)
         engine.setCycleEnabled(false)
+        pushToast('Scegli almeno 2 palette per il ciclo', 'cycle-min', undefined, 'err')
         return
       }
       engine.setCyclePalettes(palettes)
@@ -297,18 +324,18 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
   }, [engine, cycleEnabled, cycleSelection])
 
   const toggleCyclePreset = useCallback((idx: number) => {
-    setCycleSelection(prev => {
-      const next = new Set(prev)
-      if (next.has(idx)) next.delete(idx); else next.add(idx)
-      if (engine && cycleEnabled) {
-        const palettes = allPalettes()
-          .filter((_, i) => next.has(i))
-          .map(p => p.colors)
-        if (palettes.length >= 2) engine.setCyclePalettes(palettes)
-      }
-      return next
-    })
-  }, [engine, cycleEnabled])
+    // computed outside the updater: StrictMode runs updaters twice, and a toast in there would show twice
+    const next = new Set(cycleSelection)
+    if (next.has(idx)) next.delete(idx); else next.add(idx)
+    if (engine && cycleEnabled) {
+      const palettes = allPalettes()
+        .filter((_, i) => next.has(i))
+        .map(p => p.colors)
+      if (palettes.length >= 2) engine.setCyclePalettes(palettes)
+      else pushToast('Scegli almeno 2 palette per il ciclo', 'cycle-min', undefined, 'err')
+    }
+    setCycleSelection(next)
+  }, [engine, cycleEnabled, cycleSelection])
 
   const handleCycleBeatSync = useCallback((val: boolean) => {
     if (!engine) return
@@ -339,7 +366,7 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
           { id: 'fx' as Section, label: 'Effetti', count: EFFECT_COUNT, on: false, hint: `${EFFECT_COUNT} effetti` },
           // lit only when filters are running: that is the number worth a glance
           { id: 'post' as Section, label: `Post FX`, count: activePosts.size, on: activePosts.size > 0, hint: `${activePosts.size} filtri attivi` },
-          { id: 'color' as Section, label: 'Colori', count: null, on: false, hint: '' },
+          { id: 'color' as Section, label: 'Colori', count: cycleEnabled ? '↻' : null, on: cycleEnabled, hint: 'Ciclo palette attivo' },
         ].map(tab => (
           <button
             key={tab.id}
@@ -351,18 +378,15 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
             {(tab.id === 'fx' || tab.on) && <span className={`tab-count${tab.on ? ' on' : ''}`} title={tab.hint}>{tab.count}</span>}
           </button>
         ))}
-      </div>
-
-      <div style={{ padding: 'var(--s2)' }}>
-        {/* ====== EFFECTS TAB ====== */}
         {section === 'fx' && (
-          <div className="u-col">
+          <>
             {/* Search */}
             <div className="u-row fx-search">
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
                 placeholder="Cerca effetti…"
                 title="Filtra gli effetti per nome"
                 style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-xs)' }}
@@ -374,13 +398,20 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
 
             {/* Active effect indicator */}
             <div className="active-banner">
-              <div className="status-dot on" />
+              <span className="air-tag">In onda</span>
               <span className="active-banner-label" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                In onda · {isfActive ? isfActive.replace(/\.(fs|frag|glsl)$/i, '') : effectLabel(activeEffect)}
+                {isfActive ? isfActive.replace(/\.(fs|frag|glsl)$/i, '') : customOn ? 'Shader custom' : effectLabel(activeEffect)}{onB ? ' · nascosto, crossfader su B' : ''}
               </span>
             </div>
+          </>
+        )}
+      </div>
 
-            <div className="fx-params u-col">
+      <div className="fx-body">
+        {/* ====== EFFECTS TAB ====== */}
+        {section === 'fx' && (
+          <div className="u-col fx-cols">
+            <div className={`fx-params u-col${search ? ' searching' : ''}`}>
             {/* Per-effect params + audio mapping */}
             <ParamControls engine={engine} key={activeEffect} />
 
@@ -399,7 +430,7 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
                       engine?.setTransitionType(t.id)
                     }}
                   >
-                    {t.short}
+                    {t.label}
                   </button>
                 ))}
               </div>
@@ -431,7 +462,7 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
             </div>
             <div className="fx-lib u-col">
             {/* Categories — the one shared grid */}
-            <EffectGrid activeId={activeEffect} onPick={selectEffect} search={search} />
+            <EffectGrid activeId={customOn ? null : activeEffect} onPick={selectEffect} search={search} />
 
             {/* ISF library — shaders from ~/.djtographikz/isf */}
             <div>
@@ -474,23 +505,25 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
                     {isfFailed.length} shader ignorati (non-generator o rotti)
                   </div>
                 )}
-                {isfActive && (isfEffects.find(f => f.name === isfActive)?.imageInputs.length ?? 0) > 0 && (
-                  <div style={{ marginTop: 6 }}>
-                    {isfEffects.find(f => f.name === isfActive)!.imageInputs.map(inp => (
-                      <button key={inp} className="btn" style={{ marginRight: 6, marginBottom: 4 }} onClick={() => pickIsfImage(inp)}>
-                        🖼 {inp}…
-                      </button>
-                    ))}
-                  </div>
-                )}
                 <div className="u-hint" style={{ marginTop: '3px', fontFamily: 'var(--font-mono)' }}>
                   Cartella: ~/.djtographikz/isf
                 </div>
               </div>
               )}
+              {/* image inputs of whatever shader is on: an ISF, a Shadertoy with iChannel, a look's shader */}
+              {customOn && customImageInputs.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  {customImageInputs.map(inp => (
+                    <button key={inp} className="btn" style={{ marginRight: 6, marginBottom: 4 }} onClick={() => pickIsfImage(inp)}>
+                      🖼 {inp}…
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {isfBrowserOpen && (
-              <IsfBrowser onClose={() => setIsfBrowserOpen(false)} onImported={onIsfImported} />
+              // portal: a fixed modal inside the container-type strip stays trapped in it
+              createPortal(<IsfBrowser onClose={() => setIsfBrowserOpen(false)} onImported={onIsfImported} />, document.body)
             )}
             </div>
           </div>
@@ -588,6 +621,14 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
                       <span className="u-hint">{label}</span>
                     </div>
                   ))}
+                  <button className="btn btn-sm" style={{ alignSelf: 'center' }} title="Salva questi tre colori tra le tue palette"
+                    onClick={() => {
+                      warnPaletteLimit()
+                      selectColorPreset(addUserPalette({ label: `Mia ${userPalettes().length + 1}`, colors: customColors }))
+                      pushToast('Palette salvata', 'pal-save', undefined, 'ok')
+                    }}>
+                    Salva palette
+                  </button>
                 </div>
               )}
             </div>
@@ -604,14 +645,14 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
             <div>
               <div className="cat-label">Regolazione colore</div>
               {([
-                { key: 'exposure' as const, label: 'Esposiz.', min: 0.2, max: 2, step: 0.05 },
+                { key: 'exposure' as const, label: 'Esposizione', min: 0.2, max: 2, step: 0.05 },
                 { key: 'contrast' as const, label: 'Contrasto', min: 0.5, max: 2, step: 0.05 },
-                { key: 'saturation' as const, label: 'Saturaz.', min: 0, max: 2, step: 0.05 },
-                { key: 'lift' as const, label: 'Neri', min: 0, max: 0.3, step: 0.01 },
+                { key: 'saturation' as const, label: 'Saturazione', min: 0, max: 2, step: 0.05 },
+                { key: 'lift' as const, label: 'Neri', min: 0, max: 0.3, step: 0.01, hint: 'Alza il livello dei neri' },
                 { key: 'vignette' as const, label: 'Vignetta', min: 0, max: 1.5, step: 0.05 },
-              ]).map(g => (
+              ] as { key: keyof Grade; label: string; min: number; max: number; step: number; hint?: string }[]).map(g => (
                 <SliderRow
-                  key={g.key} label={g.label}
+                  key={g.key} label={g.label} labelTitle={g.hint} reset={DEFAULT_GRADE[g.key]}
                   value={grade[g.key]} min={g.min} max={g.max} step={g.step}
                   onChange={v => updateGrade({ [g.key]: v })}
                 />
@@ -629,7 +670,7 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
               >
                 <div className={`toggle${cycleEnabled ? ' active' : ''}`} />
                 <span className="u-hint" style={cycleEnabled ? { color: 'var(--text-primary)' } : undefined}>
-                  {cycleEnabled ? 'Attivo' : 'Attiva'}
+                  Cambio automatico
                 </span>
               </button>
 
@@ -648,6 +689,7 @@ function EffectPanelImpl({ engine }: EffectPanelProps) {
                 onChange={v => cycleBeatSync ? handleCycleBeats(v) : handleCycleInterval(v)}
               />
 
+              <div className="u-hint">Palette nel ciclo</div>
               <PaletteGrid
                 size="sm"
                 isActive={i => cycleSelection.has(i)}

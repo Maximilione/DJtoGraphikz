@@ -1,6 +1,7 @@
 import type { Engine, EffectId } from '@engine/Engine'
 import { readJson, writeJson } from './storage'
 import { smartMap, SKIP_KEYS } from './smartMap'
+import { noteRecent } from './fxPicks'
 
 /**
  * "Mapping consigliato al cambio effetto": quando l'utente sceglie un effetto
@@ -18,6 +19,7 @@ export function setAutoMappingEnabled(on: boolean) { enabled = on; writeJson(KEY
 /** Scelta a mano: setEffect + mapping consigliato sui parametri ancora liberi. */
 export function pickEffect(engine: Engine, id: EffectId) {
   engine.setEffect(id)
+  noteRecent(id)
   if (enabled) engine.applyRecommendedMapping(id)
 }
 

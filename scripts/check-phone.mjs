@@ -138,6 +138,13 @@ check('overlay: id obbligatorio, opacita clampata, nessun campo scartato', () =>
   assert.equal(S('overlay', { opacity: 0.5 }), null)
   assert.equal(S('overlay', { id: 'a' }), null)
 })
+check('heldMs sulla release solo se numero finito e non negativo', () => {
+  assert.equal(S('release', 'look:1', { heldMs: 300 }).heldMs, 300)
+  assert.equal(S('release', 'look:1', { heldMs: NaN }).heldMs, undefined)
+  assert.equal(S('release', 'look:1', { heldMs: -5 }).heldMs, undefined)
+  assert.equal(S('look', 1, { heldMs: 300 }).heldMs, undefined)
+})
+
 check('source e hold conservati solo se sensati', () => {
   const c = S('post', 'bloom', { source: 'telefono', hold: 'post:bloom' })
   assert.equal(c.source, 'telefono'); assert.equal(c.hold, 'post:bloom')

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { pushToast } from './components/Toasts/Toasts'
 import type { Engine } from '@engine/Engine'
 import type { BpmMode } from '@engine/audio/AudioAnalyzer'
 import { readJson } from './storage'
@@ -71,7 +72,11 @@ export function useAudioRestore(engine: Engine | null, epoch: number) {
       const id = inputs.length ? pickInput(inputs, s.deviceId) : (s.deviceId ?? '')
       if (a.currentDeviceId === id) return
       return a.start(id).then(apply)
-    }).catch((err: unknown) => console.warn('[Audio] ripristino ingresso fallito:', err))
+    }).catch((err: unknown) => {
+      console.warn('[Audio] ripristino ingresso fallito:', err)
+      // Live has no Audio panel: a grey dot was the only sign
+      pushToast('Ingresso audio non avviato: controlla la scheda o il permesso microfono', 'audio-restore', undefined, 'err')
+    })
     return () => { stale = true }
   }, [engine, epoch])
 }
