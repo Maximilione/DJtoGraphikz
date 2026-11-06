@@ -118,7 +118,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'swarm', label: 'Swarm', icon: '✺' },
       { id: 'particles', label: 'Particle', icon: '⁂' },
       { id: 'orbits', label: 'Orbits', icon: '☉' },
-      { id: 'plasmaglobe', label: 'Plasma', icon: '◉' },
+      { id: 'plasmaglobe', label: 'Globe', icon: '◉' },
       { id: 'fluxlines', label: 'Flux', icon: '∿' },
       { id: 'waves', label: 'Waves', icon: '〰' },
       { id: 'dna', label: 'DNA', icon: '⧖' },
@@ -253,12 +253,12 @@ export function postLabel(id: PostId): string {
  * same five crossfade / wipe orizzontale / wipe verticale / radiale /
  * dissolvenza — two names for one thing, in one app.
  */
-export const TRANSITIONS: { id: TransitionType; label: string; short: string }[] = [
-  { id: 'crossfade', label: 'Dissolvenza', short: 'Diss.' },
-  { id: 'wipe-left', label: 'Tendina ←', short: 'Tend.←' },
-  { id: 'wipe-down', label: 'Tendina ↓', short: 'Tend.↓' },
-  { id: 'radial', label: 'A cerchio', short: 'Cerchio' },
-  { id: 'dissolve', label: 'A grana', short: 'Grana' },
+export const TRANSITIONS: { id: TransitionType; label: string }[] = [
+  { id: 'crossfade', label: 'Dissolvenza' },
+  { id: 'wipe-left', label: 'Tendina ←' },
+  { id: 'wipe-down', label: 'Tendina ↓' },
+  { id: 'radial', label: 'A cerchio' },
+  { id: 'dissolve', label: 'A grana' },
 ]
 
 /**

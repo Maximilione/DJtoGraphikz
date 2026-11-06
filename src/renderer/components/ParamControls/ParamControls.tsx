@@ -73,7 +73,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
             title="Quando scegli un effetto a mano (griglia, tasti 1-0, telefono) arriva gia' col suo mapping consigliato. Non tocca i parametri che hai gia' mappato tu, ne' le scene dell'Auto VJ, le scalette e i look">
             <input type="checkbox" checked={autoOnPick}
               onChange={e => { setAutoMappingEnabled(e.target.checked); setAutoOnPick(e.target.checked) }} />
-            al cambio
+            Auto-mapping al cambio effetto
           </label>
           <button
             className="btn btn-sm"
@@ -150,14 +150,14 @@ export function ParamControls({ engine }: ParamControlsProps) {
         return (
           <div key={def.key} className="pm-row">
             <SliderRow
-              label={def.label} labelTitle={`${def.label} · ${def.key}`}
+              label={def.label} labelTitle={`${def.label} · ${def.key}`} reset={def.default}
               value={st.value} min={def.min} max={def.max} step={step}
               onChange={v => { engine.setParamValue(def.key, v); force() }}
             >
               <button
                 className={`btn pm-chip ${meta.cls}${open ? ' open' : ''}`}
                 onClick={() => setOpenKey(open ? null : def.key)}
-                title={mapped ? `Modulato da ${st.source} (${Math.round(st.depth * 100)}%) — tocca per modificare` : 'Non mappato — tocca per mappare all\'audio'}
+                title={mapped ? `Modulato da ${meta.label} (${Math.round(st.depth * 100)}%) — tocca per modificare` : 'Non mappato — tocca per mappare all\'audio'}
               >
                 {meta.label}{mapped ? ` ${st.depth > 0 ? '+' : ''}${Math.round(st.depth * 100)}` : ''}
               </button>
@@ -173,7 +173,7 @@ export function ParamControls({ engine }: ParamControlsProps) {
                         className={`btn pm-src ${m.cls}${st.source === src ? ' on' : ''}`}
                         onClick={() => { engine.setParamMapping(def.key, src, st.depth || 0.5, st.lfoRate); force() }}
                       >
-                        {m.label}
+                        {src === 'none' ? 'Nessuna' : m.label}
                       </button>
                     )
                   })}
@@ -188,15 +188,15 @@ export function ParamControls({ engine }: ParamControlsProps) {
                     />
                     {st.source.startsWith('lfo-') && (
                       <div className="pm-depth col">
-                        <span className="micro" title="Quante battute dura un giro completo">
-                          Giro ogni · battute
+                        <span className="micro" title="Quanti beat dura un giro completo (4 = una battuta)">
+                          Giro ogni · beat
                         </span>
                         <div className="pm-rates">
                           {LFO_RATES.map(r => (
                             <button
                               key={r}
                               className={`btn pm-rate${(st.lfoRate || 4) === r ? ' on' : ''}`}
-                              title={r < 1 ? `Un giro ogni ${1 / r}° di battuta` : `Un giro ogni ${r} battute`}
+                              title={r < 1 ? `Un giro ogni ${1 / r}° di beat` : `Un giro ogni ${r} beat`}
                               onClick={() => { engine.setParamMapping(def.key, st.source, st.depth, r); force() }}
                             >
                               {r < 1 ? `1/${1 / r}` : r}

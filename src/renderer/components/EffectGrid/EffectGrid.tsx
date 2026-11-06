@@ -34,6 +34,7 @@ const matches = (fx: { label: string; id: string }, q: string) => fx.label.toLow
 
 const BY_ID = new Map(ALL_EFFECTS.map(fx => [fx.id, fx]))
 const PHASE_LABEL: Record<string, string> = { break: 'break', build: 'build', groove: 'groove', peak: 'peak' }
+const SUGGESTED_MAX = 6
 
 export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 'sm', search = '' }: EffectGridProps) {
   const [, force] = useState(0)
@@ -68,23 +69,30 @@ export const EffectGrid = memo(function EffectGrid({ activeId, onPick, size = 's
     )
   }
 
-  // Quick rows: hidden while searching (the search is already the quick way)
+  // Quick rows: hidden while searching (the search is already the quick way).
+  // "Adatti ora" follows the phase, which moves with the music even with the
+  // Auto VJ off: 3 to 29 effects per phase made the grid below jump under the
+  // pointer. Capped at SUGGESTED_MAX and padded with hidden buttons, so the
+  // row keeps its height; the user's own lists come first.
   const quick = q ? [] : ([
-    [`Adatti ora · ${PHASE_LABEL[getPhase()]}`, suggestedNow()],
-    ['★ Preferiti', getFavs()],
-    ['Recenti', getRecent()],
-  ] as [string, EffectId[]][]).filter(([, ids]) => ids.length > 0)
-  const quickRows = quick.map(([name, ids]) => (
+    ['★ Preferiti', getFavs(), false],
+    ['Recenti', getRecent(), false],
+    [`Adatti ora · ${PHASE_LABEL[getPhase()]}`, suggestedNow().slice(0, SUGGESTED_MAX), true],
+  ] as [string, EffectId[], boolean][]).filter(([, ids]) => ids.length > 0)
+  const quickRows = quick.map(([name, ids, pad]) => (
     <div key={name} className="fx-quick">
       <div className="cat-label">{name}</div>
       <div className={`fx-grid${size === 'lg' ? ' fx-grid-lg' : ''}`}>
         {ids.map(id => BY_ID.get(id)).filter(fx => !!fx).map(fx => button(fx!, name))}
+        {pad && Array.from({ length: SUGGESTED_MAX - ids.length }, (_, i) => (
+          <button key={`pad${i}`} className="fx-btn" style={{ visibility: 'hidden' }} tabIndex={-1} aria-hidden="true" />
+        ))}
       </div>
     </div>
   ))
 
   if (q && shownByCat.every(list => list.length === 0)) {
-    return <div className="u-hint">Nessun effetto per «{search.trim()}»</div>
+    return <div className="u-hint">Nessun effetto di serie per «{search.trim()}»</div>
   }
 
   return (

@@ -30,8 +30,9 @@ export function SimplePanel({ engine, vjEnabled, vjGenre, vjStatus, vjHeld, onVJ
     if (!engine) return
     const sync = (effect: EffectId, colors: [string, string, string]) => {
       setActiveEffect(effect)
-      const idx = allPalettes().findIndex(p => p.colors.every((c, i) => c === colors[i]))
-      if (idx >= 0) setActivePalette(idx)
+      // -1 lights nothing: the Auto VJ's own palettes are not in the grid, and
+      // the previous tile stayed lit on colours that were not on the wall
+      setActivePalette(allPalettes().findIndex(p => p.colors.every((c, i) => c.toLowerCase() === colors[i])))
     }
     sync(engine.getCurrentEffect(), engine.getCurrentColors())
     return engine.onState(state => sync(state.activeEffect, state.colors))
