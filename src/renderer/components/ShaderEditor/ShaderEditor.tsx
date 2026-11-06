@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { Engine } from '@engine/Engine'
+import type { EffectParam } from '@engine/EffectParams'
 import { loadISF } from '@engine/IsfLoader'
 import { loadShadertoy } from '@engine/ShadertoyLoader'
 import { Panel } from '../Panel/Panel'
@@ -319,12 +320,25 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
   const [lastApplied, setLastApplied] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const debounceRef = useRef<number>(0)
+  // params and image inputs of the imported ISF/Shadertoy; null for a template
+  // or a .frag, which have none: setCustomShader(code) alone kept the previous
+  // shader's defs, so dead sliders stayed in the Effetti panel
+  const meta = useRef<{ params: EffectParam[]; imageInputs: string[] } | null>(null)
+  // a template or a .frag replaced hand-written code with no way back
+  const replaceCode = useCallback((next: string) => {
+    const prev = code
+    setCode(next)
+    setError(null)
+    if (prev !== next && !TEMPLATES.some(t => t.code === prev)) {
+      pushToast('Codice sostituito', 'shader-replace', { label: 'Annulla', fn: () => setCode(prev) })
+    }
+  }, [code])
 
   // Apply shader to engine
   const applyShader = useCallback(() => {
     if (!engine) return
     setError(null)
-    const ok = engine.setCustomShader(code)
+    const ok = engine.setCustomShader(code, meta.current?.params ?? [], meta.current?.imageInputs ?? [])
     if (ok) {
       setLastApplied(code)
     } else {
@@ -338,7 +352,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
     clearTimeout(debounceRef.current)
     debounceRef.current = window.setTimeout(() => {
       setError(null)
-      const ok = engine.setCustomShader(code)
+      const ok = engine.setCustomShader(code, meta.current?.params ?? [], meta.current?.imageInputs ?? [])
       if (ok) {
         setLastApplied(code)
       } else {
@@ -350,9 +364,9 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
 
   // Load template
   const loadTemplate = useCallback((idx: number) => {
-    setCode(TEMPLATES[idx].code)
-    setError(null)
-  }, [])
+    meta.current = null
+    replaceCode(TEMPLATES[idx].code)
+  }, [replaceCode])
 
   // Import an ISF generator: parse header → auto-sliders, transpile, apply
   const importISF = useCallback(() => {
@@ -364,8 +378,10 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
         return
       }
       setError(res.warnings.length ? `ISF: ${res.warnings.join(', ')}` : null)
-      const ok = engine.setCustomShader(res.fragment, res.params)
+      // imageInputs passed too: omitted, the engine inherits the previous shader's
+      const ok = engine.setCustomShader(res.fragment, res.params, res.imageInputs)
       if (ok) {
+        meta.current = { params: res.params, imageInputs: res.imageInputs }
         setCode(res.fragment)
         setLastApplied(res.fragment)
       } else {
@@ -385,6 +401,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
       }
       setError(res.warnings.length ? `Shadertoy: ${res.warnings.join(', ')}` : null)
       if (engine.setCustomShader(res.fragment, res.params, res.imageInputs)) {
+        meta.current = { params: res.params, imageInputs: res.imageInputs }
         setCode(res.fragment)
         setLastApplied(res.fragment)
       } else {
@@ -451,7 +468,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
             title="Fragment shader GLSL — Tab indenta, Shift+Tab esce dal campo"
           />
           <div className="u-hint" style={{ marginTop: '2px' }}>
-            {code.split('\n').length} righe
+            {code.split('\n').length} righe{code !== lastApplied ? ' · non applicato' : ''}
           </div>
         </div>
 
@@ -471,9 +488,9 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
           <button
             className={`btn btn-sm ${liveMode ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setLiveMode(!liveMode)}
-            title="Applica automaticamente mentre scrivi (debounce 500ms)"
+            title="Applica da solo mentre scrivi, mezzo secondo dopo l'ultima modifica"
           >
-            {liveMode ? 'Live ON' : 'Live'}
+            {liveMode ? 'Auto-applica ON' : 'Auto-applica'}
           </button>
         </div>
 
@@ -498,7 +515,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
             className="btn btn-secondary btn-sm"
             style={{ flex: 1 }}
             title="Carica un file .frag/.glsl nell'editor"
-            onClick={() => pickTextFile('.frag,.glsl,.txt', text => { setCode(text); setError(null) })}
+            onClick={() => pickTextFile('.frag,.glsl,.txt', text => { meta.current = null; replaceCode(text) })}
           >
             Importa .frag
           </button>
@@ -506,7 +523,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
             className="btn btn-secondary btn-sm"
             style={{ flex: 1 }}
             onClick={importISF}
-            title="Importa un generator ISF: gli INPUTS diventano slider automatici"
+            title="Importa un generator ISF: va subito sull'uscita, gli INPUTS diventano slider automatici"
           >
             Importa ISF
           </button>
@@ -514,7 +531,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
             className="btn btn-secondary btn-sm"
             style={{ flex: 1 }}
             onClick={importShadertoy}
-            title="Importa uno Shadertoy: incolla il GLSL in un file, oppure il JSON dell'API per avere anche i Buffer A-D"
+            title="Importa uno Shadertoy: va subito sull'uscita. Incolla il GLSL in un file, oppure il JSON dell'API per avere anche i Buffer A-D"
           >
             Importa Shadertoy
           </button>

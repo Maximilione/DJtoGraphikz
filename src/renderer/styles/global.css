@@ -914,6 +914,7 @@ input[type="range"]:active::-webkit-slider-thumb {
   overflow-x: auto;
   font-size: var(--fs-xs);
 }
+.deck-clip-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; display: block; }
 .deck-clip {
   display: flex;
   align-items: center;
