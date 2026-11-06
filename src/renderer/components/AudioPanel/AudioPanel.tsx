@@ -21,6 +21,8 @@ interface AudioPanelProps {
   engine: Engine | null
   /** the Auto VJ's reading of the track; null when it is off */
   phase?: Phase | null
+  /** 'simple': no outer Panel, one question and one button, the tuning folded */
+  variant?: 'simple' | 'pro'
 }
 
 const BPM_MODES: { id: BpmMode; label: string; hint: string }[] = [
@@ -69,7 +71,8 @@ const BAR_COLORS: string[] = Array.from({ length: 256 }, (_, v) => {
 /** commit a number field on blur/Enter: typing "10" through a clamp at 3 used to snap on the "1" */
 const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') e.currentTarget.blur() }
 
-function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
+function AudioPanelImpl({ engine, phase = null, variant = 'pro' }: AudioPanelProps) {
+  const simple = variant === 'simple'
   const [idle, setIdle] = useState<IdleSettings>(loadIdleSettings)
   // pure updater; the write (and its listeners in App) run from an effect,
   // once per change, not twice under StrictMode
@@ -439,24 +442,33 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
 
   const effectOptions = useMemo(() => ALL_EFFECTS.map(fx => <option key={fx.id} value={fx.id}>{fx.label}</option>), [])
 
-  return (
-    <Panel id="audio" title="Ingresso audio">
-      <div
-        className={`u-col${dragOver ? ' drag-over' : ''}`}
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-      >
-        {/* A mic that was refused is not news while a file is playing: the
-            analysis is running, just not on the input. An error about the file
-            itself still shows, because then there is no file loaded. */}
+  // The blocks, named once and laid out twice: Simple asks one question and
+  // folds the rest; Pro puts the signal first and the setup in a <details>.
+  const startStop = (full: boolean) => (
+    <button
+      className={`btn ${audioActive ? '' : 'btn-primary'}${full ? ' audio-go' : ''}`}
+      onClick={audioActive ? stopAudio : startAudio}
+      title={audioActive ? 'Ferma l\'analisi audio' : 'Avvia l\'analisi audio'}
+      style={{ flex: 1 }}
+    >
+      {simple ? (audioActive ? 'Ferma ascolto' : 'Ascolta la musica') : (audioActive ? 'Ferma audio' : 'Avvia audio')}
+    </button>
+  )
+  const refreshBtn = (
+    <button className="btn" onClick={retryDevices} title="Aggiorna la lista dei dispositivi">Aggiorna</button>
+  )
+  const errorBlock = (
+    <>
         {error && !file.name && (
           <div className="u-error u-col" style={{ gap: 'var(--s2)' }} role="alert">
             <span>{error}</span>
             <button className="btn btn-sm" onClick={async () => { await refreshDevices(true); if (!audioActive) await startAudio() }} style={{ alignSelf: 'flex-start' }}>Riprova</button>
           </div>
         )}
-
+    </>
+  )
+  const statusRow = (
+    <>
         {/* what is on right now, before any control */}
         <div className="u-row" style={{ minWidth: 0 }}>
           <div className={`status-dot${audioActive ? ' on' : ''}`} />
@@ -477,9 +489,9 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           </div>
         )}
 
-        {/* Dry run: the same analysis, on a file you can rewind. Everything
-            about beat, BPM and envelope was otherwise only testable at a gig. */}
-        {file.name ? (
+    </>
+  )
+  const fileBlock = (
           <div className="sub-card u-col" style={{ gap: 'var(--s2)' }}>
             <div className="u-row">
               <span className="cat-label" style={{ margin: 0, flex: 1, minWidth: 0,
@@ -530,10 +542,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
               <span className="row-title">Ripeti</span>
             </button>
           </div>
-        ) : (
-        <>
+  )
+  const deviceSelect = (
         <div>
-          <div className="label">Dispositivo ({devices.length} trovati)</div>
+          <div className="label">{simple ? 'Da dove arriva la musica?' : `Dispositivo (${devices.length} trovati)`}</div>
           <select
             value={selectedDevice}
             onChange={e => {
@@ -555,29 +567,15 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
             ))}
           </select>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className={`btn ${audioActive ? 'btn-danger' : 'btn-primary'}`}
-            onClick={audioActive ? stopAudio : startAudio}
-            title={audioActive ? 'Ferma l\'analisi audio' : 'Avvia l\'analisi audio'}
-            style={{ flex: 1 }}
-          >
-            {audioActive ? 'Ferma audio' : 'Avvia audio'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={retryDevices}
-            title="Aggiorna la lista dei dispositivi"
-          >
-            Aggiorna
-          </button>
-        </div>
+  )
+  const fileButtons = (
+    <>
         <button
-          className="btn btn-secondary btn-sm"
+          className={simple ? 'btn btn-ghost' : 'btn btn-sm'}
           onClick={() => fileInputRef.current?.click()}
           title="Analizza un mp3 o un wav al posto dell'ingresso: la prova a secco di beat, BPM e reattivita' senza serata"
         >
-          Prova a secco con un file…
+          {simple ? 'Niente mixer? Prova con un brano…' : 'Prova a secco con un file…'}
         </button>
         <div className="u-hint">Oppure trascina qui un brano.</div>
         <input
@@ -587,9 +585,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           hidden
           onChange={e => { const f = e.target.files?.[0]; if (f) loadFile(f); e.target.value = '' }}
         />
-        </>
-        )}
-
+    </>
+  )
+  const gainBlock = (
+    <>
         {/* Input Gain — amplify weak mic signals */}
         {audioActive && (
           <div>
@@ -602,6 +601,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           </div>
         )}
 
+    </>
+  )
+  const spectrum = (
+    <>
         {/* Spectrum visualizer */}
         <canvas
           ref={canvasRef}
@@ -615,6 +618,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           }}
         />
 
+    </>
+  )
+  const sensBlock = (
+    <>
         {/* Beat Sensitivity */}
         <SliderRow
           label="Sensibilità beat" percent
@@ -624,6 +631,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           onChange={handleSensitivity}
         />
 
+    </>
+  )
+  const bpmBlock = (
+    <>
         {/* BPM Section */}
         <div>
           <div className="cat-label" style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
@@ -782,6 +793,10 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           )}
         </div>
 
+    </>
+  )
+  const idleBlock = (
+    <>
         {/* S5: what the wall does when the music stops and the Auto VJ is off */}
         {/* not a .slider-row: its labels are a fixed 74px each, and four of them
             plus a number field and a select do not fit a 260px column */}
@@ -799,6 +814,66 @@ function AudioPanelImpl({ engine, phase = null }: AudioPanelProps) {
           </select>
           <span className="u-hint" style={{ flexBasis: '100%' }}>Solo con Auto VJ e scaletta spenti</span>
         </div>
+    </>
+  )
+  const dropProps = {
+    className: `u-col${dragOver ? ' drag-over' : ''}`,
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver(true) },
+    onDragLeave: () => setDragOver(false),
+    onDrop,
+  }
+
+  if (simple) {
+    return (
+      <div {...dropProps}>
+        {errorBlock}
+        {statusRow}
+        {file.name ? fileBlock : (
+          <>
+            {deviceSelect}
+            {startStop(true)}
+            {fileButtons}
+          </>
+        )}
+        {spectrum}
+        <Panel id="audio-tuning" title="Regolazioni audio" defaultCollapsed>
+          <div className="u-col">
+            {gainBlock}
+            {sensBlock}
+            {bpmBlock}
+            {idleBlock}
+            {refreshBtn}
+          </div>
+        </Panel>
+      </div>
+    )
+  }
+
+  return (
+    <Panel id="audio" title="Ingresso audio">
+      <div {...dropProps}>
+        {errorBlock}
+        {statusRow}
+        {!file.name && startStop(true)}
+        {spectrum}
+        {sensBlock}
+        {gainBlock}
+        {bpmBlock}
+        {file.name ? fileBlock : (
+          /* open while the input is off; closes by itself once the music runs, then it is the user's */
+          <details className="audio-fold" open={!audioActive || undefined}>
+            <summary>Ingresso e prova a secco</summary>
+            <div className="u-col">
+              {deviceSelect}
+              {refreshBtn}
+              {fileButtons}
+            </div>
+          </details>
+        )}
+        <details className="audio-fold">
+          <summary>Fine musica</summary>
+          {idleBlock}
+        </details>
       </div>
     </Panel>
   )

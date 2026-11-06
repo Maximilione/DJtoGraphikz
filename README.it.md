@@ -28,9 +28,9 @@ Al primo avvio l'app chiede accesso a **microfono/ingresso audio** (per ascoltar
 
 ## Prima serata in 5 passi
 
-1. **Ingresso audio** — l'onboarding chiede l'ingresso: line-in dal mixer, o il microfono. Niente cavo? Trascina un mp3 sul pannello Audio e prova su quello.
+1. **Ingresso audio** — la modalità Simple è un percorso in tre passi: **1 Musica** chiede da dove arriva la musica (line-in dal mixer, o il microfono) e dice quando la sente davvero; **2 Stile** sceglie il genere da tessere colorate; **3 Grafiche in automatico** accende l'Auto VJ. Niente cavo? "Niente mixer? Prova con un brano" prova su un mp3.
 2. **Uscita** — scegli il proiettore nel selettore monitor e premi **Fullscreen**. Salva la sala come **posto**: la prossima volta è un click.
-3. **Genere** — scegli il genere dell'Auto VJ. Da qui l'app manda avanti la serata da sola.
+3. **Genere** — è il passo 2 del percorso. Da qui l'app manda avanti la serata da sola; la scheda sotto il passo 3 dice cosa sta facendo (fase, effetto in corso) e permette di tenere fermo un effetto.
 4. **Soundcheck** — un pulsante nella barra in alto: lista verde/rossa in pochi secondi (ingresso audio, uscita che disegna davvero, fps, ArtNet, telefono, disco).
 5. **Tasti di emergenza** — **B** blackout, **F** freeze, **P** panic. Tenuti sono momentanei, toccati restano. **?** apre le scorciatoie.
 
