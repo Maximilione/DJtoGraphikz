@@ -237,7 +237,8 @@ export function setupOscServer(controlWindow: BrowserWindow): void {
   }
   tryBind(BASE_PORT)
 
-  app.on('before-quit', () => {
+  // will-quit: a quit the user cancels from the control window's close dialog must keep OSC alive
+  app.on('will-quit', () => {
     try { socket?.close() } catch { /* already closed */ }
     socket = null
   })
