@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from 'react'
+import React, { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Genre, Phase } from '@engine/AutoVJ'
 import { GENRE_CONFIGS } from '@engine/AutoVJ'
 import type { EffectId } from '@engine/Engine'
@@ -32,7 +32,11 @@ const PHASES: Phase[] = ['break', 'build', 'groove', 'peak']
 export function SimplePanel({ vjEnabled, vjGenre, vjStatus, vjHeld, onVJToggle, onVJGenre, onVJHold, flow, bpm, audio }: SimplePanelProps) {
   const [musicDone, setMusicDone] = useState(false)
   const [styleOpen, setStyleOpen] = useState(false)
-  useEffect(() => { if (flow === 'sento') setMusicDone(true) }, [flow])
+  // once only: reopened with Cambia, a break in the music must not fold it again
+  const autoClosed = useRef(false)
+  useEffect(() => {
+    if (flow === 'sento' && !autoClosed.current) { autoClosed.current = true; setMusicDone(true) }
+  }, [flow])
   // once the Auto VJ is on, the style is chosen: the tiles fold
   useEffect(() => { if (vjEnabled) setStyleOpen(false) }, [vjEnabled])
 
@@ -55,6 +59,9 @@ export function SimplePanel({ vjEnabled, vjGenre, vjStatus, vjHeld, onVJToggle, 
               </span>
               <button className="btn btn-ghost btn-sm" onClick={() => setMusicDone(false)}>Cambia</button>
             </>
+          )}
+          {!musicDone && autoClosed.current && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setMusicDone(true)}>Fatto</button>
           )}
         </header>
         {!musicDone && (

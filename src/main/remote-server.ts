@@ -625,7 +625,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   /* ==== REDESIGN "Banco del pollice" ==== */
   :root {
     --panel3:#272733; --r:8px;
-    --dock:131px;                     /* #strip 64 + #tabs 48 + padding: pins sit on it */
+    --dock:139px;                     /* #strip 64 + #tabs 48 + padding: pins sit on it */
     --docksafe:calc(var(--dock) + env(safe-area-inset-bottom));
   }
   button, select, .look, .seg, .setuprow, .chainrow { border-radius:var(--r); }
@@ -682,6 +682,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   #strip { position:static; background:none; border:0; padding:0; display:grid;
     grid-template-columns:1.5fr .9fr 1fr 1fr; gap:var(--s2); }
   #panic { margin-left:10px; }
+  #panic.armed { font-size:11px; }
   #strip.fail { border:0; outline:2px solid var(--danger); outline-offset:3px; background:none; border-radius:var(--r); }
   #strip button { min-height:64px; padding:0 2px; font-family:ui-monospace,monospace; font-size:14px; font-weight:800;
     letter-spacing:.5px; background:var(--panel2); }

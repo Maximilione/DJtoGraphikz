@@ -1862,11 +1862,11 @@ export function App() {
         <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
           {/* always present (display:contents outside the Pro bench): the canvas never remounts, the WebGL context lives */}
           <div className="stage-row">
-          <div className={`preview-container${previewCompact && mode === 'pro' ? ' compact' : ''}`}
+          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
                data-wall={wallState}
                style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
-            {mode === 'pro' && (
+            {mode !== 'live' && (
               <button
                 className="btn preview-toggle"
                 onClick={togglePreviewCompact}
