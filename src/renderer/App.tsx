@@ -1860,6 +1860,8 @@ export function App() {
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
+          {/* always present (display:contents outside the Pro bench): the canvas never remounts, the WebGL context lives */}
+          <div className="stage-row">
           <div className={`preview-container${previewCompact && mode === 'pro' ? ' compact' : ''}`}
                data-wall={wallState}
                style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
@@ -1884,7 +1886,6 @@ export function App() {
               {outputInfo?.open ? outputInfo.display : 'proiettore non collegato'}
             </span>
           </div>
-          {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
           {mode === 'simple' && (
             <SimpleDeck engine={engine} vjEnabled={vjEnabled} onVJToggle={toggleVJ} tab={simpleTab} onTab={setSimpleTab} />
           )}
@@ -1894,6 +1895,8 @@ export function App() {
               <PanelBoundary name="Look Bank"><LookBank engine={engine} onManual={onManual} bare={mode !== 'pro'} compactEmpty={mode === 'simple'} /></PanelBoundary>
             </div>
           )}
+          </div>
+          {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
           {fxCenter && <div className="center-fx"><PanelBoundary name="Effetti"><EffectPanel engine={engine} onManual={onManual} /></PanelBoundary></div>}
           {mode === 'live' && (
             <>
@@ -1967,20 +1970,26 @@ export function App() {
 
         {/* Right sidebar — pro only */}
         {mode === 'pro' && (
+          // A rail of tabs with one drawer: the ten headers are always in view, the
+          // open panel's body is the drawer on their left. Order follows the show:
+          // what goes on the wall, how it reacts, where it comes out.
           <div className="sidebar-right">
+            <div className="rail-label">Scena</div>
             <PanelBoundary name="Overlay"><OverlayPanel engine={engine} /></PanelBoundary>
             <PanelBoundary name="Scalette"><PresetPanel engine={engine} player={seqPlayer} /></PanelBoundary>
             <PanelBoundary name="Shader"><ShaderEditor engine={engine} /></PanelBoundary>
-            <PanelBoundary name="Camera"><CameraPanel engine={engine} /></PanelBoundary>
+            <div className="rail-label">Reazione</div>
             <PanelBoundary name="Impatto"><ImpactPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Camera"><CameraPanel engine={engine} /></PanelBoundary>
+            <div className="rail-label">Impianto</div>
+            <PanelBoundary name="Uscite"><OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} /></PanelBoundary>
             <PanelBoundary name="Mapping">
               <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
                 selected={mappingOut} onSelect={setMappingOut} />
             </PanelBoundary>
             <PanelBoundary key={panelEpoch} name="DMX"><DmxPanel engine={engine} /></PanelBoundary>
-            <PanelBoundary name="Uscite"><OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} /></PanelBoundary>
-            <PanelBoundary name="Posti"><VenuePanel capture={captureVenue} apply={applyVenue} /></PanelBoundary>
             <PanelBoundary name="MIDI"><MidiPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Posti"><VenuePanel capture={captureVenue} apply={applyVenue} /></PanelBoundary>
           </div>
         )}
       </div>

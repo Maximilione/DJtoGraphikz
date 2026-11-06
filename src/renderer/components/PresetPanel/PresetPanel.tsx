@@ -381,7 +381,7 @@ function PresetPanelImpl({ engine, player }: PresetPanelProps) {
   }, [sequences, persist])
 
   return (
-    <Panel id="presets" title="Preset & Scalette" group="right" active={playing}>
+    <Panel id="presets" title="Scalette" defaultCollapsed group="right" active={playing}>
       <div className="u-col" style={{ gap: '10px' }}>
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: '4px' }}>

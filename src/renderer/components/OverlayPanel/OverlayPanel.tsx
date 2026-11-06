@@ -282,7 +282,7 @@ function OverlayPanelImpl({ engine }: OverlayPanelProps) {
   }, [engine, refresh])
 
   return (
-    <Panel id="media" title="Media" group="right">
+    <Panel id="media" title="Media" defaultCollapsed group="right">
       <div className="u-col">
         <div className="media-add">
           <button onClick={importImage} disabled={busy !== null} title="Importa un'immagine o una GIF come overlay">

@@ -51,7 +51,7 @@ export function MidiPanel({ engine }: MidiPanelProps) {
   }
 
   return (
-    <Panel id="midi" title="MIDI e gamepad" defaultCollapsed group="right" active={midi.deviceNames.length > 0 || gamepad.padNames.length > 0}>
+    <Panel id="midi" title="MIDI" defaultCollapsed group="right" active={midi.deviceNames.length > 0 || gamepad.padNames.length > 0}>
       <LearnGuard />
       <div className="midi-panel">
         <div className="midi-status">

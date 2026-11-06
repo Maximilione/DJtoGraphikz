@@ -431,7 +431,7 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
   }, [code])
 
   return (
-    <Panel id="shader" title="Shader Editor" defaultCollapsed group="right">
+    <Panel id="shader" title="Shader" defaultCollapsed group="right">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {/* Templates */}
         <div>

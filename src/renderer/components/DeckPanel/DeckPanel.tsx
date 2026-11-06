@@ -134,7 +134,7 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
         </div>
       )}
       <div className="deck-bar">
-        <span className="deck-label">A</span>
+        <span className="deck-label deck-ab">A</span>
         <input
           type="range" min={0} max={1} step={0.01}
           value={crossfade}
@@ -142,8 +142,10 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
           style={{ flex: 1, '--p': `${crossfade * 100}%` } as React.CSSProperties}
           title="Crossfader tra deck A e deck B"
         />
-        <span className="deck-label">B</span>
+        <span className="deck-label deck-ab">B</span>
 
+        <span className="deck-sep" />
+        <span className="deck-label">Deck B</span>
         <button className={`pill${video.enabled ? '' : ' active'}`} title="Deck B = effetto GLSL" onClick={() => engine?.setVideoDeck({ enabled: false })}>Effetto</button>
         <button className={`pill${video.enabled ? ' active' : ''}`} title="Deck B = playlist di clip video a tempo" onClick={() => engine?.setVideoDeck({ enabled: true })}>Video</button>
 
@@ -183,6 +185,7 @@ function DeckPanelImpl({ engine }: DeckPanelProps) {
           />
         </>}
 
+        <span className="deck-sep" />
         <span className="deck-label" title="Motion blur temporale">BLUR</span>
         <input
           type="range" min={0} max={0.95} step={0.05}
