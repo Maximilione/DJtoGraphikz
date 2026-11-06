@@ -14,6 +14,9 @@ import type { Sequence } from './components/PresetPanel/sequences'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
+import { SimpleDeck, type SimpleTab } from './components/SimplePanel/SimpleDeck'
+import { flowState, type SimpleFlow } from './simpleFlow'
+import { seedFactoryLooks } from './factoryLooks'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
@@ -209,7 +212,19 @@ export function App() {
   })
   const [showRemote, setShowRemote] = useState(false)
   const [showSoundcheck, setShowSoundcheck] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(() => !readString(ONBOARDED_KEY))
+  // No wizard: Simple mode is the path (1 Musica, 2 Stile, 3 Via) and the
+  // first picture is the app itself. The factory looks are seeded here, before
+  // LookBank mounts and reads the bank. The old wizard stays in the help menu.
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (!readString(ONBOARDED_KEY)) { seedFactoryLooks(); writeString(ONBOARDED_KEY, '1') }
+    return false
+  })
+  /** which tab is open under the preview in Simple */
+  const [simpleTab, setSimpleTab] = useState<SimpleTab>('look')
+  // Simple's "ti sento": the frame listener below stamps a ref whenever there
+  // is signal; this reads it at 2 Hz and changes state only when the word changes.
+  const lastSoundRef = useRef(-Infinity)
+  const [flow, setFlow] = useState<SimpleFlow>('fermo')
 
   // U2.1/U2.2 — menu aiuto + overlay scorciatoie/guida
   const [showHelpMenu, setShowHelpMenu] = useState(false)
@@ -519,6 +534,7 @@ export function App() {
       // (a user scene the Auto VJ cannot apply) used to skip the rest of
       // renderFrame on every frame until the cause went away — frozen preview.
       try {
+        if (energyRaw > 0) lastSoundRef.current = performance.now()
         vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
         eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
         // the release sweep sets effects itself and measures them: idle must not move the picture under it.
@@ -644,6 +660,11 @@ export function App() {
     setAudioStatus(engine.audioAnalyzer.getStatus())
     setBpm(Math.round(engine.audioAnalyzer.getData().bpm) || 0)
   }, engine ? 1000 : null)
+  useVisibleInterval(() => {
+    if (!engine) return
+    const next = flowState(engine.audioAnalyzer.getStatus() === 'running', performance.now() - lastSoundRef.current)
+    setFlow(prev => (prev === next ? prev : next))
+  }, engine && mode === 'simple' ? 500 : null)
 
   // The control engine follows the projector's size from wherever it is set
   // (toolbar, Uscite panel, a venue): the Uscite panel used to change the
@@ -1794,13 +1815,9 @@ export function App() {
         {mode !== 'live' && (
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
           {/* one PanelBoundary per panel: a panel that throws must not unmount App, which owns the engine */}
-          <PanelBoundary key={panelEpoch} name="Audio">
-            <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
-          </PanelBoundary>
           {mode === 'simple' ? (
             <PanelBoundary name="Semplice">
               <SimplePanel
-                engine={engine}
                 vjEnabled={vjEnabled}
                 vjGenre={vjGenre}
                 vjStatus={vjStatus}
@@ -1808,10 +1825,20 @@ export function App() {
                 onVJToggle={toggleVJ}
                 onVJGenre={changeVJGenre}
                 onVJHold={toggleVJHold}
+                flow={flow}
+                bpm={bpm}
+                audio={
+                  <PanelBoundary key={panelEpoch} name="Audio">
+                    <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} variant="simple" />
+                  </PanelBoundary>
+                }
               />
             </PanelBoundary>
           ) : (
             <>
+              <PanelBoundary key={panelEpoch} name="Audio">
+                <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
+              </PanelBoundary>
               {!fxCenter && <PanelBoundary name="Effetti"><EffectPanel engine={engine} onManual={onManual} /></PanelBoundary>}
               <PanelBoundary name="Auto VJ">
                 <AutoVJPanel
@@ -1833,11 +1860,11 @@ export function App() {
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
-          <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
+          <div className={`preview-container${previewCompact && mode === 'pro' ? ' compact' : ''}`}
                data-wall={wallState}
                style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
-            {mode !== 'live' && (
+            {mode === 'pro' && (
               <button
                 className="btn preview-toggle"
                 onClick={togglePreviewCompact}
@@ -1848,15 +1875,23 @@ export function App() {
             )}
             {/* U4.2 — bordo che lampeggia sul beat (opacity via DOM diretto) */}
             <div ref={beatFlashRef} className="beat-flash" />
+            {mode === 'simple' && flow !== 'sento' && (
+              // over the control canvas only: the DOM never reaches the output, a screenshot or a recording
+              <span className="preview-note">{flow === 'fermo' ? 'Audio fermo: premi Ascolta la musica' : 'Silenzio: fai partire un brano'}</span>
+            )}
             <span className="preview-label">
               <span className={`air-tag ${wallState}`}>{WALL_LABEL[wallState]}</span>
               {outputInfo?.open ? outputInfo.display : 'proiettore non collegato'}
             </span>
           </div>
           {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
+          {mode === 'simple' && (
+            <SimpleDeck engine={engine} vjEnabled={vjEnabled} onVJToggle={toggleVJ} tab={simpleTab} onTab={setSimpleTab} />
+          )}
           {engine && (
-            <div className="live-lookbank">
-              <PanelBoundary name="Look Bank"><LookBank engine={engine} onManual={onManual} bare={mode !== 'pro'} /></PanelBoundary>
+            // mounted in every mode, hidden under the other Simple tabs: it keeps the Shift+1-0 listener
+            <div className="live-lookbank" hidden={mode === 'simple' && simpleTab !== 'look'}>
+              <PanelBoundary name="Look Bank"><LookBank engine={engine} onManual={onManual} bare={mode !== 'pro'} compactEmpty={mode === 'simple'} /></PanelBoundary>
             </div>
           )}
           {fxCenter && <div className="center-fx"><PanelBoundary name="Effetti"><EffectPanel engine={engine} onManual={onManual} /></PanelBoundary></div>}
