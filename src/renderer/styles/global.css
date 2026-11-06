@@ -380,7 +380,7 @@ input[type="range"]:active::-webkit-slider-thumb {
 .btn-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: #000;   /* white on --danger was 3.4:1; .btn-primary uses black on the accent too */
 }
 .btn-danger:hover:not(:disabled) {
   background: var(--danger-dim);

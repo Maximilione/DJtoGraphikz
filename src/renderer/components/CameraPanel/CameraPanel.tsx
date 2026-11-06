@@ -49,7 +49,7 @@ function CameraPanelImpl({ engine }: CameraPanelProps) {
   const moved = !same(cam, CAMERA_NEUTRAL)
 
   return (
-    <Panel id="camera" title="Camera" defaultCollapsed group="right" active={moved}>
+    <Panel id="camera" title="Camera" defaultCollapsed group="right" active={moved || lb !== LINE_BOOST_DEFAULT || pres !== PRESENCE_DEFAULT}>
       <div className="u-col" style={{ gap: 'var(--s2)' }}>
         <div className="u-hint">
           Inquadratura di tutta la scena, prima dei post-FX: vale per ogni effetto insieme.
@@ -129,10 +129,12 @@ function ImpactPanelImpl({ engine }: CameraPanelProps) {
         <div className="u-hint">
           Reattivita' globale sul suono, su tutti gli effetti: cassa = shake e zoom a molla, medi = distorsione, alti = scintillio, drop = flash morbido.
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', minHeight: 28 }}>
           <input type="checkbox" checked={im.on} onChange={e => set({ on: e.target.checked })} />
           <span className="label">Attivo</span>
         </label>
+        {/* dimmed when off, still adjustable: tuning before switching it on is a show gesture */}
+        <div className="u-col" style={{ gap: 'var(--s2)', opacity: im.on ? 1 : 0.45 }}>
         <SliderRow label="Intensita'" value={im.intensity} min={0} max={1} step={0.05}
           title="Quanto reagisce tutto, 0 = fermo" onChange={v => set({ intensity: v })} />
         <SliderRow label="Shake" value={im.shake} min={0} max={1} step={0.05}
@@ -145,7 +147,8 @@ function ImpactPanelImpl({ engine }: CameraPanelProps) {
           title="Ondulazione guidata dai medi" onChange={v => set({ warp: v })} />
         <SliderRow label="Scintillio" value={im.spark} min={0} max={1} step={0.05}
           title="Chromatic e glitter guidati dagli alti" onChange={v => set({ spark: v })} />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', minHeight: 28 }}
           title="Lenta: smorza nei break, sale su build e picco, seguendo la fase dell'Auto VJ">
           <input type="checkbox" checked={im.follow} onChange={e => set({ follow: e.target.checked })} />
           <span className="label">Segui l'energia</span>

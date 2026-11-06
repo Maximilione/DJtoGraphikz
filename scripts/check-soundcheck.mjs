@@ -36,6 +36,10 @@ check('ingresso: 3 s di segnale bastano, meno e\' giallo, zero e\' rosso', () =>
   assert.equal(sc.judgeInput(1.2).status, 'warn')
   assert.equal(sc.judgeInput(0).status, 'err')
   assert.match(sc.judgeInput(4.26).detail, /4\.3 s/)
+  // audio off is a setup hint, not a cable hunt; a stop mid-window keeps the signal already measured
+  assert.match(sc.judgeInput(0, false).detail, /audio fermo/)
+  assert.match(sc.judgeInput(0, true).detail, /nessun segnale/)
+  assert.equal(sc.judgeInput(3, false).status, 'ok')
 })
 
 check('output: chiusa, muta, ferma, nera, uniforme, ok', () => {
@@ -69,6 +73,7 @@ check('dmx: inviato = verde, fallito = rosso se acceso, giallo se spento', () =>
 
 check('telefono e disco', () => {
   assert.equal(sc.judgeRemote({ url: 'http://10.0.0.2:8080', code: '1234' }).status, 'ok')
+  assert.equal(sc.judgeRemote({ url: 'http://127.0.0.1:8080', code: '1234' }).status, 'warn')   // no network: the QR leads nowhere
   assert.equal(sc.judgeRemote(null).status, 'err')
   assert.equal(sc.judgeDisk(50e9).status, 'ok')
   assert.equal(sc.judgeDisk(sc.DISK_MIN_GB * 1e9).status, 'ok')
