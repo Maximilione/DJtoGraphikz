@@ -10,10 +10,10 @@ const KEYBOARD: [string, string][] = [
   ['P', 'panic'],
   ['[ ]', 'master'],
   ['Space', 'tap BPM'],
-  ['1-0', 'effetti'],
-  ['Q/W/E/R', 'post'],
+  ['1-0', 'effetti: Tunnel, Kaleido, Voronoi, Sacred, Mandala, Hex, Rings, Moiré, Neon, Truchet'],
+  ['Q/W/E/R', 'post: Bloom · Feedback · Chromatic · RGB Split'],
   ['I', 'intensità (tieni = momentanea)'],
-  [', . /', 'beat-roll 1/4 1/8 1/16 (tieni = momentaneo)'],
+  [', . /', 'beat-roll 1/4 1/8 1/16 (tieni = momentaneo; su tastiera IT il 1/16 è il tasto -)'],
   ['Shift+1-0', 'look'],
   ['V', 'reel: salva gli ultimi 15–30 s in 9:16'],
   ['N / Shift+N', 'scaletta: passo avanti / indietro'],
@@ -65,7 +65,7 @@ export function CheatSheet({ onClose }: CheatSheetProps) {
 
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
-      <div className="onboarding-card" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+      <div className="onboarding-card" style={{ width: 640, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
         <h2>Scorciatoie</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 16 }}>
           <Section title="Tastiera" rows={KEYBOARD} />

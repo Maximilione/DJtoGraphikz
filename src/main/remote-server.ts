@@ -106,12 +106,17 @@ const ASSET_TYPES: Record<string, string> = {
 }
 
 function lanIp(): string {
+  // 169.254.x is the link-local of a Mac wired to the CDJs (Pro DJ Link): the
+  // phone is not there. Only when nothing else is up.
+  let linkLocal = ''
   for (const addrs of Object.values(networkInterfaces())) {
     for (const a of addrs ?? []) {
-      if (a.family === 'IPv4' && !a.internal) return a.address
+      if (a.family !== 'IPv4' || a.internal) continue
+      if (a.address.startsWith('169.254.')) { linkLocal ||= a.address; continue }
+      return a.address
     }
   }
-  return '127.0.0.1'
+  return linkLocal || '127.0.0.1'
 }
 
 function safeEqual(a: string, b: string): boolean {
