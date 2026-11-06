@@ -2,6 +2,34 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.80.0-beta] — 2026-11-06
+
+### Added
+- **Selezione effetti per look** (958bb07): sei categorie per aspetto e, in cima alla griglia, le righe Adatti ora, Preferiti (anche sul telefono) e Recenti.
+- **Auto VJ e scaletta in Live, fuoco restituito dopo il clic** (68d8051): si riaccendono dal blocco Regia, e le hotkey restano attive dopo aver toccato un controllo.
+- **Banner su contesto WebGL perso, look che ricordano gli input immagine dello shader** (330d95d).
+
+### Changed
+- **Redesign "regia al buio"** (bd9ab7b): token di stato comuni, pannelli a binario, trio BLACK/FREEZE/PANIC, tag IN ONDA.
+- **Live: palco a tre colonne** (715ea74): monitor, 16 pad e rail fissa con fader verticali.
+- **Simple: percorso in tre passi** (7642a7c, 35249e9): Musica, Stile, Via, con riscontro quando l'ingresso sente davvero la musica e tab sotto l'anteprima. Il wizard non parte piu' al primo avvio, resta nel menu Aiuto.
+- **Pro: banco fisso** (c9b7215): anteprima e Look Bank affiancati, effetti a tutta altezza, rail a destra con un solo cassetto.
+- **Telefono: banco del pollice** (de4c58b): testata IN ONDA, dock fisso BLACK/TAP/FREEZE/PANIC, gesto principale della scheda sul dock. PANIC vuole due tocchi sul telefono, dove non c'e' Annulla.
+- **PANIC completo con Annulla** (68d8051, 0a565f3): azzera anche beat-roll, blackout, freeze, scaletta e Auto VJ; Annulla ripristina tutto, scaletta compresa.
+- **Pannello Effetti onesto** (45cf429): shader, transizioni, crossfader e ciclo palette dicono cosa fanno davvero.
+- **Scalette** (60b397b): lista salvata in cima, prova pulita, Annulla su editor e scene, trasporto grande.
+- **Audio** (cd0c8a7): Riprova riprova davvero, cambio ingresso a caldo, spettro che non mente, soundcheck leggibile.
+- **Media** (1fa71a7): deck, shader editor e libreria senza clic persi.
+- **Uscite e mapping** (8e366c7): Annulla su Posti e uscite, MIDI learn che non resta armato, mapping da tastiera.
+- **Telefono: tap e hold misurati sul dispositivo** (7de8494, 0a565f3): riscontro immediato, BLACK sempre raggiungibile, hold che reggono a schermo bloccato e wifi lento.
+
+### Fixed
+- **Chiusura con proiettore live** (944eeec, 0a565f3): la finestra chiede conferma, e Cmd+Q non spegne il proiettore prima della risposta. Catture in Download, hotplug display, chip fullscreen.
+- **Hotkey** (b08282d, 0a565f3): i range non le bloccano, checkbox solo Space/Invio, Cmd/Ctrl filtrati anche con fuoco su SVG.
+- **Tap tempo** (d564e33): da Space, telefono e MIDI calcola davvero il BPM.
+- **DMX** (89d3ac7): campi applicati a Invio/blur, avviso fixture oltre il canale 512, pallino anche per il pixel map.
+- **Top bar sotto finestre strette** (35249e9): va a capo, una riga sola resta solo in Live.
+
 ## [0.79.1-beta] — 2026-11-05
 
 ### Fixed
