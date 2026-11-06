@@ -14,6 +14,8 @@ interface SliderRowProps {
   suffix?: string
   /** Tooltip for the label, when the short label needs explaining. */
   labelTitle?: string
+  /** Double-click on the label goes back to this value — on the label, not the range: the first click of a double on the range moves the live value. */
+  reset?: number
   /** One extra affordance after the readout — a mapping chip, and no more. */
   children?: ReactNode
 }
@@ -34,16 +36,20 @@ interface SliderRowProps {
  */
 export function SliderRow({
   label, value, min, max, step, onChange, title, percent = false, suffix = '',
-  labelTitle, children,
+  labelTitle, reset, children,
 }: SliderRowProps) {
+  const hint = labelTitle ?? label
   return (
     <div className="slider-row">
-      <span className="label" title={labelTitle}>{label}</span>
+      <span className="label" title={reset !== undefined ? `${hint} · doppio clic: torna a ${reset}` : hint}
+        style={reset !== undefined ? { userSelect: 'none', cursor: 'default' } : undefined}
+        onDoubleClick={reset !== undefined ? () => onChange(reset) : undefined}>{label}</span>
       <input
         type="range"
         min={min} max={max} step={step}
         value={value}
         title={title}
+        aria-label={label}
         style={{ '--p': `${max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0}%` } as _C}
         onChange={e => onChange(parseFloat(e.target.value))}
       />

@@ -59,7 +59,7 @@ function runSoundcheck(engine: Engine, outputRes: string, onRow: (row: Row) => v
   sleep(INPUT_WINDOW_S * 1000).then(async () => {
     unsub()
     const controlFps = (engine.frames - f0) / ((performance.now() - t0) / 1000)
-    put(judgeInput(signalMs / 1000))
+    put(judgeInput(signalMs / 1000, engine.audioAnalyzer.isRunning))
     await outputDone
     put(judgeFps(controlFps, outputFps, outputRes))
   })
@@ -86,6 +86,8 @@ export function Soundcheck({ engine, outputRes, onClose }: SoundcheckProps) {
 
   const done = ORDER.every(id => rows[id])
   const overall = done ? worst(ORDER.map(id => rows[id])) : null
+  // a glyph besides the colour: red and green alone did not read from a step away, nor for everyone
+  const SC_GLYPH: Record<string, [string, string]> = { ok: ['✓', 'ok'], warn: ['!', 'attenzione'], err: ['✕', 'errore'], pending: ['…', 'in corso'] }
 
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
@@ -102,7 +104,7 @@ export function Soundcheck({ engine, outputRes, onClose }: SoundcheckProps) {
             const row = rows[id]
             return (
               <li key={id} className="sc-row">
-                <span className={`sc-dot ${row?.status ?? 'pending'}`} aria-hidden="true" />
+                <span className={`sc-dot ${row?.status ?? 'pending'}`} role="img" aria-label={SC_GLYPH[row?.status ?? 'pending'][1]}>{SC_GLYPH[row?.status ?? 'pending'][0]}</span>
                 <span className="sc-name">{row?.name ?? NAMES[id]}</span>
                 <span className="sc-detail">{row?.detail ?? '…'}</span>
               </li>

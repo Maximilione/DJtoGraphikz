@@ -59,11 +59,11 @@ export function PluginPanel({ engine, sequences, persist }: Props) {
     <div className="u-col">
       <div style={{ display: 'flex', gap: '4px' }}>
         <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { void window.api?.openPluginsFolder?.() }} title="Apre ~/.djtographikz/plugins">Apri cartella plugin</button>
-        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { void refreshPlugins() }} title="Rilegge la cartella dei plugin">Ricarica</button>
+        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { void refreshPlugins().then(() => pushToast(`${getPlugins().length} plugin trovati`, 'plug-reload', undefined, 'ok')) }} title="Rilegge la cartella dei plugin">Ricarica</button>
       </div>
       {plugins.length === 0 && (
         <div className="u-hint" style={{ textAlign: 'center', padding: 'var(--s2)' }}>
-          Nessun plugin in ~/.djtographikz/plugins (solo dati: shader, palette, preset, scalette — vedi docs/PLUGINS.md)
+          Nessun plugin in ~/.djtographikz/plugins (solo dati: shader, palette, preset, scalette)
         </div>
       )}
       {plugins.map(p => {

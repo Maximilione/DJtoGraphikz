@@ -44,6 +44,20 @@ check('una pressione lunga torna indietro al rilascio', () => {
   assert.equal(reverted, true)
 })
 
+check('la durata misurata dal telefono vince su quella dei pacchetti', () => {
+  const m = new Momentary()
+  let reverted = false
+  now = 1000
+  m.press('r', () => { reverted = true })
+  now += HOLD_MS + 500               // a press that arrived late over wifi
+  assert.equal(m.release('r', 80), false)   // but a tap on the glass
+  assert.equal(reverted, false)
+  m.press('r', () => { reverted = true })
+  now += 10
+  assert.equal(m.release('r', HOLD_MS + 1), true)   // a real hold, fast network
+  assert.equal(reverted, true)
+})
+
 check('il rilascio di un tasto mai premuto non fa niente', () => {
   const m = new Momentary()
   assert.equal(m.release('q'), false)

@@ -106,12 +106,17 @@ const ASSET_TYPES: Record<string, string> = {
 }
 
 function lanIp(): string {
+  // 169.254.x is the link-local of a Mac wired to the CDJs (Pro DJ Link): the
+  // phone is not there. Only when nothing else is up.
+  let linkLocal = ''
   for (const addrs of Object.values(networkInterfaces())) {
     for (const a of addrs ?? []) {
-      if (a.family === 'IPv4' && !a.internal) return a.address
+      if (a.family !== 'IPv4' || a.internal) continue
+      if (a.address.startsWith('169.254.')) { linkLocal ||= a.address; continue }
+      return a.address
     }
   }
-  return '127.0.0.1'
+  return linkLocal || '127.0.0.1'
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -412,15 +417,18 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>DJtoGraphikz Remote</title>
-<meta name="theme-color" content="#0a0a0e">
+<meta name="theme-color" content="#08080c">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a0a0e'/><path d='M8 14a8 8 0 0 1 16 0' stroke='%2300ff88' stroke-width='2.5' fill='none'/><rect x='5' y='13' width='4' height='8' rx='2' fill='%2300ff88'/><rect x='23' y='13' width='4' height='8' rx='2' fill='%2300ff88'/><ellipse cx='16' cy='20' rx='6' ry='4' fill='none' stroke='%2300ff88' stroke-width='2'/><circle cx='16' cy='20' r='2' fill='%2300ff88'/></svg>">
 <style>
   :root {
-    --bg:#0a0a0e; --panel:#131318; --panel2:#1a1a22; --line:#26262f;
-    --ink:#e8e8f0; --mute:#8888a0; --acc:#00ff88; --danger:#ff4455;
+    --bg:#08080c; --panel:#1b1b25; --panel2:#272733; --line:#2c2c3a;
+    --ink:#ecedf4; --mute:#adadc4; --acc:#00ff88; --danger:#ff4d5e; --frozen:#5cd0ff; --armed:#ffaa00;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  /* a long press on a look opened the image menu / text selection and cut the hold short */
+  .look, button { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+  .look img { pointer-events:none; }
   [hidden] { display:none !important; }
   html { height:100%; }
   body {
@@ -450,8 +458,11 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   }
   input[type=range] {
     width:100%; height:44px; accent-color:var(--acc); background:transparent;
-    touch-action:pan-x;
+    /* pan-y: a swipe that starts on a slider still scrolls the page (MIX is all sliders) */
+    touch-action:pan-y;
   }
+  /* the two performance faders keep the old rule: a slightly diagonal drag must not turn into a scroll */
+  #xfade, #master { touch-action:pan-x; }
   .row { display:flex; gap:var(--s2); align-items:center; }
   .row > * { flex:1; }
 
@@ -470,25 +481,27 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     font-size:15px; letter-spacing:2px; border:0; }
 
   /* ---- top strip ---- */
-  #strip { position:sticky; top:0; z-index:20; background:rgba(10,10,14,.94);
-    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  #strip { position:sticky; top:0; z-index:20; background:var(--bg);
     border-bottom:1px solid var(--line);
     padding:calc(8px + env(safe-area-inset-top)) var(--s3) var(--s2); }
+  /* a command that did not get through: iOS ignores vibrate, so the strip says it */
+  #strip.fail { border-bottom:2px solid var(--danger); background:rgba(255,68,85,.18); }
   .srow { display:flex; gap:var(--s2); align-items:stretch; }
   .srow button { flex:1; font-weight:700; font-size:12px; letter-spacing:1px; min-height:48px; }
   #panic { border-color:var(--danger); color:var(--danger); }
   #panic:active { background:rgba(255,68,85,.25); }
   .bigrow button { min-height:56px; font-size:15px; font-weight:700; }
   .gap { margin-top:var(--s2); }
-  #blackout.on { border-color:var(--danger); color:var(--danger);
-    background:rgba(255,68,85,.14); box-shadow:0 0 12px rgba(255,68,85,.25); }
+  /* filled when on: an 8-14% tint on black was not readable, and these two stop the wall */
+  #blackout.on { border-color:var(--danger); color:#000; background:var(--danger); box-shadow:0 0 12px rgba(255,68,85,.25); }
+  #freeze.on { color:#000; background:var(--acc); }
   .bpmbox { width:64px; flex:none; display:flex; flex-direction:column; align-items:center;
     justify-content:center; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; gap:1px; }
   #bpm { font-size:16px; font-weight:700; color:var(--ink); }
   .srow2 { display:flex; gap:var(--s2); align-items:center; margin-top:var(--s1); }
   .srow2 input { flex:1; height:36px; }
-  #ver { flex:none; opacity:.7; }
+  #ver { flex:none; opacity:.7; color:var(--acc); }
 
   /* ---- layout ---- */
   main { padding:var(--s3) var(--s3) calc(84px + env(safe-area-inset-bottom)); }
@@ -507,7 +520,7 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .seqnav button { flex:1; min-height:76px; font-size:17px; font-weight:700; letter-spacing:1px; }
   #seqnext { border-color:var(--acc); color:var(--acc); }
   #seqstop { width:100%; min-height:56px; font-weight:700; letter-spacing:1px; }
-  #seqstop.armed { border-color:var(--danger); color:var(--danger); background:rgba(255,68,85,.14); }
+  button.armed { border:1px dashed var(--armed); color:var(--armed); background:rgba(255,170,0,.12); }
   #seqlist button { display:flex; width:100%; min-height:60px; align-items:center; justify-content:space-between;
     gap:var(--s3); padding:0 var(--s4); margin-bottom:var(--s2); font-size:15px; text-align:left; }
   .lookgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s2); }
@@ -551,13 +564,17 @@ const REMOTE_PAGE = `<!DOCTYPE html>
     font-family:ui-monospace,monospace; box-shadow:none; }
   .seg button.on { background:rgba(0,255,136,.14); box-shadow:none; }
   .seg button + button { border-left:1px solid var(--line); }
-  .chainrow { display:flex; align-items:center; gap:var(--s2); background:var(--panel);
+  /* 10 modes on one row overflowed a hidden box: luma and audio were unreachable in portrait */
+  #blend { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); }
+  #blend button { font-size:11px; }
+  /* name and buttons on one line, the wet slider full width under them: it had ~56-110px */
+  .chainrow { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2); background:var(--panel);
     border:1px solid var(--line); border-radius:10px; padding:4px var(--s2);
     margin-bottom:var(--s2); }
-  .chainrow .nm { width:66px; flex:none; font-size:12px; font-family:ui-monospace,monospace;
+  .chainrow .nm { flex:1; min-width:0; font-size:12px; font-family:ui-monospace,monospace;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .chainrow input { flex:1; height:40px; }
-  .chainrow button { flex:none; min-height:42px; min-width:42px; padding:0;
+  .chainrow input { order:3; flex:1 0 100%; height:40px; }
+  .chainrow button { flex:none; min-height:46px; min-width:46px; padding:0;
     background:var(--panel2); font-size:14px; border-radius:8px; }
   .addgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s2);
     margin-top:var(--s2); }
@@ -578,10 +595,12 @@ const REMOTE_PAGE = `<!DOCTYPE html>
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%;
     background:var(--danger); margin-right:6px; }
   .dot.ok { background:var(--acc); }
-  /* full-screen banner when the app stops answering (2+ failed polls) */
-  #lost { position:fixed; inset:0; z-index:99; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:12px; text-align:center;
-    background:rgba(0,0,0,.88); backdrop-filter:blur(4px); padding:24px; }
+  /* banner when the app stops answering (2+ failed polls): never over the
+     buttons — /state can time out while /cmd still lands, and BLACK must stay reachable */
+  #lost { position:fixed; inset:auto 0 calc(72px + env(safe-area-inset-bottom)) 0; z-index:99;
+    pointer-events:none; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:6px; text-align:center;
+    background:#2a0a10; border-top:1px solid var(--danger); border-bottom:1px solid var(--danger); padding:12px; }
   #lost .big { font-size:20px; font-weight:800; color:var(--danger); letter-spacing:1px; }
   #lost .sub { font-size:13px; color:var(--mute); max-width:280px; line-height:1.5; }
   #lost .dot { animation: lostpulse 1.2s infinite; }
@@ -596,10 +615,178 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       border-right:1px solid var(--line);
       padding:6px 6px 6px calc(6px + env(safe-area-inset-left)); }
     #tabs button { flex:none; min-width:58px; }
-    #strip { padding-left:calc(78px + env(safe-area-inset-left)); }
+    #strip { padding-left:calc(78px + env(safe-area-inset-left)); padding-right:calc(var(--s3) + env(safe-area-inset-right)); }
+    #lost { left:78px; bottom:0; }
     main { padding:var(--s3) calc(var(--s3) + env(safe-area-inset-right)) var(--s4)
       calc(78px + env(safe-area-inset-left)); }
     .lookgrid { grid-template-columns:repeat(8,1fr); }
+  }
+
+  /* ==== REDESIGN "Banco del pollice" ==== */
+  :root {
+    --panel3:#272733; --r:8px;
+    --dock:139px;                     /* #strip 64 + #tabs 48 + padding: pins sit on it */
+    --docksafe:calc(var(--dock) + env(safe-area-inset-bottom));
+  }
+  button, select, .look, .seg, .setuprow, .chainrow { border-radius:var(--r); }
+  button { font-weight:600; }
+  /* on = outline and tint; a full green is only for what is on the wall */
+  button.on { background:rgba(0,255,136,.10); border-color:var(--acc); color:var(--acc); box-shadow:none; }
+  .sect { text-transform:none; letter-spacing:0; font-size:13px; font-weight:600; font-family:inherit; }
+  .sect { color:var(--mute); margin:24px 0 10px; }
+  .sect:first-child { margin-top:8px; }
+
+  /* faders: a hardware cap, not a browser slider. --v is written by fill() */
+  input[type=range] { -webkit-appearance:none; appearance:none; height:44px; border-radius:6px;
+    background:linear-gradient(var(--mute),var(--mute)) 0 50% / var(--v,0%) 8px no-repeat,
+               linear-gradient(var(--panel3),var(--panel3)) 0 50% / 100% 8px no-repeat; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:36px;
+    border-radius:5px; background:var(--ink); border:0; box-shadow:0 0 0 2px var(--bg); }
+  input[type=range]::-moz-range-thumb { width:20px; height:36px; border-radius:5px; background:var(--ink); border:0; }
+
+  /* ---- #wall: what is on the projector right now, read-only, at a glance ---- */
+  #wall { position:sticky; top:0; z-index:20; background:var(--panel);
+    padding:calc(8px + env(safe-area-inset-top)) var(--s3) 2px; }
+  /* the line under the header is the live palette */
+  #wall::after { content:''; position:absolute; left:0; right:0; bottom:-3px; height:3px;
+    background:var(--pal, var(--line)); }
+  .wrow { display:flex; align-items:center; gap:var(--s2); min-height:44px; }
+  #wtitle { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  #wkick { color:var(--mute); }
+  #wname { font-size:20px; font-weight:700; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #tb_setup { flex:none; min-height:44px; min-width:64px; font-size:11px; letter-spacing:1.2px;
+    background:none; font-family:ui-monospace,monospace; color:var(--mute); display:flex; align-items:center; justify-content:center; gap:6px; }
+  #tb_setup .dot { margin:0; }
+  #tb_setup.on { background:var(--panel3); border-color:var(--line); color:var(--ink); }
+  #wall .srow2 { margin:0; gap:var(--s3); }
+  #wall .srow2 input { height:40px; }
+  #wall .pval { width:40px; }
+  /* the only full-surface colours on the page: nobody misses them with the phone at hip height */
+  #wall[data-s=black] { background:var(--danger); color:#000; }
+  #wall[data-s=freeze] { background:var(--frozen); color:#000; }
+  #wall.lost { background:var(--danger); color:#000; }
+  #wall.lost #wkick, #wall.lost .micro, #wall.lost #tb_setup { color:#000; }
+  #wall[data-s] #wkick, #wall[data-s] .micro, #wall[data-s] .pval, #wall[data-s] #tb_setup { color:#000; }
+  #wall[data-s] #tb_setup { border-color:rgba(0,0,0,.45); }
+  #wall[data-s] input[type=range] { background:linear-gradient(#000,#000) 0 50% / var(--v,0%) 8px no-repeat,
+    linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)) 0 50% / 100% 8px no-repeat; }
+  #wall[data-s] input[type=range]::-webkit-slider-thumb { background:#000; box-shadow:none; }
+  #lost { position:static; inset:auto; margin:6px calc(-1 * var(--s3)) 0; flex-direction:row; gap:8px; padding:8px var(--s3);
+    border-bottom:0; }
+  #lost .big { font-size:13px; }
+  #lost .sub { display:none; }
+
+  /* ---- #dock: safety row + tabs, in the thumb arc ---- */
+  #dock { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--panel);
+    border-top:1px solid var(--line); padding:8px var(--s3) env(safe-area-inset-bottom); }
+  #strip { position:static; background:none; border:0; padding:0; display:grid;
+    grid-template-columns:1.5fr .9fr 1fr 1fr; gap:var(--s2); }
+  #panic { margin-left:10px; }
+  #panic.armed { font-size:11px; }
+  #strip.fail { border:0; outline:2px solid var(--danger); outline-offset:3px; background:none; border-radius:var(--r); }
+  #strip button { min-height:64px; padding:0 2px; font-family:ui-monospace,monospace; font-size:14px; font-weight:800;
+    letter-spacing:.5px; background:var(--panel2); }
+  #blackout { font-size:18px !important; background:#000; border-color:var(--mute); }
+  #blackout.on { background:var(--danger); border-color:var(--danger); color:#000; }
+  #freeze { color:var(--frozen); border-color:var(--frozen); background:rgba(92,208,255,.12); }
+  #freeze.on { background:var(--frozen); border-color:var(--frozen); color:#000; }
+  #panic { color:var(--danger); border:2px solid var(--danger); background:rgba(255,77,94,.10); }
+  #panic.armed { border:1px dashed var(--armed); color:var(--armed); background:rgba(255,170,0,.12); }
+  #tap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; }
+  #tap .micro { font-size:10px; }
+  #bpm { font-size:22px; line-height:1.1; }
+  #tabs { position:static; background:none; border:0; padding:14px 0 4px; gap:0; }
+  #tabs button { min-height:48px; flex-direction:row; font-size:12px; font-weight:700; border-radius:0; color:var(--mute); }
+  #tabs button.on { background:none; color:var(--ink); box-shadow:inset 0 3px 0 var(--ink); }
+
+  main { padding:calc(var(--s3) + 3px) var(--s3) var(--docksafe); }
+
+  /* ---- .pin: each tab's main gesture rests on the dock ---- */
+  /* min-height + margin-top:auto: a filtered category must not lift the chips from under the thumb */
+  main > section { display:flex; flex-direction:column; min-height:calc(100vh - var(--docksafe) - 109px); }
+  main > section > .pin { margin-top:auto; }
+  main > section > :nth-last-child(2) { margin-bottom:var(--s4); }
+  .pin { position:sticky; bottom:var(--docksafe); z-index:10; margin-top:var(--s4);
+    background:var(--panel2); border:1px solid var(--line); border-bottom:0; border-radius:12px 12px 0 0;
+    padding:var(--s2); margin-left:calc(-1 * var(--s3)); margin-right:calc(-1 * var(--s3)); }
+
+  /* LIVE */
+  .lookgrid[data-d="2"] { grid-template-columns:repeat(2,1fr); }
+  .lookgrid[data-d="3"] { grid-template-columns:repeat(3,1fr); }
+  .lookgrid[data-d="4"] { grid-template-columns:repeat(4,1fr); }
+  .look { aspect-ratio:16/10; border-radius:var(--r); }
+  .lookgrid[data-d="2"] .look { aspect-ratio:16/9; }
+  .look .n { top:5px; left:5px; padding:1px 6px; border-radius:4px; background:rgba(0,0,0,.72); text-shadow:none; font-size:12px; font-weight:700; }
+  .look .nm { font-size:13px; padding:4px 7px; background:rgba(0,0,0,.72); }
+  .lookgrid[data-d="4"] .look .nm { font-size:11px; padding:2px 4px; }
+  .look.flash { border-color:var(--acc); box-shadow:inset 0 0 0 2px var(--acc); }
+  .empty-note { border:1px dashed var(--line); border-radius:var(--r); padding:20px var(--s4); color:var(--mute); font-size:14px; line-height:1.5; }
+  .empty-note b { display:block; color:var(--ink); margin-bottom:2px; }
+  #autovj { flex:1.4; min-height:60px; font-size:15px; letter-spacing:1px; }
+  details.fold { border:1px solid var(--line); border-radius:var(--r); margin-top:var(--s3); padding:0 var(--s3); background:var(--panel); }
+  details.fold > summary { min-height:52px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; list-style:none;
+    font-size:12px; letter-spacing:1.2px; text-transform:uppercase; font-family:ui-monospace,monospace; color:var(--ink); }
+  details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary::after { content:'+'; color:var(--mute); font-size:18px; }
+  details.fold[open] > summary::after { content:'−'; }
+  details.fold[open] { padding-bottom:var(--s3); }
+  #seqstep { font-size:18px; margin:2px 0 8px; }
+  .seqnav { margin:0; }
+  .seqnav button { min-height:68px; font-size:15px; }
+  #seqstop { flex:.8; width:auto; min-height:68px; font-size:12px; color:var(--mute); }
+  #seqprev { flex:.8; }
+  #seqnext { flex:2; background:rgba(0,255,136,.10); color:var(--acc); border-color:var(--acc); font-size:20px; }
+
+  /* FX */
+  .grid3 { gap:6px; }
+  .grid3 button { min-height:60px; font-size:13px; }
+  .grid3 button.thumb.on, .grid3 button.on { box-shadow:inset 0 0 0 2px var(--acc); border-color:var(--acc); color:#fff; }
+  #pwrap { margin-top:0; }
+  #fxcats { display:flex; gap:6px; overflow-x:auto; padding:6px; scrollbar-width:none; }
+  #fxcats::-webkit-scrollbar { display:none; }
+  #fxcats button { flex:none; min-height:44px; padding:0 14px; font-size:12px; font-family:ui-monospace,monospace; background:var(--panel); }
+  #fxcats button.on { background:var(--panel3); border-color:var(--ink); color:var(--ink); }
+
+  /* MIX */
+  .xnames { display:flex; justify-content:space-between; gap:var(--s3); font-size:13px; padding:2px 4px 0; }
+  .xnames span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .xnames b { color:var(--mute); margin-right:6px; font-family:ui-monospace,monospace; }
+  .xrow input { height:52px; }
+  .seg button.on { background:var(--panel3); color:var(--ink); box-shadow:inset 0 -2px 0 var(--ink); }
+  .seg button { font-weight:700; }
+
+  /* COLORI */
+  .palbtn.on { background:var(--panel3); border-color:var(--acc); box-shadow:inset 0 0 0 2px var(--acc); }
+  .palbtn.on .plabel { color:var(--ink); }
+  .palbtn .sw span { width:20px; height:20px; }
+  .pin .bigrow button { min-height:60px; font-size:14px; }
+
+  #pair { justify-content:flex-start; padding-top:16vh; }
+  #pair h1 { color:var(--ink); font-size:20px; letter-spacing:1.5px; text-transform:none; }
+  #pairbtn { background:rgba(0,255,136,.10); color:var(--acc); border:1px solid var(--acc); }
+
+  @media (orientation: landscape) and (max-height: 500px) {
+    :root { --dock:0px; }
+    #dock { display:contents; }
+    #tabs { position:fixed; background:var(--panel); padding:6px 4px 6px calc(4px + env(safe-area-inset-left)); justify-content:center; }
+    #tabs button { flex:none; min-width:64px; box-shadow:none; }
+    #tabs button.on { box-shadow:inset 3px 0 0 var(--ink); }
+    #strip { position:fixed; top:0; bottom:0; right:0; z-index:21; width:calc(100px + env(safe-area-inset-right));
+      padding:6px calc(6px + env(safe-area-inset-right)) 6px 6px; background:var(--panel);
+      border-left:1px solid var(--line); grid-template-columns:1fr; grid-template-rows:1.4fr 1fr 1fr .9fr; }
+    #strip button { min-height:0; }
+    #wall { padding-left:calc(84px + env(safe-area-inset-left)); padding-right:calc(112px + env(safe-area-inset-right)); }
+    #wall .wrow { min-height:36px; }
+    main { padding:var(--s3) calc(112px + env(safe-area-inset-right)) var(--s4) calc(84px + env(safe-area-inset-left)); }
+    .pin { bottom:0; margin-left:0; margin-right:0; }
+    .lookgrid[data-d] { grid-template-columns:repeat(4,1fr); }
+  }
+  @media (max-height: 640px) and (orientation: portrait) {
+    #strip button { min-height:56px; }
+    :root { --dock:124px; }
+    #tabs button { min-height:42px; }
+    #wall .wrow { min-height:36px; }
+    #wname { font-size:17px; }
   }
 </style>
 </head>
@@ -607,70 +794,74 @@ const REMOTE_PAGE = `<!DOCTYPE html>
 
 <div id="pair">
   <h1>DJTOGRAPHIKZ</h1>
-  <p>Inserisci il codice mostrato nell'app</p>
+  <p>Inserisci il codice: nell'app, icona telefono in alto</p>
   <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="------" autocomplete="one-time-code" autofocus>
   <div id="err"></div>
   <button id="pairbtn">COLLEGA</button>
 </div>
 
 <div id="app" hidden>
-  <header id="strip">
-    <div class="srow">
-      <button id="blackout">BLACK</button>
-      <button id="freeze">FREEZE</button>
-      <button id="tap">TAP</button>
-      <button id="panic">PANIC</button>
-      <div class="bpmbox"><span id="bpm" class="mono">--</span><span class="micro">BPM</span></div>
+  <header id="wall">
+    <div class="wrow">
+      <div id="wtitle"><span id="wkick" class="micro">IN ONDA</span><span id="wname">&mdash;</span></div>
+      <span id="ver" class="micro"></span>
+      <button id="tb_setup" aria-label="Info e connessione"><i id="conn2" class="dot"></i>INFO</button>
     </div>
     <div class="srow2">
       <span class="micro">MASTER</span>
       <input type="range" id="master" min="0" max="1" step="0.01" value="1">
-      <span id="ver" class="micro"></span>
+      <span id="master_v" class="pval"></span>
     </div>
+    <div id="lost" hidden><i class="dot"></i><div class="big">COLLEGAMENTO PERSO</div><div class="sub">riprovo in automatico</div></div>
   </header>
 
   <main>
     <section id="tab-live">
-      <div class="sect">Look Bank</div>
+      <div class="sect">Look</div>
       <div class="lookgrid" id="looks"></div>
       <div class="sect">Auto VJ</div>
       <div class="row">
         <button id="autovj">AUTO VJ</button>
         <select id="genre" aria-label="Genere"></select>
       </div>
-      <div class="row gap"><button id="scenesave">+ SCENA (look attuale)</button><button id="onlymine">SOLO LE MIE</button></div>
       <div class="hint" id="vjinfo"></div>
-      <div class="sect">BPM</div>
-      <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
-      <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
-      <div class="sect">Scalette</div>
-      <div id="seqnow" hidden>
+      <div class="sect" id="seqsect">Scalette</div>
+      <div id="seqlist"></div>
+      <div class="hint" id="seqhint" hidden></div>
+      <details class="fold"><summary>Tempo</summary>
+        <div class="seg" id="bpmmode"><button data-m="auto">AUTO</button><button data-m="tap">TAP</button><button data-m="manual">MANUALE</button></div>
+        <div class="hint" id="bpmext" hidden></div>
+        <div class="row bigrow gap"><button id="bpmhalf">&frac12;</button><button id="bpmminus">&minus;1</button><button id="bpmplus">+1</button><button id="bpmdouble">&times;2</button></div>
+      </details>
+      <details class="fold"><summary>Scene Auto VJ</summary>
+        <div class="row"><button id="scenesave">SALVA SCENA</button><button id="onlymine">SOLO MIE SCENE</button></div>
+      </details>
+      <div id="seqnow" class="pin" hidden>
         <div class="micro" id="seqname"></div>
         <div class="seqstep mono" id="seqstep"></div>
         <div class="seqnav">
-          <button id="seqprev">&laquo; INDIETRO</button>
+          <button id="seqstop">STOP</button>
+          <button id="seqprev">&laquo;</button>
           <button id="seqnext">AVANTI &raquo;</button>
         </div>
-        <button id="seqstop">STOP SCALETTA</button>
       </div>
-      <div id="seqlist"></div>
-      <div class="hint" id="seqhint" hidden></div>
     </section>
 
     <section id="tab-fx" hidden>
+      <details id="pwrap" class="fold"><summary id="pname">Parametri</summary><div id="params"></div></details>
+      <div id="favwrap" hidden><div class="sect">&#9733; Preferiti</div><div class="grid3" id="favs"></div></div>
       <div id="fxgroups"></div>
-      <div class="sect">Parametri effetto</div>
-      <div id="params"></div>
+      <div id="fxcats" class="pin"></div>
     </section>
 
     <section id="tab-mix" hidden>
-      <div class="sect">Crossfader</div>
-      <div class="xrow"><span class="xl">A</span><input type="range" id="xfade" min="0" max="1" step="0.01" value="0"><span class="xl">B</span></div>
-      <div class="sect">Effetto Deck B</div>
+            <div class="sect">Effetto Deck B</div>
       <select id="deckb"></select>
       <div class="sect">Blend / maschera</div>
       <div class="seg" id="blend"></div>
-      <div class="prow"><span class="plbl">Bordo</span><input type="range" id="msoft" min="0" max="1" step="0.01" value="0.25"><span class="pval" id="msoft_v">0.25</span></div>
+      <div class="prow" id="msoftrow" hidden><span class="plbl">Bordo</span><input type="range" id="msoft" min="0" max="1" step="0.01" value="0.25"><span class="pval" id="msoft_v">0.25</span></div>
+      <div class="sect">Intensità</div>
+      <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
       <div id="vdeck" hidden>
         <div class="sect">Deck B video</div>
         <div class="seg" id="vdmode"><button data-e="0">EFFETTO</button><button data-e="1">VIDEO</button></div>
@@ -684,63 +875,71 @@ const REMOTE_PAGE = `<!DOCTYPE html>
       <div class="sect">Catena Post FX</div>
       <div id="chain"></div>
       <button class="gap" id="postclear" style="width:100%">Rimuovi tutti i post FX</button>
-      <div class="addgrid" id="postadd"></div>
-      <div class="sect">Intensità</div>
-      <div class="prow"><input type="range" id="intens" min="0" max="1" step="0.01" value="0"><span class="pval" id="intens_v">0</span></div>
+      <details class="fold"><summary>Aggiungi post FX</summary><div class="addgrid" id="postadd"></div></details>
+      <details class="fold"><summary>Immagine</summary>
       <div class="sect">Spessore linee</div>
       <div class="prow"><input type="range" id="lboost" min="0" max="1" step="0.01" value="0.5"><span class="pval" id="lboost_v">0.5</span></div>
       <div class="sect">Presenza proiettore</div>
       <div class="prow"><input type="range" id="presence" min="0" max="1" step="0.01" value="0"><span class="pval" id="presence_v">0</span></div>
-      <div class="sect">Camera</div>
+      <div class="sect">Motion Blur</div>
+      <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
+      </details>
+      <details class="fold"><summary>Camera</summary>
       <div class="prow"><span class="plbl">Zoom</span><input type="range" id="camzoom" min="0.2" max="4" step="0.05" value="1"><span class="pval" id="camzoom_v">1</span></div>
       <div class="prow"><span class="plbl">Rotaz.</span><input type="range" id="camrot" min="-180" max="180" step="1" value="0"><span class="pval" id="camrot_v">0</span></div>
       <div class="prow"><span class="plbl">Mosaico</span><input type="range" id="camtile" min="1" max="8" step="1" value="1"><span class="pval" id="camtile_v">1</span></div>
       <div class="prow"><span class="plbl">Spinta</span><input type="range" id="campush" min="0" max="1" step="0.05" value="0"><span class="pval" id="campush_v">0</span></div>
-      <button id="camreset">Azzera inquadratura</button>
-      <div class="sect">Motion Blur</div>
-      <div class="prow"><input type="range" id="mblur" min="0" max="0.95" step="0.01" value="0"><span class="pval" id="mblur_v">0</span></div>
-      <div class="sect">Transizione</div>
+      <button class="gap" id="camreset" style="width:100%">Azzera inquadratura</button>
+      </details>
+      <details class="fold"><summary>Transizione</summary>
       <select id="trtype"></select>
       <div class="prow" style="margin-top:8px"><span class="plbl">Durata</span><input type="range" id="trdur" min="0" max="3" step="0.1" value="0.8"><span class="pval" id="trdur_v">0.8</span></div>
+      </details>
+      <div class="pin">
+        <div class="xnames"><span><b>A</b><span id="xa"></span></span><span><b>B</b><span id="xb"></span></span></div>
+        <div class="xrow"><input type="range" id="xfade" min="0" max="1" step="0.01" value="0" aria-label="Crossfader"></div>
+      </div>
     </section>
 
     <section id="tab-color" hidden>
       <div class="sect">Palette</div>
-      <div class="row bigrow"><button id="palprev">&laquo; PRECEDENTE</button><button id="palnext">SUCCESSIVA &raquo;</button></div>
-      <div class="palgrid gap" id="palgrid"></div>
+      <div class="palgrid" id="palgrid"></div>
       <div class="sect">Cicla palette</div>
       <div class="row bigrow"><button id="cycon">CICLA</button><button id="cycbeat">A TEMPO</button></div>
       <div class="prow gap"><span class="plbl" id="cyclbl">Ogni (s)</span><input type="range" id="cycval" min="1" max="60" step="1" value="10"><span class="pval" id="cycval_v">10</span></div>
-      <div class="sect">Grade</div>
-      <div class="prow"><span class="plbl">Exposure</span><input type="range" id="g_exposure" min="0.2" max="2" step="0.05" value="1.1"><span class="pval" id="gv_exposure"></span></div>
-      <div class="prow"><span class="plbl">Contrast</span><input type="range" id="g_contrast" min="0.5" max="2" step="0.05" value="1.05"><span class="pval" id="gv_contrast"></span></div>
-      <div class="prow"><span class="plbl">Satur</span><input type="range" id="g_saturation" min="0" max="2" step="0.05" value="1.1"><span class="pval" id="gv_saturation"></span></div>
-      <div class="prow"><span class="plbl">Lift</span><input type="range" id="g_lift" min="0" max="0.3" step="0.01" value="0"><span class="pval" id="gv_lift"></span></div>
-      <div class="prow"><span class="plbl">Vignette</span><input type="range" id="g_vignette" min="0" max="1.5" step="0.05" value="0.25"><span class="pval" id="gv_vignette"></span></div>
+      <div class="sect">Regolazione colore</div>
+      <div class="prow"><span class="plbl">Esposizione</span><input type="range" id="g_exposure" min="0.2" max="2" step="0.05" value="1.1"><span class="pval" id="gv_exposure"></span></div>
+      <div class="prow"><span class="plbl">Contrasto</span><input type="range" id="g_contrast" min="0.5" max="2" step="0.05" value="1.05"><span class="pval" id="gv_contrast"></span></div>
+      <div class="prow"><span class="plbl">Saturazione</span><input type="range" id="g_saturation" min="0" max="2" step="0.05" value="1.1"><span class="pval" id="gv_saturation"></span></div>
+      <div class="prow"><span class="plbl">Neri</span><input type="range" id="g_lift" min="0" max="0.3" step="0.01" value="0"><span class="pval" id="gv_lift"></span></div>
+      <div class="prow"><span class="plbl">Vignetta</span><input type="range" id="g_vignette" min="0" max="1.5" step="0.05" value="0.25"><span class="pval" id="gv_vignette"></span></div>
+      <div class="pin"><div class="row bigrow"><button id="palprev">&laquo; PRECEDENTE</button><button id="palnext">SUCCESSIVA &raquo;</button></div></div>
     </section>
 
     <section id="tab-setup" hidden>
       <div class="sect">Info</div>
       <div class="setuprow"><span class="micro">Versione app</span><span id="sver" class="mono"></span></div>
       <div class="setuprow"><span class="micro">Stato</span><span><i id="conn" class="dot"></i><span id="connt">—</span></span></div>
-      <div class="setuprow"><span class="micro">Sync</span><span class="mono" style="font-size:12px">polling 1.5s</span></div>
+      <div class="hint">Se in alto compare COLLEGAMENTO PERSO: DJtoGraphikz &egrave; chiusa o il wifi &egrave; caduto. Il telefono riprova da solo; riapri l'app o controlla la rete. Da quel momento BLACK dal telefono non arriva.</div>
+      <div class="hint">Imposta il blocco automatico del telefono su Mai per la durata del set: lo schermo spento ferma il remote.</div>
       <button id="unpair">SCOLLEGA</button>
     </section>
   </main>
 
-  <div id="lost" hidden>
-    <i class="dot"></i>
-    <div class="big">APP NON RAGGIUNGIBILE</div>
-    <div class="sub">DJtoGraphikz &egrave; chiusa o il wifi &egrave; caduto. Riprovo in automatico &mdash; riapri l'app o controlla la rete.</div>
+  <div id="dock">
+    <div id="strip">
+      <button id="blackout">BLACK</button>
+      <button id="tap"><span id="bpm" class="mono">--</span><span id="bpmlbl" class="micro">TAP</span></button>
+      <button id="freeze">FREEZE</button>
+      <button id="panic">PANIC</button>
+    </div>
+    <nav id="tabs">
+      <button id="tb_live" class="on">LIVE</button>
+      <button id="tb_fx">EFFETTI</button>
+      <button id="tb_mix">MIX</button>
+      <button id="tb_color">COLORI</button>
+    </nav>
   </div>
-
-  <nav id="tabs">
-    <button id="tb_live" class="on"><span class="ti">&#9673;</span>LIVE</button>
-    <button id="tb_fx"><span class="ti">&#10022;</span>FX</button>
-    <button id="tb_mix"><span class="ti">&#8644;</span>MIX</button>
-    <button id="tb_color"><span class="ti">&#9687;</span>COLORI</button>
-    <button id="tb_setup"><span class="ti">&#9881;</span>SETUP</button>
-  </nav>
 </div>
 
 <script>
@@ -750,9 +949,11 @@ let defs = null            // catalogs from /defs
 let looksRev = -1
 let thumbsRev = -1, thumbs = {}
 const prev = {}            // dirty-check cache for structural updates
-let dragging = {}          // range keys currently touched — poll must not move them
+const dragging = {}        // range keys currently touched — poll must not move them
+const dragPtr = {}         // pointerId -> range key
 const timers = {}, pending = {}
 const fxBtns = {}, blendBtns = {}
+let favBtns = {}
 let paramEls = {}, chainEls = {}
 const GRADE_KEYS = ['exposure', 'contrast', 'saturation', 'lift', 'vignette']
 const local = { autovj: false }
@@ -782,25 +983,103 @@ function tfetch(url, opt, ms){
 }
 
 // No automatic retry: blackout and freeze are states, and a retry after a
-// timeout of a command that did land would undo it. A failed send buzzes so
-// the DJ knows to look at the wall and tap again.
-async function cmd(c){
+// timeout of a command that did land would undo it. A failed send buzzes and
+// lights the strip (iOS ignores vibrate) so the DJ knows to look at the wall
+// and tap again. Returns false on failure; a 4xx is the app refusing, still reachable.
+let failTimer = 0
+function fail(net){
+  buzz([60, 40, 60])
+  $('strip').classList.add('fail')
+  clearTimeout(failTimer)
+  failTimer = setTimeout(function(){ $('strip').classList.remove('fail') }, 1500)
+  if (net) conn(false)
+}
+async function send(c){
   try {
     const r = await tfetch('/cmd', { method: 'POST', headers: auth(), body: JSON.stringify(c) }, 4000)
-    if (r.status === 401) return logout()
-    if (!r.ok) buzz([60, 40, 60])
-  } catch (_) { buzz([60, 40, 60]) }
+    if (r.status === 401) { logout(); return false }
+    if (!r.ok) { fail(false); return false }
+    return true
+  } catch (_) { fail(true); return false }
 }
+// A click waited up to 1.5 s for the next poll to show anything: one poll
+// ~120 ms after the command (the app applies state within 33 ms). Debounced,
+// so a burst of taps is one poll; sliders use send() and do not trigger it.
+let pollSoonTimer = 0, wantPoll = false
+function pollSoon(){
+  clearTimeout(pollSoonTimer)
+  pollSoonTimer = setTimeout(function(){ if (polling) wantPoll = true; else poll() }, 120)
+}
+function cmd(c){ return send(c).then(function(ok){ pollSoon(); return ok }) }
 
 // Throttled slider sends: at most one every 90ms while the finger moves (a
 // trailing-only timer never fired during a drag: input events come every
-// ~16ms and kept re-arming it), flush on release
+// ~16ms and kept re-arming it), flush on release. One request in flight per
+// slider: ~11 unawaited POSTs a second with a 4 s timeout filled the browser's
+// connections on bad wifi and BLACK queued behind stale values.
 function slide(k, c){
   pending[k] = c
   if (timers[k]) return
-  timers[k] = setTimeout(function(){ timers[k] = 0; cmd(pending[k]) }, 90)
+  const id = timers[k] = setTimeout(async function(){
+    const v = pending[k]; pending[k] = null
+    if (v) await send(v)
+    if (timers[k] === id) { timers[k] = 0; if (pending[k]) slide(k, pending[k]) }
+  }, 90)
 }
-function flush(k, c){ clearTimeout(timers[k]); timers[k] = 0; cmd(c) }
+function flush(k, c){ clearTimeout(timers[k]); timers[k] = 0; pending[k] = null; send(c) }
+
+// Press-and-hold button (looks, post-FX). The old pointerdown fired at once,
+// so a thumb scrolling over the grid put a look on the wall. Now: a tap sends
+// the plain command on pointerup; a scroll (pointercancel) sends nothing; past
+// HOLD_ARM_MS the hold press goes out and the release follows the finger, with
+// the duration measured here (heldMs), immune to wifi jitter. holding keeps
+// the poll from rebuilding the node under the finger.
+const HOLD_ARM_MS = 120
+const HOLD_MS = 250        // momentary.ts: a release under this leaves the press latched
+let holding = 0
+const activeHolds = new Set()
+function holdBtn(node, makePress, relValue, onFire){
+  let timer = 0, down = 0, armed = false, pressed = null
+  const done = function(){ if (down) { down = 0; holding--; activeHolds.delete(cancel) } clearTimeout(timer); timer = 0 }
+  // POSTs race on slow wifi: a release landing first finds nothing to undo
+  const release = function(ms){ const p = pressed; pressed = null; Promise.resolve(p).then(function(){ cmd({ type: 'release', value: relValue, heldMs: ms }) }) }
+  node.addEventListener('pointerdown', function(ev){
+    if (down) return
+    ev.preventDefault()
+    down = performance.now(); holding++; activeHolds.add(cancel)
+    armed = false
+    timer = setTimeout(function(){
+      timer = 0; armed = true
+      if (onFire) onFire()
+      pressed = cmd(makePress(true))
+    }, HOLD_ARM_MS)
+  })
+  node.addEventListener('pointerup', function(){
+    if (!down) return
+    if (armed) { const ms = Math.round(performance.now() - down); done(); release(ms); return }
+    done()
+    if (onFire) onFire()
+    cmd(makePress(false))
+  })
+  const cancel = function(){
+    if (!down) return
+    // a cancel is never a tap: past the threshold, or a slow scroll latches
+    if (armed) { const ms = Math.round(performance.now() - down); done(); release(Math.max(ms, HOLD_MS)); return }
+    done()   // a scroll: nothing was sent
+  }
+  node.addEventListener('pointercancel', cancel)
+  node.addEventListener('pointerleave', cancel)
+}
+// Two taps for a destructive button: the first arms it for 2.5 s
+function arm(btn, armedText, fn){
+  const label = btn.textContent
+  let at = 0
+  btn.addEventListener('click', function(){
+    if (Date.now() - at < 2500) { at = 0; btn.classList.remove('armed'); btn.textContent = label; fn(); return }
+    at = Date.now(); btn.classList.add('armed'); btn.textContent = armedText
+    setTimeout(function(){ if (Date.now() - at >= 2400) { btn.classList.remove('armed'); btn.textContent = label } }, 2600)
+  })
+}
 
 // Wire a range input: throttle + drag-key + optional live value readout
 function wireRange(inp, key, make, valEl){
@@ -808,32 +1087,47 @@ function wireRange(inp, key, make, valEl){
   inp.addEventListener('input', function(){
     const v = parseFloat(inp.value)
     if (valEl) valEl.textContent = fmtV(v)
+    fill(inp)
     slide(key, make(v))
   }, { passive: true })
   inp.addEventListener('change', function(){ flush(key, make(parseFloat(inp.value))) })
+  fill(inp)
 }
 // Poll-side updates: never touch a slider the user is dragging
 function setRange(inp, v){
   if (!inp || dragging[inp.dataset.dk]) return
   if (Math.abs(parseFloat(inp.value) - v) > 1e-9) inp.value = v
+  fill(inp)
 }
+function fill(inp){ inp.style.setProperty('--v', (inp.value - inp.min) / (inp.max - inp.min) * 100 + '%') }
 function setText(node, t){ if (node && node.textContent !== t) node.textContent = t }
 function setOn(node, on){ if (node) node.classList.toggle('on', on) }
 
 document.addEventListener('pointerdown', function(e){
   const t = e.target
-  if (t && t.type === 'range' && t.dataset.dk) dragging[t.dataset.dk] = true
+  if (t && t.type === 'range' && t.dataset.dk) { dragging[t.dataset.dk] = true; dragPtr[e.pointerId] = t.dataset.dk }
   if (t && t.closest && t.closest('button')) buzz(10)
 }, { passive: true })
-document.addEventListener('pointerup', function(){ dragging = {} }, { passive: true })
-document.addEventListener('pointercancel', function(){ dragging = {} }, { passive: true })
+// 800 ms later, not at once: a poll in flight carried the old value and the
+// slider jumped back for a moment; and lifting another finger (BLACK during a
+// crossfader drag) must not drop the shield on the fader either
+function endDrag(e){
+  const k = dragPtr[e.pointerId]
+  if (!k) return
+  delete dragPtr[e.pointerId]
+  setTimeout(function(){ if (!Object.values(dragPtr).includes(k)) delete dragging[k] }, 800)
+}
+document.addEventListener('pointerup', endDrag, { passive: true })
+document.addEventListener('pointercancel', endDrag, { passive: true })
+// a locked screen may never deliver pointerup: end the holds, or a strobe stays on
+document.addEventListener('visibilitychange', function(){ if (document.hidden) [...activeHolds].forEach(function(c){ c() }) })
 
 // ---- pairing ----
 async function pair(){
   const code = $('code').value
   if (code.length < 6) return
   try {
-    const r = await fetch('/pair', { method: 'POST', body: JSON.stringify({ code: code }) })
+    const r = await tfetch('/pair', { method: 'POST', body: JSON.stringify({ code: code }) }, 4000)
     const j = await r.json()
     if (j.token) { token = j.token; localStorage.setItem('djg-token', token); enter() }
     else { $('err').textContent = j.error || 'Errore'; $('code').value = '' }
@@ -848,14 +1142,15 @@ function enter(){
 
 async function boot(){
   try {
-    const r = await fetch('/defs', { headers: auth() })
+    // 8 s: /defs carries the look thumbnails. A hung wifi used to leave an empty page for ever.
+    const r = await tfetch('/defs', { headers: auth() }, 8000)
     if (r.status === 401) return logout()
     defs = await r.json()
-  } catch (_) { setTimeout(boot, 1200); return }
+  } catch (_) { conn(false); setTimeout(boot, 1200); return }
+  conn(true)
   buildStatic()
   renderLooks(defs.looks || [])
   looksRev = defs.looksRev || 0
-  setText($('ver'), 'v' + (defs.version || '?'))
   setText($('sver'), 'v' + (defs.version || '?'))
   poll()
   setInterval(poll, 1500)
@@ -870,8 +1165,22 @@ function buildStatic(){
     if (!byCat[e.category]) { byCat[e.category] = []; cats.push(e.category) }
     byCat[e.category].push(e)
   })
+  const chips = $('fxcats')
+  const pick = function(c, chip){
+    wrap.querySelectorAll('[data-c]').forEach(function(n){ n.hidden = c !== null && n.dataset.c !== c })
+    chips.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b === chip) })
+    window.scrollTo(0, 0)
+  }
+  ;[null].concat(cats).forEach(function(c){
+    const b = el('button', c === null ? 'on' : '', c === null ? 'Tutti' : c)
+    b.addEventListener('click', function(){ pick(c, b) })
+    chips.appendChild(b)
+  })
   cats.forEach(function(c){
-    wrap.appendChild(el('div', 'sect', c))
+    const box = el('div')
+    box.dataset.c = c
+    wrap.appendChild(box)
+    box.appendChild(el('div', 'sect', c))
     const g = el('div', 'grid3')
     byCat[c].forEach(function(e){
       const b = el('button', '', e.label)
@@ -879,25 +1188,26 @@ function buildStatic(){
       fxBtns[e.id] = b
       g.appendChild(b)
     })
-    wrap.appendChild(g)
+    box.appendChild(g)
   })
 
-  $('postclear').addEventListener('click', function(){ cmd({ type: 'postClear' }) })
+  arm($('postclear'), 'TOCCA ANCORA PER RIMUOVERE', function(){ cmd({ type: 'postClear' }) })
 
   const db = $('deckb')
   ;(defs.effects || []).forEach(function(e){ db.appendChild(new Option(e.label, e.id)) })
   db.addEventListener('change', function(){ cmd({ type: 'deckB', value: db.value }) })
 
   const seg = $('blend')
+  const bl = defs.blendLabels || {}
   ;(defs.blendModes || []).forEach(function(m){
-    const b = el('button', '', m)
+    const b = el('button', '', bl[m] || m)
     b.addEventListener('click', function(){ cmd({ type: 'blendMode', value: m }) })
     blendBtns[m] = b
     seg.appendChild(b)
   })
 
   const tt = $('trtype')
-  ;(defs.transitionTypes || []).forEach(function(t){ tt.appendChild(new Option(t, t)) })
+  ;(defs.transitionTypes || []).forEach(function(t){ tt.appendChild(typeof t === 'string' ? new Option(t, t) : new Option(t.label, t.id)) })
   tt.addEventListener('change', function(){ cmd({ type: 'transitionType', value: tt.value }) })
 
   const gs = $('genre')
@@ -923,7 +1233,19 @@ function renderLooks(looks){
   grid.textContent = ''
   const byIdx = {}
   ;(looks || []).forEach(function(l){ byIdx[l.index] = l })
-  for (let i = 0; i < 16; i++){
+  // only the slots after the last saved one are dropped: a hole in the bank
+  // stays a hole, so look 9 is always the ninth pad
+  const n = (looks || []).reduce(function(m, l){ return Math.max(m, l.index + 1) }, 0)
+  grid.dataset.d = n <= 6 ? 2 : n <= 12 ? 3 : 4
+  if (!n) {
+    const note = el('div', 'empty-note', 'Si salvano dal computer, nel pannello Look Bank.')
+    note.prepend(el('b', '', 'Nessun look salvato'))
+    grid.style.display = 'block'
+    grid.appendChild(note)
+    return
+  }
+  grid.style.display = ''
+  for (let i = 0; i < n; i++){
     const l = byIdx[i]
     if (!l) { grid.appendChild(el('div', 'look empty', String(i + 1))); continue }
     const d = el('div', 'look')
@@ -933,21 +1255,11 @@ function renderLooks(looks){
     // Tap latches, hold is momentary — the same rule as the keyboard and the
     // MIDI pads. A phone in your hand is the most natural momentary controller
     // in the room, so it sends a press and a release, not a click.
-    // one release per press: on touch pointerup is followed by pointerleave,
-    // and on desktop a hover alone must not send anything
-    let held = false
-    d.addEventListener('pointerdown', function(ev){
-      ev.preventDefault()
-      held = true
+    holdBtn(d, function(hold){ return hold ? { type: 'look', value: i, hold: 'look:' + i } : { type: 'look', value: i } }, 'look:' + i, function(){
       buzz(25)
-      cmd({ type: 'look', value: i, hold: 'look:' + i })
       d.classList.add('flash')
       setTimeout(function(){ d.classList.remove('flash') }, 350)
     })
-    const letGo = function(){ if (!held) return; held = false; cmd({ type: 'release', value: 'look:' + i }) }
-    d.addEventListener('pointerup', letGo)
-    d.addEventListener('pointercancel', letGo)
-    d.addEventListener('pointerleave', letGo)
     grid.appendChild(d)
   }
 }
@@ -962,6 +1274,7 @@ async function refreshLooks(rev){
     const r = await tfetch('/defs', { headers: auth() }, 4000)
     if (r.status === 401) return logout()
     const d = await r.json()
+    if (holding) return   // rebuilding the grid would orphan the node under the finger; the poll retries
     renderLooks(d.looks || [])
     looksRev = rev
   } catch (_) {}
@@ -970,11 +1283,35 @@ async function refreshLooks(rev){
 
 // ---- effect thumbnails behind the effect buttons (like the desktop grid) ----
 function paintThumbs(){
-  for (const id in fxBtns) {
-    const t = thumbs[id]
-    fxBtns[id].style.background = t ? 'linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), url("' + t + '") center / cover' : ''
-    fxBtns[id].classList.toggle('thumb', !!t)
-  }
+  ;[fxBtns, favBtns].forEach(function(m){
+    for (const id in m) {
+      const t = thumbs[id]
+      m[id].style.background = t ? 'linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), url("' + t + '") center / cover' : ''
+      m[id].classList.toggle('thumb', !!t)
+    }
+  })
+}
+// favourites set on the desktop (right-click on an effect), rebuilt only when the list changes
+function renderFavs(ids){
+  const sig = ids.join(',')
+  if (prev.favs === sig || !defs) return
+  prev.favs = sig
+  const grid = $('favs')
+  grid.textContent = ''
+  favBtns = {}
+  const byId = {}
+  ;(defs.effects || []).forEach(function(e){ byId[e.id] = e })
+  ids.forEach(function(id){
+    const e = byId[id]
+    if (!e) return
+    const b = el('button', '', e.label)
+    b.addEventListener('click', function(){ cmd({ type: 'effect', value: e.id }) })
+    b.classList.toggle('on', id === prev.fx)
+    favBtns[id] = b
+    grid.appendChild(b)
+  })
+  $('favwrap').hidden = !Object.keys(favBtns).length
+  paintThumbs()
 }
 let thumbsFetching = false
 async function refreshThumbs(rev){
@@ -1012,13 +1349,17 @@ function rebuildParams(e){
     // audio mapping: source select + depth slider
     const map = el('div', 'maprow')
     const sel = document.createElement('select')
-    ;(defs.paramSources || []).forEach(function(s){ sel.appendChild(new Option(s, s)) })
+    sel.setAttribute('aria-label', 'Sorgente audio di ' + d.label)
+    const labels = defs.paramSourceLabels || {}
+    ;(defs.paramSources || []).forEach(function(s){ sel.appendChild(new Option(labels[s] || s, s)) })
     const dep = document.createElement('input')
     dep.type = 'range'; dep.min = -1; dep.max = 1; dep.step = 0.05
+    dep.setAttribute('aria-label', 'Profondita di ' + d.label)
+    dep.hidden = true   // shown only with a source, as on the desktop
     const mapCmd = function(){
       return { type: 'paramMap', value: { key: d.key, source: sel.value, depth: parseFloat(dep.value) } }
     }
-    sel.addEventListener('change', function(){ cmd(mapCmd()) })
+    sel.addEventListener('change', function(){ dep.hidden = sel.value === 'none'; cmd(mapCmd()) })
     wireRange(dep, 'pd_' + d.key, mapCmd)
     map.appendChild(sel)
     map.appendChild(dep)
@@ -1062,16 +1403,7 @@ function rebuildPostUI(e){
   ;(defs.posts || []).forEach(function(p){
     if (active.indexOf(p.id) !== -1) return
     const b = el('button', '', '+ ' + p.label)
-    let held = false
-    b.addEventListener('pointerdown', function(ev){
-      ev.preventDefault()
-      held = true
-      cmd({ type: 'post', value: p.id, hold: 'post:' + p.id })
-    })
-    const letGo = function(){ if (!held) return; held = false; cmd({ type: 'release', value: 'post:' + p.id }) }
-    b.addEventListener('pointerup', letGo)
-    b.addEventListener('pointercancel', letGo)
-    b.addEventListener('pointerleave', letGo)
+    holdBtn(b, function(hold){ return hold ? { type: 'post', value: p.id, hold: 'post:' + p.id } : { type: 'post', value: p.id } }, 'post:' + p.id)
     add.appendChild(b)
   })
 }
@@ -1080,6 +1412,13 @@ function postLabel(id){
   const list = defs.posts || []
   for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i].label
   return id
+}
+function postLabelFx(id){ const f = (defs.effects || []).find(function(x){ return x.id === id }); return f ? f.label : '' }
+function fxLabel(e){
+  if (e.customShader) return 'Shader'
+  const list = defs.effects || []
+  for (let i = 0; i < list.length; i++) if (list[i].id === e.activeEffect) return list[i].label
+  return e.activeEffect || '—'
 }
 
 // ---- scalette: the app is the source of truth, the phone only mirrors it ----
@@ -1094,13 +1433,14 @@ function seqSend(c){
 function renderSeq(s){
   const hint = $('seqhint'), now = $('seqnow'), list = $('seqlist')
   if (!s || !s.available) {
-    now.hidden = true; list.textContent = ''; prev.seqsig = ''
+    now.hidden = true; $('seqsect').hidden = false; list.textContent = ''; prev.seqsig = ''
     hint.hidden = false
     hint.textContent = s ? 'Scalette non ancora pronte: riprovo tra un attimo.' : 'Nessuna informazione dalle scalette.'
     return
   }
   const playing = !!s.playing
   now.hidden = !playing
+  $('seqsect').hidden = playing   // AVANTI sits at the top of LIVE while it runs; the empty list title would be orphaned
   if (playing) {
     setText($('seqname'), s.name)
     setText($('seqstep'), (s.index + 1) + '/' + s.total + '  ' + s.stepName)
@@ -1128,9 +1468,9 @@ function wireSeq(){
   // Stop mid-show is expensive: first tap arms it, second within 2.5s fires it
   $('seqstop').addEventListener('click', function(){
     const b = $('seqstop')
-    if (Date.now() - seqArm < 2500) { seqArm = 0; b.classList.remove('armed'); b.textContent = 'STOP SCALETTA'; seqSend({ type: 'seqStop' }); return }
-    seqArm = Date.now(); b.classList.add('armed'); b.textContent = 'TOCCA ANCORA PER FERMARE'
-    setTimeout(function(){ if (Date.now() - seqArm >= 2400) { b.classList.remove('armed'); b.textContent = 'STOP SCALETTA' } }, 2600)
+    if (Date.now() - seqArm < 2500) { seqArm = 0; b.classList.remove('armed'); b.textContent = 'STOP'; seqSend({ type: 'seqStop' }); return }
+    seqArm = Date.now(); b.classList.add('armed'); b.textContent = 'CONFERMA'
+    setTimeout(function(){ if (Date.now() - seqArm >= 2400) { b.classList.remove('armed'); b.textContent = 'STOP' } }, 2600)
   })
 }
 wireSeq()
@@ -1141,8 +1481,18 @@ function renderExt(x, e, bpm){
     document.querySelectorAll('#bpmmode button').forEach(function(b){ setOn(b, b.dataset.m === x.bpmMode) })
     local.bpm = x.bpmMode === 'manual' ? x.manualBpm : bpm
     setOn($('onlymine'), !!x.onlyMine)
-    setText($('vjinfo'), 'Fase ' + x.phase + ' - ' + x.scenes + ' scene mie per questo genere')
+    setText($('vjinfo'), (local.autovj ? 'Fase ' + x.phase + ' · ' : '') + x.scenes + ' scene salvate per questo genere')
     renderOverlays(x.overlays || [])
+    renderFavs(x.favs || [])
+    // AUTO in the strip: a tap on an effect or a look switches the Auto VJ off with no sign outside LIVE
+    setText($('ver'), local.autovj ? 'AUTO' : '')
+    // the desktop shows 'Audio perso' only while it retries; 'stopped' is a choice
+    const lostAudio = x.audio === 'reconnecting'
+    $('bpm').style.color = lostAudio ? 'var(--danger)' : ''
+    setText($('bpmlbl'), lostAudio ? 'AUDIO' : 'TAP')
+    const ext = $('bpmext')
+    ext.hidden = !(x.bpmMode === 'midi' || x.bpmMode === 'prodjlink')
+    if (!ext.hidden) setText(ext, (x.bpmMode === 'midi' ? 'Tempo da MIDI clock' : 'Tempo da Pro DJ Link') + ': TAP e ±1 lo sostituiscono, si riattiva solo dal desktop')
   }
   const c = e.cycle
   if (c) {
@@ -1214,7 +1564,7 @@ let polling = false
 async function poll(){
   if (polling || document.hidden) return
   polling = true
-  try { await pollOnce() } finally { polling = false }
+  try { await pollOnce() } finally { polling = false; if (wantPoll) { wantPoll = false; poll() } }
 }
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll() })
 
@@ -1227,8 +1577,10 @@ async function pollOnce(){
   } catch (_) { conn(false); return }
   conn(true)
 
-  if (typeof j.looksRev === 'number' && j.looksRev !== looksRev) refreshLooks(j.looksRev)
-  if (typeof j.thumbsRev === 'number' && j.thumbsRev !== thumbsRev) refreshThumbs(j.thumbsRev)
+  // not under a held look: the rebuild would destroy the node carrying the release listeners
+  if (typeof j.looksRev === 'number' && j.looksRev !== looksRev && !holding) refreshLooks(j.looksRev)
+  // thumbs serve the FX tab only: every capture made each phone fetch the whole map, on the network BLACK uses
+  if (typeof j.thumbsRev === 'number' && j.thumbsRev !== thumbsRev && !$('tab-fx').hidden) refreshThumbs(j.thumbsRev)
 
   const e = j.engine
   if (!e || !defs) return
@@ -1239,6 +1591,11 @@ async function pollOnce(){
   const bpm = (j.audio && j.audio.bpm) || e.bpm
   setText($('bpm'), bpm ? String(Math.round(bpm)) : '--')
   setRange($('master'), num(e.brightness, 1))
+  if (!dragging.master) setText($('master_v'), Math.round(num(e.brightness, 1) * 100) + '%')
+  const wall = $('wall')
+  if (e.blackout) wall.dataset.s = 'black'; else if (e.frozen) wall.dataset.s = 'freeze'; else delete wall.dataset.s
+  setText($('wkick'), e.blackout ? 'BLACK' : e.frozen ? 'FREEZE' : 'IN ONDA')
+  setText($('wname'), fxLabel(e))
 
   // AutoVJ: desktop is the source of truth; optimistic tap corrected here
   if (j.vj) {
@@ -1256,9 +1613,11 @@ async function pollOnce(){
   if (prev.fx !== e.activeEffect) {
     prev.fx = e.activeEffect
     for (const k in fxBtns) fxBtns[k].classList.toggle('on', k === e.activeEffect)
+    for (const k in favBtns) favBtns[k].classList.toggle('on', k === e.activeEffect)
   }
-  const psig = (e.paramDefs || []).map(function(d){ return d.key }).join(',') + '|' + e.activeEffect
+  const psig = (e.paramDefs || []).map(function(d){ return d.key }).join(',') + '|' + e.activeEffect + '|' + (e.customShader ? 's' : '')
   if (prev.psig !== psig) { prev.psig = psig; rebuildParams(e) }
+  setText($('pname'), 'Parametri · ' + fxLabel(e))
   // Engine buckets params under the effect id ('__custom__' for custom shaders)
   // — when a custom shader is live, its bucket wins over the stale stock one
   const ep = e.effectParams || {}
@@ -1272,19 +1631,31 @@ async function pollOnce(){
       setText(els.val, fmtV(st.value))
     }
     if (document.activeElement !== els.src && els.src.value !== st.source) els.src.value = st.source
+    els.dep.hidden = st.source === 'none'
     setRange(els.dep, st.depth)
   })
 
   // MIX
   setRange($('xfade'), num(e.crossfade, 0))
+  setText($('xa'), fxLabel(e))
+  setText($('xb'), postLabelFx(e.deckBEffect))
   const db = $('deckb')
   if (e.deckBEffect && document.activeElement !== db && db.value !== e.deckBEffect) db.value = e.deckBEffect
   if (prev.blend !== e.blendMode) {
     prev.blend = e.blendMode
     for (const m in blendBtns) blendBtns[m].classList.toggle('on', m === e.blendMode)
+    // Bordo matters for a mask only, as on the desktop
+    const modes = defs.blendModes || []
+    $('msoftrow').hidden = modes.indexOf(e.blendMode) < modes.indexOf('split-v')
   }
   const csig = (e.activePost || []).join(',')
-  if (prev.chain !== csig) { prev.chain = csig; rebuildPostUI(e) }
+  // not under a held post: the rebuild drops the button that carries the release, and the strobe stays on
+  if (prev.chain !== csig && !holding) { prev.chain = csig; rebuildPostUI(e) }
+  // transition: the select showed the first type and 0.8 whatever the desktop or a look had set
+  const tt = $('trtype')
+  if (e.transitionType && document.activeElement !== tt && tt.value !== e.transitionType) tt.value = e.transitionType
+  const td = num(e.transitionDuration, 0.8)
+  if (!dragging['trdur']) { setRange($('trdur'), td); setText($('trdur_v'), fmtV(td)) }
   if (e.postAmounts) {
     for (const id in chainEls) {
       if (e.postAmounts[id] != null) setRange(chainEls[id], e.postAmounts[id])
@@ -1320,6 +1691,7 @@ async function pollOnce(){
   const pal = (e.colors || []).join(',')
   if (prev.pal !== pal) {
     prev.pal = pal
+    $('wall').style.setProperty('--pal', 'linear-gradient(90deg,' + e.colors.join(',') + ')')
     document.querySelectorAll('.palbtn').forEach(function(b){
       b.classList.toggle('on', b.dataset.c === pal)
     })
@@ -1329,10 +1701,12 @@ async function pollOnce(){
 let connFails = 0
 function conn(ok){
   $('conn').classList.toggle('ok', ok)
+  $('conn2').classList.toggle('ok', ok)
   setText($('connt'), ok ? 'Connesso' : 'Offline')
   connFails = ok ? 0 : connFails + 1
   // one missed poll can be wifi hiccup; two means the app is gone
   $('lost').hidden = connFails < 2
+  $('wall').classList.toggle('lost', connFails >= 2)
 }
 
 // ---- static wiring ----
@@ -1344,19 +1718,22 @@ function wireStatic(){
   })
 
   // blackout/freeze: optimistic toggle, next poll confirms
+  // an optimistic ON that did not get through must come back: a retap then
+  // sends the intent again instead of cancelling it
   $('blackout').addEventListener('click', function(){
     buzz(25)
-    const on = !this.classList.contains('on')
-    this.classList.toggle('on', on)
-    cmd({ type: 'blackout', value: on })
+    const btn = this, on = !btn.classList.contains('on')
+    btn.classList.toggle('on', on)
+    cmd({ type: 'blackout', value: on }).then(function(ok){ if (ok === false) btn.classList.toggle('on', !on) })
   })
   $('freeze').addEventListener('click', function(){
-    const on = !this.classList.contains('on')
-    this.classList.toggle('on', on)
-    cmd({ type: 'freeze', value: on })
+    const btn = this, on = !btn.classList.contains('on')
+    btn.classList.toggle('on', on)
+    cmd({ type: 'freeze', value: on }).then(function(ok){ if (ok === false) btn.classList.toggle('on', !on) })
   })
   $('tap').addEventListener('click', function(){ cmd({ type: 'tap' }) })
-  $('panic').addEventListener('click', function(){ buzz(40); cmd({ type: 'panic' }).then(poll) })
+  // two taps: the phone has no Annulla, and PANIC now sits in the thumb arc
+  arm($('panic'), 'CONFERMA', function(){ buzz(40); cmd({ type: 'panic' }).then(poll) })
 
   document.querySelectorAll('#bpmmode button').forEach(function(b){
     b.addEventListener('click', function(){ cmd({ type: 'bpmMode', value: b.dataset.m }).then(poll) })
@@ -1392,9 +1769,10 @@ function wireStatic(){
     cmd({ type: 'autovj', value: local.autovj })
   })
 
-  $('unpair').addEventListener('click', logout)
+  arm($('unpair'), 'TOCCA ANCORA PER SCOLLEGARE', logout)
 
   wireRange($('master'), 'master', function(v){ return { type: 'brightness', value: v } })
+  $('master').addEventListener('input', function(){ $('master_v').textContent = Math.round(this.value * 100) + '%' })
   wireRange($('xfade'), 'xfade', function(v){ return { type: 'crossfade', value: v } })
   wireRange($('mblur'), 'mblur', function(v){ return { type: 'motionBlur', value: v } }, $('mblur_v'))
   wireRange($('msoft'), 'msoft', function(v){ return { type: 'maskSoft', value: v } }, $('msoft_v'))
@@ -1412,13 +1790,20 @@ function wireStatic(){
   })
 
   // bottom tab bar — hidden tabs are display:none, no offscreen work
+  // one document scroll for all tabs: from the bottom of LIVE, MIX opened mid-page
   const tabs = ['live', 'fx', 'mix', 'color', 'setup']
+  const scrolls = {}
+  let cur = 'live'
   tabs.forEach(function(t){
     $('tb_' + t).addEventListener('click', function(){
+      scrolls[cur] = window.scrollY
       tabs.forEach(function(o){
         $('tab-' + o).hidden = o !== t
         $('tb_' + o).classList.toggle('on', o === t)
       })
+      cur = t
+      window.scrollTo(0, scrolls[t] || 0)
+      pollSoon()   // the FX tab fetches its thumbnails on the first poll with it visible
     })
   })
 }

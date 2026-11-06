@@ -10,9 +10,13 @@ import { OverlayPanel } from './components/OverlayPanel/OverlayPanel'
 import { PresetPanel } from './components/PresetPanel/PresetPanel'
 import { seqCommand } from './components/PresetPanel/seqRemote'
 import { useSequencePlayer } from './components/PresetPanel/useSequencePlayer'
+import type { Sequence } from './components/PresetPanel/sequences'
 import { ShaderEditor } from './components/ShaderEditor/ShaderEditor'
 import { DeckPanel } from './components/DeckPanel/DeckPanel'
 import { SimplePanel } from './components/SimplePanel/SimplePanel'
+import { SimpleDeck, type SimpleTab } from './components/SimplePanel/SimpleDeck'
+import { flowState, type SimpleFlow } from './simpleFlow'
+import { seedFactoryLooks } from './factoryLooks'
 import { LookBank } from './components/LookBank/LookBank'
 import { MidiPanel } from './components/MidiPanel/MidiPanel'
 import { MappingPanel } from './components/MappingPanel/MappingPanel'
@@ -29,12 +33,16 @@ import { QuickGuide } from './components/Help/QuickGuide'
 import { IconCamera, IconRecord, IconStop, IconPhone, IconFullscreen, IconHelp, IconEye, IconMonitor } from './components/Icons/Icons'
 import { Engine, BLEND_MODES, type EffectId, type PostId, type EngineState, type TransitionType, type Preset } from '@engine/Engine'
 import { AutoVJ, GENRE_CONFIGS, type Genre, type Phase } from '@engine/AutoVJ'
-import { ALL_EFFECTS, POST_CATEGORIES } from './catalog'
+import { PHASE_LABEL } from './components/AutoVJ/AutoVJControl'
+import { ALL_EFFECTS, POST_CATEGORIES, TRANSITIONS, effectLabel } from './catalog'
+import { SOURCE_META } from './components/ParamControls/ParamControls'
 import { allThumbs, onThumbs } from './fxThumbs'
+import { getFavs, setPickContext } from './fxPicks'
 import { allPalettes } from './palettes'
 import { sanitizeCmd, stepPalette, type Known } from './phoneCmd'
 import { AUDIO_SOURCES } from '@engine/EffectParams'
 import { loadUserScenes, saveUserScenes, sceneFromLook, userScenesByGenre, getOnlyMine, setOnlyMine, USER_SCENES_EVENT } from './userScenes'
+import { useAudioRestore, loadAudioSettings } from './useAudioRestore'
 import { shouldIgnoreHotkey } from './hotkeys'
 import { momentary } from './momentary'
 import { IdleWatch, loadIdleSettings, onIdleSettings } from './idle'
@@ -47,20 +55,22 @@ import { gamepad } from './gamepad'
 import { PanelBoundary } from './components/PanelBoundary/PanelBoundary'
 import { saveBlob, stampedName } from './download'
 import { useDmxOutput, notifyDmxConfigChanged } from './useDmxOutput'
-import { useAudioRestore } from './useAudioRestore'
 import { pickEffect } from './autoMapping'
 import { AUDIO_STORE_KEY, DMX_STORE_KEY, parseRes, type Venue } from './venues'
 import { migrateKeystone, type OutputCfg } from './outputs'
 
 type UIMode = 'simple' | 'pro' | 'live'
+type WallState = 'air' | 'black' | 'frozen' | 'off'
+const WALL_LABEL: Record<WallState, string> = { air: 'IN ONDA', black: 'BLACK', frozen: 'FREEZE', off: 'ANTEPRIMA' }
 const MODE_KEY = 'djtographikz-ui-mode'
 const ONBOARDED_KEY = 'djtographikz-onboarded'
 const SETTINGS_KEY = 'djtographikz-settings'
 const PREVIEW_COMPACT_KEY = 'djtographikz-preview-compact-v2'
 const BEATFLASH_KEY = 'djtographikz-beatflash'
 
-// Hotkey maps: 1-0 = first ten effects in panel order, QWER = common post toggles
-const HOTKEY_EFFECTS: EffectId[] = ALL_EFFECTS.slice(0, 10).map(fx => fx.id)
+// Hotkey maps: 1-0 = ten fixed effects (the first ten of the old panel order:
+// regrouping the catalog must not move muscle memory), QWER = common post toggles
+const HOTKEY_EFFECTS: EffectId[] = ['tunnel', 'kaleidoscope', 'voronoi', 'sacred', 'mandala', 'hexagons', 'rings', 'moire', 'neonpoly', 'truchet']
 const HOTKEY_POSTS: Record<string, PostId> = { q: 'bloom', w: 'feedback', e: 'chromatic', r: 'rgb-split' }
 
 // Catalog for the phone remote: derived from the one catalog, never re-typed.
@@ -154,7 +164,8 @@ function FpsLabel({ engine }: { engine: Engine | null }) {
       lastTime = now
     })
   }, [engine])
-  const color = fps > 55 ? 'var(--accent)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
+  // a healthy number has no colour: the colour is for when something is wrong
+  const color = fps > 55 ? 'var(--text-muted)' : fps > 30 ? 'var(--warning)' : 'var(--danger)'
   return <span style={{ color }}>{fps} FPS</span>
 }
 
@@ -162,11 +173,15 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [engine, setEngine] = useState<Engine | null>(null)
   const seqPlayer = useSequencePlayer(engine)
+  // a playlist drives the wall on purpose: the idle fade must not take it over
+  const seqPlayingRef = useRef(false); seqPlayingRef.current = seqPlayer.playing
   const engineRef = React.useRef<Engine | null>(null)
   engineRef.current = engine
   const [bpm, setBpm] = useState(0)
   /** Intensity macro, 0..1 — one fader instead of five sliders, key I */
   const [intensity, setIntensity] = useState(0)
+  /** Beat-roll division latched by , . / — 0 = off. Mirrors engine.getBeatRoll() for the bottom bar. */
+  const [beatRoll, setBeatRollUi] = useState(0)
   /**
    * The outputs of the show. The projector is outputs[0]: the toolbar edits
    * that one, the Uscite panel edits them all, and both go through the same
@@ -197,7 +212,19 @@ export function App() {
   })
   const [showRemote, setShowRemote] = useState(false)
   const [showSoundcheck, setShowSoundcheck] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(() => !readString(ONBOARDED_KEY))
+  // No wizard: Simple mode is the path (1 Musica, 2 Stile, 3 Via) and the
+  // first picture is the app itself. The factory looks are seeded here, before
+  // LookBank mounts and reads the bank. The old wizard stays in the help menu.
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (!readString(ONBOARDED_KEY)) { seedFactoryLooks(); writeString(ONBOARDED_KEY, '1') }
+    return false
+  })
+  /** which tab is open under the preview in Simple */
+  const [simpleTab, setSimpleTab] = useState<SimpleTab>('look')
+  // Simple's "ti sento": the frame listener below stamps a ref whenever there
+  // is signal; this reads it at 2 Hz and changes state only when the word changes.
+  const lastSoundRef = useRef(-Infinity)
+  const [flow, setFlow] = useState<SimpleFlow>('fermo')
 
   // U2.1/U2.2 — menu aiuto + overlay scorciatoie/guida
   const [showHelpMenu, setShowHelpMenu] = useState(false)
@@ -211,8 +238,6 @@ export function App() {
       writeString(PREVIEW_COMPACT_KEY, c ? '0' : '1')
       return !c
     })
-    // engine resizes on window resize — the class toggle alone doesn't fire it
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
   }, [])
 
   // U4.2 — flash del bordo preview sul beat (opt-in, persistito)
@@ -223,7 +248,12 @@ export function App() {
   // argument of useRef is evaluated on every render, so `useRef(new AutoVJ())`
   // built one per render and threw it away.
   const vjRef = useRef<AutoVJ>(null!)
-  if (!vjRef.current) vjRef.current = new AutoVJ()
+  if (!vjRef.current) {
+    vjRef.current = new AutoVJ()
+    // Only AutoVJPanel handed the user scenes over, and it mounts in Pro only:
+    // an app started in Simple or Live ran on factory scenes, "Solo le mie" ignored.
+    vjRef.current.setUserScenes(userScenesByGenre(loadUserScenes()), getOnlyMine())
+  }
   // Pro: gli FX stanno sotto il Look Bank; sotto 1100px tornano nella sidebar
   const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1100px)').matches)
   useEffect(() => {
@@ -253,6 +283,8 @@ export function App() {
   // U1.2 — beat dot (flashed via direct DOM mutation, no setState per frame) + audio status
   const beatDotRef = useRef<HTMLSpanElement>(null)
   const [audioStatus, setAudioStatus] = useState<'running' | 'reconnecting' | 'stopped'>('stopped')
+  // a lost WebGL context froze the preview with one line in the console; the Engine handles the restore
+  const [gpuLost, setGpuLost] = useState(false)
 
   // Main comes up with one output on defaults; the saved list is the truth.
   useEffect(() => { try { window.api?.setOutputs?.(outputs) } catch (_) {} }, [])
@@ -272,7 +304,11 @@ export function App() {
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const eng = new Engine(canvasRef.current)
+    const canvas = canvasRef.current
+    const onLost = () => setGpuLost(true), onRestored = () => setGpuLost(false)
+    canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
+    const eng = new Engine(canvas)
     // Persistence debounced: a synchronous localStorage write per emitted state
     // (~16/s while dragging a remote slider) blocks the render thread
     let persistTimer = 0
@@ -356,6 +392,7 @@ export function App() {
         else flush()
       }, 400)
     }
+    eng.onDeckClipError = path => pushToast(`Clip non leggibile: ${path.split('/').pop()}`, 'deck-clip-err', undefined, 'err')
     // the last look must survive a close: flush on the way out
     window.addEventListener('pagehide', flush)
     eng.start()
@@ -368,6 +405,7 @@ export function App() {
       try {
         eng.applySettings(saved)
         if (typeof saved.brightness === 'number') setBrightness(saved.brightness)
+        setIntensity(eng.getIntensity())   // the engine restores it; the fader started at 0 and the I key read that
       } catch (err) {
         console.error('[Settings] ripristino fallito:', err)
         window.api?.logToFile?.('settings', `[Settings] ripristino fallito: ${err instanceof Error ? err.stack ?? err.message : String(err)}`)
@@ -496,12 +534,13 @@ export function App() {
       // (a user scene the Auto VJ cannot apply) used to skip the rest of
       // renderFrame on every frame until the cause went away — frozen preview.
       try {
+        if (energyRaw > 0) lastSoundRef.current = performance.now()
         vj.update({ beat, energy, bass, barPhase, bassRaw, energyRaw, key })
         eng.notePhase(vj.getPhase())   // the track-change detector reads it after this listener
         // the release sweep sets effects itself and measures them: idle must not move the picture under it.
         // The watch is reset while it is not in charge: a silence from minutes ago
         // must not count the moment the Auto VJ is switched off.
-        if (!idleSettings.enabled || vj.isEnabled() || window.api?.selfTestSweep) { idle.reset(); idleBefore = null; return }
+        if (!idleSettings.enabled || vj.isEnabled() || seqPlayingRef.current || window.api?.selfTestSweep) { idle.reset(); idleBefore = null; return }
         const ev = idle.update(energyRaw > 0, performance.now())
         if (ev) window.api?.logToFile?.('idle', `[Idle] ${ev} effect=${eng.getCurrentEffect()}`)
         if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {
@@ -529,7 +568,10 @@ export function App() {
         palettes: allPalettes(),
         genres: (Object.keys(GENRE_CONFIGS) as Genre[]).map(id => ({ id, label: GENRE_CONFIGS[id].label })),
         blendModes: BLEND_MODES,
-        transitionTypes: Object.keys(TRANSITION_TYPES),
+        // the phone shows these: labels travel with the ids, never re-typed there
+        blendLabels: { 'split-v': 'split V', 'split-h': 'split O', radial: 'radiale', luma: 'luma', audio: 'audio', difference: 'diff' },
+        transitionTypes: TRANSITIONS.map(t => ({ id: t.id, label: t.label })),
+        paramSourceLabels: Object.fromEntries(AUDIO_SOURCES.map(s => [s, s === 'none' ? 'Audio: no' : SOURCE_META[s].label])),
       })
     } catch (_) {}
 
@@ -540,6 +582,8 @@ export function App() {
       flush()
       window.removeEventListener('pagehide', flush)
       disposed = true
+      canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
       clearTimeout(sweepTimer)
       clearInterval(dryRunTimer)
       unsubscribe()
@@ -563,9 +607,14 @@ export function App() {
     return () => { off(); clearTimeout(t) }
   }, [])
 
-  // Enumerate displays for the monitor picker
+  // "Adatti ora" row of the effect grid follows the genre and the live phase
+  useEffect(() => { setPickContext(vjGenre, vjStatus.phase) }, [vjGenre, vjStatus.phase])
+
+  // Enumerate displays for the monitor picker: at mount and on every hotplug
   useEffect(() => {
-    window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {})
+    const read = () => { window.api?.listDisplays().then((list: any[]) => setDisplays(list)).catch(() => {}) }
+    read()
+    return window.api?.onDisplaysChanged?.(read)
   }, [])
 
   // Update check: main pings GitHub, we show a toast with a download link
@@ -611,6 +660,31 @@ export function App() {
     setAudioStatus(engine.audioAnalyzer.getStatus())
     setBpm(Math.round(engine.audioAnalyzer.getData().bpm) || 0)
   }, engine ? 1000 : null)
+  useVisibleInterval(() => {
+    if (!engine) return
+    const next = flowState(engine.audioAnalyzer.getStatus() === 'running', performance.now() - lastSoundRef.current)
+    setFlow(prev => (prev === next ? prev : next))
+  }, engine && mode === 'simple' ? 500 : null)
+
+  // The control engine follows the projector's size from wherever it is set
+  // (toolbar, Uscite panel, a venue): the Uscite panel used to change the
+  // projector alone and the preview kept the old aspect.
+  useEffect(() => {
+    if (!engine) return
+    engine.setRenderSize(primaryOut.width, primaryOut.height)
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes
+  }, [engine, primaryOut.width, primaryOut.height])
+
+  // The engine sizes the preview on the window resize event only; the box it
+  // sits in changes with the mode, the drawer, the compact toggle and the Live
+  // grid. One observer on that box fires the same event for all of them.
+  useEffect(() => {
+    const box = canvasRef.current?.parentElement
+    if (!engine || !box) return
+    const ro = new ResizeObserver(() => window.dispatchEvent(new Event('resize')))
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [engine])
 
   // U1.3 — output window status: on mount + whenever main signals a change
   useEffect(() => {
@@ -625,6 +699,7 @@ export function App() {
     catch (e) { pushToast(`Screenshot non riuscito: ${(e as Error).message}`, 'shot', undefined, 'err'); return }
     if (!blob) return
     saveBlob(blob, stampedName('png'))
+    pushToast('Screenshot salvato in Download', 'shot')
   }, [engine])
 
   // WebM recording of the preview canvas — zero deps, saves on stop
@@ -670,6 +745,7 @@ export function App() {
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop())
       saveBlob(new Blob(chunks, { type: 'video/webm' }), stampedName('webm'))
+      pushToast('Registrazione salvata in Download', 'rec')   // same key as the 1.5 GB stop: they collapse
     }
     try {
       rec.start(1000) // 1s chunks so a crash loses at most a second
@@ -857,6 +933,19 @@ export function App() {
     setVjHeld(held)
   }, [])
 
+  // A pick from the Pro grid or a Look Bank click takes over from the Auto VJ,
+  // as 1-0, the phone, MIDI and the Simple grid already did: otherwise the
+  // next scene replaced it and the click looked broken.
+  // Returns what puts it back, for a held look that gets released.
+  const onManual = useCallback(() => {
+    if (!vjRef.current.isEnabled()) return undefined
+    const heldWas = vjRef.current.isHeld()
+    const restore = () => { toggleVJ(true); if (heldWas) toggleVJHold(true) }
+    toggleVJ(false)
+    pushToast('Auto VJ spento: scelta manuale', 'vj-manual', { label: 'Riattiva', fn: restore })
+    return restore
+  }, [toggleVJ, toggleVJHold])
+
   const changeVJGenre = useCallback((g: Genre) => {
     vjRef.current.setGenre(g)
     // the genre is the best tempo hint we have — center the BPM search on it
@@ -898,8 +987,6 @@ export function App() {
     // a display id that is gone puts the show on nothing.
     const missing = list.filter(o => o.displayId !== null && !displays.some(d => d.id === o.displayId))
     setOutputs(list.map(o => missing.includes(o) ? { ...o, displayId: null } : o))
-    engine.setRenderSize(list[0].width, list[0].height)
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes to the new aspect
 
     engine.setBrightness(v.brightness); setBrightness(v.brightness)
     if (v.audio !== null) writeJson(AUDIO_STORE_KEY, v.audio)
@@ -910,16 +997,62 @@ export function App() {
 
   // U1.1 — PANIC: back to a clean, visible baseline in one gesture.
   // The current effect stays on purpose: switching it mid-panic is more jarring.
+  // Undo: a P one key from [ wipes a post chain built by hand. The snapshot
+  // survives a double P (the reflex in a panic), or the second one would
+  // save the clean state and there would be nothing to go back to.
+  const panicUndo = useRef<{
+    at: number; preset: Preset; vj: boolean; held: boolean; intensity: number; roll: number
+    brightness: number; blackout: boolean; frozen: boolean
+    seq: { list: Sequence; step: number } | null
+  } | null>(null)
+  const seqNow = useRef(seqPlayer)
+  seqNow.current = seqPlayer
   const panic = useCallback(() => {
     if (!engine) return
+    const now = performance.now()
+    if (!panicUndo.current || now - panicUndo.current.at > 5000) {
+      const s = seqNow.current
+      panicUndo.current = {
+        at: now, preset: engine.createPreset('prima del panic'),
+        vj: vjRef.current.isEnabled(), held: vjRef.current.isHeld(),
+        intensity: intensityRef.current, roll: engine.getBeatRoll() as 0 | 4 | 8 | 16,
+        brightness: engine.getBrightness(), blackout: engine.isBlackout(), frozen: engine.isFrozen(),
+        seq: s.playing && s.playingSeq ? { list: s.playingSeq, step: s.stepIndex } : null,
+      }
+    }
+    const u = panicUndo.current
     engine.setActivePosts([])
     engine.setCrossfade(0)
     engine.setMotionBlur(0)
     engine.setBrightness(1); setBrightness(1)
     engine.setBlackout(false); setBlackout(false)
     engine.setFreeze(false); setFrozen(false)
+    // intensity and a latched beat-roll are often the very cause of a dirty
+    // picture; a running playlist would re-dirty it at the next step
+    engine.setIntensity(0); setIntensity(0)
+    engine.setBeatRoll(0); setBeatRollUi(0)
+    seqPlayer.stop()
     toggleVJ(false)
-  }, [engine, toggleVJ])
+    pushToast(`PANIC · post, crossfade, intensità e beat-roll azzerati${u.vj ? ', Auto VJ spento' : ''}${u.seq ? ', scaletta fermata' : ''}`, 'panic-undo', {
+      label: 'Annulla',
+      fn: () => {
+        engine.applyPreset(u.preset)
+        engine.setIntensity(u.intensity); setIntensity(u.intensity)
+        engine.setBeatRoll(u.roll as 0 | 4 | 8 | 16); setBeatRollUi(u.roll)
+        engine.setBrightness(u.brightness); setBrightness(u.brightness)
+        engine.setBlackout(u.blackout); setBlackout(u.blackout)
+        engine.setFreeze(u.frozen); setFrozen(u.frozen)
+        if (u.vj) { toggleVJ(true); if (u.held) toggleVJHold(true) }
+        if (u.seq) seqNow.current.start(u.seq.list, u.seq.step)
+        panicUndo.current = null   // spent: a later P must snapshot afresh
+      },
+    })
+  }, [engine, toggleVJ, toggleVJHold, seqPlayer.stop])
+
+  // One word for the state of the wall, on the preview's frame and tag. The
+  // output window closed means the preview is only a preview: saying IN ONDA
+  // would be false. Black also with the master at zero, as the banner does.
+  const wallState: WallState = !outputInfo?.open ? 'off' : blackout || brightness < 0.05 ? 'black' : frozen ? 'frozen' : 'air'
 
   const changeMode = useCallback((m: UIMode) => {
     setMode(m)
@@ -936,6 +1069,7 @@ export function App() {
       await engine.audioAnalyzer.start(result.deviceId || undefined)
     } catch (err) {
       console.error('[App] onboarding audio start failed:', err)
+      pushToast(`Audio non avviato: ${(err as Error).message} — scegli l'ingresso nel pannello Audio`, 'onboarding-audio', undefined, 'err')
     }
   }, [engine, changeVJGenre, toggleVJ])
 
@@ -945,6 +1079,15 @@ export function App() {
   // this lived in AudioPanel, which Live mode never mounts, so an app
   // restarted in Live sat silent with default settings
   useAudioRestore(engine, panelEpoch)
+
+  // Tap tempo from Space, the phone and MIDI: leaving auto detection is said once
+  const tapBpm = useCallback(() => {
+    const a = engine?.audioAnalyzer
+    if (!a) return
+    if (a.getBpmMode() === 'auto') pushToast('Tap: rilevamento automatico disattivato', 'bpm-manual')
+    a.setBpmMode('tap')
+    a.tap()
+  }, [engine])
 
   // Live performance hotkeys:
   // B blackout · F freeze · [ ] master · 1-0 effects · QWER post toggles · Space tap BPM
@@ -984,19 +1127,22 @@ export function App() {
         intensityRef.current = next
         engine.setIntensity(next); setIntensity(next)
         momentary.press(k, () => { intensityRef.current = prev; engine.setIntensity(prev); setIntensity(prev) })
-      } else if (k === ',' || k === '.' || k === '/') {
+      } else if (k === ',' || k === '.' || (!e.shiftKey && (k === '/' || e.code === 'Slash'))) {
         // Beat-roll: the clocks loop over a quarter, an eighth or a sixteenth
         // of a beat. Held it stutters while you hold; tapped it latches, and
-        // the same key taps it off.
+        // the same key taps it off. On IT/DE layouts Shift+7 is '/', the same
+        // key that recalls look 7: the physical key next to '.' (e.code Slash,
+        // '-' on IT) is the sixteenth there, Shift excluded.
         const division = k === ',' ? 4 : k === '.' ? 8 : 16
         const prev = engine.getBeatRoll() as 0 | 4 | 8 | 16
         engine.setBeatRoll(prev === division ? 0 : division)
-        momentary.press(k, () => engine.setBeatRoll(prev))
+        setBeatRollUi(engine.getBeatRoll())
+        momentary.press(k, () => { engine.setBeatRoll(prev); setBeatRollUi(engine.getBeatRoll()) })
       } else if (k === 'p') {
         panic()
       } else if (k === 'v') {
         if (reelRef.current) reelRef.current.save()
-        else pushToast('Reel spento — attivalo nel pannello Uscite', 'reel')
+        else pushToast('Reel spento — attivalo in PRO, pannello Uscite', 'reel')
       } else if (e.key === '?') {
         // U2.2 — Shift+/ apre/chiude direttamente la cheat sheet
         setShowCheatSheet(prev => !prev)
@@ -1010,9 +1156,14 @@ export function App() {
         const effect = HOTKEY_EFFECTS[idx]
         if (effect) {
           const before = engine.getCurrentEffect()
+          // "held = momentary, let go and it comes back": the Auto VJ too
+          const vjWas = vjRef.current.isEnabled(), heldWas = vjRef.current.isHeld()
           toggleVJ(false)
           pickEffect(engine, effect)
-          momentary.press(k, () => engine.setEffect(before))
+          momentary.press(k, () => {
+            engine.setEffect(before)
+            if (vjWas) { toggleVJ(true); if (heldWas) toggleVJHold(true) }
+          })
         }
       } else if (k in HOTKEY_POSTS) {
         const id = HOTKEY_POSTS[k]
@@ -1021,8 +1172,7 @@ export function App() {
         momentary.press(k, () => { if (engine.isPostActive(id) !== was) engine.togglePost(id) })
       } else if (k === ' ') {
         e.preventDefault()
-        engine.audioAnalyzer.setBpmMode('tap')
-        engine.audioAnalyzer.tap()
+        tapBpm()
       }
     }
 
@@ -1041,7 +1191,37 @@ export function App() {
       window.removeEventListener('blur', onBlur)
       momentary.clear()
     }
-  }, [engine, toggleVJ, panic])
+  }, [engine, toggleVJ, toggleVJHold, panic, tapBpm])
+
+  // Focus left on a clicked control made the hotkeys deaf: B after the master
+  // fader did nothing, and Space re-pressed the BLACK or PANIC just clicked
+  // (a focused button owns Space, see hotkeys.ts). A mouse click gives the
+  // focus back; a keyboard activation (detail 0, :focus-visible) keeps it, so
+  // Tab navigation still works. Capture: React stops some clicks bubbling.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.detail === 0) return
+      const btn = (e.target as HTMLElement | null)?.closest?.('button')
+      if (btn && btn === document.activeElement) btn.blur()
+      // a checkbox owns Space too; a click on its label focuses it only after
+      // this capture listener, hence the deferred read
+      setTimeout(() => {
+        const a = document.activeElement
+        if (a instanceof HTMLInputElement && (a.type === 'checkbox' || a.type === 'radio')) a.blur()
+      }, 0)
+    }
+    // a select keeps the focus after a pick and a digit then type-aheads it
+    const onChange = (e: Event) => {
+      const el = e.target
+      if (el instanceof HTMLSelectElement && !el.matches(':focus-visible')) el.blur()
+    }
+    window.addEventListener('click', onClick, true)
+    window.addEventListener('change', onChange, true)
+    return () => {
+      window.removeEventListener('click', onClick, true)
+      window.removeEventListener('change', onChange, true)
+    }
+  }, [])
 
   // What the phone shows beyond the engine snapshot: BPM mode, Auto VJ scenes,
   // loaded overlays. Pushed on change (1s tick + after every command).
@@ -1056,6 +1236,8 @@ export function App() {
       phase: vj.getPhase(),
       onlyMine: getOnlyMine(),
       scenes: loadUserScenes().filter(sc => sc.genre === genre).length,
+      favs: getFavs(),
+      audio: engine.audioAnalyzer.getStatus(),
       overlays: engine.getOverlays().filter(o => !o.id.startsWith('seq:')).slice(0, 24)
         .map(o => ({ id: o.id, name: o.name.slice(0, 40), visible: o.visible, opacity: Math.round(o.opacity * 100) / 100 })),
     }
@@ -1087,11 +1269,15 @@ export function App() {
     // The phone sends a press and a release, so a look or a post-FX held with
     // a thumb behaves like a held key. `hold` names the press; `release`
     // undoes it if it lasted.
-    if (cmd.type === 'release') { momentary.release(`remote:${v}`); return }
+    if (cmd.type === 'release') { momentary.release(`remote:${v}`, cmd.heldMs); return }
     if (cmd.hold) {
       if (cmd.type === 'look') {
         const before = engine.createPreset('prima del richiamo')
-        momentary.press(`remote:${cmd.hold}`, () => engine.applyPreset(before))
+        const vjWas = vjRef.current.isEnabled(), heldWas = vjRef.current.isHeld()
+        momentary.press(`remote:${cmd.hold}`, () => {
+          engine.applyPreset(before)
+          if (vjWas) { toggleVJ(true); if (heldWas) toggleVJHold(true) }
+        })
       } else if (cmd.type === 'post') {
         const id = v as PostId
         const was = engine.isPostActive(id)
@@ -1186,17 +1372,37 @@ export function App() {
           window.dispatchEvent(new Event(USER_SCENES_EVENT))
           break
         }
-        case 'tap':
-          engine.audioAnalyzer.setBpmMode('tap')
-          engine.audioAnalyzer.tap()
-          break
+        case 'tap': tapBpm(); break
     }
     // U1.4 — toast for external surfaces (phone/OSC). MIDI cmds arrive without
     // source and stay silent: MIDI is the operator's own hands.
     // Keyed on cmd.type so a slider stream collapses into one updating toast.
     if (cmd.source) pushToast(`${cmdToastLabel(cmd.type, v)} · ${cmd.source}`, cmd.type)
     if (!EXT_STABLE.has(cmd.type)) pushPhoneExt()
-  }, [engine, pushPhoneExt, toggleVJ, changeVJGenre, panic])
+  }, [engine, pushPhoneExt, toggleVJ, toggleVJHold, changeVJGenre, panic, tapBpm])
+
+  // The Auto VJ and a playlist would fight for the wall: the playlist wins,
+  // when it starts and if the Auto VJ is turned on under it, from any surface.
+  useEffect(() => {
+    if (seqPlayer.playing && vjRef.current.isEnabled()) {
+      toggleVJ(false)
+      pushToast('Auto VJ spento: guida la scaletta', 'vj-seq')
+    }
+  }, [seqPlayer.playing, vjEnabled, toggleVJ])
+
+  // A controller whose cable drops goes quiet with no word anywhere but the
+  // MIDI panel, collapsed and Pro-only. The bottom bar is in every mode.
+  const [midiLost, setMidiLost] = useState(false)
+  useEffect(() => {
+    let seen = midi.deviceNames.length > 0
+    const check = () => {
+      if (midi.deviceNames.length > 0) seen = true
+      setMidiLost(seen && midi.deviceNames.length === 0)   // same boolean = no re-render
+    }
+    const off = midi.onChange(check)
+    check()
+    return off
+  }, [])
 
   // MIDI and gamepad start with the engine, whatever the layout. They used to
   // start in MidiPanel's effect — mounted in Pro mode only — so a show run in
@@ -1227,6 +1433,106 @@ export function App() {
     return () => { offBeat(); offDevices(); offTrack() }
   }, [engine])
 
+  // Strumenti menu: closes on Esc and on a click outside (the GIF menu never did)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  /** the scaletta picked in the Live Regia, before it starts */
+  const [liveSeq, setLiveSeq] = useState(0)
+  const toolsRef = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!toolsOpen) return
+    const onDown = (e: MouseEvent) => { if (!toolsRef.current?.contains(e.target as Node)) { setToolsOpen(false); setGifMenu(false) } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setToolsOpen(false); setGifMenu(false) } }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [toolsOpen])
+
+  // The pieces that move between the top bar (Simple, Pro) and the Live rail:
+  // one handler each, rendered in exactly one place per mode. beatDotRef is a
+  // single ref, so the tempo block is mounted once.
+  const tempo = (
+    <>
+      <span
+        ref={beatDotRef}
+        className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
+        title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
+      />
+      <span className="tb-bpm" title="BPM rilevato (la modalita' BPM si cambia da Regolazioni audio, in Simple o Pro)">
+        <b>{audioStatus === 'running' && bpm > 0 ? bpm : '—'}</b> BPM
+      </span>
+    </>
+  )
+  const faders = (
+    <>
+      <label className="fader" title="Intensità: un comando invece di cinque cursori — a zero la scena e' quella che hai impostato (I)">
+        <span className="deck-label">Intensità</span>
+        <input
+          className="tb-master"
+          type="range" min={0} max={1} step={0.01}
+          value={intensity}
+          style={{ '--p': `${intensity * 100}%` } as React.CSSProperties}
+          onChange={e => {
+            const v = parseFloat(e.target.value)
+            setIntensity(v)
+            engine?.setIntensity(v)
+          }}
+        />
+        <span className="fader-value">{Math.round(intensity * 100)}%</span>
+      </label>
+      <label className="fader" title="Luminosità master ([ / ])">
+        <span className="deck-label">Master</span>
+        <input
+          className="tb-master"
+          type="range" min={0} max={1} step={0.01}
+          value={brightness}
+          style={{ '--p': `${brightness * 100}%` } as React.CSSProperties}
+          onChange={e => {
+            const v = parseFloat(e.target.value)
+            setBrightness(v)
+            engine?.setBrightness(v)
+          }}
+        />
+        <span className="fader-value">{Math.round(brightness * 100)}%</span>
+      </label>
+    </>
+  )
+  const safety = (
+    <>
+      <button
+        className={`btn btn-emg btn-black${blackout ? ' on' : ''}`}
+        onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
+        aria-pressed={blackout}
+        title="Blackout (B)"
+      >
+        BLACK<kbd className="emg-key" aria-hidden="true">B</kbd>
+      </button>
+      <button
+        className={`btn btn-emg btn-freeze${frozen ? ' on' : ''}`}
+        onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
+        aria-pressed={frozen}
+        title="Freeze (F)"
+      >
+        FREEZE<kbd className="emg-key" aria-hidden="true">F</kbd>
+      </button>
+      <button
+        className="btn btn-emg btn-panic"
+        onClick={panic}
+        title="PANIC — azzera post, crossfade, motion blur, intensità, beat-roll, blackout e freeze, ferma scaletta e Auto VJ (P)"
+      >
+        PANIC<kbd className="emg-key" aria-hidden="true">P</kbd>
+      </button>
+    </>
+  )
+  const recButton = (
+    <button
+      className={`btn btn-sm${recording ? ' btn-danger' : ''}`}
+      onClick={toggleRecording}
+      title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
+      aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
+      {recording ? <><IconStop /> REC</> : <><IconRecord />{mode === 'live' ? ' Registra' : ''}</>}
+    </button>
+  )
+
   return (
     <div className={`app-layout mode-${mode}`}>
       {/* modals get a boundary each, like the panels: a throw in one must not take App (and the engine) down */}
@@ -1250,19 +1556,14 @@ export function App() {
       {showCheatSheet && <PanelBoundary name="Scorciatoie"><CheatSheet onClose={() => setShowCheatSheet(false)} /></PanelBoundary>}
       {showQuickGuide && <PanelBoundary name="Guida"><QuickGuide onClose={() => setShowQuickGuide(false)} /></PanelBoundary>}
 
-      {/* Top bar — D4: controlli raggruppati (identità · modalità · master · output · aiuto) */}
+      {/* Top bar: one row. Identity · mode · faders · BLACK FREEZE PANIC · output · tools.
+          In Live the faders and the trio live in the rail on the right and the
+          tools fold into the Strumenti menu, so nothing moves during a set. */}
       <div className="top-bar">
         <div className="tb-group">
           <span className="tb-eye"><IconEye /></span>
           <span className="title">DJtoGraphikz</span>
-          <span
-            ref={beatDotRef}
-            className={`beat-dot${audioStatus === 'running' ? '' : ' beat-dot-off'}`}
-            title={audioStatus === 'running' ? 'Audio attivo — lampeggia sul beat' : audioStatus === 'reconnecting' ? 'Audio perso — riconnessione…' : 'Audio fermo'}
-          />
-          <span className="tb-bpm" title="BPM rilevato (la modalita' BPM si cambia dal pannello Audio)">
-            <b>{audioStatus === 'running' && bpm > 0 ? bpm : '—'}</b> BPM
-          </span>
+          {mode !== 'live' && tempo}
         </div>
 
         {/* Simple / Pro / Live switch */}
@@ -1270,6 +1571,7 @@ export function App() {
           <div className="mode-switch">
             <button
               className={mode === 'simple' ? 'active' : ''}
+              aria-pressed={mode === 'simple'}
               onClick={() => changeMode('simple')}
               title="Modalità Simple — controlli essenziali"
             >
@@ -1277,6 +1579,7 @@ export function App() {
             </button>
             <button
               className={mode === 'pro' ? 'active' : ''}
+              aria-pressed={mode === 'pro'}
               onClick={() => changeMode('pro')}
               title="Modalità Pro — tutti i pannelli"
             >
@@ -1284,6 +1587,7 @@ export function App() {
             </button>
             <button
               className={mode === 'live' ? 'active' : ''}
+              aria-pressed={mode === 'live'}
               onClick={() => changeMode('live')}
               title="Modalità Live — solo preview e Look Bank"
             >
@@ -1292,122 +1596,49 @@ export function App() {
           </div>
         </div>
 
-        <div className="tb-group">
-          <span className="deck-label" title="Intensità: alza insieme velocità, reattività, densità e il wet dei post-FX (I)">INTENS.</span>
-          <input
-            className="tb-master"
-            type="range" min={0} max={1} step={0.01}
-            value={intensity}
-            style={{ '--p': `${intensity * 100}%` } as React.CSSProperties}
-            onChange={e => {
-              const v = parseFloat(e.target.value)
-              setIntensity(v)
-              engine?.setIntensity(v)
-            }}
-            title="Intensità: un comando invece di cinque cursori — a zero la scena e' quella che hai impostato (I)"
-          />
-        </div>
-
-        <div className="tb-group">
-          <span className="deck-label" title="Luminosità master ([ / ])">MASTER</span>
-          <input
-            className="tb-master"
-            type="range" min={0} max={1} step={0.01}
-            value={brightness}
-            style={{ '--p': `${brightness * 100}%` } as React.CSSProperties}
-            onChange={e => {
-              const v = parseFloat(e.target.value)
-              setBrightness(v)
-              engine?.setBrightness(v)
-            }}
-            title="Luminosità master ([ / ])"
-          />
+        {mode !== 'live' && (
+          <>
+            <div className="tb-group tb-faders">{faders}</div>
+            <div className="tb-group tb-safety">{safety}</div>
+          </>
+        )}
+        {seqPlayer.playing && seqPlayer.playingSeq && mode !== 'live' && (
+          // a playlist started from the phone drove the wall with no trace in Simple
           <button
-            className={`btn btn-sm btn-black${blackout ? ' on' : ''}`}
-            onClick={() => { const v = !blackout; setBlackout(v); engine?.setBlackout(v) }}
-            title="Blackout (B)"
+            className="btn btn-sm"
+            style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            onClick={seqPlayer.stop}
+            title="Ferma la scaletta"
           >
-            BLACK
+            ■ {seqPlayer.playingSeq.name} {seqPlayer.stepIndex + 1}/{seqPlayer.playingSeq.steps.length}
           </button>
-          <button
-            className={`btn btn-sm ${frozen ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => { const v = !frozen; setFrozen(v); engine?.setFreeze(v) }}
-            title="Freeze (F)"
-          >
-            FREEZE
-          </button>
-          <button
-            className="btn btn-sm btn-panic"
-            onClick={panic}
-            title="PANIC — reset visuali a uno stato pulito (P)"
-          >
-            PANIC
-          </button>
-        </div>
+        )}
 
         <div className="spacer" />
 
         <div className="tb-group tb-right">
-          <button className="btn btn-secondary btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
-            <IconCamera />
-          </button>
-          <button
-            className={`btn btn-sm tb-extra ${recording ? 'btn-danger' : 'btn-secondary'}`}
-            onClick={toggleRecording}
-            title={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}
-           aria-label={recording ? 'Ferma e salva la registrazione WebM' : 'Registra la preview in WebM'}>
-            {recording ? <IconStop /> : <IconRecord />}
-          </button>
-          <span className="tb-extra" style={{ position: 'relative', display: 'inline-flex' }}>
-            <button className="btn btn-secondary btn-sm" disabled={!!gifBusy}
-              onClick={() => setGifMenu(m => !m)}
-              title="Esporta una GIF in loop dalla preview" aria-label="Esporta una GIF in loop dalla preview"
-              aria-expanded={gifMenu}>
-              {gifBusy ?? 'GIF'}
-            </button>
-            {gifMenu && (
-              <div role="menu" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 50, padding: 'var(--s3)',
-                display: 'flex', flexDirection: 'column', gap: 'var(--s2)', background: 'var(--bg-panel, #1a1a1f)',
-                border: '1px solid var(--border, #333)', borderRadius: 6, minWidth: 190 }}>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Durata
-                  <select value={gifOpt.secs} disabled={gifOpt.bars && bpm > 0}
-                    onChange={e => setGifOpt(o => ({ ...o, secs: +e.target.value }))}>
-                    {[3, 5, 8].map(s => <option key={s} value={s}>{s} s</option>)}
-                  </select>
-                </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>Larghezza
-                  <select value={gifOpt.width} onChange={e => setGifOpt(o => ({ ...o, width: +e.target.value }))}>
-                    {[320, 480, 640].map(s => <option key={s} value={s}>{s} px</option>)}
-                  </select>
-                </label>
-                <label title={bpm > 0 ? 'Cattura 1-2 battute esatte al BPM corrente: il loop non scatta' : 'BPM non rilevato: usa i secondi'}
-                  style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input type="checkbox" checked={gifOpt.bars} disabled={!(bpm > 0)}
-                    onChange={e => setGifOpt(o => ({ ...o, bars: e.target.checked }))} />
-                  Loop a battuta
-                </label>
-                <button className="btn btn-sm btn-danger" onClick={startGif}>Cattura GIF</button>
-              </div>
-            )}
-          </span>
-          {reelArmed && (
-            <button className="btn btn-secondary btn-sm tb-extra" onClick={() => reelRef.current?.save()}
-              title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)"
-              aria-label="Salva il reel degli ultimi 15–30 s">
-              <span style={{ color: 'var(--accent)' }}>●</span> Reel
+          {mode !== 'live' && (
+            <button className="btn btn-sm" onClick={screenshot} title="Screenshot PNG" aria-label="Screenshot PNG">
+              <IconCamera />
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
-            <IconPhone />
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowSoundcheck(true)} title="Soundcheck: ingresso, proiettore, fps, DMX, telefono e disco in pochi secondi">
-            Soundcheck
-          </button>
+          {(recording || mode !== 'live') && recButton}
+          {mode !== 'live' && (
+            <button className="btn btn-sm" onClick={() => setShowRemote(true)} title="Remote dal telefono (QR + codice)" aria-label="Remote dal telefono (QR + codice)">
+              <IconPhone />
+            </button>
+          )}
           {outputInfo && (outputInfo.open ? (
             <span className="chip output-chip" title="Stato della finestra di output">
               <IconMonitor size={14} />
-              Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
-              {(outputInfo.count ?? 1) > 1 ? ` +${(outputInfo.count ?? 1) - 1}` : ''}
+              <span className="output-chip-name">Output · {outputInfo.display}{outputInfo.fullscreen ? ' · FS' : ''}
+              {(outputInfo.count ?? 1) > 1 ? ` +${(outputInfo.count ?? 1) - 1}` : ''}</span>
+              {(outputInfo.count ?? 1) < outputs.length && (
+                // a secondary wall that closed or crashed out: main recreates the missing ones on the list
+                <button className="btn btn-sm output-reopen" onClick={() => window.api?.setOutputs?.(outputs)} title="Un'uscita secondaria è chiusa — riaprila">
+                  Riapri uscite
+                </button>
+              )}
             </span>
           ) : (
             <button
@@ -1419,58 +1650,113 @@ export function App() {
               Riapri output
             </button>
           ))}
-          {displays.length > 1 && (
-            <select
-              className="tb-extra tb-select"
-              value={primaryOut.displayId ?? ''}
-              onChange={e => {
-                const id = parseInt(e.target.value)
-                if (!isNaN(id)) setOutputs(outputs.map((o, i) => i === 0 ? { ...o, displayId: id } : o))
-              }}
-              title="Sposta la finestra di output su un display"
+          <span className="tb-tools" ref={toolsRef}>
+            <button
+              className={`btn btn-sm${toolsOpen ? ' active' : ''}`}
+              onClick={() => setToolsOpen(o => !o)}
+              aria-expanded={toolsOpen}
+              title="Strumenti: foto, registrazione, GIF, reel, telefono, soundcheck, uscita"
             >
-              <option value="" disabled>Output su…</option>
-              {displays.map(d => (
-                <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
-              ))}
-            </select>
-          )}
-          <select
-            className="tb-extra tb-select"
-            value={outputRes}
-            onChange={e => {
-              const [w, h] = e.target.value.split('x').map(Number)
-              engine?.setRenderSize(w, h)
-              requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))   // preview re-letterboxes
-              setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
-            }}
-            title="Risoluzione di uscita del proiettore"
-          >
-            <option value="1280x720">720p</option>
-            <option value="1920x1080">1080p</option>
-            <option value="2560x1440">1440p</option>
-            <option value="3840x2160">4K</option>
-            {/* the Uscite panel allows any size — never show a wrong value here */}
-            {!['1280x720', '1920x1080', '2560x1440', '3840x2160'].includes(outputRes) && (
-              <option value={outputRes}>{outputRes}</option>
+              {gifBusy ?? 'Strumenti'} ▾
+            </button>
+            {toolsOpen && (
+              <div className="tb-menu" role="menu">
+                {mode === 'live' && (
+                  <>
+                    <button className="btn btn-sm" onClick={screenshot} title="Screenshot PNG"><IconCamera /> Foto</button>
+                    {!recording && recButton}
+                    <button className="btn btn-sm" onClick={() => { setShowRemote(true); setToolsOpen(false) }} title="Remote dal telefono (QR + codice)"><IconPhone /> Telefono</button>
+                  </>
+                )}
+                <button className="btn btn-sm" disabled={!!gifBusy}
+                  onClick={() => setGifMenu(m => !m)}
+                  title="Esporta una GIF in loop dalla preview"
+                  aria-expanded={gifMenu}>
+                  {gifBusy ?? 'GIF…'}
+                </button>
+                {gifMenu && (
+                  <div className="tb-menu-sub">
+                    <label>Durata
+                      <select value={gifOpt.secs} disabled={gifOpt.bars && bpm > 0}
+                        onChange={e => setGifOpt(o => ({ ...o, secs: +e.target.value }))}>
+                        {[3, 5, 8].map(s => <option key={s} value={s}>{s} s</option>)}
+                      </select>
+                    </label>
+                    <label>Larghezza
+                      <select value={gifOpt.width} onChange={e => setGifOpt(o => ({ ...o, width: +e.target.value }))}>
+                        {[320, 480, 640].map(s => <option key={s} value={s}>{s} px</option>)}
+                      </select>
+                    </label>
+                    <label title={bpm > 0 ? 'Cattura 1-2 battute esatte al BPM corrente: il loop non scatta' : 'BPM non rilevato: usa i secondi'}>
+                      <input type="checkbox" checked={gifOpt.bars} disabled={!(bpm > 0)}
+                        onChange={e => setGifOpt(o => ({ ...o, bars: e.target.checked }))} />
+                      Loop a battuta
+                    </label>
+                    <button className="btn btn-sm btn-primary" onClick={() => { startGif(); setToolsOpen(false) }}>Cattura GIF</button>
+                  </div>
+                )}
+                {reelArmed && (
+                  <button className="btn btn-sm" onClick={() => reelRef.current?.save()}
+                    title="Reel armato: salva gli ultimi 15–30 s in 9:16 (V)">
+                    <span style={{ color: 'var(--state-on)' }}>●</span> Salva reel
+                  </button>
+                )}
+                <button className="btn btn-sm" onClick={() => { setShowSoundcheck(true); setToolsOpen(false) }} title="Soundcheck: ingresso, proiettore, fps, DMX, telefono e disco in pochi secondi">
+                  Soundcheck
+                </button>
+                {displays.length > 1 && (
+                  <label>Output su
+                    <select
+                      className="tb-select"
+                      value={primaryOut.displayId ?? ''}
+                      onChange={e => {
+                        const id = parseInt(e.target.value)
+                        if (!isNaN(id)) setOutputs(outputs.map((o, i) => i === 0 ? { ...o, displayId: id } : o))
+                      }}
+                      title="Sposta la finestra di output su un display"
+                    >
+                      <option value="" disabled>Output su…</option>
+                      {displays.map(d => (
+                        <option key={d.id} value={d.id}>{d.label}{d.primary ? ' (primario)' : ''}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>Risoluzione
+                  <select
+                    className="tb-select"
+                    value={outputRes}
+                    onChange={e => {
+                      const [w, h] = e.target.value.split('x').map(Number)
+                      setOutputs(outputs.map((o, i) => i === 0 ? { ...o, width: w, height: h } : o))
+                    }}
+                    title="Risoluzione di uscita del proiettore"
+                  >
+                    <option value="1280x720">720p</option>
+                    <option value="1920x1080">1080p</option>
+                    <option value="2560x1440">1440p</option>
+                    <option value="3840x2160">4K</option>
+                    {/* the Uscite panel allows any size — never show a wrong value here */}
+                    {!['1280x720', '1920x1080', '2560x1440', '3840x2160'].includes(outputRes) && (
+                      <option value={outputRes}>{outputRes}</option>
+                    )}
+                  </select>
+                </label>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => {
+                    window.api?.toggleOutputFullscreen()
+                    // fullscreen flips have no dedicated event — re-read after the switch
+                    setTimeout(refreshOutputInfo, 400)
+                  }}
+                  title="Fullscreen della finestra di output">
+                  <IconFullscreen /> Fullscreen output
+                </button>
+              </div>
             )}
-          </select>
+          </span>
           <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              window.api?.toggleOutputFullscreen()
-              // fullscreen flips have no dedicated event — re-read after the switch
-              setTimeout(refreshOutputInfo, 400)
-            }}
-            title="Fullscreen della finestra di output"
-           aria-label="Fullscreen della finestra di output">
-            <IconFullscreen />
-          </button>
-        </div>
-
-        <div className="tb-group">
-          <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-sm"
             onClick={() => setShowHelpMenu(v => !v)}
             title="Aiuto — scorciatoie, guida, configurazione (?)"
            aria-label="Aiuto — scorciatoie, guida, configurazione (?)">
@@ -1479,9 +1765,28 @@ export function App() {
         </div>
       </div>
 
+      {/* Banners: one stack. Static in Simple and Pro; in Live it floats over
+          the monitor, so pads and rail never move while something is wrong. */}
+      <div className="banner-stack">
+      {gpuLost && <div className="audio-banner">⚠ Preview persa (contesto grafico), ripristino in corso… il proiettore ha il suo motore</div>}
       {/* U1.2 — slim static banner: layout shifts once, no overlay on the preview */}
       {audioStatus === 'reconnecting' && (
         <div className="audio-banner">⚠ Audio perso — riconnessione in corso…</div>
+      )}
+      {/* Live has no Audio panel: an input that never came up (permission,
+          card busy) had only a grey dot. A stop by the user is not a condition. */}
+      {mode === 'live' && engine && audioStatus === 'stopped' && !engine.audioAnalyzer.isUserStopped() && (
+        <div className="audio-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s5)' }}>
+          <span>⚠ Audio fermo{engine.audioAnalyzer.lastError ? ` — ${engine.audioAnalyzer.lastError}` : ''}</span>
+          <button className="btn btn-sm" onClick={() => {
+            const a = engine.audioAnalyzer, s = loadAudioSettings()
+            // start() rebuilds the graph: the saved settings go back in after it
+            a.start(s.deviceId).then(() => {
+              a.setSensitivity(s.sensitivity ?? 0.5); a.setInputGain(s.inputGain ?? 1)
+              a.setBpmMode(s.bpmMode ?? 'auto'); a.setManualBpm(s.manualBpm ?? 128)
+            }).catch(err => pushToast(`Audio non avviato: ${(err as Error).message}`, 'audio-retry', undefined, 'err'))
+          }}>Riprova</button>
+        </div>
       )}
 
       {/* The projector must never be black without saying why: a blackout left
@@ -1502,6 +1807,7 @@ export function App() {
           </button>
         </div>
       )}
+      </div>
 
       {/* Main layout — U4.1: in live niente sidebar, solo preview + Look Bank */}
       <div className={`main-area${mode === 'live' ? ' live-layout' : ''}`}>
@@ -1509,13 +1815,9 @@ export function App() {
         {mode !== 'live' && (
         <div className={`sidebar${mode === 'simple' ? ' sidebar-wide' : ''}`}>
           {/* one PanelBoundary per panel: a panel that throws must not unmount App, which owns the engine */}
-          <PanelBoundary key={panelEpoch} name="Audio">
-            <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
-          </PanelBoundary>
           {mode === 'simple' ? (
             <PanelBoundary name="Semplice">
               <SimplePanel
-                engine={engine}
                 vjEnabled={vjEnabled}
                 vjGenre={vjGenre}
                 vjStatus={vjStatus}
@@ -1523,11 +1825,21 @@ export function App() {
                 onVJToggle={toggleVJ}
                 onVJGenre={changeVJGenre}
                 onVJHold={toggleVJHold}
+                flow={flow}
+                bpm={bpm}
+                audio={
+                  <PanelBoundary key={panelEpoch} name="Audio">
+                    <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} variant="simple" />
+                  </PanelBoundary>
+                }
               />
             </PanelBoundary>
           ) : (
             <>
-              {!fxCenter && <PanelBoundary name="Effetti"><EffectPanel engine={engine} /></PanelBoundary>}
+              <PanelBoundary key={panelEpoch} name="Audio">
+                <AudioPanel engine={engine} phase={vjEnabled ? vjStatus.phase : null} />
+              </PanelBoundary>
+              {!fxCenter && <PanelBoundary name="Effetti"><EffectPanel engine={engine} onManual={onManual} /></PanelBoundary>}
               <PanelBoundary name="Auto VJ">
                 <AutoVJPanel
                   engine={engine}
@@ -1548,7 +1860,10 @@ export function App() {
 
         {/* Center — Preview (+ deck crossfader in pro, Look Bank in live) */}
         <div className={`center-area${fxCenter ? ' center-fx-on' : ''}`}>
+          {/* always present (display:contents outside the Pro bench): the canvas never remounts, the WebGL context lives */}
+          <div className="stage-row">
           <div className={`preview-container${previewCompact && mode !== 'live' ? ' compact' : ''}`}
+               data-wall={wallState}
                style={{ '--out-aspect': `${primaryOut.width} / ${primaryOut.height}` } as React.CSSProperties}>
             <canvas ref={canvasRef} className="preview-canvas" />
             {mode !== 'live' && (
@@ -1562,33 +1877,119 @@ export function App() {
             )}
             {/* U4.2 — bordo che lampeggia sul beat (opacity via DOM diretto) */}
             <div ref={beatFlashRef} className="beat-flash" />
-            <span className="preview-label">PREVIEW</span>
+            {mode === 'simple' && flow !== 'sento' && (
+              // over the control canvas only: the DOM never reaches the output, a screenshot or a recording
+              <span className="preview-note">{flow === 'fermo' ? 'Audio fermo: premi Ascolta la musica' : 'Silenzio: fai partire un brano'}</span>
+            )}
+            <span className="preview-label">
+              <span className={`air-tag ${wallState}`}>{WALL_LABEL[wallState]}</span>
+              {outputInfo?.open ? outputInfo.display : 'proiettore non collegato'}
+            </span>
           </div>
-          {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
+          {mode === 'simple' && (
+            <SimpleDeck engine={engine} vjEnabled={vjEnabled} onVJToggle={toggleVJ} tab={simpleTab} onTab={setSimpleTab} />
+          )}
           {engine && (
-            <div className="live-lookbank">
-              <PanelBoundary name="Look Bank"><LookBank engine={engine} /></PanelBoundary>
+            // mounted in every mode, hidden under the other Simple tabs: it keeps the Shift+1-0 listener
+            <div className="live-lookbank" hidden={mode === 'simple' && simpleTab !== 'look'}>
+              <PanelBoundary name="Look Bank"><LookBank engine={engine} onManual={onManual} bare={mode !== 'pro'} compactEmpty={mode === 'simple'} /></PanelBoundary>
             </div>
           )}
-          {fxCenter && <div className="center-fx"><PanelBoundary name="Effetti"><EffectPanel engine={engine} /></PanelBoundary></div>}
+          </div>
+          {mode === 'pro' && <PanelBoundary name="Deck"><DeckPanel engine={engine} /></PanelBoundary>}
+          {fxCenter && <div className="center-fx"><PanelBoundary name="Effetti"><EffectPanel engine={engine} onManual={onManual} /></PanelBoundary></div>}
+          {mode === 'live' && (
+            <>
+              {/* Regia: who is driving the wall — tempo, Auto VJ, scaletta. Same
+                  data the top bar and the panels already have, nothing new at audio rate. */}
+              <div className="live-director">
+                <div className="ld-row ld-tempo">
+                  <span className="ld-label">Tempo</span>
+                  {tempo}
+                </div>
+                <div className="ld-row">
+                  <span className="ld-label">Auto VJ</span>
+                  <div className="u-row">
+                    <button
+                      className={`btn ${vjEnabled ? 'btn-primary' : ''}`}
+                      style={{ flex: 1 }}
+                      onClick={() => toggleVJ(!vjEnabled)}
+                      aria-pressed={vjEnabled}
+                      title={vjEnabled ? 'Auto VJ acceso: clic per spegnerlo' : 'Auto VJ spento: clic per riaccenderlo'}
+                    >
+                      {vjEnabled ? 'Acceso' : 'Spento'}
+                    </button>
+                    <button
+                      className={`btn${vjHeld ? ' is-armed' : ''}`}
+                      disabled={!vjEnabled}
+                      onClick={() => toggleVJHold(!vjHeld)}
+                      aria-pressed={vjHeld}
+                      title="Tiene fermo il look attuale — fasi e palette continuano a seguire la musica sotto"
+                    >
+                      {vjHeld ? 'Riprendi' : 'Tieni'}
+                    </button>
+                  </div>
+                  <div className="u-hint ld-now">
+                    {vjEnabled ? `${PHASE_LABEL[vjStatus.phase]} · ora: ${vjStatus.current ? effectLabel(vjStatus.current as EffectId) : '—'}` : 'Comandi tu'}
+                  </div>
+                </div>
+                <div className="ld-row">
+                  <span className="ld-label">Scaletta</span>
+                  <select
+                    value={seqPlayer.playingSeq ? seqPlayer.sequences.indexOf(seqPlayer.playingSeq) : liveSeq}
+                    onChange={e => setLiveSeq(+e.target.value)}
+                    disabled={seqPlayer.playing}
+                    title="Scaletta da avviare"
+                  >
+                    {seqPlayer.sequences.length === 0 && <option value={-1}>Nessuna scaletta</option>}
+                    {seqPlayer.sequences.map((sq, i) => <option key={i} value={i}>{sq.name} · {sq.steps.length}</option>)}
+                  </select>
+                  <div className="u-row">
+                    <button className="btn" disabled={!seqPlayer.playing} onClick={seqPlayer.prev} title="Passo precedente" aria-label="Passo precedente">◀</button>
+                    <button
+                      className={`btn${seqPlayer.playing ? ' btn-primary' : ''}`}
+                      style={{ flex: 1 }}
+                      disabled={!seqPlayer.playing && !seqPlayer.sequences[liveSeq]}
+                      onClick={() => seqPlayer.playing ? seqPlayer.stop() : seqPlayer.start(seqPlayer.sequences[liveSeq])}
+                      title={seqPlayer.playing ? 'Ferma la scaletta' : 'Avvia la scaletta (spegne l\'Auto VJ)'}
+                    >
+                      {seqPlayer.playing && seqPlayer.playingSeq ? `Ferma · ${seqPlayer.stepIndex + 1}/${seqPlayer.playingSeq.steps.length}` : 'Avvia'}
+                    </button>
+                    <button className="btn" disabled={!seqPlayer.playing} onClick={seqPlayer.next} title="Passo successivo" aria-label="Passo successivo">▶</button>
+                  </div>
+                </div>
+              </div>
+              {/* Rail: faders and the trio in the same corner at every window size */}
+              <div className="live-rail">
+                <div className="live-faders">{faders}</div>
+                <div className="live-safety">{safety}</div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right sidebar — pro only */}
         {mode === 'pro' && (
+          // A rail of tabs with one drawer: the ten headers are always in view, the
+          // open panel's body is the drawer on their left. Order follows the show:
+          // what goes on the wall, how it reacts, where it comes out.
           <div className="sidebar-right">
+            <div className="rail-label">Scena</div>
             <PanelBoundary name="Overlay"><OverlayPanel engine={engine} /></PanelBoundary>
             <PanelBoundary name="Scalette"><PresetPanel engine={engine} player={seqPlayer} /></PanelBoundary>
             <PanelBoundary name="Shader"><ShaderEditor engine={engine} /></PanelBoundary>
-            <PanelBoundary name="Camera"><CameraPanel engine={engine} /></PanelBoundary>
+            <div className="rail-label">Reazione</div>
             <PanelBoundary name="Impatto"><ImpactPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Camera"><CameraPanel engine={engine} /></PanelBoundary>
+            <div className="rail-label">Impianto</div>
+            <PanelBoundary name="Uscite"><OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} /></PanelBoundary>
             <PanelBoundary name="Mapping">
               <MappingPanel engine={engine} outputs={outputs} onChange={setOutputs}
                 selected={mappingOut} onSelect={setMappingOut} />
             </PanelBoundary>
             <PanelBoundary key={panelEpoch} name="DMX"><DmxPanel engine={engine} /></PanelBoundary>
-            <PanelBoundary name="Uscite"><OutputsPanel displays={displays} outputs={outputs} onChange={setOutputs} /></PanelBoundary>
-            <PanelBoundary name="Posti"><VenuePanel capture={captureVenue} apply={applyVenue} /></PanelBoundary>
             <PanelBoundary name="MIDI"><MidiPanel engine={engine} /></PanelBoundary>
+            <PanelBoundary name="Posti"><VenuePanel capture={captureVenue} apply={applyVenue} /></PanelBoundary>
           </div>
         )}
       </div>
@@ -1599,7 +2000,10 @@ export function App() {
         <span>|</span>
         <span>{outputRes}</span>
         {blackout && <><span>|</span><span style={{ color: 'var(--danger)' }}>BLACKOUT</span></>}
-        {frozen && <><span>|</span><span style={{ color: 'var(--accent)' }}>FROZEN</span></>}
+        {frozen && <><span>|</span><span style={{ color: 'var(--state-frozen)' }}>FREEZE</span></>}
+        {beatRoll > 0 && <><span>|</span><span style={{ color: 'var(--warning)' }}>ROLL 1/{beatRoll}</span></>}
+        {recording && <><span>|</span><span style={{ color: 'var(--danger)' }}>REC</span></>}
+        {midiLost && <><span>|</span><span style={{ color: 'var(--warning)' }}>MIDI scollegato</span></>}
         <div className="spacer" />
         <label className="beatflash-toggle tb-extra" title="Flash del bordo preview a ogni beat">
           <input

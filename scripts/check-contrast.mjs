@@ -51,7 +51,7 @@ function ratio(fg, bg) {
 const SURFACES = ['bg0', 'bg1', 'bg2', 'bg3']
 // Text tokens must clear 4.5:1: the whole type scale is 11-15px, so nothing in
 // this interface qualifies as "large text" under WCAG.
-const TEXT = ['text-primary', 'text-secondary', 'text-muted', 'accent', 'accent-dim', 'danger', 'warning']
+const TEXT = ['text-primary', 'text-secondary', 'text-muted', 'accent', 'accent-dim', 'danger', 'warning', 'state-frozen']
 // The focus ring is a component boundary, not text: 3:1 (WCAG 1.4.11).
 const NON_TEXT = [['focus-ring', 3.0]]
 

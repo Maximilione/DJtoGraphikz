@@ -280,7 +280,7 @@ export interface Grade {
   exposure: number    // 1 = neutral (tone mapping exposure)
 }
 
-const DEFAULT_GRADE: Grade = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
+export const DEFAULT_GRADE: Grade = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
 
 export interface EngineState {
   activeEffect: EffectId
@@ -361,6 +361,8 @@ export interface Preset {
   effectParams?: Record<string, Record<string, ParamState>>
   customShader?: string
   customParams?: EffectParam[]
+  /** the shader's image inputs: absent in old looks, which then inherit the current ones as before */
+  customImageInputs?: string[]
 }
 
 /**
@@ -1630,17 +1632,20 @@ export class Engine {
     this.currentEffect = id
     this.transitionProgress = 0
 
-    // Emit state with transition info for output window
-    if (this.onStateChange) {
-      this.onStateChange({
-        ...this.stateSnapshot(),
-        transition: {
-          type: this.transitionType,
-          duration: this.transitionDuration,
-          fromEffect,
-        },
-      })
+    // Emit state with transition info for output window. The panels listen
+    // too: with a transition > 0 the grid, the "In onda" line and the params
+    // stayed on the old effect until some other emit came by.
+    if (!this.onStateChange && !this.stateListeners.size) return
+    const snap = {
+      ...this.stateSnapshot(),
+      transition: {
+        type: this.transitionType,
+        duration: this.transitionDuration,
+        fromEffect,
+      },
     }
+    this.onStateChange?.(snap)
+    this.notifyStateListeners(snap)
   }
 
   // ---- Custom Shader API ----
@@ -2018,6 +2023,7 @@ export class Engine {
 
   isUsingCustomShader(): boolean { return this.usingCustom }
   getCustomShaderSource(): string { return this.usingCustom ? this.customShaderSource : '' }
+  getCustomImageInputs(): string[] { return this.usingCustom ? this.customImageInputs : [] }
 
   private paramBucket(): Record<string, ParamState> {
     const key = this.usingCustom ? '__custom__' : this.currentEffect
@@ -2316,6 +2322,7 @@ export class Engine {
   setVideoDeck(patch: Partial<VideoDeck>) {
     if (patch.clip !== undefined && patch.clipStartBeat === undefined) patch = { ...patch, clipStartBeat: this.beatClock, bars: 0 }
     const next = clampClip({ ...this.videoDeck, ...patch })
+    if (patch.clips) this.deckClipErrors.clear()   // a changed list may fix the clip: report again
     if (next.clip !== this.videoDeck.clip || next.clipStartBeat !== this.videoDeck.clipStartBeat) this.deckVideoSeek = true
     this.videoDeck = next
     this.emitState()
@@ -2374,7 +2381,7 @@ export class Engine {
     // this is ever reached — see hap.ts/hapContainer.ts. ProRes has no
     // GPU-friendly browser path and still fails here; same for HapY/HapM/
     // HapA/Hap7/HapH, which hap.ts refuses with a clear error of its own.
-    v.onerror = () => console.error('[Engine] deck video illeggibile (mp4 H.264 / webm):', path)
+    v.onerror = () => this.reportDeckClipError(path, 'mp4 H.264 / webm')
     v.src = `djg-media://f/?p=${encodeURIComponent(path)}`
     this.deckVideoSeek = true
     v.play().catch(err => console.error('[Engine] deck video play failed:', err))
@@ -2454,7 +2461,7 @@ export class Engine {
       const p = new HapPlayer(clip.path)
       this.deckHap = p
       this.deckHapKey = clip.path
-      p.ready().catch(err => console.error('[Engine] HAP illeggibile:', clip.path, err))
+      p.ready().catch(err => this.reportDeckClipError(clip.path, err))
     }
     const hap = this.deckHap!
     if (hap.status === 'pending') return null   // probing the fourcc — same brief blank as a sequence's first frame
@@ -3040,6 +3047,7 @@ export class Engine {
       effectParams: JSON.parse(JSON.stringify(this.paramState)),
       customShader: this.usingCustom ? this.customShaderSource : undefined,
       customParams: this.usingCustom ? this.customParamDefs : undefined,
+      customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
     }
   }
 
@@ -3062,7 +3070,7 @@ export class Engine {
 
     if (preset.customShader) {
       if (!this.usingCustom || preset.customShader !== this.customShaderSource) {
-        this.setCustomShader(preset.customShader, preset.customParams || [])
+        this.setCustomShader(preset.customShader, preset.customParams || [], preset.customImageInputs)
       } else {
         this.emitState()
       }
@@ -3180,9 +3188,28 @@ export class Engine {
     if (this.emitDepth > 0) { this.emitPending = true; return }
     const snap = this.stateSnapshot()
     this.onStateChange?.(snap)
+    this.notifyStateListeners(snap)
+  }
+
+  private notifyStateListeners(snap: EngineState) {
     for (const fn of this.stateListeners) {
       try { fn(snap) } catch (e) { console.error('[Engine] state listener error:', e) }
     }
+  }
+
+  /**
+   * A deck clip that will not play (moved file, ProRes, a HAP variant hap.ts
+   * refuses) used to say so only in the console: the wall went blank mid-set
+   * with no word in the UI. App sets this; the output window leaves it null.
+   * One report per path until the clip list changes.
+   */
+  public onDeckClipError: ((path: string) => void) | null = null
+  private deckClipErrors = new Set<string>()
+  private reportDeckClipError(path: string, err: unknown) {
+    console.error('[Engine] clip del deck illeggibile:', path, err)
+    if (this.deckClipErrors.has(path)) return
+    this.deckClipErrors.add(path)
+    this.onDeckClipError?.(path)
   }
 
   start() {
