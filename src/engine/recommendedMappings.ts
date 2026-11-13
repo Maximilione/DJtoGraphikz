@@ -180,7 +180,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   ps2towers: {
     orbit: { source: 'energy', depth: 0.3, value: 0.8 },
     foglevel: { source: 'bass', depth: -0.3, value: 1.2 },
-    towers: { source: 'lfo-square', depth: 0.25, lfoRate: 32 },
+    towers: { source: 'lfo-sine', depth: 0.2, lfoRate: 32 },
   },
   snowride: {
     curviness: { source: 'lfo-sine', depth: 0.4, lfoRate: 32, value: 0.8 },
