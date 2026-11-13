@@ -207,7 +207,7 @@ export const EFFECT_PALETTE_USE: Partial<Record<EffectId, 1 | 2>> = {
   eclipse: 1, chevrons: 1, matrix: 1, tribal: 1,
   faces: 2, spaceghost: 2, cage: 2, reactor: 2, warp: 2, inkflow: 2, starfield: 2, plasmaglobe: 2,
   ascii: 2, fluid: 2, reaction: 2, galaxy: 2, orbits: 2, lasers: 2, strobegrid: 2,
-  ps2towers: 2, fire: 2, caustics: 2, vortex: 2, mesh: 2, pulsar: 2, snowride: 2,
+  ps2towers: 2, fire: 2, caustics: 2, vortex: 2, mesh: 2, pulsar: 2,
 }
 
 export const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [
