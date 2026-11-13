@@ -2019,9 +2019,9 @@ export class Engine {
     const key = this.usingCustom ? '__custom__' : this.currentEffect
     if (this.paramDefsKey !== key) {
       this.paramDefsKey = key
-      this.paramDefsCache = this.usingCustom
-        ? [...COMMON_PARAMS, ...this.customParamDefs]
-        : [...COMMON_PARAMS, ...(EFFECT_PARAMS[this.currentEffect] ?? [])]
+      const own = this.usingCustom ? this.customParamDefs : (EFFECT_PARAMS[this.currentEffect] ?? [])
+      // an effect may redefine a common key (e.g. speed with its own range): its def wins, no duplicate row
+      this.paramDefsCache = [...COMMON_PARAMS.filter(c => !own.some(d => d.key === c.key)), ...own]
     }
     return this.paramDefsCache
   }
