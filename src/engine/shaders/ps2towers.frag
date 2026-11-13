@@ -139,7 +139,10 @@ vec3 render(vec3 ro, vec3 rd, float t, out float tHit) {
     if (nrm.y > 0.5) {
       // flat lit top, a thin catch-light on its rim
       float m = info.z - max(abs(info.x), abs(info.y));
-      lit = 0.74 + 0.26 * hash(cid + 2.3) + 0.35 * kick;
+      // kick flares its blocks, snare another set, hats shimmer a few tops
+      float snare = uMidHit * step(hash(cid + 4.7), 0.25);
+      float hat = uHighHit * step(0.9, hash(cid + floor(uHighTime * 4.0)));
+      lit = 0.74 + 0.26 * hash(cid + 2.3) + 0.55 * kick + 0.4 * snare + 0.3 * hat;
       lit += smoothstep(0.02 + 0.03 * uLineBoost, 0.0, m) * (0.16 + 0.5 * kick);
     } else {
       // sides: two greys by orientation, falling to black towards the base
@@ -191,9 +194,11 @@ void main() {
   float t = uTime;
 
   // high above the field looking straight down, slowly spinning and sinking a little
-  float spin = t * (0.04 + 0.08 * orbit) + uBassTime * 0.015;
-  float off = 0.5 + orbit;
-  vec3 ro = vec3(0.5 + off * cos(t * 0.07), 10.2 + 0.5 * sin(t * 0.11), 0.5 + off * sin(t * 0.07));
+  // spin only from time and the bass clock: a param multiplying uTime would jump as audio moves it
+  float spin = t * 0.07 + uBassTime * 0.015;
+  float off = 0.5 + orbit;                               // orbit = radius of the camera circle
+  // kick: the camera dives a little towards the field, the push you see from above
+  vec3 ro = vec3(0.5 + off * cos(t * 0.07), 10.2 + 0.5 * sin(t * 0.11) - 1.1 * uBassHit, 0.5 + off * sin(t * 0.07));
   vec3 fwd = normalize(vec3(0.5, 2.0, 0.5) - ro);
   vec3 rgt = normalize(cross(fwd, vec3(cos(spin), 0.0, sin(spin))));
   vec3 up = cross(rgt, fwd);
