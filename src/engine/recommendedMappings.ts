@@ -84,10 +84,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     ringfreq: { source: 'bass', depth: 0.35, value: 6 },
     symmetry: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
   },
+  // density is the grid's spacing: modulating it slides every line, so it stays
+  // put. wavefreq is the height of the dunes beside the road, fogamt the haze.
   grid: {
     wavefreq: { source: 'bass', depth: 0.45, value: 2.5 },
     fogamt: { source: 'energy', depth: -0.3, value: 0.3 },
-    density: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
   },
   waves: {
     amp: { source: 'bass', depth: 0.4, value: 0.06 },
