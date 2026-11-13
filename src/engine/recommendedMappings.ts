@@ -508,6 +508,30 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     pace: { source: 'energy', depth: 0.3, value: 1 },
     density: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 0.6 },
   },
+  singularity: {
+    disk: { source: 'bass', depth: 0.35, value: 1 },
+    swirl: { source: 'energy', depth: 0.3, value: 1 },
+    tilt: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 0.3 },
+  },
+  aurora: {
+    height: { source: 'bass', depth: 0.3, value: 1 },
+    shimmer: { source: 'high', depth: 0.4, value: 1 },
+    flow: { source: 'energy', depth: 0.3, value: 1 },
+  },
+  armillary: {
+    core: { source: 'bass', depth: 0.45, value: 1 },
+    spin: { source: 'energy', depth: 0.3, value: 0.6 },
+  },
+  telemetry: {
+    glitch: { source: 'bass', depth: 0.5, value: 0.5 },
+    sweep: { source: 'energy', depth: 0.3, value: 1 },
+    land: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.5 },
+  },
+  aegis: {
+    beam: { source: 'bass', depth: 0.45, value: 1 },
+    impacts: { source: 'energy', depth: 0.3, value: 1 },
+    orbit: { source: 'lfo-sine', depth: 0.3, lfoRate: 64, value: 0.5 },
+  },
   escher: {
     edge: { source: 'bass', depth: 0.4, value: 1 },
     spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.3 },

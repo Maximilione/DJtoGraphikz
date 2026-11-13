@@ -116,6 +116,11 @@ import ringworldFrag from './shaders/ringworld.frag?raw'
 import escherFrag from './shaders/escher.frag?raw'
 import plasmaglobeFrag from './shaders/plasmaglobe.frag?raw'
 import kickworksFrag from './shaders/kickworks.frag?raw'
+import singularityFrag from './shaders/singularity.frag?raw'
+import auroraFrag from './shaders/aurora.frag?raw'
+import armillaryFrag from './shaders/armillary.frag?raw'
+import telemetryFrag from './shaders/telemetry.frag?raw'
+import aegisFrag from './shaders/aegis.frag?raw'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -249,6 +254,7 @@ export type EffectId =
   | 'macromosh' | 'pixelsort' | 'typeslam'
   | 'ringworld' | 'escher'
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
+  | 'singularity' | 'aurora' | 'armillary' | 'telemetry' | 'aegis'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -570,6 +576,11 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   escher: escherFrag,
   plasmaglobe: plasmaglobeFrag,
   kickworks: kickworksFrag,
+  singularity: singularityFrag,
+  aurora: auroraFrag,
+  armillary: armillaryFrag,
+  telemetry: telemetryFrag,
+  aegis: aegisFrag,
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
