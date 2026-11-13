@@ -184,7 +184,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   },
   snowride: {
     curviness: { source: 'lfo-sine', depth: 0.4, lfoRate: 32, value: 0.8 },
-    pistewidth: { source: 'bass', depth: 0.3, value: 0.9 },
+    pistewidth: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 0.9 },
     gates: { source: 'energy', depth: 0.3, value: 5 },
     speed: { source: 'energy', depth: 0.6, value: 0.7 },
   },

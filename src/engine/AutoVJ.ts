@@ -571,6 +571,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'fluxlines', ['bloom'], { poles: v(5), density: a(28, 'bass', 0.3), flow: v(1.5), glow: v(0.8) }),
       s('groove', 'telemetry', ['rgb-split'], { detail: v(0.9), sweep: v(2), glitch: v(0.8), land: v(0.5) }),
       s('peak', 'aegis', ['bloom', 'chromatic'], { cells: v(11), impacts: v(1.8), beam: v(1), orbit: v(1.2) }),
+      s('peak', 'snowride', ['bloom', 'chromatic'], { speed: v(1.8), pistewidth: v(1), curviness: a(1.1, 'lfo-sine', 0.35, 16), gates: v(11) }),
     ],
     palettes: [NEON, FIRE, ACID, CYBER],
     phraseBars: 4,
