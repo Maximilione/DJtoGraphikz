@@ -116,6 +116,11 @@ import ringworldFrag from './shaders/ringworld.frag?raw'
 import escherFrag from './shaders/escher.frag?raw'
 import plasmaglobeFrag from './shaders/plasmaglobe.frag?raw'
 import kickworksFrag from './shaders/kickworks.frag?raw'
+import singularityFrag from './shaders/singularity.frag?raw'
+import auroraFrag from './shaders/aurora.frag?raw'
+import armillaryFrag from './shaders/armillary.frag?raw'
+import telemetryFrag from './shaders/telemetry.frag?raw'
+import aegisFrag from './shaders/aegis.frag?raw'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -249,6 +254,7 @@ export type EffectId =
   | 'macromosh' | 'pixelsort' | 'typeslam'
   | 'ringworld' | 'escher'
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
+  | 'singularity' | 'aurora' | 'armillary' | 'telemetry' | 'aegis'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -570,6 +576,11 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   escher: escherFrag,
   plasmaglobe: plasmaglobeFrag,
   kickworks: kickworksFrag,
+  singularity: singularityFrag,
+  aurora: auroraFrag,
+  armillary: armillaryFrag,
+  telemetry: telemetryFrag,
+  aegis: aegisFrag,
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
@@ -2008,9 +2019,9 @@ export class Engine {
     const key = this.usingCustom ? '__custom__' : this.currentEffect
     if (this.paramDefsKey !== key) {
       this.paramDefsKey = key
-      this.paramDefsCache = this.usingCustom
-        ? [...COMMON_PARAMS, ...this.customParamDefs]
-        : [...COMMON_PARAMS, ...(EFFECT_PARAMS[this.currentEffect] ?? [])]
+      const own = this.usingCustom ? this.customParamDefs : (EFFECT_PARAMS[this.currentEffect] ?? [])
+      // an effect may redefine a common key (e.g. speed with its own range): its def wins, no duplicate row
+      this.paramDefsCache = [...COMMON_PARAMS.filter(c => !own.some(d => d.key === c.key)), ...own]
     }
     return this.paramDefsCache
   }
@@ -3257,8 +3268,8 @@ export class Engine {
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
-    if (this.perfEmaMs > 24 && this.perfScale > 0.3) {
-      // under ~42fps: step proportional to how late we are, so a volumetric
+    if (this.perfEmaMs > 20 && this.perfScale > 0.3) {
+      // under ~50fps (was 42: 42-58fps judders on a 60Hz projector and never scaled): step proportional to how late we are, so a volumetric
       // raymarcher at 15fps converges in 2 steps instead of crawling down.
       // (a 30Hz display lands here too — softer buffers there are invisible)
       const step = Math.max(0.55, Math.min(0.9, Math.sqrt(16.7 / this.perfEmaMs)))
@@ -3266,8 +3277,11 @@ export class Engine {
       this.perfCooldown = this.perfEmaMs > 40 ? 20 : 45
       this.setRenderSize(this.outputWidth, this.outputHeight)
       console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
-    } else if (this.perfEmaMs < 17 && this.perfScale < 1) {
-      // headroom: climb back slowly, long cooldown so it can't oscillate
+    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < 20) {
+      // headroom: climb back slowly, and only when the frame still fits once the
+      // bigger buffer is paid for (x1.38 pixels a step). Climbing on "< 17ms" alone
+      // put a 26ms shader back at full size every 5s, then down again: a hitch
+      // and a resize each time, the "lag" seen on pulsar/lissajous.
       this.perfScale = Math.min(1, this.perfScale / 0.85)
       this.perfCooldown = 300
       this.setRenderSize(this.outputWidth, this.outputHeight)
@@ -3828,6 +3842,10 @@ export class Engine {
       sync?.()
       this.renderer.render(geo.scene, this.camera)
     } else {
+      // a target that once drew the mesh keeps its depth buffer, and the depth the
+      // model left there: the quad depth-tests against it and fails wherever the
+      // model was, so the model stayed on screen after switching effect
+      if (target.depthBuffer) this.renderer.clearDepth()
       this.quad.material = mat
       this.renderer.render(this.scene, this.camera)
       this.quad.material = this.mainMaterial

@@ -513,7 +513,16 @@ export function App() {
     let idleSettings = loadIdleSettings()
     const idle = new IdleWatch(idleSettings.seconds)
     let idleBefore: EffectId | null = null
+    // An effect picked by hand in the silence belongs to the user: room noise
+    // (talk, a door) ended the idle and 12s later it faded the pick away again.
+    // The pick holds the idle off until real music has played for MUSIC_MS.
+    const MUSIC_MS = 8000
+    let lastFx: EffectId | null = null      // effect seen last frame
+    let idleFx: EffectId | null = null      // effect the idle itself faded to
+    let userHold = false
+    let musicSince = -1
     const fadeTo = (effect: EffectId, seconds: number) => {
+      idleFx = effect
       const prevType = eng.getTransitionType(), prevSeconds = eng.getTransitionDuration()
       eng.setTransitionType('crossfade'); eng.setTransitionDuration(seconds)
       eng.setEffect(effect)
@@ -541,6 +550,13 @@ export function App() {
         // The watch is reset while it is not in charge: a silence from minutes ago
         // must not count the moment the Auto VJ is switched off.
         if (!idleSettings.enabled || vj.isEnabled() || seqPlayingRef.current || window.api?.selfTestSweep) { idle.reset(); idleBefore = null; return }
+        const nowMs = performance.now()
+        const cur = eng.getCurrentEffect()
+        if (lastFx !== null && cur !== lastFx && cur !== idleFx) { userHold = true; idleBefore = null }
+        lastFx = cur
+        musicSince = energyRaw > 0 ? (musicSince < 0 ? nowMs : musicSince) : -1
+        if (userHold && musicSince >= 0 && nowMs - musicSince >= MUSIC_MS) userHold = false
+        if (userHold) { idle.reset(); return }
         const ev = idle.update(energyRaw > 0, performance.now())
         if (ev) window.api?.logToFile?.('idle', `[Idle] ${ev} effect=${eng.getCurrentEffect()}`)
         if (ev === 'enter' && eng.getCurrentEffect() !== idleSettings.effect) {

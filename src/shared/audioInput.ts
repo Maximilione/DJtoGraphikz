@@ -10,6 +10,9 @@ const BUILT_IN = /built-?in|integrat|incorporat|internal|interno|predefinit|\bma
 // Headsets: neither the room mic nor a sound card. Never worth switching to (the
 // headset profile drops the sample rate and the output with it), never a reason to switch away.
 const BLUETOOTH = /airpods|bluetooth|\bbeats\b|\bbuds\b|hands-?free|headset|\bhfp\b/i
+// Call apps' virtual mics (Teams, Zoom, Webex...): capturing one wakes that app's
+// microphone. Never picked automatically; still selectable by hand.
+const VIRTUAL_CALL = /teams|zoom|webex|krisp|discord|skype|slack|google meet|nvidia broadcast|camo/i
 // Chromium labels the default entry "Default - <real device>": judge the device behind it
 const DEFAULT_PREFIX = /^(default|communications|predefinit\w*)\s*-\s*/i
 
@@ -26,9 +29,13 @@ export function isBluetoothLabel(label: string): boolean {
   return BLUETOOTH.test(label)
 }
 
+export function isVirtualCallLabel(label: string): boolean {
+  return VIRTUAL_CALL.test(label)
+}
+
 /** First real external card. Unlabelled entries (no mic permission yet) and headsets are not trusted. */
 export function findExternal<T extends Dev>(devices: T[]): T | undefined {
-  return devices.find(d => d.label && !isBuiltIn(d) && !isBluetoothLabel(d.label))
+  return devices.find(d => d.label && !isBuiltIn(d) && !isBluetoothLabel(d.label) && !isVirtualCallLabel(d.label))
 }
 
 /**
@@ -42,8 +49,11 @@ export function findExternal<T extends Dev>(devices: T[]): T | undefined {
 export function pickInput(devices: Dev[], saved = ''): string {
   const kept = devices.find(d => d.deviceId === saved)
   const external = findExternal(devices)
-  if (kept && !(isBuiltIn(kept) && external)) return kept.deviceId
-  return (external ?? devices[0])?.deviceId ?? ''
+  // a saved call-app mic (often left over from an automatic pick) gives way too
+  if (kept && !(isBuiltIn(kept) && external) && !isVirtualCallLabel(kept.label)) return kept.deviceId
+  // the system default can itself be a call app's mic ("Default - Microsoft Teams Audio")
+  const fallback = devices.find(d => !isVirtualCallLabel(d.label)) ?? devices[0]
+  return (external ?? fallback)?.deviceId ?? ''
 }
 
 /**
