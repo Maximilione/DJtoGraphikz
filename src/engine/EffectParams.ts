@@ -369,7 +369,7 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
   faces: [
-    { key: 'faces', label: 'Volti', min: 5, max: 14, default: 9 },
+    { key: 'faces', label: 'Volti', min: 5, max: 14, default: 6 },
     { key: 'spin', label: 'Rotazione', min: 0, max: 3, default: 1 },
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
