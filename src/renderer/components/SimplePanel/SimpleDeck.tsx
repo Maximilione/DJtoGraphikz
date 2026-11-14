@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react'
-import type { Engine, EffectId } from '@engine/Engine'
+import { DEFAULT_GRADE, type Engine, type EffectId } from '@engine/Engine'
 import { allPalettes } from '../../palettes'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
-import { PaletteGrid } from '../PaletteGrid/PaletteGrid'
+import { PaletteGrid, warnDesaturated } from '../PaletteGrid/PaletteGrid'
 import { useFxThumbs } from '../../fxThumbs'
 import { pickEffect } from '../../autoMapping'
 
@@ -54,6 +54,7 @@ export function SimpleDeck({ engine, vjEnabled, onVJToggle, tab, onTab }: Simple
   const selectPalette = useCallback((i: number) => {
     if (!engine) return
     engine.setColors(...allPalettes()[i].colors)
+    warnDesaturated(engine.getGrade().saturation, () => engine.setGrade({ saturation: DEFAULT_GRADE.saturation }))
     setActivePalette(i)
   }, [engine])
 
