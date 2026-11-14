@@ -107,12 +107,20 @@ void main() {
   float glowInv = 1.0 / (0.008 + 0.024 * uBeat);
   float glowAmp = 0.09 + 0.18 * uEnergy;
   float invSl = 1.0 / slices;
+  // ceiling on any ridge under this pixel (body <= 0.57, spikes <= 1.66, the
+  // spectrum, times the band boost): a slice whose highest possible line is
+  // already hidden by a nearer one, or far below the pixel, is skipped before
+  // its terrain is read. Exact for hidden lines; the far-below cut drops a glow
+  // under 0.1%. This is most of the frame: sky and the flat sides.
+  float hMax = (0.57 + 1.66 + specRidge) * ampWin * (0.70 + bandK);
 
   for (int i = 0; i < 96; i++) {
     float fi = float(i);
     if (fi >= slices) break;
 
     float q = q0 - fi * dq;                    // inverse depth of this slice
+    float dMax = (hMax - eye) * FOCAL * q + HORIZON - p.y;
+    if (dMax <= lh || dMax < -0.25) continue;
     float z = 1.0 / q;
     float xw = p.x / (FOCAL * q);              // world X under this pixel
     float zw = z + off;

@@ -58,7 +58,7 @@ void main() {
     if (max(abs(uv.x), abs(uv.y)) > amplitude + 0.25) continue;
     // segments follow the frequency: a fixed 72 showed its corners at the
     // high end, and burned them on the slow default curves for nothing
-    float segs = clamp(ceil(max(freqA, freqB) * 32.0), 72.0, 240.0);   // culled below, so smoother is cheap
+    float segs = clamp(ceil(max(freqA, freqB) * 20.0), 48.0, 160.0);
     // the vertices are sin(f*s + ph) on a uniform s grid, so they are walked
     // with the angle-addition recurrence: 4 trig per curve instead of 2 per
     // segment (fp32 drift over 160 steps ~1e-5)
@@ -72,7 +72,7 @@ void main() {
     // farther than sqrt(minD2) + L: the cheap vertex test skips most segments
     float L = amplitude * max(freqA, freqB) * ds * 1.5;
     float thr = 1e8;
-    for (int i = 1; i <= 240; i++) {
+    for (int i = 1; i <= 160; i++) {
       if (float(i) > segs) break;
       vec2 sn2 = sn * cd + cs * sd;
       cs = cs * cd - sn * sd;
