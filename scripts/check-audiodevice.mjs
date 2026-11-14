@@ -3,7 +3,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 import assert from 'node:assert/strict'
 await build({ entryPoints: ['src/shared/audioInput.ts'], bundle: true, format: 'esm', outfile: '/tmp/djg-ad.mjs', logLevel: 'error' })
-const { pickInput, findExternal, isBuiltInLabel, isBluetoothLabel, restartPlan } = await import(pathToFileURL('/tmp/djg-ad.mjs').href)
+const { pickInput, findExternal, isBuiltInLabel, isBluetoothLabel, isVirtualCallLabel, restartPlan } = await import(pathToFileURL('/tmp/djg-ad.mjs').href)
 const d = (deviceId, label) => ({ deviceId, label, kind: 'audioinput' })
 const mac = [d('default', 'Default - MacBook Pro Microphone'), d('a1', 'MacBook Pro Microphone'), d('b2', 'Behringer UMC202HD (1397:0507)')]
 const win = [d('default', 'Predefinito - Microphone (Realtek)'), d('communications', 'Communications - Microphone (Realtek)'), d('c3', 'Microphone (Focusrite USB Audio)')]
@@ -21,6 +21,13 @@ assert.equal(pickInput(mic), 'y', 'microfono di MacBook (it): non scelto')
 assert.equal(pickInput([]), '')
 assert.equal(pickInput([d('default', ''), d('z', '')]), 'default', 'etichette vuote: nessuna scheda "esterna" inventata')
 assert.equal(findExternal(mac).deviceId, 'b2')
+// microfoni virtuali delle app di chiamata: mai scelti da soli (aprirli accende il microfono di Teams)
+assert.equal(pickInput([d('default', 'Default - MacBook Pro Microphone'), d('t', 'Microsoft Teams Audio')]), 'default', 'Teams non e\' una scheda esterna')
+assert.equal(pickInput([d('default', 'Default - Microsoft Teams Audio'), d('m', 'MacBook Pro Microphone')]), 'm', 'default = Teams: si prende il microfono vero')
+assert.equal(pickInput([d('z', 'ZoomAudioDevice'), d('b2', 'Scarlett 2i2 USB')]), 'b2')
+assert.equal(pickInput([d('default', 'MacBook Pro Microphone'), d('t', 'Microsoft Teams Audio')], 't'), 'default', 'Teams salvato cede al microfono vero')
+assert.equal(pickInput([d('t', 'Microsoft Teams Audio')], 't'), 't', 'se c\'e\' solo Teams resta')
+assert.ok(isVirtualCallLabel('Microsoft Teams Audio') && !isVirtualCallLabel('Scarlett 2i2 USB'))
 assert.equal(findExternal(solo), undefined, 'solo il microfono: nessun fallback esterno')
 assert.equal(findExternal([d('q', '')]), undefined, 'senza permesso (label vuote) non si fida')
 assert.equal(isBuiltInLabel('Default - MacBook Pro Microphone'), true)

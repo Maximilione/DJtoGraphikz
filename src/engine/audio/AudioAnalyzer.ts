@@ -4,7 +4,7 @@ import { KeyDetector, type Key } from './KeyDetector'
 import { BeatTracker } from './BeatTracker'
 import { MidiClock } from './MidiClock'
 import { ProDjLinkClock } from './ProDjLinkClock'
-import { findExternal, isBuiltInLabel, restartPlan } from '../../shared/audioInput'
+import { findExternal, isBuiltInLabel, isVirtualCallLabel, restartPlan } from '../../shared/audioInput'
 
 export interface AudioData {
   sub: number
@@ -258,6 +258,14 @@ export class AudioAnalyzer {
   }
 
   private async open(deviceId: string | undefined, gen: number, got: (s: MediaStream) => void): Promise<void> {
+    // no id = system default; when that is a call app's virtual mic (Teams, Zoom...)
+    // opening it wakes the app's microphone, so take the first real input instead
+    if (!deviceId) {
+      try {
+        const ins = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput')
+        if (ins[0] && isVirtualCallLabel(ins[0].label)) deviceId = ins.find(d => !isVirtualCallLabel(d.label))?.deviceId
+      } catch { /* keep the default */ }
+    }
     const stale = () => gen !== this.gen
 
     // Native device rate — forcing 44100 on 48k hardware goes through a
