@@ -84,10 +84,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     ringfreq: { source: 'bass', depth: 0.35, value: 6 },
     symmetry: { source: 'lfo-square', depth: 0.3, lfoRate: 32 },
   },
+  // density is the grid's spacing: modulating it slides every line, so it stays
+  // put. wavefreq is the height of the dunes beside the road, fogamt the haze.
   grid: {
     wavefreq: { source: 'bass', depth: 0.45, value: 2.5 },
     fogamt: { source: 'energy', depth: -0.3, value: 0.3 },
-    density: { source: 'lfo-sine', depth: 0.3, lfoRate: 32 },
   },
   waves: {
     amp: { source: 'bass', depth: 0.4, value: 0.06 },
@@ -159,7 +160,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   },
   pulsecity: {
     punch: { source: 'bass', depth: 0.4, value: 1.2 },
-    gapw: { source: 'lfo-sine', depth: 0.25, lfoRate: 16, value: 0.12 },
+    gapw: { source: 'lfo-sine', depth: 0.15, lfoRate: 32, value: 0.12 },
     columns: { source: 'energy', depth: 0.3, value: 18 },
   },
   neonpoly: {
@@ -180,11 +181,11 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   ps2towers: {
     orbit: { source: 'energy', depth: 0.3, value: 0.8 },
     foglevel: { source: 'bass', depth: -0.3, value: 1.2 },
-    towers: { source: 'lfo-square', depth: 0.25, lfoRate: 32 },
+    towers: { source: 'lfo-sine', depth: 0.2, lfoRate: 32 },
   },
   snowride: {
     curviness: { source: 'lfo-sine', depth: 0.4, lfoRate: 32, value: 0.8 },
-    pistewidth: { source: 'bass', depth: 0.3, value: 0.9 },
+    pistewidth: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 0.9 },
     gates: { source: 'energy', depth: 0.3, value: 5 },
     speed: { source: 'energy', depth: 0.6, value: 0.7 },
   },
@@ -350,7 +351,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   pulsar: {
     peaks: { source: 'bass', depth: 0.5, value: 0.9 },
     flow: { source: 'energy', depth: 0.4, value: 0.3 },
-    lines: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 40 },
+    // no mapping on lines: every integer step re-spaces all the slices at once
   },
   cathedral: {
     rays: { source: 'bass', depth: 0.5, value: 0.8 },
@@ -389,8 +390,8 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   },
   faces: {
     glow: { source: 'bass', depth: 0.4, value: 0.9 },
-    spin: { source: 'energy', depth: 0.3, value: 1 },
-    faces: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+    spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 1 },
+    faces: { source: 'lfo-sine', depth: 0.15, lfoRate: 64 },
   },
   monolith: {
     pulse: { source: 'bass', depth: 0.4, value: 0.9 },
@@ -507,6 +508,30 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     sun: { source: 'bass', depth: 0.4, value: 1 },
     pace: { source: 'energy', depth: 0.3, value: 1 },
     density: { source: 'lfo-sine', depth: 0.2, lfoRate: 64, value: 0.6 },
+  },
+  singularity: {
+    disk: { source: 'bass', depth: 0.35, value: 1 },
+    swirl: { source: 'energy', depth: 0.3, value: 1 },
+    tilt: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 0.3 },
+  },
+  aurora: {
+    height: { source: 'bass', depth: 0.3, value: 1 },
+    shimmer: { source: 'high', depth: 0.4, value: 1 },
+    flow: { source: 'energy', depth: 0.3, value: 1 },
+  },
+  armillary: {
+    core: { source: 'bass', depth: 0.45, value: 1 },
+    spin: { source: 'energy', depth: 0.3, value: 0.6 },
+  },
+  telemetry: {
+    glitch: { source: 'bass', depth: 0.5, value: 0.5 },
+    sweep: { source: 'energy', depth: 0.3, value: 1 },
+    land: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.5 },
+  },
+  aegis: {
+    beam: { source: 'bass', depth: 0.45, value: 1 },
+    impacts: { source: 'energy', depth: 0.3, value: 1 },
+    orbit: { source: 'lfo-sine', depth: 0.3, lfoRate: 64, value: 0.5 },
   },
   escher: {
     edge: { source: 'bass', depth: 0.4, value: 1 },

@@ -67,11 +67,12 @@ void main() {
   float slices = max(12.0, floor(lines));
   float amp = peaks * (0.085 + 0.135 * uEnergy + 0.06 * uMid);
 
-  // the field runs toward the camera: one `flow` world unit per beat
-  float off = uBeatClock * flow + uTime * 0.02;
-  // one band per beat: the field travels exactly `flow` in that time. Per bar
-  // was too sparse — most of the near field fell between bands and went flat.
-  float bandLen = max(0.06, flow);
+  // the field runs toward the camera at a fixed 0.35 world units per beat. It was
+  // uBeatClock * flow: with flow mapped to energy the whole field jumped, more
+  // the longer the set ran. `flow` now only sets how strong the kick bands are.
+  float off = uBeatClock * 0.35 + uTime * 0.02;
+  // one band per beat: the field travels exactly bandLen in that time
+  float bandLen = 0.35;
 
   // The live spectrum, sampled once per pixel: its column depends only on
   // screen x, which the slice loop never changes. Three taps because the raw
@@ -106,12 +107,20 @@ void main() {
   float glowInv = 1.0 / (0.008 + 0.024 * uBeat);
   float glowAmp = 0.09 + 0.18 * uEnergy;
   float invSl = 1.0 / slices;
+  // ceiling on any ridge under this pixel (body <= 0.57, spikes <= 1.66, the
+  // spectrum, times the band boost): a slice whose highest possible line is
+  // already hidden by a nearer one, or far below the pixel, is skipped before
+  // its terrain is read. Exact for hidden lines; the far-below cut drops a glow
+  // under 0.1%. This is most of the frame: sky and the flat sides.
+  float hMax = (0.57 + 1.66 + specRidge) * ampWin * (0.70 + bandK);
 
   for (int i = 0; i < 96; i++) {
     float fi = float(i);
     if (fi >= slices) break;
 
     float q = q0 - fi * dq;                    // inverse depth of this slice
+    float dMax = (hMax - eye) * FOCAL * q + HORIZON - p.y;
+    if (dMax <= lh || dMax < -0.25) continue;
     float z = 1.0 / q;
     float xw = p.x / (FOCAL * q);              // world X under this pixel
     float zw = z + off;
@@ -119,7 +128,7 @@ void main() {
     // kick band: ridges born on a beat, riding in with the field
     float ph = fract(zw * invBand);
     float bt = min(ph, 1.0 - ph) * 5.0;
-    float band = flow < 0.02 ? 0.0 : exp(-bt * bt);
+    float band = exp(-bt * bt) * min(1.0, flow * 2.857);   // flow 0.35 = full bands
 
     vec2 tr = terrain(vec2(xw * 2.6, zw * 1.5));
     // the front slices are "now": the live spectrum rides on them and melts

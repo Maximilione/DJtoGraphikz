@@ -33,6 +33,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'spectrum', label: 'Spectrum', icon: '▁' },
       { id: 'pulsar', label: 'Pulsar', icon: '⩘' },
       { id: 'eclipse', label: 'Eclipse', icon: '●' },
+      { id: 'aegis', label: 'Aegis', icon: '⬣' },
     ],
   },
   {
@@ -71,6 +72,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'mandelbulb', label: 'Mandelbulb', icon: '❂' },
       { id: 'ringworld', label: 'Ring', icon: '◎' },
       { id: 'escher', label: 'Escher', icon: '⌗' },
+      { id: 'singularity', label: 'Black Hole', icon: '◉' },
+      { id: 'armillary', label: 'Armillary', icon: '⊚' },
       { id: 'isoblocks', label: 'Blocks', icon: '⬢' },
       { id: 'terrain', label: 'Terrain', icon: '⛰' },
       { id: 'starfield', label: 'Stars', icon: '✧' },
@@ -114,6 +117,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'medusae', label: 'Medusae', icon: '☂' },
       { id: 'mycelium', label: 'Mycelium', icon: '⟡' },
       { id: 'agate', label: 'Agate', icon: '◐' },
+      { id: 'aurora', label: 'Aurora', icon: '≋' },
       { id: 'ribbons', label: 'Ribbons', icon: '∽' },
       { id: 'swarm', label: 'Swarm', icon: '✺' },
       { id: 'particles', label: 'Particle', icon: '⁂' },
@@ -133,6 +137,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'ascii', label: 'ASCII', icon: '⌨' },
       { id: 'macromosh', label: 'Mosh', icon: '▦' },
       { id: 'pixelsort', label: 'Sort', icon: '▤' },
+      { id: 'telemetry', label: 'Telemetry', icon: '⌖' },
       { id: 'halftone', label: 'Xerox', icon: '⁙' },
       { id: 'truchet', label: 'Truchet', icon: '◜' },
       { id: 'voronoi', label: 'Voronoi', icon: '⬡' },
@@ -200,9 +205,9 @@ export const POST_CATEGORIES: { name: string; effects: { id: PostId; label: stri
  */
 export const EFFECT_PALETTE_USE: Partial<Record<EffectId, 1 | 2>> = {
   eclipse: 1, chevrons: 1, matrix: 1, tribal: 1,
-  faces: 2, spaceghost: 2, cage: 2, reactor: 2, warp: 2, inkflow: 2, starfield: 2, plasmaglobe: 2,
-  ascii: 2, pipes: 2, fluid: 2, reaction: 2, galaxy: 2, orbits: 2, lasers: 2, strobegrid: 2,
-  ps2towers: 2, fire: 2, caustics: 2, vortex: 2, mesh: 2, pulsar: 2, snowride: 2,
+  spaceghost: 2, cage: 2, reactor: 2, warp: 2, inkflow: 2, starfield: 2, plasmaglobe: 2,
+  ascii: 2, fluid: 2, reaction: 2, galaxy: 2, orbits: 2, lasers: 2, strobegrid: 2,
+  ps2towers: 2, fire: 2, caustics: 2, vortex: 2, mesh: 2, pulsar: 2,
 }
 
 export const COLOR_PRESETS: { label: string; colors: [string, string, string] }[] = [

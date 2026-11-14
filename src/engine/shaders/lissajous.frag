@@ -6,6 +6,7 @@ uniform float uMid;
 uniform float uHigh;
 uniform float uEnergy;
 uniform float uBeat;
+uniform float uHighTime;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
@@ -43,14 +44,18 @@ void main() {
   // Multiple Lissajous curves with audio-reactive parameters
   for (int curve = 0; curve < 3; curve++) {
     float fc = float(curve);
-    float freqA = freqa + fc + uBass * 2.0;
-    float freqB = freqb + fc * 0.7 + uMid;
-    float phase = t * (0.3 + fc * 0.1) + uHigh * fc;
+    // audio stays small on the frequencies (uBass * 2 warped the whole figure on
+    // every kick) and enters the phase through a clock, not as a jump per hat
+    float freqA = freqa + fc + uBass * 0.35;
+    float freqB = freqb + fc * 0.7 + uMid * 0.2;
+    float phase = t * (0.3 + fc * 0.1) + uHighTime * 0.15 * fc;
     float amplitude = (size + fc * 0.02 + uBeat * 0.05) * fit;
 
     // Walk the curve as a polyline and measure the distance to each segment
     float minD2 = 1e4;
     float closestI = 0.0;
+    // far outside the figure the glow is under 1% of its peak: skip the walk
+    if (max(abs(uv.x), abs(uv.y)) > amplitude + 0.25) continue;
     // segments follow the frequency: a fixed 72 showed its corners at the
     // high end, and burned them on the slow default curves for nothing
     float segs = clamp(ceil(max(freqA, freqB) * 20.0), 48.0, 160.0);
@@ -63,16 +68,25 @@ void main() {
     vec2 sd = sin(vec2(freqA, freqB) * ds);
     vec2 cd = cos(vec2(freqA, freqB) * ds);
     vec2 prev = sn * amplitude;
+    // a segment is at most L long, so it cannot beat minD2 when its end vertex is
+    // farther than sqrt(minD2) + L: the cheap vertex test skips most segments
+    float L = amplitude * max(freqA, freqB) * ds * 1.5;
+    float thr = 1e8;
     for (int i = 1; i <= 160; i++) {
       if (float(i) > segs) break;
       vec2 sn2 = sn * cd + cs * sd;
       cs = cs * cd - sn * sd;
       sn = sn2;
       vec2 cur = sn * amplitude;
-      float d2 = segDist2(uv, prev, cur);
-      if (d2 < minD2) {
-        minD2 = d2;
-        closestI = float(i);
+      vec2 dv = uv - cur;
+      if (dot(dv, dv) < thr) {
+        float d2 = segDist2(uv, prev, cur);
+        if (d2 < minD2) {
+          minD2 = d2;
+          closestI = float(i);
+          float r = sqrt(d2) + L;
+          thr = r * r;
+        }
       }
       prev = cur;
     }
@@ -85,7 +99,7 @@ void main() {
     glow = min(glow, 3.0);
 
     // Line
-    float line = smoothstep(max(max(0.005 * lkb, lminW), fwidth(minDist) * 1.5), 0.0, minDist);
+    float line = smoothstep(max(max(0.005 * lkb, lminW), min(fwidth(minDist), 0.01) * 1.5), 0.0, minDist);
 
     // Color varies along curve parameter
     vec3 cColor = curve == 0 ? uColor1 : (curve == 1 ? uColor2 : uColor3);

@@ -369,7 +369,7 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
   faces: [
-    { key: 'faces', label: 'Volti', min: 5, max: 14, default: 9 },
+    { key: 'faces', label: 'Volti', min: 5, max: 14, default: 6 },
     { key: 'spin', label: 'Rotazione', min: 0, max: 3, default: 1 },
     { key: 'glow', label: 'Bagliore', min: 0, max: 2, default: 1 },
   ],
@@ -482,6 +482,36 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'density', label: 'Città', min: 0.2, max: 1, default: 0.6 },
     { key: 'sun', label: 'Sole', min: 0, max: 2, default: 1 },
     { key: 'radius', label: 'Raggio', min: 0.5, max: 2, default: 1 },
+  ],
+  singularity: [
+    { key: 'mass', label: 'Massa', min: 0.5, max: 2, default: 1 },
+    { key: 'disk', label: 'Disco', min: 0, max: 2, default: 1 },
+    { key: 'tilt', label: 'Inclinazione', min: 0, max: 1, default: 0.3 },
+    { key: 'swirl', label: 'Rotazione', min: 0, max: 3, default: 1 },
+  ],
+  aurora: [
+    { key: 'curtains', label: 'Tende', min: 0.4, max: 2, default: 1 },
+    { key: 'height', label: 'Altezza', min: 0.5, max: 2, default: 1 },
+    { key: 'flow', label: 'Flusso', min: 0, max: 3, default: 1 },
+    { key: 'shimmer', label: 'Raggi', min: 0, max: 2, default: 1 },
+  ],
+  armillary: [
+    { key: 'rings', label: 'Anelli', min: 2, max: 6, default: 5 },
+    { key: 'spin', label: 'Rotazione', min: 0, max: 2, default: 0.6 },
+    { key: 'snap', label: 'Scatto', min: 0, max: 1, default: 1 },
+    { key: 'core', label: 'Nucleo', min: 0, max: 2, default: 1 },
+  ],
+  telemetry: [
+    { key: 'detail', label: 'Dettaglio', min: 0.3, max: 1, default: 0.8 },
+    { key: 'sweep', label: 'Radar', min: 0, max: 3, default: 1 },
+    { key: 'glitch', label: 'Glitch', min: 0, max: 1, default: 0.5 },
+    { key: 'land', label: 'Globo', min: 0, max: 1, default: 0.5 },
+  ],
+  aegis: [
+    { key: 'cells', label: 'Celle', min: 4, max: 16, default: 9 },
+    { key: 'impacts', label: 'Impatti', min: 0, max: 2, default: 1 },
+    { key: 'beam', label: 'Fascio', min: 0, max: 2, default: 1 },
+    { key: 'orbit', label: 'Orbita', min: 0, max: 2, default: 0.5 },
   ],
   escher: [
     { key: 'complexity', label: 'Labirinto', min: 0.2, max: 1, default: 0.6 },
