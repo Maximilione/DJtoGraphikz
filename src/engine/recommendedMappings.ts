@@ -390,8 +390,8 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   },
   faces: {
     glow: { source: 'bass', depth: 0.4, value: 0.9 },
-    spin: { source: 'energy', depth: 0.3, value: 1 },
-    faces: { source: 'lfo-square', depth: 0.3, lfoRate: 64 },
+    spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 1 },
+    faces: { source: 'lfo-sine', depth: 0.3, lfoRate: 64 },
   },
   monolith: {
     pulse: { source: 'bass', depth: 0.4, value: 0.9 },

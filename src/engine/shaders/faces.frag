@@ -7,7 +7,10 @@ uniform float uHigh;
 uniform float uEnergy;
 uniform float uBeat;
 uniform float uBassHit;
+uniform float uMidHit;
+uniform float uHighHit;
 uniform float uBassTime;
+uniform float uHighTime;
 uniform float uBeatClock;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
@@ -20,25 +23,52 @@ uniform float faces;
 uniform float spin;
 uniform float glow;
 
-// Masks: a lantern of porcelain faces (procedural SDF heads, polar domain
-// repetition: only the current face and its two neighbours are evaluated, and
-// they fuse with a smooth-min) turning slowly over a pin, above a floor of thin
-// copper fins radiating from a dark hub. Behind it a wall of dark glass heads
-// with two incandescent eyes each, defocused. One march, 64 steps.
-// Kick: the lantern swells and the fins light up in a wave from the hub out,
-// the background eyes flash. Bass time: rotation. Mids: the fins ripple.
-// Highs: eye twinkle. In silence everything breathes slowly, never black.
+// Masks: a carousel of monumental android heads on a black void, the look of
+// a big-stage melodic-techno show. One procedural SDF head (skull, brow,
+// cheekbones, nose, lips, lidded eyes, neck: no assets) repeated on a ring by
+// polar domain repetition, so each march step evaluates a single head. The
+// skin is glazed white porcelain cut into panels by thin seams, neck and ear
+// hubs are dark liquid chrome, the eyes dark glass with a ring of light; all
+// of it reflects an analytic studio (a soft box, two strips, a horizon).
+// Whites are neutral; the palette is three roles: colour 1 the light inside
+// (eyes, seams) and the left back light, colour 2 the right back light and
+// the ear hubs, colour 3 the hologram (scan band, dissolve, particles).
+// The head in front is whole; the ones receding along the ring break up into
+// blocks, particles and wireframe (noise threshold).
+// `faces` = heads on the ring (continuous: the arc opens and closes),
+// `spin` = how far the camera orbits (an amount, never a speed: a mapped
+// param that multiplies a clock makes the picture jump),
+// `glow` = eyes, seams, rims, scan band and particles.
+// Kick: the seams open and light up, eyes and rims flare. Bass: slow
+// push-in. Mids / snare: the holographic scan band brightens as it sweeps.
+// Highs: the particles shimmer. Energy: more of each head dissolves. In
+// silence the carousel keeps turning one head every 16 beats, the heads nod,
+// the scan band and the dissolve keep moving.
 
-const float TAU = 6.2831853;
-const float FLOOR_Y = -0.9;
-const float FINS = 36.0;
+const float PI = 3.14159265;
+const vec3 EYE = vec3(0.285, 0.04, 0.49);
+const float EYE_R = 0.12;
+const vec3 L_KEY = vec3(-0.1197, 0.4989, -0.8583);   // unit vector towards the key: front and above, a touch left
+const vec3 K_U = vec3(0.9904, 0.0603, -0.1031);      // across the key's soft box
+const vec3 K_V = vec3(0.0, 0.8646, 0.5025);          // and up it
+const vec3 L_A = vec3(-0.8533, 0.2008, 0.4819);      // back left, colour 1
+const vec3 L_B = vec3(0.8533, 0.2008, 0.4819);       // back right, colour 2
 
-float gKick, gR, gSec, gS, gCy, gBreath, gN;
-float gCs, gSn; // cos/sin of one sector: dFaces steps between neighbours by rotation
-vec3 gCop; // copper: the palette only tints it 35%
-vec2 gRot;
+float gKick, gOpen, gBreath, gR, gSec, gRing;
+vec3 gC1, gC2, gC3;   // inner light (eyes, seams) / the two back lights / the hologram
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float hash12(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float hash13(vec3 p) { return fract(sin(dot(p, vec3(113.5, 271.9, 124.6))) * 43758.5453); }
+
+float vnoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = mix(hash13(i), hash13(i + vec3(1.0, 0.0, 0.0)), f.x);
+  float b = mix(hash13(i + vec3(0.0, 1.0, 0.0)), hash13(i + vec3(1.0, 1.0, 0.0)), f.x);
+  float c = mix(hash13(i + vec3(0.0, 0.0, 1.0)), hash13(i + vec3(1.0, 0.0, 1.0)), f.x);
+  float d = mix(hash13(i + vec3(0.0, 1.0, 1.0)), hash13(i + vec3(1.0, 1.0, 1.0)), f.x);
+  return mix(mix(a, b, f.y), mix(c, d, f.y), f.z);
+}
 
 float smin(float a, float b, float k) {
   float h = max(k - abs(a - b), 0.0) / k;
@@ -46,257 +76,302 @@ float smin(float a, float b, float k) {
 }
 float smax(float a, float b, float k) { return -smin(-a, -b, k); }
 
+// ellipsoid, first-order distance (f / |grad f|): good near the surface, cheap
 float sdEll(vec3 p, vec3 r) {
   float k0 = length(p / r);
   float k1 = max(length(p / (r * r)), 1e-4);
   return k0 * (k0 - 1.0) / k1;
 }
 
-// one head, looking along +z, y up
-float face(vec3 f, float hv) {
-  float d = sdEll(f - vec3(0.0, 0.03 * hv, -0.05), vec3(0.40, 0.55 + 0.12 * hv, 0.44));
-  d = smin(d, sdEll(f - vec3(0.0, -0.36, 0.04), vec3(0.25, 0.28, 0.30)), 0.15);
-  vec3 c = vec3(abs(f.x), f.y, f.z);
-  d = smin(d, length(c - vec3(0.26, -0.06, 0.26)) - 0.14, 0.09);
-  vec3 pa = f - vec3(0.0, 0.10, 0.34);
-  vec3 ba = vec3(0.0, -0.24, 0.11);
+// same surface, one length: a looser bound, for the big shapes
+float sdS(vec3 p, vec3 r, float m) { return (length(p / r) - 1.0) * m; }
+
+float sdCap(vec3 p, vec3 a, vec3 b, float ra, float rb) {
+  vec3 pa = p - a, ba = b - a;
   float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-  d = smin(d, length(pa - ba * h) - 0.035 - 0.035 * h, 0.05);
-  d = smax(d, -(length(c - vec3(0.16, 0.10, 0.38)) - 0.095), 0.04);
-  d = smax(d, -sdEll(c - vec3(0.0, -0.2, 0.42), vec3(0.14, 0.016, 0.07)), 0.015);
+  return length(pa - ba * h) - mix(ra, rb, h);
+}
+
+// distance to the nearest seam between the porcelain panels. The face is a
+// shell cut off the skull by a leaning plane (a cut in 3D stays a crisp line
+// on the temples, where a front projection would smear); in front of it the
+// jaw pieces and the chin, behind it the split over the crown
+float seamD(vec3 l) {
+  float ax = abs(l.x);
+  float cut = l.z - 0.10 - 0.22 * l.y;
+  float s = abs(cut) * 0.97;
+  if (cut > 0.0) {
+    float t = clamp((-0.05 - l.y) / 0.88, 0.0, 1.0);
+    float cx = mix(0.47, 0.20, t * t * (1.7 - 0.7 * t));
+    if (l.y < -0.05) s = min(s, abs(ax - cx));
+    if (ax < cx) s = min(s, abs(l.y + 0.745 + 0.6 * l.x * l.x));
+  } else if (l.y > 0.0) {
+    s = min(s, ax);
+  }
+  return s;
+}
+
+// one head in its own frame: z forward (the face), y up
+float head(vec3 l) {
+  float dn = sdCap(l, vec3(0.0, -0.70, -0.14), vec3(0.0, -3.6, -0.30), 0.27, 0.34);
+  float bd = length(l - vec3(0.0, 0.03, -0.08)) - 1.20;
+  if (bd > 0.15) return min(bd, dn);
+  vec3 a = vec3(abs(l.x), l.y, l.z);
+  float d = sdS(l - vec3(0.0, 0.26, -0.10), vec3(0.64, 0.73, 0.82), 0.64);
+  d = smin(d, sdS(l - vec3(0.0, -0.30, 0.12), vec3(0.46, 0.74, 0.54), 0.46), 0.22);
+  d = smin(d, length(a - vec3(0.34, -0.50, 0.0)) - 0.13, 0.22);
+  d = smin(d, dn, 0.08);
+  d = smin(d, length(a - vec3(0.385, -0.04, 0.39)) - 0.17, 0.20);                         // cheekbone
+  // ear: a machined hub
+  d = smin(d, max(length(a.yz - vec2(0.0, -0.12)) - 0.13, abs(a.x - 0.61) - 0.05), 0.02);
+  // the features only exist on the front, and only stick out so far
+  if (l.z < 0.2) return d;
+  // (the nose 0.33, brow and lids 0.14; never inside 0.27, where the shadow
+  // and occlusion taps sample and need the true distance)
+  if (a.x < 0.30 ? d > 0.40 : d > 0.27) return d - (a.x < 0.30 ? 0.33 : 0.14);
+  // each group only where its smooth union can reach: the reach grows with
+  // the distance from the skull, so the shadow and occlusion taps agree
+  if (l.y > -0.25 - d) {
+    d = smin(d, sdEll(l - vec3(0.0, 0.29, 0.57), vec3(0.40, 0.055, 0.095)), 0.16);       // brow
+    // socket, then the lid over the eyeball with its almond opening
+    d = smax(d, -(length(a - vec3(EYE.x, 0.04, 0.815)) - 0.22), 0.08);
+    float eb = length(a - EYE);
+    float lid = smax(eb - EYE_R - 0.012, -sdEll(a - vec3(EYE.x, 0.03, 0.61), vec3(0.15, 0.046, 0.10)), 0.01);
+    d = min(smin(d, lid, 0.04), eb - EYE_R);
+  }
+  if (a.x < 0.24 + d && l.y > -0.45 - d && l.y < 0.26 + d) {
+    float nz = sdCap(l, vec3(0.0, 0.13, 0.645), vec3(0.0, -0.20, 0.835), 0.034, 0.042);
+    nz = smin(nz, sdEll(l - vec3(0.0, -0.262, 0.805), vec3(0.088, 0.058, 0.082)), 0.05);
+    d = smin(d, nz, 0.08);
+  }
+  if (l.y < -0.19 + d) {
+    d = smin(d, sdS(l - vec3(0.0, -0.54, 0.49), vec3(0.22, 0.19, 0.20), 0.19), 0.15);    // muzzle
+    d = smin(d, length(l - vec3(0.0, -0.86, 0.50)) - 0.135, 0.14);                        // chin
+    // lips, bent back and down into the corners
+    float x2 = l.x * l.x;
+    float lp = smin(sdEll(vec3(l.x, l.y + 0.528 + 1.2 * x2, l.z - 0.690 + 2.8 * x2), vec3(0.150, 0.030, 0.065)),
+                    sdEll(vec3(l.x, l.y + 0.590 - 1.5 * x2, l.z - 0.685 + 2.8 * x2), vec3(0.135, 0.038, 0.070)), 0.008);
+    d = smin(d, lp, 0.04);
+  }
+  // the seams are grooves, and the kick opens them
+  if (d < 0.03) d += (0.005 + 0.018 * gOpen) * smoothstep(0.0038 + 0.010 * gOpen, 0.0, seamD(l));
   return d;
 }
 
-float dFaces(vec3 p) {
-  vec3 q = (p - vec3(0.0, gCy, 0.0)) / gS;
-  float bd = length(q * vec3(1.0, 0.7, 1.0)) - (gR + 0.75);
-  if (bd > 0.3) return bd * gS * 0.7;
-  q.xz = vec2(q.x * gRot.x + q.z * gRot.y, q.z * gRot.x - q.x * gRot.y);
-  float i = floor(atan(q.z, q.x) / gSec + 0.5);
-  float d = 1e5;
-  // the three neighbours sit at (i-1, i, i+1)*gSec: one cos/sin for the
-  // first, then rotate by a sector (this runs ~70 times per hit pixel)
-  float a0 = (i - 1.0) * gSec;
-  vec2 e = vec2(cos(a0), sin(a0));
-  for (int j = -1; j <= 1; j++) {
-    vec3 f = vec3(dot(q.xz, vec2(-e.y, e.x)), q.y, dot(q.xz, e) - gR);
-    float fi = (i + float(j));
-    float hv = hash(vec2(mod(fi + gN, gN), 3.0));
-    float fd = face(f, hv);
-    d = (j == -1) ? fd : smin(d, fd, 0.12);
-    e = vec2(e.x * gCs - e.y * gSn, e.x * gSn + e.y * gCs);
-  }
-  return d * gS * 0.8;
+// how far the head at world angle th nods (radians, small: applied as a shear)
+float nod(float th) { return 0.055 * sin(uTime * 0.31 + th * 1.3); }
+
+// ring space -> frame of the nearest head; th = world angle of that head
+vec3 toHead(vec3 p, out float th) {
+  vec2 q = vec2(p.x, gR - p.z);
+  float a = atan(q.x, q.y) - gRing;
+  float c = floor(a / gSec + 0.5) * gSec;
+  float la = a - c;
+  float r = length(q);
+  th = c + gRing;
+  // the nod pivots at the base of the neck
+  float ph = nod(th);
+  vec2 yz = vec2(p.y + 1.2, r * cos(la) - gR + 0.2);
+  return vec3(r * sin(la), yz.x + ph * yz.y - 1.2, yz.y - ph * yz.x - 0.2);
 }
 
-// local head coordinates of the nearest face, for the eye / mouth masks
-vec3 faceLocal(vec3 p) {
-  vec3 q = (p - vec3(0.0, gCy, 0.0)) / gS;
-  q.xz = vec2(q.x * gRot.x + q.z * gRot.y, q.z * gRot.x - q.x * gRot.y);
-  float ak = floor(atan(q.z, q.x) / gSec + 0.5) * gSec;
-  vec2 e = vec2(cos(ak), sin(ak));
-  return vec3(dot(q.xz, vec2(-e.y, e.x)), q.y, dot(q.xz, e) - gR);
-}
-
-float dFloor(vec3 p) {
-  float pin = max(length(p.xz) - 0.06, abs(p.y) - 0.95);
-  if (p.y > -0.5) return min(pin, max(p.y + 0.5, 0.02)); // bound, never a surface
-  float r = length(p.xz);
-  float a = atan(p.z, p.x) + uTime * 0.04;
-  float sec = TAU / FINS;
-  float la = a - floor(a / sec + 0.5) * sec;
-  float rad = r * cos(la);
-  float lat = r * sin(la) + (p.y - FLOOR_Y) * 0.3;
-  float rip = 0.04 * sin(rad * 3.0 - uTime * 1.5) * (0.4 + 2.0 * uMid);
-  float hh = 0.22 + rip;
-  float th = 0.034 + 0.008 * rad;
-  float d = max(max(abs(lat) - th, abs(p.y - (FLOOR_Y + hh)) - hh), max(0.55 - rad, rad - 3.4));
-  float hub = max(r - 0.5, abs(p.y - (FLOOR_Y + 0.08)) - 0.1);
-  return min(min(d * 0.6, hub), pin);
-}
-
-float map(vec3 p) { return min(dFaces(p), dFloor(p)); }
-
-vec3 normalAt(vec3 p) {
-  vec2 k = vec2(1.0, -1.0);
-  const float e = 0.0025;
-  return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e) +
-                   k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
-
-// wave of light running from the hub outwards while the kick decays
-float finWave(float rad) {
-  float front = 3.6 * (1.0 - gKick);
-  float w = (rad - front) * 1.6;
-  return exp(-w * w) * sqrt(gKick);
-}
-
-// one layer of the glass-head wall: rgb + coverage
-vec4 headLayer(vec2 uv, float L) {
-  float sc = mix(9.0, 14.0, L);
-  vec2 q = vec2(uv.x * sc + uTime * 0.03 * (1.0 - 0.5 * L) + L * 3.7, uv.y * sc * 0.8 + L * 1.3);
-  q.x += 0.5 * mod(floor(q.y), 2.0);
-  vec2 id = floor(q);
-  vec2 f = fract(q) - 0.5;
-  float h = hash(id + L * 17.0);
-  float h2 = hash(id.yx + 5.0 + L);
-  float present = step(0.04, h2);
-  float blur = mix(0.1, 0.4, L);
-  vec2 e = f / vec2(0.34, 0.44);
-  float ev = length(e);
-  float mask = smoothstep(1.0 + blur, 1.0 - blur, ev) * present;
-  vec3 n = vec3(e, sqrt(max(1.0 - ev * ev, 0.0)));
-  float blue = pow(max(dot(n, normalize(vec3(-0.5, 0.6, 0.6))), 0.0), 18.0) * (h > 0.72 ? 1.0 : 0.15);
-  float rim = smoothstep(0.55, 1.0, ev) * mask;
-  vec3 col = vec3(0.004, 0.004, 0.008) + vec3(0.1, 0.26, 0.7) * (blue * 0.9 + rim * 0.22 * (0.4 + 0.6 * h));
-  float flash = 1.0 + 2.5 * gKick * (0.4 + 0.6 * h);
-  float tw = 1.0 + uHigh * 0.8 * sin(uTime * 9.0 + h * 60.0);
-  float ei = (0.35 + 0.65 * h) * flash * tw * glow * (0.8 + 0.2 * gBreath);
-  vec3 ec = mix(vec3(1.0, 0.28, 0.08), uColor3, 0.35);
-  float k1 = mix(450.0, 170.0, L), k2 = mix(60.0, 28.0, L);
-  vec2 e1 = f - vec2(0.085, 0.06), e2 = f - vec2(-0.085, 0.06);
-  float core = exp(-dot(e1, e1) * k1) + exp(-dot(e2, e2) * k1);
-  float halo = (exp(-dot(e1, e1) * k2) + exp(-dot(e2, e2) * k2)) * 0.3;
-  col += ec * (core * 2.0 + halo) * ei;
-  return vec4(col * mix(1.0, 0.55, L) * present, mask);
+// the studio the chrome and the glaze reflect: overhead softbox, horizon
+// streak, the key, and the two coloured back lights
+vec3 studio(vec3 r) {
+  float top = smoothstep(0.30, 0.95, r.y);
+  vec3 c = vec3(0.75 * top * top);   // every white is neutral: the only colour on screen is the palette's
+  c += vec3(0.12) * exp(-r.y * r.y * 70.0);
+  vec2 kb = abs(vec2(dot(r, K_U), dot(r, K_V)));
+  c += vec3(9.0) * smoothstep(0.26, 0.20, kb.x) * smoothstep(0.15, 0.10, kb.y) * step(0.0, dot(r, L_KEY));
+  c += vec3(1.5) * pow(max(abs(r.x) * 0.80 - r.z * 0.60, 0.0), 40.0);   // two strip lights flanking the camera
+  c += gC1 * pow(max(dot(r, L_A), 0.0), 24.0) * 1.5;
+  c += gC2 * pow(max(dot(r, L_B), 0.0), 24.0) * 1.5;
+  return c;
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   gKick = clamp(uBassHit, 0.0, 1.0);
-  gBreath = 0.5 + 0.5 * sin(uTime * 0.6);
-  float N = floor(clamp(faces, 5.0, 14.0) + 0.5);
-  gSec = TAU / N;
-  gCs = cos(gSec); gSn = sin(gSec);
-  gN = N;
-  gCop = mix(vec3(1.0, 0.5, 0.18), uColor2, 0.35);
-  gR = clamp(0.24 / sin(3.14159265 / N), 0.5, 1.2);
-  gS = 1.35 * (1.0 + 0.08 * gKick + 0.02 * gBreath);
-  gCy = 0.5 + 0.04 * sin(uTime * 0.7) + 0.05 * gKick;
-  float ang = (uBassTime * 0.35 + uTime * 0.12) * spin;
-  gRot = vec2(cos(ang), sin(ang));
+  gOpen = gKick * gKick;
+  gBreath = 0.5 + 0.5 * sin(uTime * 0.5);
+  gC1 = uColor1;
+  gC2 = uColor2;
+  gC3 = uColor3;
   float g = glow;
+  float N = clamp(faces, 5.0, 14.0);
+  gSec = 2.0 * PI / N;
+  gR = 0.88 / sin(PI / N);
+  // the carousel advances one head every 16 beats and wraps: the heads are
+  // identical, so the angle never accumulates and `faces` can move freely
+  float cyc = fract(uBeatClock / 16.0 + uTime * 0.01);
+  gRing = gSec * smoothstep(0.45, 1.0, cyc);
 
-  vec3 ro = vec3(0.0, 0.9, -5.6);
-  vec3 fwd = normalize(vec3(0.0, 0.15, 0.0) - ro);
+  float yaw = spin * 0.22 * sin(uTime * 0.13 + 1.0);
+  float D = 5.9 + 0.16 * (N - 9.0) - 0.3 * sin(uBassTime * 0.3) - 0.12 * uBass;
+  vec3 ta = vec3(0.0, -0.16, 0.0);
+  vec3 ro = vec3(sin(yaw) * D, -0.85 + 0.25 * sin(uTime * 0.09), -cos(yaw) * D);
+  vec3 fwd = normalize(ta - ro);
   vec3 rgt = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
   vec3 up = cross(fwd, rgt);
-  vec3 rd = normalize(fwd * 1.6 + rgt * uv.x + up * uv.y);
+  vec3 rd = normalize(fwd * 2.2 + rgt * uv.x + up * uv.y);
 
-  float t = 2.0;
+  // black void, a breath of the two colours behind the heads
+  vec3 col = gC1 * exp(-dot(uv + vec2(0.62, 0.0), uv + vec2(0.62, 0.0)) * 1.8) * 0.045
+           + gC2 * exp(-dot(uv - vec2(0.62, 0.0), uv - vec2(0.62, 0.0)) * 1.8) * 0.045;
+  col *= g * (0.6 + 0.4 * gBreath + 1.2 * gKick);
+
+  // bounds: the cylinder that holds the ring, and a far plane that drops the
+  // heads on the far side
+  vec2 oc = ro.xz - vec2(0.0, gR);
+  float ca = dot(rd.xz, rd.xz), cb = dot(oc, rd.xz), cc = dot(oc, oc) - (gR + 1.3) * (gR + 1.3);
+  float disc = cb * cb - ca * cc;
+  float tMax = (1.34 * gR - ro.z) / rd.z;
+  float t = disc > 0.0 ? max((-cb - sqrt(disc)) / ca, 0.0) : tMax + 1.0;
+  if (ro.y + rd.y * t > 1.3 && rd.y > 0.0) t = tMax + 1.0;
+
   bool hit = false;
-  for (int i = 0; i < 64; i++) {
-    float d = map(ro + rd * t);
-    if (d < 0.0015 + 0.0008 * t) { hit = true; break; }
-    t += d;
-    if (t > 16.0) break;
-  }
-
-  // the lantern fills most of the frame at close range: when it's hit within
-  // 5 units, `fog` below is exactly 0 and the background never actually
-  // shows through (mix weight 0, not an approximation) — skip paying for the
-  // glass-head wall (2x headLayer) and the floor disc on those pixels
-  vec3 col;
-  if (!hit || t > 5.0) {
-    // wall of glass heads, far layer under the near one
-    vec2 buv = uv + vec2(0.03 * sin(uTime * 0.1), 0.0);
-    vec4 far = headLayer(buv, 1.0);
-    vec4 near = headLayer(buv, 0.0);
-    col = mix(vec3(0.002, 0.002, 0.004) + far.rgb * far.a, near.rgb, near.a);
-    col *= smoothstep(1.5, 0.15, length(uv * vec2(0.8, 1.1))) * 0.9 + 0.1;
-    // warm backlight behind the lantern
-    vec2 hc = uv - vec2(0.0, 0.12);
-    col += gCop * exp(-dot(hc, hc) * 2.6) * 0.1 * g * (0.65 + 0.35 * gBreath + 0.5 * gKick);
-
-    // dark glossy disc under the fins
-    if (rd.y < -0.01) {
-      float tp = (FLOOR_Y - ro.y) / rd.y;
-      vec3 fp = ro + rd * tp;
-      float fr = length(fp.xz);
-      if (fr < 3.5) {
-        float fade = smoothstep(3.5, 3.0, fr);
-        vec3 disc = vec3(0.004, 0.002, 0.001) + gCop * finWave(fr) * 0.07 * g;
-        col = mix(col, disc, fade * 0.97);
-      }
-    }
-  } else {
-    col = vec3(0.0); // unused: fog below is exactly 0 for t <= 5
+  float eg = 1e3;
+  vec3 l = vec3(0.0);
+  float th = 0.0;
+  for (int i = 0; i < 80; i++) {
+    if (t > tMax) break;
+    l = toHead(ro + rd * t, th);
+    float d = head(l);
+    eg = min(eg, length(vec3(abs(l.x), l.yz) - EYE));
+    if (d < 0.002) { hit = true; break; }
+    t += d * 0.9;
   }
 
   if (hit) {
     vec3 p = ro + rd * t;
-    vec3 n = normalAt(p);
-    vec3 v = -rd;
-    float ndv = max(dot(n, v), 0.0);
-    vec3 surf;
-    if (dFaces(p) < dFloor(p)) {
-      // porcelain
-      vec3 alb = mix(vec3(1.0, 0.95, 0.88), uColor1, 0.04) * 0.92;
-      vec3 L1 = normalize(vec3(-0.9, 0.4, -0.3));
-      vec3 key = mix(vec3(1.0, 0.92, 0.82), gCop, 0.15);
-      float w = clamp((dot(n, L1) + 0.1) / 1.1, 0.0, 1.0);
-      w = w * w * (1.3 - 0.3 * w);
-      float occ = 0.0;
-      for (int i = 1; i <= 3; i++) {
-        float hh = 0.05 * float(i);
-        occ += (hh - map(p + n * hh)) / float(i * i);
-      }
-      float ao = clamp(1.0 - 2.4 * occ, 0.05, 1.0);
-      vec3 lit = key * w * 1.6 * (0.9 + 0.1 * gBreath)
-               + gCop * 0.035
-               + gCop * max(-n.y, 0.0) * g * (0.08 + 0.3 * gKick + 0.4 * finWave(length(p.xz)));
-      surf = alb * lit * ao;
-      vec3 hv = normalize(L1 + v);
-      surf += key * pow(max(dot(n, hv), 0.0), 40.0) * 0.12 * w;
-      surf += gCop * pow(1.0 - ndv, 3.0) * 0.18 * smoothstep(-0.2, 0.6, n.x);
-      vec3 fl = faceLocal(p);
-      float ex = abs(fl.x) - 0.16;
-      float eye = smoothstep(0.02, 0.006, abs(fl.y - 0.095 + 0.25 * ex)) * smoothstep(0.075, 0.04, abs(ex));
-      float ym = -0.225 + 2.6 * fl.x * fl.x;
-      float mouth = smoothstep(0.016, 0.005, abs(fl.y - ym)) * smoothstep(0.15, 0.1, abs(fl.x));
-      float front = step(0.25, fl.z);
-      surf *= 1.0 - front * (0.95 * eye + 0.8 * mouth);
-    } else {
-      // copper fins, hub and pin
-      float rad = length(p.xz);
-      vec3 rr = reflect(rd, n);
-      // reflected lights orbit with the bass clock, so the glints run along the fins
-      float sa = uBassTime * 0.6 + uTime * 0.2;
-      vec3 Ls = normalize(vec3(cos(sa), 0.45, sin(sa)));
-      vec3 Lt = normalize(vec3(-cos(sa * 0.7 + 2.0), 0.6, -sin(sa * 0.7 + 2.0)));
-      float env = pow(max(dot(rr, Ls), 0.0), 60.0) * 2.5
-                + pow(max(dot(rr, Lt), 0.0), 90.0) * 1.6
-                + pow(max(dot(rr, normalize(vec3(-0.6, 0.5, -0.5))), 0.0), 70.0) * 1.0;
-      float low = 0.35 + 0.65 * smoothstep(FLOOR_Y, FLOOR_Y + 0.3, p.y);
-      float w = finWave(rad);
-      float pulse = 0.1 + 0.08 * gBreath + 1.2 * w + 0.25 * uMid * (0.5 + 0.5 * sin(rad * 5.0 - uTime * 2.0));
-      float topEdge = smoothstep(0.55, 0.95, n.y);
-      surf = gCop * 0.06 * (0.4 + 0.6 * max(n.y, 0.0))
-           + env * gCop * 0.9
-           + gCop * topEdge * (0.9 + pulse * 1.8) * g * 0.9;
-      surf *= low;
-      if (rad < 0.6) {
-        // dark glossy hub with a thin copper ring where the fins end
-        float ring = smoothstep(0.1, 0.0, abs(rad - 0.5));
-        surf = gCop * 0.02 + env * gCop * 0.25 + gCop * ring * (0.3 + 0.8 * w) * g;
-      }
+    vec2 q = vec2(p.x, gR - p.z);
+    float wa = atan(q.x, q.y);
+    float cs = cos(th), sn = sin(th), ph = nod(th);
+    // world <-> head frame: a reflection about the ring (the same matrix both
+    // ways), then the nod
+    vec3 vl = vec3(-rd.x * cs - rd.z * sn, -rd.y, -rd.x * sn + rd.z * cs);
+    vl.yz = vec2(vl.y + ph * vl.z, vl.z - ph * vl.y);
+    vec3 lk = vec3(L_KEY.x * cs + L_KEY.z * sn, L_KEY.y, L_KEY.x * sn - L_KEY.z * cs);
+    lk.yz = vec2(lk.y + ph * lk.z, lk.z - ph * lk.y);
+
+    vec3 a3 = vec3(abs(l.x), l.yz);
+    float jaw = l.y + 0.80 + 0.55 * l.z;                       // < 0: the neck
+
+    // dissolve: the far heads, and the back of each skull as the energy rises
+    float lvl = 0.25 + 0.75 * max(uEnergy, 0.22 + 0.18 * sin(uTime * 0.21));
+    float m = smoothstep(0.4, 3.2, abs(wa) / gSec) * 1.15
+            + smoothstep(0.55, -0.45, l.z) * lvl * (jaw < 0.0 ? 0.4 : 1.0);
+    float diss = 0.0;
+    if (m > 0.2) {
+      m += (vnoise(l * 4.0 + vec3(0.0, uTime * 0.07, 0.0)) * 0.5
+          + vnoise(l * 13.0 - vec3(0.0, uTime * 0.11, 0.0)) * 0.5 - 0.5) * 0.55
+         + (hash13(floor(l * 52.0)) - 0.5) * 0.16;
+      diss = smoothstep(0.495, 0.505, m);
     }
-    float fog = 1.0 - exp(-max(t - 5.0, 0.0) * 0.12);
-    col = mix(surf, col, fog * 0.8);
+
+    vec3 surf = vec3(0.0);
+    if (diss < 1.0) {
+      vec2 k = vec2(1.0, -1.0);
+      const float e = 0.003;
+      vec3 nl = normalize(k.xyy * head(l + k.xyy * e) + k.yyx * head(l + k.yyx * e) +
+                          k.yxy * head(l + k.yxy * e) + k.xxx * head(l + k.xxx * e));
+      vec2 nyz = vec2(nl.y - ph * nl.z, nl.z + ph * nl.y);
+      vec3 n = normalize(vec3(nl.x * cs + nyz.y * sn, nyz.x, nl.x * sn - nyz.y * cs));
+      float ndv = max(dot(nl, vl), 0.0);
+
+      float ao = clamp(0.25 + 0.75 * head(l + nl * 0.14) / 0.14, 0.0, 1.0);
+      float ndl = dot(nl, lk);
+      float sh = smoothstep(0.0, 1.0, head(l + nl * 0.02 + lk * 0.22) / (0.22 * max(ndl, 0.0) + 0.045));
+
+      bool eye = length(a3 - EYE) < EYE_R + 0.003 && l.z > EYE.z;
+      float hubR = length(l.yz - vec2(0.0, -0.12));
+      bool metal = jaw < 0.0 || (a3.x > 0.645 && hubR < 0.14);
+      float fr = pow(1.0 - ndv, 3.0);
+      float F = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
+      float rimI = g * (1.0 + 0.3 * gBreath + 1.4 * gKick);
+      vec3 env = studio(reflect(rd, n));
+      if (eye) {
+        // dark glass with a ring of light
+        float er = length(a3.xy - EYE.xy) / EYE_R;
+        float iris = smoothstep(0.045, 0.0, abs(er - 0.31));
+        float core = smoothstep(0.09, 0.0, er);
+        surf = env * (0.06 + 0.94 * F) * 0.35;
+        surf += gC1 * (iris * 2.2 + core * 3.0 + 0.05 * smoothstep(0.5, 0.0, er)) * g * (0.9 + 0.3 * gBreath + 3.0 * gKick);
+      } else if (!metal) {
+        // porcelain: the key from above, deep shadow, two coloured rims, a glaze
+        float dif = pow(clamp(ndl * 0.88 + 0.12, 0.0, 1.0), 1.8) * (0.2 + 0.8 * sh);
+        const float alb = 0.90;
+        surf = vec3(alb * (dif * 1.5 + 0.011 * ao));
+        float ra = max(dot(n, L_A), 0.0), rb = max(dot(n, L_B), 0.0);
+        surf += alb * gC1 * ra * ra * (0.08 + 2.0 * fr) * rimI * ao;
+        surf += alb * gC2 * rb * rb * (0.08 + 2.0 * fr) * rimI * ao;
+        surf += env * F * ao * (0.3 + 0.7 * sh);
+        surf += vec3(0.06) * pow(max(dot(nl, normalize(lk + vl)), 0.0), 14.0) * sh;
+        // nostrils
+        surf *= 1.0 - 0.8 * smoothstep(0.020, 0.008, length(a3 - vec3(0.038, -0.318, 0.80)));
+        // the grooves: dark, with light at the bottom that the kick turns up
+        float sd = min(seamD(l), abs(jaw));
+        float w = 0.0038 + 0.010 * gOpen;
+        surf *= 1.0 - 0.92 * smoothstep(w * 2.4, w * 0.8, sd);
+        surf += mix(gC1, vec3(1.0), 0.35 * gOpen) * smoothstep(w, 0.0, sd) * g * (0.07 + 0.06 * gBreath + 3.5 * gOpen);
+      } else {
+        // liquid chrome: neck and ear hubs
+        surf = env * mix(0.45, 1.0, F) * ao + vec3(0.006) * ao;
+        // neck rings
+        surf *= 1.0 - 0.9 * smoothstep(0.07, 0.03, abs(fract(l.y * 9.0) - 0.5)) * step(jaw, 0.0);
+        // the ring of light on the ear hub
+        surf += gC2 * smoothstep(0.012, 0.003, abs(hubR - 0.085)) * step(0.66, a3.x) * g * (0.8 + 2.5 * gKick);
+        surf *= smoothstep(-2.6, -1.0, l.y);
+      }
+
+      // holographic scan band, sweeping the heads from the neck to the crown
+      float by = p.y + 0.25 - 1.3 * sin(uBeatClock * PI / 8.0);
+      float sI = g * (0.25 + 0.6 * uMid + 1.5 * uMidHit);
+      float lines = smoothstep(0.25, 0.5, abs(fract(uv.y * 180.0) - 0.5));
+      surf = mix(surf, gC3 * (lines * 0.35 + fr * 0.9) + surf * 0.5, exp(-by * by * 40.0) * clamp(0.45 * sI, 0.0, 0.7));
+      surf += gC3 * exp(-by * by * 5000.0) * 1.6 * sI;
+    }
+    if (diss > 0.0) {
+      // what is left of a dissolved shell: particles thinning out, and the wireframe
+      vec3 pc = l * 40.0 + vec3(0.0, uHighTime * 0.8 + uTime * 0.15, 0.0);
+      vec3 ci = floor(pc);
+      float hh = hash13(ci);
+      vec3 pf = fract(pc) - 0.5 - (vec3(hash13(ci + 1.7), hash13(ci + 5.3), 0.5) - 0.5) * 0.5;
+      float dot3 = smoothstep(0.26, 0.08, length(pf)) * step(smoothstep(0.5, 0.95, m), hh);
+      float tw = 0.5 + 0.5 * sin(uHighTime * 9.0 + uTime * 1.3 + hh * 40.0);
+      vec3 part = mix(gC3, gC1, hh * hh) * dot3 * (0.35 + tw * (0.5 + 1.6 * uHigh + 1.0 * uHighHit)) * g;
+      float wl = min(abs(fract(l.y * 8.0) - 0.5), abs(fract(atan(l.x, l.z) * 12.0 / PI) - 0.5));
+      part += gC3 * smoothstep(0.03, 0.0, wl) * 0.12 * g * (1.0 - smoothstep(0.5, 0.9, m));
+      surf = mix(surf, part, diss);
+    }
+    // the edge of the dissolve burns
+    surf += mix(gC3, vec3(1.0), 0.5) * exp(-(m - 0.5) * (m - 0.5) * 30000.0) * 0.9 * g;
+
+    // depth: the heads sink into the void as they recede
+    surf *= exp(-max(p.z, 0.0) * 0.22);
+    col = surf;
   }
 
-  // dust in the light
-  vec2 dp = uv * vec2(34.0, 19.0) + vec2(uTime * 0.05, -uTime * 0.12);
-  vec2 di = floor(dp);
-  float dh = hash(di);
-  if (dh >= 0.96) { // one cell in 25 holds a mote (cells are ~57px: coherent)
-    vec2 df = fract(dp) - 0.5 - (vec2(hash(di + 3.1), hash(di + 7.7)) - 0.5) * 0.5;
-    col += gCop * exp(-dot(df, df) * 90.0) * (0.12 + 0.3 * uHigh) * g
-         * (0.5 + 0.5 * sin(uTime * 2.0 + dh * 80.0));
+  // the eyes bleed light into the air
+  col += gC1 * exp(-eg * eg * 45.0) * 0.22 * g * (0.8 + 0.2 * gBreath + 2.0 * gKick);
+
+  // particles adrift in the void, rising
+  for (int i = 0; i < 2; i++) {
+    float fi = float(i);
+    vec2 dp = uv * (22.0 + 16.0 * fi) + vec2(uTime * 0.03 * (1.0 + fi), -uTime * (0.10 + 0.06 * fi));
+    vec2 di = floor(dp);
+    float dh = hash12(di + fi * 19.0);
+    if (dh > 0.95) {
+      vec2 df = fract(dp) - 0.5 - (vec2(hash12(di + 3.1), hash12(di + 7.7)) - 0.5) * 0.6;
+      float tw = 0.5 + 0.5 * sin(uHighTime * 7.0 + uTime * 1.1 + dh * 90.0);
+      col += mix(gC3, gC1, step(0.975, dh)) * exp(-dot(df, df) * 220.0)
+           * (0.05 + tw * (0.10 + 0.5 * uHigh + 0.3 * uHighHit)) * g * (hit ? 0.25 : 1.0);
+    }
   }
 
-  col = col / (1.0 + 0.25 * col);
-  col *= clamp(1.25 - dot(uv, uv) * 0.8, 0.5, 1.0);
-  col += gCop * 0.004;
+  // the app shows this as it is and blooms what is above mid grey: the shoulder
+  // keeps the porcelain under it, only lights and reflections go over
+  col = 1.0 - exp(-col * 0.92);
+  col *= clamp(1.2 - dot(uv, uv) * 0.55, 0.0, 1.0);
   gl_FragColor = vec4(col, 1.0);
 }
