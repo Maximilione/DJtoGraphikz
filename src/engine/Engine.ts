@@ -3268,8 +3268,8 @@ export class Engine {
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
-    if (this.perfEmaMs > 24 && this.perfScale > 0.3) {
-      // under ~42fps: step proportional to how late we are, so a volumetric
+    if (this.perfEmaMs > 20 && this.perfScale > 0.3) {
+      // under ~50fps (was 42: 42-58fps judders on a 60Hz projector and never scaled): step proportional to how late we are, so a volumetric
       // raymarcher at 15fps converges in 2 steps instead of crawling down.
       // (a 30Hz display lands here too — softer buffers there are invisible)
       const step = Math.max(0.55, Math.min(0.9, Math.sqrt(16.7 / this.perfEmaMs)))
@@ -3277,8 +3277,11 @@ export class Engine {
       this.perfCooldown = this.perfEmaMs > 40 ? 20 : 45
       this.setRenderSize(this.outputWidth, this.outputHeight)
       console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
-    } else if (this.perfEmaMs < 17 && this.perfScale < 1) {
-      // headroom: climb back slowly, long cooldown so it can't oscillate
+    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < 20) {
+      // headroom: climb back slowly, and only when the frame still fits once the
+      // bigger buffer is paid for (x1.38 pixels a step). Climbing on "< 17ms" alone
+      // put a 26ms shader back at full size every 5s, then down again: a hitch
+      // and a resize each time, the "lag" seen on pulsar/lissajous.
       this.perfScale = Math.min(1, this.perfScale / 0.85)
       this.perfCooldown = 300
       this.setRenderSize(this.outputWidth, this.outputHeight)
