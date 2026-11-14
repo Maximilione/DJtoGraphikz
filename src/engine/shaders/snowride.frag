@@ -111,7 +111,8 @@ void main() {
   float camH = 1.0 + air * 5.2 + lip * 1.5 + hop - squash * 0.3;
   float hY = -0.03 + air * 0.15 - lip * 0.06 + squash * 0.03;
 
-  float carve = sin(uBarPhase * TAU) * smoothstep(0.05, 0.3, uEnergy) * (1.0 - air);
+  float carve = sin(uBeatClock * 0.25 * TAU) *   // beat clock: uBarPhase snaps at start-up
+                smoothstep(0.05, 0.3, uEnergy) * (1.0 - air);
   float camOff = (carve * 0.32 + sin(uTime * 0.31) * 0.12) * hw;
   float hd = (curveAt(T + 12.0) - cT - camOff) / 12.0;             // heading: look where the piste goes
   float turn = (curveAt(T + 30.0) - curveAt(T + 12.0)) / 18.0 - hd;

@@ -12,6 +12,7 @@ uniform vec3 uColor3;
 uniform vec2 uResolution;
 uniform float uBeatPhase;
 uniform float uBarPhase;
+uniform float uBeatClock;
 uniform float uBassHit;
 uniform float uMidHit;
 uniform float uHighHit;
@@ -134,9 +135,12 @@ void main() {
 
   // ---- camera: follows the car's sway a little, bobs with the bar, and the
   // field of view opens on the bass (about the vanishing point) ----
-  float carX = 0.34 * sin(TAU * uBarPhase) + 0.10 * sin(t * 0.31);
+  // sway on the continuous beat clock (a bar = 4 beats): uBarPhase snaps while the
+  // tracker locks on after start-up and threw the car across the lanes
+  float barA = TAU * uBeatClock * 0.25;
+  float carX = 0.34 * sin(barA) + 0.10 * sin(t * 0.31);
   float camX = carX * 0.45;
-  float hy = -0.075 + 0.005 * sin(TAU * uBarPhase + 1.2) + 0.003 * sin(t * 0.47);   // horizon: 42.5% from the bottom
+  float hy = -0.075 + 0.005 * sin(barA + 1.2) + 0.003 * sin(t * 0.47);   // horizon: 42.5% from the bottom
   float zoom = 1.0 + 0.045 * uBass;
   vec2 p = vec2(uv.x, uv.y - hy) * zoom;
   float px = zoom / uResolution.y;
@@ -282,7 +286,7 @@ void main() {
     float aa = px / CAR_A;
     float flare = uBassHit + 0.3 * uBeat;
     // the body squats on the kick and leans into the sway; the wheels stay down
-    float roll = 0.035 * cos(TAU * uBarPhase) * min(1.0, uEnergy * 3.0);
+    float roll = 0.035 * cos(barA) * min(1.0, uEnergy * 3.0);
     vec2 cb = vec2(cc.x + roll * (cc.y - 0.2), cc.y - roll * cc.x + 0.035 * uBassHit);
     vec3 paint = vec3(0.010, 0.008, 0.018) + uColor3 * 0.018;
 
