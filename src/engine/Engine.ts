@@ -3839,6 +3839,10 @@ export class Engine {
       sync?.()
       this.renderer.render(geo.scene, this.camera)
     } else {
+      // a target that once drew the mesh keeps its depth buffer, and the depth the
+      // model left there: the quad depth-tests against it and fails wherever the
+      // model was, so the model stayed on screen after switching effect
+      if (target.depthBuffer) this.renderer.clearDepth()
       this.quad.material = mat
       this.renderer.render(this.scene, this.camera)
       this.quad.material = this.mainMaterial
