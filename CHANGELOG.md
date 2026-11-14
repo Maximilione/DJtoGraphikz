@@ -2,6 +2,28 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [0.81.0-beta] — 2026-11-14
+
+### Added
+- **5 nuove visual da palco** (fc96a2b): Black Hole, Aurora, Armillary, Telemetry, Aegis.
+
+### Changed
+- **Grid** (4a41f95): vero vaporwave, coupé a cuneo verso il sole a fessure, griglia neon, montagne wireframe.
+- **Snowride** (b592aab): discesa arcade big-air per drum and bass.
+- **PS2 towers** (919c84d, f8b74dc): vista dall'alto, blocchi opachi, luce blu al centro; camera che non salta piu' con l'audio, kick/rullante/hat visibili.
+- **Pulsecity** (14cca17): megacitta' monumentale, viale tra torri brutaliste verso una megastruttura tagliata da una fessura di luce.
+- **Maschere** (e7304e3, efdb40e): giostra di teste in porcellana su vuoto nero, serene e astratte.
+- **Truss** (fcbe177): show luci da festival, americane box, teste mobili, fasci in forma chiusa.
+
+### Fixed
+- **Idle** (4e6ab0c): un effetto scelto a mano non viene piu' sostituito da Caustics.
+- **Prestazioni** (42b38ec): risoluzione dinamica che oscillava, pulsar e lissajous che laggavano.
+- **Mesh** (9d9cc2a): il modello 3D restava sullo schermo dopo il cambio effetto.
+- **Audio** (b18a06f): mai aprire da soli il microfono virtuale di Teams/Zoom.
+- **Pulsar, Lissajous, Grid, Snow** (ebc9b45, 101ecf0, 888145a): niente scatti con energia, kick e hat, ne' all'avvio.
+- **Parametri** (26e4d06): niente riga doppia quando un effetto ridefinisce `speed`.
+- **Pipes** (860a194): mostra tutti e tre i colori, tolto il badge 2 colori.
+
 ## [0.80.0-beta] — 2026-11-06
 
 ### Added
