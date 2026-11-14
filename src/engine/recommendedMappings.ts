@@ -160,7 +160,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   },
   pulsecity: {
     punch: { source: 'bass', depth: 0.4, value: 1.2 },
-    gapw: { source: 'lfo-sine', depth: 0.25, lfoRate: 16, value: 0.12 },
+    gapw: { source: 'lfo-sine', depth: 0.15, lfoRate: 32, value: 0.12 },
     columns: { source: 'energy', depth: 0.3, value: 18 },
   },
   neonpoly: {
