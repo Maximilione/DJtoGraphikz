@@ -351,7 +351,7 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
   pulsar: {
     peaks: { source: 'bass', depth: 0.5, value: 0.9 },
     flow: { source: 'energy', depth: 0.4, value: 0.3 },
-    lines: { source: 'lfo-sine', depth: 0.25, lfoRate: 64, value: 40 },
+    // no mapping on lines: every integer step re-spaces all the slices at once
   },
   cathedral: {
     rays: { source: 'bass', depth: 0.5, value: 0.8 },
