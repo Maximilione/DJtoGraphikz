@@ -8,7 +8,7 @@ varying vec2 vUv;
 void main() {
   float pixelSize = mix(4.0, 16.0, uEnergy);
   vec2 pixels = uResolution / pixelSize;
-  vec2 uv = floor(vUv * pixels) / pixels;
+  vec2 uv = (floor(vUv * pixels) + 0.5) / pixels;   // block centre, not its corner
   vec4 px = texture2D(tDiffuse, uv);
   // at full wet the dry sample would be thrown away: do not fetch it (uniform branch)
   if (uWet < 1.0) px = mix(texture2D(tDiffuse, vUv), px, uWet);

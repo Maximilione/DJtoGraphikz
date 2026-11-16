@@ -357,19 +357,29 @@ void main() {
     float zn = max(zr + 0.5, 0.2);
     // rows this slot can touch: skip the rest before any hash or curve
     if (p.y < hY - camH * F / zn - 0.01 || p.y > hY + tall * F / zn) continue;
+    // side-independent terms, hoisted out of the k loop
+    float zt = zr + 5.1;
+    float czT = 0.0, visT = 0.0, foT = 0.0;
+    if (zt > 0.5) {
+      czT = curveAt(T + zt) - cT - camOff - zt * hd;
+      visT = smoothstep(72.0, 62.0, zt) * smoothstep(1.3, 0.6, (camH - 3.0) / zt);   // billboards: gone when seen from above
+      foT = exp(-zt * FOG);
+    }
+    float zB = zr + 4.0;
+    float cvN = 0.0, cvB = 0.0;
+    if (zB > 0.6) { cvN = curveAt(T + zn); cvB = curveAt(T + zB); }
     for (int k = 0; k < 2; k++) {
       float side = k == 0 ? -1.0 : 1.0;
       float h1 = hash(vec2(sid, side * 7.3));
       vec3 sc = k == 0 ? uColor1 : uColor2;
 
       // the pine or the mast stands behind the board of its slot: draw it first
-      float zt = zr + 5.1;
       if (zt > 0.5) {
         float s = F / zt;
-        float cz = curveAt(T + zt) - cT - camOff - zt * hd;
+        float cz = czT;
         float yg = hY - camH * s;
-        float vis = smoothstep(72.0, 62.0, zt) * smoothstep(1.3, 0.6, (camH - 3.0) / zt);   // billboards: gone when seen from above
-        float fo = exp(-zt * FOG);
+        float vis = visT;
+        float fo = foT;
         if (mod(sid, 4.0) < 0.5 && (mod(sid, 8.0) < 0.5) == (k == 0)) {
           vec2 lq = vec2(p.x - (side * (hw + 1.5) + cz) * s, p.y - yg) / s;          // world units in the mast's plane
           if (abs(lq.x) < max(0.07, pxz / s) && lq.y > 0.0 && lq.y < 8.0) color = mix(color, mix(hazeC, vec3(0.012, 0.016, 0.026), fo), vis);
@@ -403,11 +413,10 @@ void main() {
       }
 
       // LED board along the edge, seen in perspective: 1/z is linear across it
-      float zB = zr + 4.0;
       if (h1 > 0.3 && zB > 0.6) {
         float eL = side * (hw + 0.6) - cT - camOff;
-        float xa = F * (eL + curveAt(T + zn) - zn * hd) / zn;
-        float xb = F * (eL + curveAt(T + zB) - zB * hd) / zB;
+        float xa = F * (eL + cvN - zn * hd) / zn;
+        float xb = F * (eL + cvB - zB * hd) / zB;
         float tt = (p.x - xa) / (xb - xa);
         if (tt > 0.0 && tt < 1.0) {
           float iz = mix(1.0 / zn, 1.0 / zB, tt);

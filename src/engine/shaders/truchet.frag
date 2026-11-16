@@ -58,9 +58,12 @@ vec3 tlayer(vec2 p, float n, float gen, float seed, float wk) {
   float core = 1.0 - smoothstep(w * 0.30, w * 0.30 + aa, d);
   float glow = exp(-max(0.0, d - w) * 22.0 / wk);
 
-  // a pulse of light running along the arc
-  float run = 0.5 + 0.5 * sin(ang * 4.0 - uTime * 2.5 - uBeatClock * 3.14159
-                              + hash(cell + seed) * 6.2832);
+  // a pulse of light running along the paths: one wave per quarter arc, so the
+  // value matches at every tile border (arc ends sit on multiples of pi/2);
+  // checkerboard parity alone orients every arc consistently (the mirror flips
+  // handedness together with ang), so pulses run continuously along the paths
+  float sgn = mod(cell.x + cell.y, 2.0) < 0.5 ? 1.0 : -1.0;
+  float run = 0.5 + 0.5 * sin(sgn * ang * 4.0 - uTime * 2.5 - uBeatClock * 3.14159);
 
   // colour by cell so the field reads as regions, not one flat weave
   float region = hash(floor(cell / 3.0) + gen * 2.17 + seed);
@@ -68,7 +71,7 @@ vec3 tlayer(vec2 p, float n, float gen, float seed, float wk) {
   tint = mix(tint, uColor3, step(0.88, hash(cell + 4.2 + seed)));
 
   vec3 c = tint * (line * (0.55 + 0.55 * run) * (0.9 + 0.8 * uBeat)
-                   + glow * (0.18 + 0.5 * uEnergy + 0.5 * uBassHit));
+                   + glow * glow * (0.18 + 0.5 * uEnergy + 0.5 * uBassHit));   // squared: gaps stay dark
   c += mix(tint, vec3(1.0), 0.7) * core * (0.30 + 0.45 * uBeat + 0.55 * uBassHit) * (0.4 + 0.6 * run);
   return c;
 }

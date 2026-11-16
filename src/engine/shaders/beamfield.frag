@@ -41,7 +41,7 @@ void main() {
 
   // fog: palette gradient, brighter low where the floor lights scatter
   vec2 lc = uv - vec2(0.0, -0.2);
-  vec3 col = mix(uColor1 * 0.10, uColor2 * 0.06, smoothstep(-0.5, 0.5, uv.y)) * hz;
+  vec3 col = mix(uColor1 * 0.10, uColor2 * 0.025, smoothstep(-0.5, 0.5, uv.y)) * hz;
   col += uColor3 * 0.04 * hz / (1.0 + 5.0 * dot(lc, lc));
 
   for (int i = 0; i < 12; i++) {
@@ -66,16 +66,24 @@ void main() {
                   0.5 * (3.0 + 4.0 * uLineBoost) * max(s, 0.0) / (1.2 * uResolution.y));
     // one exp for profile and fade, only in front of the mover and along the
     // beam; past q = 16 the term is under 1e-6, below a level
-    float g = 0.0;
+    float g = 0.0, gc = 0.0;
     if (s > 0.0 && t > 0.0) {
       float q = on * on * inl2 / (w * w) + t * 0.045;
-      if (q < 16.0) g = exp(-q) / max(sqrt(nl2), 0.12);
+      if (q < 16.0) {
+        float inl = 1.0 / max(sqrt(nl2), 0.12);
+        g = exp(-q) * inl;
+        gc = exp(-q * 5.0) * inl;               // white-hot laser core
+      }
     }
 
     float m = fract(u * 1.5 + fi * 0.17);
     vec3 pc = m < 0.5 ? mix(uColor1, uColor2, m * 2.0) : mix(uColor2, uColor3, m * 2.0 - 1.0);
     pc = mix(pc, uColor3, 0.25);
-    col += pc * g * 0.16 * hz * (0.8 + 0.8 * kick + 0.4 * uEnergy);
+    // beat chase along the rig + haze shimmer travelling down the beam
+    float chase = 0.55 + 0.45 * smoothstep(0.35, 0.0, abs(fract(uBeatClock * 0.5 - u) - 0.5));
+    float shim = 1.0 + 0.35 * uHigh * sin(t * 7.0 - uTime * 3.0 + fi);
+    col += pc * g * 0.16 * hz * (0.8 + 0.8 * kick + 0.4 * uEnergy) * chase * shim;
+    col += mix(pc, vec3(1.0), 0.7) * gc * 0.10 * hz * (0.6 + 1.2 * kick) * chase;
 
     // lens of the mover
     vec3 od = o / length(o);
@@ -83,7 +91,9 @@ void main() {
     col += mix(pc, vec3(1.0), 0.4) * lens * (0.6 + kick) * 0.5;
   }
 
-  col = col / (1.0 + 0.55 * col);
+  col = 1.0 - exp(-col * 1.35);
   col *= clamp(1.2 - dot(uv, uv) * 0.6, 0.5, 1.0);
+  // interleaved-gradient dither: 8-bit target bands the fog gradient
+  col += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(col, 1.0);
 }
