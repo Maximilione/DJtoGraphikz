@@ -10,7 +10,7 @@ import { pickEffect } from '../../autoMapping'
 import { getThumb, useFxThumbs, thumbBackground } from '../../fxThumbs'
 import { IsfBrowser } from './IsfBrowser'
 import { EffectGrid } from '../EffectGrid/EffectGrid'
-import { PaletteGrid, warnPaletteLimit } from '../PaletteGrid/PaletteGrid'
+import { PaletteGrid, warnDesaturated, warnPaletteLimit } from '../PaletteGrid/PaletteGrid'
 import { SliderRow } from '../SliderRow/SliderRow'
 import { pushToast } from '../Toasts/Toasts'
 import { EFFECT_CATEGORIES, POST_CATEGORIES, COLOR_PRESETS, EFFECT_COUNT, TRANSITIONS, effectLabel, postLabel } from '../../catalog'
@@ -280,10 +280,11 @@ function EffectPanelImpl({ engine, onManual }: EffectPanelProps) {
     } else {
       engine.setColors(...allPalettes()[idx].colors)
     }
+    warnDesaturated(engine.getGrade().saturation, () => updateGrade({ saturation: DEFAULT_GRADE.saturation }))
     setActiveColorPreset(idx)
     // the cycle would quietly replace the pick at its next turn
     if (cycleEnabled) pushToast('Ciclo palette attivo: cambierà al prossimo giro', 'cycle-pick', { label: 'Ferma ciclo', fn: () => engine.setCycleEnabled(false) })
-  }, [engine, customColors, cycleEnabled])
+  }, [engine, customColors, cycleEnabled, updateGrade])
 
   const updateCustomColor = useCallback((index: 0 | 1 | 2, color: string) => {
     if (!engine) return

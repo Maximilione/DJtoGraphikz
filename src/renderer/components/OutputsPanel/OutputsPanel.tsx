@@ -140,11 +140,11 @@ export function OutputsPanel({ displays, outputs, onChange }: OutputsPanelProps)
               <div className="slider-row">
                 <span className="label">Risoluzione</span>
                 <input type="number" min={320} max={7680} step={2} key={`w${open}-${o.width}`} defaultValue={o.width}
-                  onBlur={e => set(open, { width: +e.target.value | 0 })}
+                  onBlur={e => { const n = parseInt(e.target.value, 10); if (Number.isFinite(n) && n !== o.width) set(open, { width: n }); e.target.value = String(o.width) }}
                   onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} style={{ width: 72 }} />
                 <span className="label">×</span>
                 <input type="number" min={240} max={4320} step={2} key={`h${open}-${o.height}`} defaultValue={o.height}
-                  onBlur={e => set(open, { height: +e.target.value | 0 })}
+                  onBlur={e => { const n = parseInt(e.target.value, 10); if (Number.isFinite(n) && n !== o.height) set(open, { height: n }); e.target.value = String(o.height) }}
                   onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} style={{ width: 72 }} />
               </div>
               <div className="u-row" style={{ gap: 4, flexWrap: 'wrap' }}>

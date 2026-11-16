@@ -57,6 +57,8 @@ export function useAudioRestore(engine: Engine | null, epoch: number) {
       a.setManualBpm(s.manualBpm ?? 128)
     }
     apply()
+    // Live does not mount AudioPanel, whose effect was the only one to start the listener in main
+    window.api?.setProLink?.(s.bpmMode === 'prodjlink')
     // A file under analysis is not a room's sound card: switching to the
     // profile's input there would yank the track being tested.
     if (!s.running || !s.deviceId || a.getSourceKind() === 'file') return

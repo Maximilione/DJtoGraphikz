@@ -283,7 +283,7 @@ export interface Grade {
   saturation: number  // 1 = neutral
   vignette: number    // 0 = off
   lift: number        // 0 = neutral
-  exposure: number    // 1 = neutral (tone mapping exposure)
+  exposure: number    // gain in the master pass, 1.1 = neutral default
 }
 
 export const DEFAULT_GRADE: Grade = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
@@ -652,6 +652,7 @@ export class Engine {
   // scale until the frame rate holds, then climb back when there's headroom
   private perfScale = 1
   private perfEmaMs = 16.7
+  private framePeriodMs = 1000 / 60
   private perfLastNow = 0
   private perfCooldown = 300 // ~5s warmup: boot + output-window spawn jank must not downscale
   private perfSpikeLast = false
@@ -772,7 +773,7 @@ export class Engine {
     new THREE.Color(DEFAULT_COLORS[1]),
     new THREE.Color(DEFAULT_COLORS[2]),
   ]
-  private colorLerpSpeed = 0.04  // per frame, ~0.7s at 60fps
+  private colorLerpSpeed = 0.04  // per 1/60s, ~0.7s
 
   // Palette cycling
   private cycleEnabled = false
@@ -788,6 +789,7 @@ export class Engine {
   private transitionType: TransitionType = 'crossfade'
   private transitionDuration = 0.8 // seconds
   private transitionProgress = -1  // -1 = not transitioning
+  private transitionFrom: EffectId = 'tunnel'
   private transitionOldMaterial: THREE.ShaderMaterial | null = null
   private rtTransition: THREE.WebGLRenderTarget
   private transitionMaterial: THREE.ShaderMaterial
@@ -886,10 +888,8 @@ export class Engine {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(1)
     this.renderer.autoClear = false
-    // Filmic tone mapping + sRGB output: saturated neons stop clipping to white on a projector
+    // sRGB output (exposure is a gain in the master pass: no shader here runs three's tone mapping)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = this.grade.exposure
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
     this.quadGeometry = new THREE.PlaneGeometry(2, 2)
@@ -979,6 +979,7 @@ export class Engine {
         uSaturation: { value: this.grade.saturation },
         uVignette: { value: this.grade.vignette },
         uLift: { value: this.grade.lift },
+        uExposure: { value: this.exposureGain() },
         uWarpOn: { value: false },
         uWarpInv: { value: new THREE.Matrix3() },
         uSrcOff: { value: new THREE.Vector2(0, 0) },
@@ -1079,6 +1080,7 @@ export class Engine {
       else h = Math.round(w / outAspect)
       w = Math.max(2, w || winW)
       h = Math.max(2, h || winH)
+      this.renderer.setPixelRatio(window.devicePixelRatio || 1)
       this.renderer.setSize(w, h)
       this.setRenderSize(this.outputWidth, this.outputHeight)
       return
@@ -1317,7 +1319,7 @@ export class Engine {
     for (let i = 0; i < chain.defs.length; i++) {
       const pm = chain.materials[i]
       this.applyEffectUniforms(pm, 0)
-      this.applyParams(pm)
+      if (mat === this.mainMaterial) this.applyParams(pm)   // params are keyed on deck A: deck B and the outgoing effect keep their own
       pm.uniforms.uResolution.value = chain.sizes[i]   // the buffer's size, not the screen's
       pm.uniforms.uFrame.value = chain.frames
       this.bindChainBuffers(pm.uniforms, chain)
@@ -1587,7 +1589,7 @@ export class Engine {
       this.startTransition(id)
       return
     }
-    if (id === this.currentEffect && this.transitionProgress < 0) return
+    if (id === this.currentEffect) return
 
     // If beat-sync is on and no beat right now, queue the transition
     if (this.transitionBeatSync) {
@@ -1625,6 +1627,7 @@ export class Engine {
     }
 
     const fromEffect = this.currentEffect
+    this.transitionFrom = fromEffect
 
     if (this.transitionDuration <= 0 || id === this.currentEffect) {
       // Instant switch
@@ -1646,17 +1649,7 @@ export class Engine {
     // Emit state with transition info for output window. The panels listen
     // too: with a transition > 0 the grid, the "In onda" line and the params
     // stayed on the old effect until some other emit came by.
-    if (!this.onStateChange && !this.stateListeners.size) return
-    const snap = {
-      ...this.stateSnapshot(),
-      transition: {
-        type: this.transitionType,
-        duration: this.transitionDuration,
-        fromEffect,
-      },
-    }
-    this.onStateChange?.(snap)
-    this.notifyStateListeners(snap)
+    this.emitState()
   }
 
   // ---- Custom Shader API ----
@@ -2540,8 +2533,13 @@ export class Engine {
     u.uSaturation.value = this.grade.saturation
     u.uVignette.value = this.grade.vignette
     u.uLift.value = this.grade.lift
-    this.renderer.toneMappingExposure = this.grade.exposure
+    u.uExposure.value = this.exposureGain()
     this.emitState()
+  }
+  /** 0.2 floor = UI minimum: MIDI/OSC/phone can send 0, and a 0 (or a missing value) saved while the control was dead must not boot black */
+  private exposureGain(): number {
+    const e = this.grade.exposure
+    return Number.isFinite(e) ? Math.max(0.2, e) / DEFAULT_GRADE.exposure : 1
   }
   getGrade(): Grade { return { ...this.grade } }
 
@@ -3161,6 +3159,7 @@ export class Engine {
       customParams: this.usingCustom ? this.customParamDefs : undefined,
       customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
       customImages: this.usingCustom ? this.customImages : undefined,
+      transition: this.transitionProgress >= 0 ? { type: this.transitionType, duration: this.transitionDuration, fromEffect: this.transitionFrom } : undefined,
       transitionType: this.transitionType,
       transitionDuration: this.transitionDuration,
       transitionBeatSync: this.transitionBeatSync,
@@ -3268,16 +3267,16 @@ export class Engine {
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
-    if (this.perfEmaMs > 20 && this.perfScale > 0.3) {
+    if (this.perfEmaMs > this.framePeriodMs * 1.2 && this.perfScale > 0.3) {
       // under ~50fps (was 42: 42-58fps judders on a 60Hz projector and never scaled): step proportional to how late we are, so a volumetric
       // raymarcher at 15fps converges in 2 steps instead of crawling down.
-      // (a 30Hz display lands here too — softer buffers there are invisible)
-      const step = Math.max(0.55, Math.min(0.9, Math.sqrt(16.7 / this.perfEmaMs)))
+      // (thresholds follow the output display's refresh: a 30/50Hz projector no longer reads as overload)
+      const step = Math.max(0.55, Math.min(0.9, Math.sqrt(this.framePeriodMs / this.perfEmaMs)))
       this.perfScale = Math.max(0.3, this.perfScale * step)
-      this.perfCooldown = this.perfEmaMs > 40 ? 20 : 45
+      this.perfCooldown = this.perfEmaMs > this.framePeriodMs * 2.4 ? 20 : 45
       this.setRenderSize(this.outputWidth, this.outputHeight)
       console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
-    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < 20) {
+    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < this.framePeriodMs * 1.2) {
       // headroom: climb back slowly, and only when the frame still fits once the
       // bigger buffer is paid for (x1.38 pixels a step). Climbing on "< 17ms" alone
       // put a 26ms shader back at full size every 5s, then down again: a hitch
@@ -3287,6 +3286,9 @@ export class Engine {
       this.setRenderSize(this.outputWidth, this.outputHeight)
     }
   }
+
+  /** Refresh rate of the display the output window sits on (main sends it) */
+  setDisplayHz(hz: number) { this.framePeriodMs = 1000 / Math.min(60, Math.max(24, hz || 60)) }
 
   private lastFrameAt = 0
   private watchdogId = 0
@@ -3299,9 +3301,12 @@ export class Engine {
    * projector stays frozen on whatever it drew last — usually black, because
    * the freeze happens before the first state arrives over IPC.
    * A timer keeps the frame going whenever rAF goes quiet.
+   * The control window needs the timer as well: its renderFrame runs the audio
+   * analysis, the audio frame listeners (Auto VJ, idle, sequences) and the
+   * track-change detector that the projector depends on.
    */
   private startWatchdog() {
-    if (this.watchdogId || !this.remote) return
+    if (this.watchdogId) return
     this.watchdogId = window.setInterval(() => {
       if (this.disposed) return
       // rAF healthy → nothing to do (this is just a timestamp compare).
@@ -3333,7 +3338,10 @@ export class Engine {
     else h = Math.round(w / outAspect)
     w = Math.max(2, w)
     h = Math.max(2, h)
-    if (this.canvas.width !== w || this.canvas.height !== h) {
+    // setPixelRatio resizes the canvas on every call: only inside the branch. floor(w*dpr) is what setSize writes
+    const dpr = window.devicePixelRatio || 1
+    if (this.canvas.width !== Math.floor(w * dpr) || this.canvas.height !== Math.floor(h * dpr)) {
+      this.renderer.setPixelRatio(dpr)
       this.renderer.setSize(w, h)
       this.setRenderSize(this.outputWidth, this.outputHeight)
     }
@@ -3379,6 +3387,7 @@ export class Engine {
     // Frame delta from elapsed time — clock.getDelta() is consumed by getElapsedTime()
     const dt = Math.min(time - this.lastFrameTime, 0.25)
     this.lastFrameTime = time
+    const k = dt * 60   // frames at 60Hz: per-frame constants below are tuned for 60fps
 
     let beatDetected: boolean
     let bpm: number
@@ -3400,7 +3409,7 @@ export class Engine {
       const ATTACK = 0.55
       const RELEASE = 0.09
       const env = (current: number, target: number) =>
-        current + (target - current) * (target > current ? ATTACK : RELEASE)
+        current + (target - current) * (1 - Math.pow(1 - (target > current ? ATTACK : RELEASE), k))
       this.smoothBass = env(this.smoothBass, audio.bass)
       this.smoothMid = env(this.smoothMid, audio.mid)
       this.smoothHigh = env(this.smoothHigh, audio.high)
@@ -3417,7 +3426,7 @@ export class Engine {
 
       // Beat pulse with decay
       if (beatDetected) this.beatPulse = 1.0
-      this.beatPulse *= 0.88
+      this.beatPulse *= Math.pow(0.88, k)
     }
 
     // Impact layer: same maths in both windows, driven by the audio each has
@@ -3483,7 +3492,7 @@ export class Engine {
 
     // Smooth color transitions (lerp current → target)
     for (let i = 0; i < 3; i++) {
-      this.colors[i].lerp(this.targetColors[i], this.colorLerpSpeed)
+      this.colors[i].lerp(this.targetColors[i], 1 - Math.pow(1 - this.colorLerpSpeed, k))
     }
 
     // Per-effect params: speed drives the effect clock, reactivity scales the
@@ -3559,6 +3568,7 @@ export class Engine {
           this.disposeEffectMaterial(this.transitionOldMaterial)
           this.transitionOldMaterial = null
           this.transitionProgress = -1
+          this.emitState()
         } else {
           // Render old effect → rtTransition
           this.applyEffectUniforms(this.transitionOldMaterial, time)

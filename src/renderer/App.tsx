@@ -264,7 +264,7 @@ export function App() {
   }, [])
   const fxCenter = mode === 'pro' && wide
   const [vjEnabled, setVjEnabled] = useState(false)
-  const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
+  const [vjGenre, setVjGenre] = useState<Genre>(() => vjRef.current.getGenre())
   const [vjStatus, setVjStatus] = useState<{ current: string; count: number; phase: Phase }>({ current: '', count: 0, phase: 'groove' })
   // hold: picture stays put, phase detection keeps running underneath — the
   // on/off toggle was the only way to pin a look, and it also surrendered
@@ -1110,6 +1110,8 @@ export function App() {
   // Every one of those latches on a tap and is momentary on a hold — see momentary.ts.
   useEffect(() => {
     if (!engine) return
+    // Shift can change e.key between down and up; e.code does not
+    const downAs = new Map<string, string>()
     const onKey = (e: KeyboardEvent) => {
       if (shouldIgnoreHotkey(e)) return
 
@@ -1119,6 +1121,7 @@ export function App() {
       // the state captured to go back to — and holding B should not strobe
       // the blackout either.
       if (e.repeat || momentary.isDown(k)) return
+      downAs.set(e.code, k)
 
       // The engine is driven in the keydown itself, through the mirror refs:
       // inside a setState updater React ran it later, and twice under
@@ -1193,10 +1196,14 @@ export function App() {
     }
 
     // Hold it and it is momentary; tap it and it latches. One key, both.
-    const onKeyUp = (e: KeyboardEvent) => { momentary.release(e.key.toLowerCase()) }
+    const onKeyUp = (e: KeyboardEvent) => {
+      const k = downAs.get(e.code) ?? e.key.toLowerCase()
+      downAs.delete(e.code)
+      momentary.release(k)
+    }
     // A keyup that never arrives (the window lost focus mid-hold) would leave
     // the key logically down for ever, and the next press would be ignored.
-    const onBlur = () => momentary.clear()
+    const onBlur = () => { momentary.clear(k => !k.includes(':') || k.startsWith('look:')); downAs.clear() }
 
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKeyUp)
@@ -1676,7 +1683,7 @@ export function App() {
               {gifBusy ?? 'Strumenti'} ▾
             </button>
             {toolsOpen && (
-              <div className="tb-menu" role="menu">
+              <div className="tb-menu">
                 {mode === 'live' && (
                   <>
                     <button className="btn btn-sm" onClick={screenshot} title="Screenshot PNG"><IconCamera /> Foto</button>
@@ -1783,7 +1790,7 @@ export function App() {
 
       {/* Banners: one stack. Static in Simple and Pro; in Live it floats over
           the monitor, so pads and rail never move while something is wrong. */}
-      <div className="banner-stack">
+      <div className="banner-stack" role="alert">
       {gpuLost && <div className="audio-banner">⚠ Preview persa (contesto grafico), ripristino in corso… il proiettore ha il suo motore</div>}
       {/* U1.2 — slim static banner: layout shifts once, no overlay on the preview */}
       {audioStatus === 'reconnecting' && (
@@ -1952,7 +1959,7 @@ export function App() {
                 <div className="ld-row">
                   <span className="ld-label">Scaletta</span>
                   <select
-                    value={seqPlayer.playingSeq ? seqPlayer.sequences.indexOf(seqPlayer.playingSeq) : liveSeq}
+                    value={seqPlayer.playing && seqPlayer.playingSeq ? seqPlayer.sequences.indexOf(seqPlayer.playingSeq) : liveSeq}
                     onChange={e => setLiveSeq(+e.target.value)}
                     disabled={seqPlayer.playing}
                     title="Scaletta da avviare"

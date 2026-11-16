@@ -62,6 +62,8 @@ export function IsfBrowser({ onClose, onImported }: IsfBrowserProps) {
     <div className="onboarding-backdrop" onClick={onClose}>
       <div
         className="onboarding-card"
+        role="dialog"
+        aria-label="Libreria ISF online"
         onClick={e => e.stopPropagation()}
         style={{ maxWidth: 720, width: '90vw', maxHeight: '82vh', display: 'flex', flexDirection: 'column' }}
       >

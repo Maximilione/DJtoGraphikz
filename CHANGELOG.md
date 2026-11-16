@@ -2,6 +2,23 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [Unreleased]
+
+## [0.81.1-beta] — 2026-11-16
+
+### Changed
+- **Esposizione** ora funziona davvero (guadagno nel master pass; prima il controllo non aveva effetto). Gli show salvati al default 1.1 restano identici; i look a 1.0 risultano circa il 9% piu' scuri, quelli a 1.15 circa il 5% piu' luminosi; uno show salvato con lo slider spostato cambiera' luminosita'.
+
+### Fixed
+- **Proiettore** (664c346, b90c990, 8871958): transizioni non piu' troncate dagli snapshot, canvas di uscita nitido su schermi HiDPI, risoluzione dinamica tarata sulla frequenza reale del display di uscita.
+- **Motore** (55a81ab, f5b8613, 81dc074): inviluppi audio, beat pulse e dissolvenza palette uguali a qualsiasi frame rate; i parametri del deck A non toccano piu' il deck B; watchdog rAF anche nella finestra di controllo.
+- **Audio e AutoVJ** (f4041bb, 43fdd27, 3835fed, 4ad81a5): confidenza BPM corretta, livelli a zero con analisi ferma, Pro DJ Link riparte dal modo BPM salvato, etichetta genere dell'AutoVJ giusta all'avvio.
+- **Tasti e controlli** (1f25ec5, a9a4780): nessun tasto resta premuto con Shift o perdendo il fuoco; il blur non rilascia piu' telefono, MIDI e gamepad.
+- **Uscite** (1c85359, e9bbd9d, 6365687, bdd5106): risoluzione vuota non azzera il valore, il cambio display sposta davvero la finestra, overlay obsoleti scartati e cache svuotata al ricaricamento della console.
+- **Interfaccia** (c89972e, 7c18bc8, 75135d1): la scaletta selezionata segue quella in riproduzione solo mentre suona, l'editor shader conserva codice e meta ISF uscendo dal modo Pro, dialog e avvisi leggibili dagli screen reader.
+- **Sicurezza e stabilita'** (acd2efa, c509d54): bloccata la navigazione verso altri documenti e `window.open`; dopo crash ripetuti della console un dialogo offre di ricaricarla.
+- **Palette** (a1239be): avviso quando la saturazione a zero rende la palette in bianco e nero.
+
 ## [0.81.0-beta] — 2026-11-14
 
 ### Added

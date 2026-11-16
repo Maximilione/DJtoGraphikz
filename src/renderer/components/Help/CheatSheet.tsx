@@ -65,7 +65,7 @@ export function CheatSheet({ onClose }: CheatSheetProps) {
 
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
-      <div className="onboarding-card" style={{ width: 640, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+      <div className="onboarding-card" role="dialog" aria-label="Scorciatoie" style={{ width: 640, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
         <h2>Scorciatoie</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 16 }}>
           <Section title="Tastiera" rows={KEYBOARD} />

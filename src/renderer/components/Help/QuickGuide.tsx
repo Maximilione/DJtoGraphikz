@@ -36,6 +36,8 @@ export function QuickGuide({ onClose }: QuickGuideProps) {
     <div className="onboarding-backdrop" onClick={onClose}>
       <div
         className="onboarding-card"
+        role="dialog"
+        aria-label="Guida rapida"
         onClick={e => e.stopPropagation()}
         style={{ width: 620, maxWidth: '90vw', maxHeight: '80vh', overflowY: 'auto' }}
       >

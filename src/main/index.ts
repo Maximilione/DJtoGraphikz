@@ -192,9 +192,15 @@ function setOutputFullscreen(o: Output, on: boolean) {
   logLine('output', `uscita ${o.id}: proiezione=${on} su display ${d.id} ${JSON.stringify(win.getBounds())}`)
 }
 
+/** Tell an output window its display's refresh rate: the dynamic-resolution thresholds follow it */
+function sendDisplayHz(win: BrowserWindow) {
+  if (!win.isDestroyed()) win.webContents.send('output:display-hz', screen.getDisplayMatching(win.getBounds()).displayFrequency || 60)
+}
+
 /** Put each projector back if it wandered off its display */
 function keepOutputOnItsDisplay() {
   for (const o of liveOutputs()) {
+    sendDisplayHz(o.win)
     if (o.displayId === null) continue
     const current = screen.getDisplayMatching(o.win.getBounds()).id
     if (current === o.displayId) continue
@@ -307,6 +313,17 @@ function createControlWindow(): BrowserWindow {
   // outputs keep going on main's last state meanwhile). Repeats back off and
   // give up after a few in a minute, so a renderer that dies on load does not
   // spin.
+  // A reloaded console starts with no overlays and does not know the old ids:
+  // what main cached would stay on the walls with nothing able to remove it.
+  let navigated = false
+  win.webContents.on('did-navigate', () => {
+    if (navigated) {
+      for (const id of overlays.keys()) broadcastOutputs('overlay:remove', id)
+      overlays.clear()
+    }
+    navigated = true
+  })
+
   let reloads: number[] = []
   win.webContents.on('render-process-gone', (_e, d) => {
     if (quitting || d.reason === 'clean-exit' || win.isDestroyed()) return
@@ -314,6 +331,15 @@ function createControlWindow(): BrowserWindow {
     reloads = [...reloads.filter(t => now - t < 60_000), now]
     if (reloads.length > 3) {
       console.error(`[Main] control renderer: ${reloads.length} crash in 60s, non lo ricarico (${d.reason})`)
+      // Async: a sync dialog blocks main, which relays state and audio to the walls
+      if (!SELFTEST) void dialog.showMessageBox(win, {
+        type: 'error',
+        message: 'La console si è chiusa più volte di seguito',
+        detail: 'Le uscite restano sull\'ultimo stato. Ricarica per riprovare.',
+        buttons: ['Ricarica', 'Annulla'], defaultId: 0, cancelId: 1,
+      }).then(r => {
+        if (r.response === 0 && !quitting && !win.isDestroyed()) { reloads = []; win.webContents.reload() }
+      })
       return
     }
     console.error(`[Main] control renderer gone (${d.reason}), ricarico tra ${500 * reloads.length}ms`)
@@ -376,7 +402,6 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
   } else {
     win.once('ready-to-show', () => {
       if (win.isDestroyed()) return
-      out.displayId = externalDisplay.id
       // Going fullscreen before the renderer has painted its first frame is
       // exactly when the projector comes up black: the macOS fullscreen
       // transition catches a window that is not compositing yet. Wait for the
@@ -423,6 +448,7 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
   win.webContents.on('did-finish-load', () => {
     logDisplayState('output caricata', controlWindow, win)
     replayShow((channel, ...args) => win.webContents.send(channel, ...args), out.cfg)
+    sendDisplayHz(win)
   })
 
   // Auto-recreate if the output renderer crashes mid-set. The first crash
@@ -483,7 +509,7 @@ function reconcileOutputs(list: OutputCfg[]) {
     const id = i + 1
     const o = outputs.get(id)
     if (!o || o.win.isDestroyed()) { createOutputWindow(id, cfg); return }
-    const moved = cfg.displayId !== null && cfg.displayId !== o.displayId
+    const moved = cfg.displayId !== null && cfg.displayId !== o.displayId && screen.getAllDisplays().some(d => d.id === cfg.displayId)
     const prev = o.cfg
     o.cfg = cfg
     o.win.webContents.send('output:slice', cfg)
@@ -492,7 +518,8 @@ function reconcileOutputs(list: OutputCfg[]) {
     if (!prev || prev.width !== cfg.width || prev.height !== cfg.height) {
       o.win.webContents.send('output:set-resolution', cfg.width, cfg.height)
     }
-    if (moved) setOutputFullscreen(o, true)
+    // without the assignment targetDisplay keeps resolving the old display and `moved` is true on every tick
+    if (moved) { o.displayId = cfg.displayId; setOutputFullscreen(o, true) }
   })
   notifyOutputChanged()
 }
@@ -529,6 +556,13 @@ const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|flac)$/i
 app.whenReady().then(async () => {
   if (!primaryInstance) return
   setupDebugLog()
+
+  // A file dropped outside a drop zone navigates the window to file://...: the
+  // console (engine, audio, MIDI, DMX) is gone with no crash to recover from.
+  app.on('web-contents-created', (_e, wc) => {
+    wc.on('will-navigate', (e, url) => { if (url !== wc.getURL()) e.preventDefault() })
+    wc.setWindowOpenHandler(() => ({ action: 'deny' }))
+  })
 
   // Under the release gate: no Dock icon, no app switch. Launching normally
   // makes macOS bring the app to the front and take the keyboard away from
