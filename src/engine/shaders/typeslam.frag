@@ -214,6 +214,9 @@ void main() {
 
   // poster: cream paper, two spot colours, black ink on top
   vec3 paper = vec3(0.93, 0.90, 0.82) + (hash(floor(px / 2.0)) - 0.5) * 0.04 + grain;
+  // print-light falloff and a small kick breath: not a flat white wall
+  // floored: p.x scales with aspect, ultra-wide outputs went black/negative
+  paper *= max(1.0 - 0.28 * dot(p, p), 0.7) * (0.94 + 0.06 * uBeat);
   vec3 poster = mix(paper, vec3(0.0), 0.16 * sl);
   poster = mix(poster, uColor1, mA * 0.9);
   poster = mix(poster, uColor2 * 0.9, mB * 0.6);
