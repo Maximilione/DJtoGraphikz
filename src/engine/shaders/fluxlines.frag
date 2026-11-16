@@ -13,6 +13,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -138,9 +139,10 @@ void main() {
   float shim = hash11(lk * 1.7 + floor(uTime * 12.0));
   // drawn widths scale with the output so 4K lines match 1080p on the wall
   float pxl = px * max(1.0, uResolution.y / 1080.0);
-  float wd = pxl * (1.2 + 0.8 * uHigh * shim);
+  float lb = (1.0 + 2.5 * uLineBoost) / 2.25;
+  float wd = pxl * (1.2 + 0.8 * uHigh * shim) * lb;
   float cor = smoothstep(wd * 1.5, 0.0, dist1);
-  float halo = exp(-dist1 / (pxl * 6.0 * glow + 1e-4)) * 0.35 * glow;
+  float halo = exp(-dist1 / (pxl * 6.0 * glow * lb + 1e-4)) * 0.35 * glow;
   float sp = TAU / (K * gpsi) / px;
   float avg = 0.25 + 0.15 * glow;
   float lineAA = mix(avg, cor + halo, smoothstep(1.5, 4.0, sp));

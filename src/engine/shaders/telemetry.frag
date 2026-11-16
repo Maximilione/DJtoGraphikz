@@ -23,6 +23,7 @@ uniform float detail;
 uniform float sweep;
 uniform float glitch;
 uniform float land;
+uniform float uLineBoost;
 
 // Telemetry: the control room of the night, drawn as one instrument panel.
 // Centre: a wireframe globe (an orthographic sphere, both hemispheres, with
@@ -38,6 +39,7 @@ uniform float land;
 const float TAU = 6.2831853;
 
 float gPx;                 // one pixel in layout units
+float gLb;                 // global line-thickness factor, 1 at the default
 
 float h11(float x) { return fract(sin(x * 113.7) * 43758.5453); }
 float h21(vec2 p) { return fract(sin(dot(p, vec2(33.71, 67.13))) * 43758.5453); }
@@ -50,7 +52,7 @@ float vn(vec2 p) {
 }
 
 // antialiased line of half-width w around d = 0
-float ln(float d, float w) { return 1.0 - smoothstep(w, w + gPx * 1.5, abs(d)); }
+float ln(float d, float w) { w *= gLb; return 1.0 - smoothstep(w, w + gPx * 1.5, abs(d)); }
 // filled region d < 0
 float fl(float d) { return 1.0 - smoothstep(0.0, gPx * 1.5, d); }
 
@@ -274,6 +276,7 @@ void main() {
   vec2 p = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   float asp = uResolution.x / uResolution.y;
   gPx = 1.0 / uResolution.y;
+  gLb = (1.0 + 2.5 * uLineBoost) / 2.25;
   float kick = clamp(uBassHit, 0.0, 1.0);
   float gl = clamp(glitch, 0.0, 1.0);
 
