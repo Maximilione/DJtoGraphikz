@@ -39,8 +39,6 @@ vec3 pal3(float x) {
 const float PERIOD = 4.0;
 const float TAU = 6.2831853;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-
 float map(vec3 p) {
   float dFloor = p.y;
   float dWall = 5.2 - abs(p.x);
@@ -97,7 +95,11 @@ void main() {
   // ph / TAU: one turn of the loop per 64 beats, seamless at the wrap
   vec3 beamCol = pal3(rd.x * 0.45 + rd.y * 0.2 + ph / TAU);
 
-  float t = hash(gl_FragCoord.xy) * 0.2; // dither hides the step bands
+  // full-step IGN jitter: fog steps reach 0.9 against ~0.5 wide shafts, so a
+  // small dither left the god rays banded
+  float t = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) * 0.8;
+  float tr = 1.0;     // running exp(-0.02 t), updated per step (no exp in the loop)
+  float dHit = 0.0;
   // the two fog colours are constant along the ray: integrate two scalars
   // (shaft light, ambient haze) and apply the colours once after the loop
   float accB = 0.0, accH = 0.0;
@@ -108,16 +110,19 @@ void main() {
     float dt = clamp(d * 0.7, 0.1, 0.9);
     float dust = 0.75 + 0.25 * sin(p.z * (TAU / PERIOD) * 3.0 + p.x * 2.0) * sin(p.y * 1.7 + uTime * 0.2);
     float ey = exp(-p.y * 0.1);
-    accB += lit(p, Lk, lphase) * dust * ey * exp(-t * 0.02) * dt;
-    // ambient haze so the hall reads even where no shaft falls (exp(-0.2 y) = ey^2)
-    accH += ey * ey * dt;
-    if (d < 0.012) { hit = true; break; }
+    accB += lit(p, Lk, lphase) * dust * ey * tr * dt;
+    // ambient haze so the hall reads even where no shaft falls (exp(-0.2 y) = ey^2),
+    // attenuated with distance so it does not veil the blacks between shafts
+    accH += ey * ey * tr * tr * dt;
+    if (d < 0.012) { hit = true; dHit = d; break; }
     t += dt;
+    tr *= 1.0 - 0.02 * dt;
     if (t > 46.0) break;
   }
 
   vec3 col = beamCol * (accB * 0.14 * dens * beam) + uColor1 * (accH * 0.012 * dens);
-  vec3 p = ro + rd * t;
+  // pull the hit back onto the surface: min step 0.1 can land inside the stone
+  vec3 p = ro + rd * (t + dHit);
   if (hit) {
     vec3 n = normalAt(p);
     float diff = max(dot(n, -L), 0.0);
@@ -133,7 +138,9 @@ void main() {
     surf += uColor2 * tiles * 0.1 * (0.5 + l);
     // slender rim light on the ribs: the kick makes the stone itself glow
     float fr = 1.0 - max(dot(n, -rd), 0.0);
-    surf += uColor3 * (fr * fr * fr) * (0.04 + 0.25 * kick) * (1.0 - float(p.y < 0.05));
+    // the kick rim chases down the nave: ribs fire in sequence away from camera
+    float chase = exp(-abs(t - (1.0 - kick) * 40.0) * 0.12);
+    surf += uColor3 * (fr * fr * fr) * (0.04 + 0.25 * kick + 0.6 * kick * chase) * (1.0 - float(p.y < 0.05));
     col += surf * exp(-t * 0.045 / max(density, 0.2) * 0.6);
   } else {
     // the far end of the nave: a door of light (z^30 and z^6 by squaring)

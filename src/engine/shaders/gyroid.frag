@@ -58,26 +58,37 @@ void main() {
     vec3 p = ro + rd * t;
     d = map(p, k, th);
     glow += 0.006 / (0.12 + abs(d));
-    if (d < 0.002 || t > 14.0) break;
-    t += max(d * 0.75, 0.01);
+    // pixel-cone eps: far/grazing rays stop earlier (fog hides far precision)
+    if (d < 0.002 + 0.0012 * t || t > 14.0) break;
+    t += max(d * 0.85, 0.01);
   }
 
   vec3 c = vec3(0.0);
   if (t <= 14.0) {
     vec3 p = ro + rd * t;
-    vec2 e = vec2(0.004, 0.0);
-    vec3 nrm = normalize(vec3(
-      map(p + e.xyy, k, th) - map(p - e.xyy, k, th),
-      map(p + e.yxy, k, th) - map(p - e.yxy, k, th),
-      map(p + e.yyx, k, th) - map(p - e.yyx, k, th)));
+    // tetrahedron normal: 4 map taps instead of 6
+    const vec2 kk = vec2(1.0, -1.0);
+    const float h = 0.004;
+    vec3 nrm = normalize(kk.xyy * map(p + kk.xyy * h, k, th) + kk.yyx * map(p + kk.yyx * h, k, th) +
+                         kk.yxy * map(p + kk.yxy * h, k, th) + kk.xxx * map(p + kk.xxx * h, k, th));
     vec3 l = normalize(vec3(0.5, 0.8, -0.4));
     float dif = max(0.0, dot(nrm, l));
     float fres = pow(1.0 - max(0.0, dot(nrm, -rd)), 3.0);
     float fog = exp(-t * 0.22);
-    c = mix(uColor1, uColor2, dif) * (0.18 + 0.9 * dif) * fog;
+    // one-tap AO: crevices of the weave darken, the lattice gets depth
+    float ao = clamp(map(p + nrm * 0.18, k, th) / 0.18, 0.0, 1.0);
+    c = mix(uColor1, uColor2, dif) * (0.07 + 0.9 * dif) * (0.35 + 0.65 * ao) * fog;
     c += uColor3 * fres * (0.5 + 1.2 * uHigh) * fog;
+    // wet metallic glints on the highs
+    float sp = pow(max(dot(reflect(rd, nrm), l), 0.0), 24.0);
+    c += mix(uColor3, vec3(1.0), 0.5) * sp * (0.4 + 1.0 * uHigh) * fog;
+    // light bands travelling down the tunnel, locked to depth, fired by the beat
+    float band = exp(-abs(fract(p.z * 0.12 - uBassTime * 0.35) - 0.5) * 14.0);
+    c += uColor3 * band * (0.10 + 0.9 * uBeat) * fog;
   }
   c += mix(uColor2, uColor3, 0.5) * glow * (0.04 + 0.08 * uEnergy + 0.10 * uBeat);
+  // soft rolloff: glow stacked on fresnel keeps its hue instead of clipping white
+  c = 1.0 - exp(-c * 1.25);
 
   gl_FragColor = vec4(c, 1.0);
 }

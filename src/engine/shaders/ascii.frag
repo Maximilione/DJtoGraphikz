@@ -59,7 +59,7 @@ float glyph(int idx, vec2 g) {
   // regions turned into flat slabs instead of printed characters
   else { rows[0]=14.0; rows[1]=31.0; rows[2]=31.0; rows[3]=31.0; rows[4]=14.0; }              // @
   float row = rows[4 - c.y];
-  float bit = floor(mod(row / pow(2.0, float(4 - c.x)), 2.0));
+  float bit = floor(mod(row / exp2(float(4 - c.x)), 2.0));
   return bit;
 }
 
@@ -68,29 +68,42 @@ void main() {
   float aspect = uResolution.x / uResolution.y;
 
   float cols = clamp(floor(uResolution.x / max(4.0, cellsize)), 16.0, 220.0);
-  vec2 grid = vec2(cols, floor(cols / aspect));
-  vec2 cell = floor(uvp * grid);
-  vec2 inCell = fract(uvp * grid);
+  // cell snapped to a whole multiple of 6 px (5 bits + gutter) so every glyph bit is the same
+  // number of pixels wide: no uneven 3/4 px strokes
+  float cpx = max(6.0, floor(uResolution.x / cols / 6.0 + 0.5) * 6.0);
+  vec2 grid = uResolution / cpx;
+  vec2 cell = floor(gl_FragCoord.xy / cpx);
+  vec2 inCell = fract(gl_FragCoord.xy / cpx);
 
   vec2 sp = ((cell + 0.5) / grid - 0.5) * vec2(aspect, 1.0) * sourcezoom * 6.0;
   float v = source(sp);
 
   float lv = clamp(floor(levels), 2.0, 6.0);
-  int idx = int(clamp(floor(v * lv), 0.0, lv - 1.0) * (6.0 / lv));
-  // a glyph stroke is one bit = a fifth of the cell: ~2 px at the default
-  // size. Dilate it so strokes reach mpx pixels (never past a tenth of the
-  // cell: the glyphs must stay glyphs, not blobs)
-  vec2 cellPx = uResolution / grid;
-  vec2 dil = clamp(0.5 * ((3.0 + 4.0 * uLineBoost) - cellPx * 0.2), vec2(0.0), 0.1 * cellPx) / cellPx;
-  float ink = max(max(glyph(idx, inCell), glyph(idx, inCell + vec2(dil.x, 0.0))),
-                  max(glyph(idx, inCell - vec2(dil.x, 0.0)),
-                      max(glyph(idx, inCell + vec2(0.0, dil.y)), glyph(idx, inCell - vec2(0.0, dil.y)))));
+  // spread the levels over the whole glyph ramp: the top level always prints '@'
+  int idx = int(floor(clamp(floor(v * lv), 0.0, lv - 1.0) * 5.0 / (lv - 1.0) + 0.5));
+  // a glyph stroke is one bit = a sixth of the cell: ~2 px at the default
+  // size. Dilate it so strokes reach mpx pixels (never past half a bit: the glyphs must stay glyphs, not blobs)
+  vec2 cellPx = vec2(cpx);
+  // bit = cellPx/6 px (5 bits + 1-bit gutter); dil in glyph space (1 px = 1.2/cellPx), capped at half a bit
+  vec2 dil = clamp(0.5 * ((3.0 + 4.0 * uLineBoost) - cellPx / 6.0), vec2(0.0), cellPx / 12.0) * 1.2 / cellPx;
+  // glyph drawn at 1/1.2 of the cell: a 1-bit gutter (top/right) keeps dense neighbours apart, bits stay whole pixels
+  vec2 g = inCell * 1.2;
+  float ink = glyph(idx, g);
+  // frame-uniform branch: at large cells dil is 0 and the 4 taps would repeat the first
+  if (dil.x > 0.0 || dil.y > 0.0) {
+    ink = max(max(ink, glyph(idx, g + vec2(dil.x, 0.0))),
+              max(glyph(idx, g - vec2(dil.x, 0.0)),
+                  max(glyph(idx, g + vec2(0.0, dil.y)), glyph(idx, g - vec2(0.0, dil.y)))));
+  }
 
   // a scanline-ish tint: hotter cells drift toward color2
   vec3 tint = mix(uColor1, uColor2, smoothstep(0.35, 0.95, v));
   tint = mix(tint, uColor3, step(0.985, hash(cell + floor(uTime * 6.0))));
 
   vec3 c = tint * ink * (0.55 + 0.8 * v + 0.6 * uBeat);
+  // one printed row sweeps the page per bar: terminal refresh on the beat grid
+  float rowHit = step(abs(cell.y - floor(fract(uBeatClock * 0.25) * grid.y)), 0.5);
+  c *= 1.0 + 0.9 * rowHit;
   c += uColor1 * 0.02 * v;                       // faint phosphor in empty cells
   gl_FragColor = vec4(c, 1.0);
 }

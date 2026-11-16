@@ -194,9 +194,14 @@ void main() {
     float g = clamp(glow, 0.3, 2.0);
     col = base * (0.16 + 1.0 * dif);
     col += vec3(1.0) * (spec + spec2) * (0.55 + 0.35 * g);
+    // broad gloss band from above: lacquered, not matte with a dot
+    col += vec3(1.0) * pow(max(dot(reflect(rd, n), vec3(0.0, 1.0, 0.0)), 0.0), 6.0) * 0.12 * g;
     col += base * kick * 0.3 * g;
-    // far pipes a touch darker, like the original's depth cue
-    col *= mix(1.0, 0.6, smoothstep(20.0, 31.0, tBest));
+    // limb darkening over ~1 px: soft silhouette, crossing same-colour pipes separate
+    float ndv = max(dot(n, v), 0.0);
+    col *= smoothstep(0.0, sqrt(115.0 / uResolution.y), ndv) * 0.85 + 0.15;
+    // far pipes darker, like the original's depth cue, over the range pipes live in
+    col *= mix(1.0, 0.4, smoothstep(21.0, 29.5, tBest));
   }
 
   col *= 1.0 - smoothstep(EPOCH - FADE, EPOCH, local);
