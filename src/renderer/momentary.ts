@@ -78,8 +78,9 @@ export class Momentary {
    * Release everything without undoing anything. For the window losing focus:
    * a keyup that never arrives would otherwise leave a key logically stuck
    * down, and the next press would be ignored as auto-repeat.
+   * The filter exists because only keyboard keys can miss their keyup on blur.
    */
-  clear(): void { this.held.clear() }
+  clear(which: (key: string) => boolean = () => true): void { for (const k of [...this.held.keys()]) if (which(k)) this.held.delete(k) }
 }
 
 /** The shared instance. A press and its release must find the same map. */
