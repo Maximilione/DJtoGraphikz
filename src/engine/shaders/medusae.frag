@@ -88,9 +88,11 @@ void main() {
   // the water fills the frame, so it shades along the palette, 2 in the deep,
   // 3, then 1 near the surface, instead of being colour 3 everywhere
   vec3 water = pal3(0.45 + 0.45 * vUv.y + 0.06 * fog);
-  vec3 col = water * mix(0.025, 0.10, vUv.y);
-  col += water * 0.12 * fog * (1.0 + 1.2 * uBass);
-  col += mix(uColor3, uColor2, 0.4) * 0.03 * pow(max(0.0, sin(p.x * 3.0 + fog * 2.0)), 8.0) * vUv.y * (1.0 + uMid);
+  // darker top and a contrasty haze: the blacks behind the animals stay black
+  vec3 col = water * mix(0.02, 0.07, vUv.y);
+  col += water * 0.16 * fog * fog * (1.0 + 1.2 * uBass);
+  // diagonal light shafts from the surface: a depth cue for free
+  col += mix(uColor3, uColor2, 0.4) * 0.09 * pow(max(0.0, sin((p.x + p.y * 0.35) * 3.0 + fog * 2.0)), 8.0) * smoothstep(0.15, 1.0, vUv.y) * (1.0 + uMid);
 
   for (int L = 0; L < 4; L++) {
     float fl = float(L) / 3.0;                 // 0 far, 1 near
@@ -151,7 +153,7 @@ void main() {
       vec2 gq = lp - vec2(0.0, 0.25);
       float ang = atan(gq.y, abs(gq.x) + 1e-4);   // mirrored: symmetric gonads, no atan(0,0)
       float gon = smoothstep(0.35, 0.0, length(lp - vec2(0.0, 0.25)) - 0.15 - 0.05 * sin(ang * 4.0 + uTime)) * 0.5 * bellMask;
-      gon *= 0.8 + 0.6 * uBass;
+      gon *= 0.8 + 0.6 * uBass + 1.0 * env;   // each bell flashes from inside on its beat
 
       // tentacles
       float tent = 0.0;
@@ -206,6 +208,10 @@ void main() {
 
   float vig = 1.0 / (1.0 + 0.6 * dot(p, p));
   col *= vig * (1.0 + 0.25 * uBeat);
-  col = clamp(col, 0.0, 2.0);
+  // hue-keeping rolloff: 8-bit targets would clip overlapping bells per channel
+  col = max(col, 0.0);
+  float mx = max(max(col.r, col.g), max(col.b, 1.0));
+  col = mix(col / mx, vec3(1.0), clamp((mx - 1.0) * 0.35, 0.0, 0.6));
+  col += (hash12(gl_FragCoord.xy) - 0.5) / 255.0;   // dither the dark water gradient
   gl_FragColor = vec4(col, 1.0);
 }

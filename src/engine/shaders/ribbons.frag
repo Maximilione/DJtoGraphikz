@@ -64,6 +64,8 @@ void main() {
     // gaussian is exp(-14)): skip the palette and shading for most pixels
     if (ad > hw + 0.03) continue;
     float face = 1.0 - smoothstep(hw * 0.15, hw, ad);
+    // layers run far to near: the near face occludes what is behind it
+    col *= 1.0 - 0.5 * face * f;
     // gaussian rim written as exp(-x^2): pow(x, 2.0) with x < 0 (inside the
     // band) is undefined in GLSL and NaN on exp2/log2 backends
     float ew = (ad - hw) * 125.0;
@@ -72,7 +74,9 @@ void main() {
     float m = fract(f * 1.3 + 0.12 * sin(x * 0.7 + T));
     vec3 pc = m < 0.5 ? mix(uColor1, uColor2, m * 2.0) : mix(uColor2, uColor3, m * 2.0 - 1.0);
     float near = 0.35 + 0.9 * f;
-    float lum = (0.35 * face + 0.9 * edge) * near * kmul;
+    // one crest per beat travels through the depth, far to near
+    float crest = exp(-8.0 * abs(f - fract(uBeatClock)));
+    float lum = (0.35 * face + 0.9 * edge) * near * (kmul + 0.6 * crest);
     // curtains fade away below their rim
     lum += 0.22 * face * (1.0 - smoothstep(-0.3, 0.0, d)) * near;
     col += pc * lum * gain;
@@ -80,5 +84,6 @@ void main() {
 
   col = col / (1.0 + 0.55 * col);
   col *= clamp(1.2 - dot(uv, uv) * 0.6, 0.5, 1.0);
+  col += (fract(sin(dot(gl_FragCoord.xy, vec2(127.1, 311.7))) * 43758.5453) - 0.5) / 255.0;   // dither the dark gradient
   gl_FragColor = vec4(col, 1.0);
 }
