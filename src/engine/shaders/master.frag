@@ -9,6 +9,7 @@ uniform float uSaturation;   // 1 = neutral
 uniform float uVignette;     // 0 = off
 uniform float uPresence;     // projector presence macro, 0 = off (identical output)
 uniform float uLift;         // shadow lift, 0 = neutral
+uniform float uExposure;     // 1 = neutral
 // Keystone / quad-warp (projection mapping): inverse homography screen→source
 uniform bool uWarpOn;
 uniform mat3 uWarpInv;
@@ -34,6 +35,7 @@ void main() {
     }
   }
   vec3 c = texture2D(tDiffuse, uSrcOff + uv * uSrcScale).rgb;
+  c *= uExposure;
 
   // Lift (shadows) then contrast around mid grey
   c += uLift * (1.0 - c);

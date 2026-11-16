@@ -283,7 +283,7 @@ export interface Grade {
   saturation: number  // 1 = neutral
   vignette: number    // 0 = off
   lift: number        // 0 = neutral
-  exposure: number    // 1 = neutral (tone mapping exposure)
+  exposure: number    // gain in the master pass, 1.1 = neutral default
 }
 
 export const DEFAULT_GRADE: Grade = { contrast: 1.05, saturation: 1.1, vignette: 0.25, lift: 0, exposure: 1.1 }
@@ -888,10 +888,8 @@ export class Engine {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(1)
     this.renderer.autoClear = false
-    // Filmic tone mapping + sRGB output: saturated neons stop clipping to white on a projector
+    // sRGB output (exposure is a gain in the master pass: no shader here runs three's tone mapping)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = this.grade.exposure
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
     this.quadGeometry = new THREE.PlaneGeometry(2, 2)
@@ -981,6 +979,7 @@ export class Engine {
         uSaturation: { value: this.grade.saturation },
         uVignette: { value: this.grade.vignette },
         uLift: { value: this.grade.lift },
+        uExposure: { value: this.exposureGain() },
         uWarpOn: { value: false },
         uWarpInv: { value: new THREE.Matrix3() },
         uSrcOff: { value: new THREE.Vector2(0, 0) },
@@ -2533,8 +2532,13 @@ export class Engine {
     u.uSaturation.value = this.grade.saturation
     u.uVignette.value = this.grade.vignette
     u.uLift.value = this.grade.lift
-    this.renderer.toneMappingExposure = this.grade.exposure
+    u.uExposure.value = this.exposureGain()
     this.emitState()
+  }
+  /** 0.2 floor = UI minimum: MIDI/OSC/phone can send 0, and a 0 (or a missing value) saved while the control was dead must not boot black */
+  private exposureGain(): number {
+    const e = this.grade.exposure
+    return Number.isFinite(e) ? Math.max(0.2, e) / DEFAULT_GRADE.exposure : 1
   }
   getGrade(): Grade { return { ...this.grade } }
 
