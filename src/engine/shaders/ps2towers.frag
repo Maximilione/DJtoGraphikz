@@ -49,13 +49,13 @@ const vec3 CORE = vec3(0.5, 0.9, 0.5);  // the blue light, at the centre of the 
 
 // block height in a cell (0 = empty), hw = half width. Cell (0,0) is the centre of the field.
 float towerH(vec2 cell, out float hw) {
-  hw = 0.27 + 0.07 * hash(cell + 1.9);
   float r = length(cell);
   float R = 2.6 + towers * 0.11;                       // param = how far the field reaches
   float rf = mix(r, max(abs(cell.x), abs(cell.y)), 0.6);   // the field is a rounded square
   if (r < 0.5 || rf > R + 0.8) return 0.0;
   R += (hash(cell + 5.1) - 0.5) * 1.6;                 // ragged border
   if (rf > R || hash(cell) > 0.86) return 0.0;
+  hw = 0.27 + 0.07 * hash(cell + 1.9);   // only for live cells: hw is read only when h > 0
   float hh = hash(cell + 7.7);
   float wave = sin(r * 0.9 - uBassTime * 1.3 - uTime * 0.25 + hash(cell + 3.3) * 2.2);
   float lift = uBassHit * 0.55 * step(0.62, hash(cell + 9.1));
@@ -126,7 +126,7 @@ vec3 render(vec3 ro, vec3 rd, float t, out float tHit) {
   vec3 blockC = mix(vec3(0.80, 0.83, 0.97), uColor1, 0.22);
   vec3 coreC = mix(vec3(0.16, 0.34, 1.0), uColor3, 0.45);
   float fogK = 0.35 + 0.65 * foglevel;
-  float pulse = 1.0 + 0.5 * uBass + 0.9 * uBassHit;
+  float pulse = 1.0 + 0.5 * uBass + 1.3 * uBassHit;
 
   vec3 nrm; vec4 info; vec2 cid;
   float d = trace(ro, rd, nrm, info, cid);
@@ -136,11 +136,12 @@ vec3 render(vec3 ro, vec3 rd, float t, out float tHit) {
     vec3 p = ro + rd * d;
     float kick = uBassHit * step(0.62, hash(cid + 9.1));
     float lit;
+    float snare = 0.0;
     if (nrm.y > 0.5) {
       // flat lit top, a thin catch-light on its rim
       float m = info.z - max(abs(info.x), abs(info.y));
       // kick flares its blocks, snare another set, hats shimmer a few tops
-      float snare = uMidHit * step(hash(cid + 4.7), 0.25);
+      snare = uMidHit * step(hash(cid + 4.7), 0.25);
       float hat = uHighHit * step(0.9, hash(cid + floor(uHighTime * 4.0)));
       lit = 0.74 + 0.26 * hash(cid + 2.3) + 0.55 * kick + 0.4 * snare + 0.3 * hat;
       lit += smoothstep(0.02 + 0.03 * uLineBoost, 0.0, m) * (0.16 + 0.5 * kick);
@@ -149,7 +150,10 @@ vec3 render(vec3 ro, vec3 rd, float t, out float tHit) {
       float g = p.y / info.w;
       lit = (abs(nrm.x) > 0.5 ? 0.46 : 0.27) * (0.05 + 0.95 * g * g) * (1.0 + 0.3 * kick);
     }
-    col = blockC * lit * exp(-(HMAX - p.y) * 0.16 * fogK);
+    float fogA = exp(-(HMAX - p.y) * 0.16 * fogK);
+    col = blockC * lit * fogA;
+    // kick / snare lit tops take the palette: rhythm readable by colour
+    col += (uColor2 * kick + uColor3 * snare) * 0.35 * fogA * step(0.5, nrm.y);
     vec3 L = CORE - p;
     float d2 = dot(L, L);
     col += coreC * max(dot(nrm, L) * inversesqrt(d2), 0.0) * pulse * 1.0 / (1.0 + d2);
@@ -205,12 +209,15 @@ void main() {
 
   vec3 color = vec3(0.0);
   float tHit = -1.0;
+  // at 4K the pixel density already resolves the block silhouettes: one sample
+  int aa = uResolution.y > 1500.0 ? 1 : AA;
   for (int s = 0; s < AA; s++) {
-    vec2 o = (float(s) - 0.5 * float(AA - 1)) * vec2(0.5, 0.33) / uResolution.y;
+    if (s >= aa) break;
+    vec2 o = (float(s) - 0.5 * float(aa - 1)) * vec2(0.5, 0.33) / uResolution.y;
     vec3 rd = normalize((uv.x + o.x) * rgt + (uv.y + o.y) * up + 0.9 * fwd);
     color += render(ro, rd, t, tHit);
   }
-  color /= float(AA);
+  color /= float(aa);
 
   // specks of light drifting on slow orbits between the blocks and the camera
   vec3 speckC = mix(vec3(0.75, 0.88, 1.0), uColor2, 0.35);
@@ -232,5 +239,8 @@ void main() {
   vec2 vq = (gl_FragCoord.xy / uResolution - 0.5) * 1.44;
   color *= smoothstep(1.7, 0.5, length(vq));
   color *= 1.0 + uBeat * 0.08;
+  // knee above 0.7: kicked tops keep their rim catch-light instead of clipping flat
+  vec3 kn = max(color - 0.7, 0.0);
+  color = min(color, vec3(0.7)) + 0.3 * (1.0 - exp(-kn * 3.0));
   gl_FragColor = vec4(color, 1.0);
 }
