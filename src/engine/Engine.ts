@@ -952,8 +952,9 @@ export class Engine {
     this.rtFreeze = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtAccum = new THREE.WebGLRenderTarget(1920, 1080, opts)
     this.rtAccum2 = new THREE.WebGLRenderTarget(1920, 1080, opts)
-    this.rtBloomA = new THREE.WebGLRenderTarget(960, 540, opts)
-    this.rtBloomB = new THREE.WebGLRenderTarget(960, 540, opts)
+    // half-float: an 8-bit blur quantises the halo into steps the bloom gain then widens (banding)
+    this.rtBloomA = new THREE.WebGLRenderTarget(960, 540, { ...opts, type: THREE.HalfFloatType })
+    this.rtBloomB = new THREE.WebGLRenderTarget(960, 540, { ...opts, type: THREE.HalfFloatType })
     this.rtDelay = [0, 1, 2].map(() => new THREE.WebGLRenderTarget(960, 540, opts))
 
     // Deck crossfader

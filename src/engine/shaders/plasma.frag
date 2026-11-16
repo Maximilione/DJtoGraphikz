@@ -58,7 +58,13 @@ void main() {
   // The plasma value walks the palette loop. Was c1 + c2 * rings + c3 * …:
   // colour 1 at full weight everywhere, colour 2 only on the sparse rings.
   float hue = (v * 3.0 + t * 0.3) * 0.1591549;
-  vec3 color = pal3(hue) * (0.75 + 0.5 * rings) + pal3(hue + 0.5) * 0.2 * (v * 0.5 + 0.5);
+  // rings carve darkness; the secondary colour only where the plasma field is high
+  vec3 color = pal3(hue) * (0.4 + 0.85 * rings) + pal3(hue + 0.5) * 0.35 * smoothstep(0.1, 0.9, v * 0.5 + 0.5);
+  // depth from the two radial sources: dark valleys roll through the frame
+  color *= 0.35 + 0.65 * smoothstep(-0.6, 0.5, v4 * 0.6 + v5 * 0.4);
+  // thin iso-contours that sparkle on the hats
+  float iso = 1.0 - smoothstep(0.0, 0.06, abs(fract(v * 2.5 + t * 0.1) - 0.5));
+  color += pal3(hue + 0.33) * iso * (0.15 + 1.2 * uHigh);
   color *= 0.7;
 
   // Energy-reactive brightness. The gains compound (0.7 × energy × beat ×
@@ -72,6 +78,11 @@ void main() {
   // left the glow and the whole frame was a flat pastel wash
   float glow = exp(-r0 * 2.5) * (0.3 + beat * 0.6);
   color += pal3(t * 0.05) * 1.6 * glow;
+
+  color = 1.0 - exp(-color * 1.4);   // highlight rolloff: beats keep their hue instead of clipping
+  color *= 1.0 - 0.55 * smoothstep(0.35, 0.95, r0);
+  // dither: smooth gradients do not band on 8-bit projector output
+  color += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
 
   gl_FragColor = vec4(color, 1.0);
 }

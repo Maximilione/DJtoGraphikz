@@ -24,11 +24,15 @@ varying vec2 vUv;
 
 mat2 rot(float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
 
+// pixel size in pattern units, set once in main: every d below has unit gradient
+// (circle, line and triangle distances in a rotated, uniformly scaled space)
+float gPx;
+
 // Crisp line plus a soft halo that the bloom can pick up
 // Line half-width: the authored one widened by the boost, never under a few
-// screen pixels (fwidth(d) is the pixel size in d units) so it survives smoke.
+// screen pixels (gPx is the pixel size in d units) so it survives smoke.
 float lw(float w, float d) {
-  return max(w * (1.0 + 2.5 * uLineBoost), fwidth(d) * (3.0 + 4.0 * uLineBoost));
+  return max(w * (1.0 + 2.5 * uLineBoost), gPx * (3.0 + 4.0 * uLineBoost));
 }
 
 float ring(vec2 p, float r, float w) {
@@ -47,6 +51,7 @@ void main() {
   float t = uTime * 0.3 + uBassTime * 0.02;
   float scale = zoom + uBass * 1.5 - uBassHit * 0.35;
   uv *= scale;
+  gPx = abs(scale) / uResolution.y;
   uv *= rot(t * 0.1 + uMid * 0.3);
 
   float L = length(uv);
@@ -101,7 +106,7 @@ void main() {
   }
 
   // Pulsing concentric rings
-  float rings = sin(L * ringfreq - uTime * 2.0 - uBass * 8.0);
+  float rings = sin(L * ringfreq - uTime * 2.0 - uBassTime * 4.0);
   pattern += smoothstep(0.8, 1.0, rings) * 0.4;
 
   // Rotating triangles with halo: one sincos, then +120 degrees per triangle
@@ -145,7 +150,7 @@ void main() {
 
   // Faint palette haze so quiet passages are never black
   float Ls = L / scale;
-  color += mix(uColor1, uColor3, 0.5) * 0.035 * (1.0 - 0.3 * Ls);
+  color += mix(uColor1, uColor3, 0.5) * 0.02 * (1.0 - 0.3 * Ls);
 
   // Vignette
   color *= 1.0 - abs(Ls) * 0.5;

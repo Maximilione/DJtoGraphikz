@@ -93,6 +93,14 @@ void main() {
     float minDist = sqrt(minD2);
     float closestT = closestI / segs;
 
+    // beam dwell: the CRT spot lingers where the curve turns, so turning points burn hot
+    float s = closestT * TAU;
+    vec2 vel = vec2(freqA, freqB) * cos(vec2(freqA, freqB) * s + vec2(phase, phase * 0.7));
+    float dwell = clamp(1.0 / (0.35 + length(vel) / max(freqA, freqB)), 0.6, 2.2);
+    // a comet running each curve: direction of travel, beat accent on the line
+    float head = fract(t * 0.25 + fc * 0.33 - closestT);
+    float comet = pow(1.0 - head, 8.0);
+
     // Glow around the curve
     float glow = 0.004 * (1.0 + uLineBoost) / (minDist + 0.002);
     glow = pow(glow, 1.4);
@@ -106,10 +114,12 @@ void main() {
 
     // Add rainbow shift along curve
     float hueShift = closestT + t * 0.1;
-    cColor = mix(cColor, uColor3, sin(hueShift * TAU) * 0.3 + 0.3);
+    // drift toward the next palette colour (all toward colour 3 collapsed the palette)
+    vec3 nx = curve == 0 ? uColor2 : (curve == 1 ? uColor3 : uColor1);
+    cColor = mix(cColor, nx, sin(hueShift * TAU) * 0.3 + 0.3);
 
     float opacity = 1.0 - fc * 0.15;
-    color += cColor * (glow * 0.2 + line) * opacity;
+    color += cColor * ((glow * 0.2 + line) * dwell + line * comet * (1.0 + 2.0 * uBeat)) * opacity;
   }
 
   // Central dot
@@ -119,6 +129,7 @@ void main() {
   // Beat flash
   color *= 1.0 + uBeat * 0.5;
 
-  color = min(color, vec3(2.0));
+  // hue-preserving clip: crossings stay coloured instead of clipping white on RGBA8
+  color /= max(1.0, max(color.r, max(color.g, color.b)));
   gl_FragColor = vec4(color, 1.0);
 }

@@ -38,6 +38,8 @@ void main() {
   float twPhase = uTime * 2.0 + uHighTime * 2.0 + uHigh * 5.0;
   // a floor on the point size: a still room keeps a sky, not a black screen
   float starSz = 0.035 + 0.02 * uEnergy;
+  // direction of flight on screen: radial from the centre
+  vec2 rdir = uv / max(length(uv), 1e-4);
 
   // Multiple star layers at different depths
   for (int layer = 0; layer < 3; layer++) {
@@ -50,7 +52,8 @@ void main() {
     // Scroll forward (warp speed)
     float z = fract(zClock * (1.0 + fl * 0.5) + fl * 0.25);
     float zScale = mix(3.0, 0.1, z);
-    float brightness = 0.12 + 0.88 * z * z; // stars get brighter as they approach
+    // stars get brighter as they approach, and fade out before z wraps (no pop)
+    float brightness = (0.12 + 0.88 * z * z) * (1.0 - smoothstep(0.85, 1.0, z));
     float streakAmp = brightness * speed * 0.05;
 
     st *= zScale;
@@ -70,10 +73,14 @@ void main() {
 
           // Star glow, with the twinkle
           float star = min(starSz / (d * d + 0.005) * brightness, 3.0)
-                     * (sin(twPhase + h * 100.0) * 0.3 + 0.7);
+                     * (sin(twPhase + h * 100.0) * (0.2 + 0.3 * uHigh) + 0.7);
 
           // Streak when moving fast
-          float streak = exp(-d * streakK) * streakAmp;
+          // stretched along the direction of flight: the warp reads as speed
+          float dr = dot(starPos, rdir);
+          float dt = dot(starPos, vec2(-rdir.y, rdir.x));
+          float ds = length(vec2(dr / (1.0 + 0.7 * speed * z), dt));
+          float streak = exp(-ds * streakK) * streakAmp;
 
           // Color variation per star
           vec3 sColor = mix(uColor1, uColor2, h);
@@ -88,7 +95,7 @@ void main() {
   // Nebula background
   float nebula = sin(uv.x * 3.0 + uTime * 0.1) * sin(uv.y * 2.0 - uTime * 0.15);
   nebula = nebula * 0.5 + 0.5;
-  color += mix(uColor1, uColor3, nebula) * (0.02 + 0.03 * uEnergy);
+  color += mix(uColor1, uColor3, nebula) * (0.02 + 0.03 * uEnergy) * smoothstep(0.1, 0.7, length(uv));
 
   // Beat flash
   color *= 1.0 + uBeat * 0.5;

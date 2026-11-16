@@ -34,6 +34,7 @@ void main() {
   float field = 0.0;
   vec3 colorWeight = vec3(0.0);
   float totalWeight = 0.0;
+  vec2 grad = vec2(0.0);   // -0.5 * grad(field): outward slope for fake 3D shading
 
   // 8 metaballs with audio-reactive movement
   for (int i = 0; i < 12; i++) {
@@ -60,6 +61,7 @@ void main() {
     float d = length(uv - pos);
     float contribution = radius * radius / (d * d + 0.001);
     field += contribution;
+    grad += contribution * contribution / (radius * radius) * (uv - pos);
 
     // Track which color each ball contributes
     vec3 ballColor;
@@ -68,8 +70,10 @@ void main() {
     else if (ci == 1) ballColor = uColor2;
     else ballColor = uColor3;
 
-    colorWeight += ballColor * contribution;
-    totalWeight += contribution;
+    // squared weight: the nearest ball owns the colour (linear mixing went grey)
+    float cw = contribution * contribution;
+    colorWeight += ballColor * cw;
+    totalWeight += cw;
   }
 
   // Threshold for metaball surface comes from the uniform
@@ -82,13 +86,23 @@ void main() {
     float edge = smoothstep(threshold - 0.1, threshold + 0.1, field);
 
     // Neon glow around the edge
-    float glow = exp(-abs(field - threshold) * 5.0);
+    // halo outside, thin rim inside
+    float glow = exp(-abs(field - threshold) * (field > threshold ? 14.0 : 5.0));
 
     // Interior pattern on log(field): the field grows as 1/d², a linear phase
     // in it packs rings ever tighter towards the centre and shimmers (aliasing)
     float interior = sin(log(1.0 + field) * 6.0 - t * 2.0) * 0.5 + 0.5;
 
-    color = baseColor * edge * (0.5 + interior * 0.5);
+    // dome height h = f/(1+f): slope grad/(1+f)^2 stays bounded at the ball
+    // centres (raw 1/d^2 gradient pinched a spike there)
+    vec3 n = normalize(vec3(grad * 0.5 / ((1.0 + field) * (1.0 + field)), 1.0));
+    float dif = 0.35 + 0.65 * max(dot(n, normalize(vec3(-0.4, 0.5, 0.75))), 0.0);
+    float spec = pow(max(dot(n, normalize(vec3(-0.3, 0.45, 0.85))), 0.0), 40.0);
+    float fres = pow(1.0 - n.z, 2.0);
+
+    color = baseColor * edge * dif * (0.6 + interior * 0.4)
+          + vec3(1.0) * spec * edge * (0.5 + uHigh)
+          + baseColor * fres * edge * 0.8;
     color += baseColor * glow * 1.5;
 
     // Extra brightness on beat
@@ -98,6 +112,6 @@ void main() {
   // Background glow
   color += mix(uColor1, uColor3, 0.5) * 0.02 * uEnergy;
 
-  color = pow(color, vec3(0.9));
+  color = 1.0 - exp(-color * 1.4);
   gl_FragColor = vec4(color, 1.0);
 }

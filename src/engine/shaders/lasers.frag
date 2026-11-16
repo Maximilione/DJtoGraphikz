@@ -66,7 +66,9 @@ void main() {
     // pixel floor: beam half-width ~ lminW at any distance
     float w = max((0.0016 + uHigh * 0.002) * lkb * lkb, 8.0 * lminW * lminW / max(d, 0.05));
     float d8 = d * 8.0;
-    float hazeD = 0.02 / (d * 2.0 + 0.4);
+    // drifting smoke density along the beams: light in smoke, not vector lines
+    float smoke = 0.78 + 0.22 * sin(d * 11.0 - t * 1.3 + fe * 2.0 + baseA * 3.0);
+    float hazeD = 0.02 / (d * 2.0 + 0.4) * smoke;
     float invN = 1.0 / max(beams - 1.0, 1.0);
     float fanK = 2.0 * halfFan * (1.0 - fe * 2.0);
 
@@ -80,7 +82,8 @@ void main() {
       float haze = hazeD / (da * 12.0 + 0.25);
       vec3 c = mix(uColor1, uColor2, fract(i * 0.37 + fe * 0.5 + uBarPhase));
       float strobe = 0.55 + 0.45 * step(0.5, fract(i * 0.5 + uHighTime * 2.0));
-      color += c * (core * 0.9 + haze) * strobe * dimB;
+      // white-hot centre, coloured body
+      color += (c * (core * 0.9 + haze) + vec3(1.0) * core * core * 0.35) * strobe * dimB;
     }
   }
 
@@ -90,6 +93,8 @@ void main() {
   // smoke floor gradient
   color += uColor3 * 0.03 / (abs(uv.y + 0.45) + 0.15) * uEnergy;
 
-  color = min(color, vec3(2.2));
+  // soft knee: the 8-bit target clips at 1.0, roll off instead of a flat wash
+  vec3 kn = max(color - 0.8, 0.0);
+  color = min(color, 0.8) + 0.2 * (1.0 - exp(-kn * 2.0));
   gl_FragColor = vec4(color, 1.0);
 }

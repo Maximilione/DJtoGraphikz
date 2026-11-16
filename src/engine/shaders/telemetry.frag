@@ -23,6 +23,7 @@ uniform float detail;
 uniform float sweep;
 uniform float glitch;
 uniform float land;
+uniform float uLineBoost;
 
 // Telemetry: the control room of the night, drawn as one instrument panel.
 // Centre: a wireframe globe (an orthographic sphere, both hemispheres, with
@@ -38,6 +39,7 @@ uniform float land;
 const float TAU = 6.2831853;
 
 float gPx;                 // one pixel in layout units
+float gLb;                 // global line-thickness factor, 1 at the default
 
 float h11(float x) { return fract(sin(x * 113.7) * 43758.5453); }
 float h21(vec2 p) { return fract(sin(dot(p, vec2(33.71, 67.13))) * 43758.5453); }
@@ -50,7 +52,7 @@ float vn(vec2 p) {
 }
 
 // antialiased line of half-width w around d = 0
-float ln(float d, float w) { return 1.0 - smoothstep(w, w + gPx * 1.5, abs(d)); }
+float ln(float d, float w) { w *= gLb; return 1.0 - smoothstep(w, w + gPx * 1.5, abs(d)); }
 // filled region d < 0
 float fl(float d) { return 1.0 - smoothstep(0.0, gPx * 1.5, d); }
 
@@ -183,6 +185,8 @@ vec3 panel(vec2 p, float asp) {
 
   // ---- left column: four meters
   float xl = -asp * 0.5 + 0.075;
+  // gate: the meters, their labels and baselines live in this box only
+  if (p.x > xl - 0.005 && p.x < xl + 0.205 && p.y > -0.145 && p.y < 0.295)
   for (int i = 0; i < 4; i++) {
     float fi = float(i);
     vec2 q = p - vec2(xl, 0.24 - fi * 0.115);
@@ -203,12 +207,15 @@ vec3 panel(vec2 p, float asp) {
   // big seven-segment beat counter under the meters: bar . beat
   {
     vec2 q = p - vec2(xl + 0.03, -0.3);
+    // gate: the digits span q.x -0.022..0.172, |q.y| < 0.044
+    if (q.x > -0.03 && q.x < 0.18 && abs(q.y) < 0.05) {
     float barN = mod(floor(bc / 4.0), 100.0);
     float beatN = mod(floor(bc), 4.0) + 1.0;
     float d = seg7(q, floor(barN / 10.0), 0.045) + seg7(q - vec2(0.062, 0.0), mod(barN, 10.0), 0.045);
     L.x += d;
     L.y += seg7(q - vec2(0.15, 0.0), beatN, 0.045) * (0.6 + 0.8 * kick);
     L.x += fl(length(q - vec2(0.105, -0.036)) - 0.006);
+    }
   }
 
   // ---- right column: oscilloscope and scrolling words
@@ -269,6 +276,7 @@ void main() {
   vec2 p = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   float asp = uResolution.x / uResolution.y;
   gPx = 1.0 / uResolution.y;
+  gLb = (1.0 + 2.5 * uLineBoost) / 2.25;
   float kick = clamp(uBassHit, 0.0, 1.0);
   float gl = clamp(glitch, 0.0, 1.0);
 
@@ -291,8 +299,12 @@ void main() {
   col += c3 * (B.x + B.y) * 0.35 + c2 * B.z * 0.12;
 
   // scan beam and phosphor texture
-  float scan = 0.88 + 0.12 * sin(gl_FragCoord.y * 3.14159);
-  float beam = exp(-pow((fract(p.y * 0.5 + 0.5 - uTime * 0.07) - 0.5) * 9.0, 2.0));
+  // scanlines scaled with the resolution: visible at 4K, no moire when upscaled
+  float sl = max(1.0, floor(uResolution.y / 540.0));
+  float scan = 0.82 + 0.18 * step(0.5, fract(gl_FragCoord.y / (2.0 * sl)));
+  // square by multiplication: pow() of a negative base is undefined in GLSL ES
+  float bx = (fract(p.y * 0.5 + 0.5 - uTime * 0.07) - 0.5) * 9.0;
+  float beam = exp(-bx * bx);
   col *= scan * (1.0 + 0.5 * beam);
   // glow of the tube behind the lines
   float r = length(p);

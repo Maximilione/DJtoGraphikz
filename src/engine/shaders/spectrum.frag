@@ -50,14 +50,17 @@ void main() {
   // baseline: centred when mirrored, on the floor when not
   float base = mix(0.06, 0.5, mirror);
   float lit = (mirror > 0.5)
-    ? step(abs(uv.y - base), h * 0.5)
-    : step(base, uv.y) * step(uv.y, base + h);
+    ? 1.0 - smoothstep(h * 0.5 - 1.5 / uResolution.y, h * 0.5, abs(uv.y - base))
+    : step(base, uv.y) * (1.0 - smoothstep(base + h - 1.5 / uResolution.y, base + h, uv.y));
 
   vec3 tint = mix(uColor1, uColor2, u);
   tint = mix(tint, uColor3, smoothstep(0.65, 1.0, u));
 
   float grad = 1.0 - smoothstep(0.0, 1.0, abs(uv.y - base) / max(h * 0.5, 0.001));
   vec3 c = tint * lit * gap * (0.5 + 1.0 * grad);
+  // hot tip: the part of the bar that moves
+  float tip = smoothstep(0.55, 1.0, abs(uv.y - base) / max(h * 0.5, 0.001));
+  c += mix(tint, vec3(1.0), 0.4) * lit * gap * tip * (0.5 + 0.8 * uBeat);
 
   // cap: a bright line at the top of each bar reads as a level meter
   float capw = max(1.5 * (1.0 + 2.5 * uLineBoost), 1.5 + 2.0 * uLineBoost) / uResolution.y;
@@ -73,6 +76,9 @@ void main() {
 
   // floor glow so a silent room is not a black rectangle
   c += tint * exp(-abs(uv.y - base) * 14.0) * (0.05 + 0.12 * uEnergy) * gap;
+  // glow above each tip
+  float over = max(abs(uv.y - base) - h * 0.5, 0.0);
+  c += tint * exp(-over * 40.0) * 0.18 * gap * (0.4 + uEnergy);
 
   gl_FragColor = vec4(c, 1.0);
 }

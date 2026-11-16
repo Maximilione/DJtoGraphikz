@@ -29,6 +29,9 @@ uniform float turn;
 
 float ring(float x, float c, float w) { float d = (x - c) / w; return exp(-d * d); }
 
+// dither: the bloom into the dark is the worst case for 8-bit banding
+float dith() { return (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0; }
+
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   float aspect = uResolution.x / uResolution.y;
@@ -45,7 +48,7 @@ void main() {
   // outside the iris (two thirds of a 16:9 frame) iris, body and glint are
   // all zero: only the bloom into the dark remains, so skip the rest
   if (rho > 1.0 + px) {
-    gl_FragColor = vec4(uColor1 * exp(-(rho - 1.0) * 5.0) * (0.12 + 0.18 * uBass) * (0.85 + 0.25 * uBeat), 1.0);
+    gl_FragColor = vec4(uColor1 * exp(-(rho - 1.0) * 5.0) * (0.12 + 0.18 * uBass) * (0.85 + 0.25 * uBeat) + dith(), 1.0);
     return;
   }
 
@@ -85,7 +88,8 @@ void main() {
   float pupil = 1.0 - smoothstep(pupilR - px, pupilR + px, rho);
   // iris shading: lit near the pupil, fibres, the dark orbit ring the tomoe sit on
   float shade = mix(1.0, 0.5, smoothstep(pupilR, 1.0, rho));
-  shade *= 1.0 + 0.08 * sin(phi * 46.0 + rho * 9.0) * sin(phi * 19.0 - rho * 5.0);
+  shade *= 1.0 - 0.35 * smoothstep(0.86, 1.0, rho);   // limbal ring: the eye reads as a sphere
+  shade *= 1.0 + 0.16 * sin(phi * 46.0 + rho * (9.0 + 6.0 * hit)) * sin(phi * 19.0 - rho * 5.0);
   shade *= 1.0 - 0.75 * ring(rho, orbit, 0.012);
   shade *= 1.0 + 0.5 * hit;
   // thin bright rings: around the pupil and at the limbus
@@ -101,5 +105,5 @@ void main() {
   float glint = 1.0 - smoothstep(0.05, 0.075, length(q - vec2(-0.19, 0.21)));
   col += vec3(1.0) * glint * 0.85;
   col *= 0.85 + 0.25 * uBeat;
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(col + dith(), 1.0);
 }

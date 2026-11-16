@@ -84,17 +84,19 @@ vec3 shell(vec3 n, vec3 rd, float face) {
 
   // hits: a ring of lit cells running outward from each impact point
   float hit = 0.0, flash = 0.0;
-  for (int i = 0; i < 4; i++) {
+  // the 4th hit is 3..4 beats old: under one 8-bit level on the skin, skipped here (still lights the sky)
+  for (int i = 0; i < 3; i++) {
     float ang = acos(clamp(dot(nc, gIp[i]), -1.0, 1.0));
     float age = gAge[i];
     float front = age * 1.15 + 0.02;
     // only the newest hit follows the real kick: in silence the lattice just breathes
     float amp = i == 0 ? 0.3 + 0.7 * sqrt(gKick) : 0.55;
-    float ring = exp(-pow((ang - front) * 9.0, 2.0)) * exp(-age * 1.7) * amp;
+    float rq = (ang - front) * 9.0;
+    float ring = exp(-rq * rq) * exp(-age * 1.7) * amp;
     float wake = (1.0 - smoothstep(0.0, front, ang)) * exp(-age * 3.0) * 0.3 * amp;
     hit += ring + wake;
-    float pang = acos(clamp(dot(n, gIp[i]), -1.0, 1.0));
-    flash += exp(-pang * pang * 60.0) * exp(-age * 5.0) * amp;
+    // pang^2 ~ 2 * (1 - cos) at the small angles where the flash shows: no acos
+    flash += exp(-(1.0 - dot(n, gIp[i])) * 120.0) * exp(-age * 5.0) * amp;
   }
   hit *= gImp * (0.3 + 0.7 * vis);
   flash *= gImp;
@@ -202,6 +204,7 @@ void main() {
     gAge[i] = bc - bi;
   }
 
+  float newest = exp(-min(min(gAge[0], gAge[1]), min(gAge[2], gAge[3])) * 4.0);
   vec3 col;
   float tMax = 1e4;
   float tg = rd.y < 0.0 ? -ro.y / rd.y : -1.0;
@@ -218,11 +221,15 @@ void main() {
     grid *= exp(-gr * 0.22) / (1.0 + px * 30.0);
     col = vec3(0.003, 0.004, 0.007) + uColor3 * grid * 0.16;
     // rings in the ground around the foot of the dome, pushed out by the kick
-    float foot = exp(-pow((gr - RD) * 22.0, 2.0));
+    float fq = (gr - RD) * 22.0;
+    float foot = exp(-fq * fq);
     col += mix(uColor1, vec3(1.0), 0.25) * foot * (0.3 + 0.4 * uBass + 0.6 * gKick);
-    float shock = exp(-pow((gr - RD - (1.0 - gKick) * 5.0) * 12.0, 2.0)) * gKick * step(RD, gr);
+    float sq = (gr - RD - (1.0 - gKick) * 5.0) * 12.0;
+    float shock = exp(-sq * sq) * gKick * step(RD, gr);
     col += uColor2 * shock * 0.6;
     col += uColor1 * 0.02 / (0.3 + abs(gr - RD) * 3.0);
+    // the wet plain flashes with every impact
+    col += uColor2 * newest * gImp * 0.07 * exp(-gr * 0.6);
     // mirror
     vec3 rr = vec3(rd.x, -rd.y, rd.z);
     float ch2;
@@ -238,7 +245,7 @@ void main() {
 
   // the dome and what is inside it, in front of the ground or the sky
   col += dome(ro, rd, tMax, chord);
-  col += uColor3 * chord * (0.035 + 0.03 * uBass) + uColor2 * chord * chord * 0.012 * gBeam;
+  col += uColor3 * chord * (0.035 + 0.03 * uBass + 0.05 * gKick) + uColor2 * chord * chord * 0.012 * gBeam;
   col += column(ro, rd, tMax);
 
   // bolts: the two newest hits arrive down a jagged line from the sky
@@ -272,5 +279,6 @@ void main() {
   col += uColor3 * 0.004;
   col = col / (1.0 + 0.45 * col);
   col *= clamp(1.18 - dot(p, p) * 0.55, 0.5, 1.0);
+  col += (h21(gl_FragCoord.xy) - 0.5) / 255.0;   // dither: 8-bit target bands the sky
   gl_FragColor = vec4(max(col, 0.0), 1.0);
 }

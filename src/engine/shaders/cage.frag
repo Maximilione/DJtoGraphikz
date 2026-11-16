@@ -84,15 +84,25 @@ void main() {
   float fall = 38.0 / (1.0 + uLineBoost);   // wider halo with the boost
   float hz14 = 0.012 * (1.0 - 0.7 * uEnergy) * 14.0;
   setupCage();
+  // start the march at the cage's bounding sphere (corner reach + haze margin);
+  // rays that miss it collect less than 1/255 of haze and skip the loop
+  float bR = gS * 1.75 + 0.6;
+  float bb = dot(ro, rd);
+  float disc = bb * bb - (dot(ro, ro) - bR * bR);
+  t = max(-bb - sqrt(max(disc, 0.0)), 0.0);
+  int nSteps = disc > 0.0 ? 64 : 0;
   for (int i = 0; i < 64; i++) {
+    if (i >= nSteps) break;
     vec3 pos = ro + rd * t;
     vec2 d = map(pos);
     float m = min(d.x, d.y);
     // weighted by the step so the glow is an integral along the ray, not a
     // count of how many tiny steps a grazing ray happened to take
     float dt = max(m * 0.7, 0.012);
-    gOuter += (exp(-d.x * fall) * 2.5 + exp(-d.x * 9.0) * hz14) * dt;
-    gInner += (exp(-d.y * fall) * 2.5 + exp(-d.y * 9.0) * hz14) * dt;
+    // depth cue: far edges glow less than near ones
+    float dep = exp(-max(t - 2.4, 0.0) * 0.35);
+    gOuter += (exp(-d.x * fall) * 2.5 + exp(-d.x * 9.0) * hz14) * dt * dep;
+    gInner += (exp(-d.y * fall) * 2.5 + exp(-d.y * 9.0) * hz14) * dt * dep;
     if (m < 0.001) {
       // on the bar itself: a solid core under the halo
       gOuter += step(d.x, 0.001) * 0.3;
@@ -107,7 +117,7 @@ void main() {
   col += vec3(1.0) * (gOuter + gInner) * uBassHit * 0.5;
   col *= 1.0 + 0.3 * uBeat;
   // highs make the edges glitter
-  col *= 1.0 + 1.6 * uHigh * (hash21(gl_FragCoord.xy + fract(uTime) * 57.0) - 0.35);
+  col *= 1.0 + 1.6 * uHigh * (hash21(floor(gl_FragCoord.xy / max(uResolution.y / 540.0, 1.0)) + fract(uTime) * 57.0) - 0.35);
   // faint ambient so the cage never sits on pure black
   col += uColor3 * 0.04 * (1.0 - length(p) * 0.6);
   // soft shoulder, no flat white

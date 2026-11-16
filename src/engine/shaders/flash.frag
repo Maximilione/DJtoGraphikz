@@ -61,7 +61,7 @@ void main() {
     float tri = abs(fract(fa) - 0.5);
     float bladeW = 0.20 - 0.10 * p;
     float blade = smoothstep(-fw, fw, bladeW - tri);
-    float len = 0.45 + 0.9 * hash(vec2(floor(fa), 3.0));
+    float len = 0.45 + 0.9 * hash(vec2(mod(floor(fa), n), 3.0));
     rays = blade * (1.0 - smoothstep(len * 0.55, len, r)) * (0.5 + 0.5 * smoothstep(0.0, 0.12, r));
   }
 
@@ -127,7 +127,7 @@ void main() {
   }
 
   // faint ghost of the shape and the filament: dark, not off
-  col += lamp * vig * (0.035 + mask * 0.035);
+  col += lamp * vig * (0.012 + mask * 0.06);
 
   // one scan line per bar, with a glowing wake above it
   float dy = uv.y - (1.0 - uBarPhase);

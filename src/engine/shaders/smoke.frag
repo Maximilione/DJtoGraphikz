@@ -44,10 +44,15 @@ void main() {
   // a fixed c1 → c2 ramp left it colour 1, since t seldom gets near 0.95
   float hue = t * 0.5 + uv.x * 0.45 + uv.y * 0.2 + uTime * 0.02;
   vec3 c = mix(uColor3 * 0.06, pal3(hue), smoothstep(0.02, 0.35, t));
-  c *= 0.35 + 1.0 * lit;
-  c += pal3(hue + 0.33) * pow(t, 3.0) * (0.3 + 0.8 * uBeat);
+  c *= 0.18 + 1.25 * lit;
+  // scatter rim: backlit silver lining on the thin edges of the shadow side
+  float edge = smoothstep(0.02, 0.18, t) * (1.0 - smoothstep(0.18, 0.55, t));
+  c += pal3(hue + 0.33) * edge * 0.22 * (1.0 - lit);
+  c += pal3(hue + 0.33) * (t * t * t) * (0.3 + 0.8 * uBeat);
   c *= 1.4 + 0.4 * uEnergy;
 
   float vig = smoothstep(1.4, 0.3, length((uv - 0.5) * vec2(1.5, 1.0)));
-  gl_FragColor = vec4(c * vig, 1.0);
+  // IGN dither: smooth density gradients band badly on RGBA8
+  float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  gl_FragColor = vec4(c * vig + (ign - 0.5) / 255.0, 1.0);
 }

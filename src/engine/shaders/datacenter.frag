@@ -50,6 +50,7 @@ float gAlarm;
 float gBeaconZ;
 float gBeaconGlow;
 float gFog;
+bool gGlowOn; // beacon glow only accumulates while the alarm kick is live
 
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -87,7 +88,7 @@ vec3 normalAt(vec3 p) {
 // flat colour bands — a panel is mostly dark steel between them), a
 // pseudo-random colour and blink rate per rack/row/column, overridden by the
 // alarm wave travelling down the corridor from the camera.
-vec4 ledPanel(vec3 p) {
+vec4 ledPanel(vec3 p, float t) {
   float zc = floor(p.z / gPeriod + 0.5);
   float zl = p.z - zc * gPeriod;
   float side = sign(p.x);
@@ -104,9 +105,11 @@ vec4 ledPanel(vec3 p) {
 
   float dz = zc * gPeriod - gRoZ;
   float front = MAX_WAVE * (1.0 - gKick);
-  float w = exp(-pow((dz - front) * 0.35, 2.0)) * sqrt(gKick) * gAlarm;
+  float wz = (dz - front) * 0.35;
+  float w = exp(-wz * wz) * sqrt(gKick) * gAlarm;
   vec3 col = mix(rest, ALARM * 2.4, clamp(w * 2.0, 0.0, 1.0));
-  return vec4(col, dot);
+  // far cells shrink under a pixel: fade the dot mask to its mean
+  return vec4(col, mix(dot, 0.18, smoothstep(16.0, 34.0, t)));
 }
 
 vec3 bgCol(vec3 rd) {
@@ -129,10 +132,12 @@ vec3 shade(vec3 ro, vec3 rd, float t, bool cheap) {
     surf = steel * (0.5 + 0.5 * max(n.y, 0.0));
     surf += uColor1 * topEdge * 0.12;
     surf += uColor1 * pow(1.0 - max(dot(n, -rd), 0.0), 3.0) * 0.1;
+    // the ceiling strip keys the rack fronts from above
+    surf += steel * 5.0 * faceFront * smoothstep(FLOOR_Y, CEIL_Y, p.y) * mix(vec3(1.0), uColor3, 0.25);
     // the floor reflection already dampens this with fres/grime/scratch — the
     // LED grid's per-cell hash work is wasted precision there, skip it
     if (!cheap) {
-      vec4 led = ledPanel(p);
+      vec4 led = ledPanel(p, t);
       surf += led.rgb * led.a * faceFront * (1.4 + 1.0 * gKick * gAlarm);
     }
   } else {
@@ -159,10 +164,12 @@ float march(vec3 ro, vec3 rd, float tmax, int maxSteps) {
     vec3 p = ro + rd * t;
     float d = map(p);
     float st = clamp(d, 0.03, 0.55);
-    vec3 db = p - vec3(0.0, CEIL_Y - 0.05, gBeaconZ);
-    gBeaconGlow += st * 0.4 / (0.3 + dot(db, db) * 3.5);
+    if (gGlowOn) {
+      vec3 db = p - vec3(0.0, CEIL_Y - 0.05, gBeaconZ);
+      gBeaconGlow += st * 0.4 / (0.3 + dot(db, db) * 3.5);
+    }
     gFog += st * 0.02;
-    if (d < 0.003) return t;
+    if (d < 0.003 + t * 0.0012) return t; // ~one 4K pixel footprint
     t += d;
   }
   return -1.0;
@@ -178,6 +185,7 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
   gKick = clamp(uBassHit, 0.0, 1.0);
   gAlarm = alarm;
+  gGlowOn = gKick * gAlarm > 0.001;
   gPeriod = clamp(2.8 / max(density, 0.1), 1.0, 4.5);
 
   float adv = speed * (1.0 + 0.35 * uBass + 0.25 * uEnergy);
@@ -205,7 +213,7 @@ void main() {
     float g0 = gBeaconGlow;
     vec3 refl = scene(pf + vec3(0.0, 0.01, 0.0), rr, 42.0, 40, true);
     gBeaconGlow = g0 + (gBeaconGlow - g0) * 0.6;
-    float fres = 0.3 + 0.45 * pow(1.0 - abs(rd.y), 2.0);
+    float fres = 0.3 + 0.6 * pow(1.0 - abs(rd.y), 2.0);
     float grime = hash21(floor(pf.xz * 3.1)) * 0.05;
     vec2 gl = abs(fract(pf.xz * 0.6) - 0.5);
     float scratch = smoothstep(0.485, 0.5, max(gl.x, gl.y)) * 0.05;

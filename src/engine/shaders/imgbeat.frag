@@ -74,7 +74,7 @@ vec4 getImg(vec2 q, float id) {
 vec3 background(vec2 p, float variant) {
   float t = uBeatClock;
   float r = length(p);
-  vec3 base = mix(uColor3 * 0.22, uColor2 * 0.3, smoothstep(1.4, 0.0, r)) + 0.04;
+  vec3 base = mix(uColor3 * 0.22, uColor2 * 0.3, smoothstep(1.4, 0.0, r)) + uColor3 * 0.04 + 0.01; // coloured floor, not grey
   vec3 c = base;
   if (variant < 0.5) {
     float z = 0.35 / (r + 0.06) + t * 0.5;
@@ -99,7 +99,9 @@ vec3 background(vec2 p, float variant) {
     float n = sin(p.x * 2.6 + uTime * 0.4) + sin(p.y * 3.4 - uTime * 0.5)
             + sin(r * 5.0 - uTime * 0.8 - t * 0.5) + sin((p.x + p.y) * 2.0 + t * 0.25);
     float w = 0.5 + 0.25 * n;
-    c += mix(uColor1, uColor2, clamp(w, 0.0, 1.0)) * (0.2 + 0.3 * w + 0.2 * uEnergy);
+    // dark pockets between bright lobes instead of a flat mid-level wash
+    float w2 = w * w;
+    c += mix(uColor1, uColor2, clamp(w, 0.0, 1.0)) * (0.06 + 0.5 * w2 + 0.2 * uEnergy * w);
   }
   return c;
 }
@@ -208,7 +210,8 @@ void main() {
   float m = im.a * vis;
   vec3 flash = mix(uColor1, uColor2, 0.5) * (0.3 * punch * env + 0.1 * uBeat);
   col = mix(col, im.rgb * (0.85 + 0.15 * uEnergy) + flash * m, m);
-  // never a flat white frame: cap the output
-  col = min(col, vec3(0.92));
+  // never a flat white frame: soft knee, still capped below 0.92
+  vec3 k = max(col - 0.75, 0.0);
+  col = min(col, 0.75) + 0.17 * (1.0 - exp(-k * 3.0));
   gl_FragColor = vec4(col, 1.0);
 }

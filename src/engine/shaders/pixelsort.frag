@@ -55,10 +55,13 @@ float hash21(vec2 p) {
 }
 
 float seedG;
+// uniform-only terms of src(), set once in main(): src() runs ~20x per pixel
+vec2 gC1, gC2;
+float gScroll, gBand;
 
 // cheap source: Mondrian-like cells, sine bands, two blobs. rgb + luminance
 vec4 src(vec2 q) {
-  vec2 g = floor(q * vec2(5.0, 3.0) + vec2(0.0, mod(uBassTime * 0.15, 64.0)));
+  vec2 g = floor(q * vec2(5.0, 3.0) + vec2(0.0, gScroll));
   float h = hash21(g + seedG);
   float h2 = hash21(g * 1.7 + 11.3 + seedG);
   vec3 c;
@@ -70,12 +73,13 @@ vec4 src(vec2 q) {
   else if (h < 0.82) c = uColor3;
   else c = vec3(1.0);
   if (h >= 0.15) c *= 0.25 + 0.75 * h2;
-  float k = 0.5 + 0.5 * sin(q.y * 9.0 + q.x * 3.0 + mod(uBassTime * 0.8, 62.8318));
+  float k = 0.5 + 0.5 * sin(q.y * 9.0 + q.x * 3.0 + gBand);
   c *= mix(0.55, 1.15, k);
-  float t = uTime * 0.1;
-  vec2 c1 = vec2(0.5 + 0.35 * sin(t * 3.1), 0.5 + 0.3 * sin(t * 4.3 + 1.0));
-  vec2 c2 = vec2(0.5 + 0.38 * sin(t * 2.3 + 2.0), 0.5 + 0.32 * sin(t * 3.7 + 4.0));
-  float bl = smoothstep(0.22, 0.0, length(q - c1)) + smoothstep(0.22, 0.0, length(q - c2));
+  // squared-distance early out: smoothstep(0.22, 0.0, x) is 0 for x >= 0.22
+  vec2 d1 = q - gC1, d2 = q - gC2;
+  float bl = 0.0;
+  if (dot(d1, d1) < 0.0484) bl += smoothstep(0.22, 0.0, length(d1));
+  if (dot(d2, d2) < 0.0484) bl += smoothstep(0.22, 0.0, length(d2));
   c += vec3(1.0, 0.9, 0.75) * bl * 0.8;
   c = min(c, vec3(1.5));
   return vec4(c, dot(c, vec3(0.299, 0.587, 0.114)));
@@ -95,6 +99,11 @@ void main() {
   float colw = max(3.0 * sc, 1.0);
   float seed = mod(floor(uBeatClock / 8.0), 64.0);
   seedG = seed * 0.37;
+  gScroll = mod(uBassTime * 0.15, 64.0);
+  gBand = mod(uBassTime * 0.8, 62.8318);
+  float tb = uTime * 0.1;
+  gC1 = vec2(0.5 + 0.35 * sin(tb * 3.1), 0.5 + 0.3 * sin(tb * 4.3 + 1.0));
+  gC2 = vec2(0.5 + 0.38 * sin(tb * 2.3 + 2.0), 0.5 + 0.32 * sin(tb * 3.7 + 4.0));
 
   float b = horiz ? px.y : px.x;
   float a = horiz ? uv.x : 1.0 - uv.y;
@@ -189,7 +198,7 @@ void main() {
     // bright head line, a couple of px thick: the signature of the sort
     float headPx = (aa - aS) * ares;
     float head = 1.0 - smoothstep(0.0, 2.0 * sc + 1.0, headPx);
-    rgb += vec3(0.35 + 0.65 * uHighHit) * head;
+    rgb += mix(vec3(1.0), uColor3, 0.5 * uBassHit) * (0.35 + 0.65 * uHighHit) * head;
     // dark seam at the tail so stacked runs read as separate drips
     float tailPx = (aE - aa) * ares;
     rgb *= 0.55 + 0.45 * smoothstep(0.0, 1.5 * sc + 1.0, tailPx);

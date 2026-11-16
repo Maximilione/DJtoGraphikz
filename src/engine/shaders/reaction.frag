@@ -53,7 +53,7 @@ void main() {
   // color1 into color2 as B saturates
   // B tops out around 0.35 in the interesting regimes, so the palette has to
   // live in that range — thresholds tuned for 1.0 leave color2 unused
-  float t = smoothstep(0.04, 0.22, b);
+  float t = smoothstep(0.07, 0.17, b);
   vec3 col = mix(uColor3 * 0.10, uColor1, t);
   col = mix(col, uColor2, smoothstep(0.22, 0.34, b));
 

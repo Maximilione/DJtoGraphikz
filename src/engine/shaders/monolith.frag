@@ -105,28 +105,33 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
   float lit = max(dot(n, L), 0.0) / (1.0 + 0.04 * dist * dist);
   float kickL = 0.55 + 0.5 * pulse * (gKick + 0.4 * uBass);
   vec3 c = slitColor() * lit * 2.2 * kickL;
-  c += uColor1 * pow(1.0 - max(dot(n, -rd), 0.0), 3.0) * 0.45;
-  c += uColor2 * 0.06;
+  float rim = 1.0 - max(dot(n, -rd), 0.0);
+  c += uColor1 * (rim * rim * rim) * 0.45;
+  c += uColor2 * 0.03;   // metal stays dark: the slit light carries the frame
   // ring: panel lines (angular segments) carrying a thread of light
   vec3 q = p - RING_C;
   float seg = abs(sin(atan(q.y, q.x) * 24.0));
   float line = smoothstep(0.96, 1.0, seg);
   float isRing = step(sdTorusXY(q, 3.1, 0.42), pylons(p));
   c += uColor1 * line * isRing * (0.3 + 1.0 * gKick * pulse + 0.4 * uMid);
+  // a light runs once around the ring per bar
+  float run = pow(0.5 + 0.5 * cos(atan(q.y, q.x) - fract(uBeatClock * 0.25) * TAU), 10.0);
+  c += uColor1 * line * isRing * run * 1.2;
   // pylons: a cold edge line on the vertical edges
   float vert = smoothstep(0.93, 1.0, abs(sin(p.y * 3.0 - uBassTime)));
   c += uColor2 * vert * (1.0 - isRing) * 0.35 * (0.4 + uEnergy);
   return c;
 }
 
-vec3 scene(vec3 ro, vec3 rd, float tmax, int steps) {
-  float t = march(ro, rd, tmax, steps);
-  vec3 c = vec3(0.0);
-  if (t > 0.0) {
-    c = shade(ro, rd, t);
-    c = mix(uColor2 * 0.05, c, exp(-t * 0.045));
-  }
-  return c;
+// the slit drawn analytically on its plane z = RING_C.z: the fog samples are
+// 2-4 units apart against a 0.07-0.32 wide slit and never resolve the blade.
+// Occluded when a surface (tOcc > 0) or the floor (tFar) comes first.
+vec3 blade(vec3 ro, vec3 rd, float tOcc, float tFar) {
+  float tS = (RING_C.z - ro.z) / rd.z;
+  if (tS <= 0.0 || (tOcc > 0.0 && tS > tOcc) || tS > tFar) return vec3(0.0);
+  vec3 qs = ro + rd * tS - RING_C;
+  float b = exp(-max(abs(qs.x) - gSlitW, 0.0) * 45.0) * smoothstep(2.3, 2.0, abs(qs.y));
+  return slitColor() * b * (1.6 + 1.2 * gKick * pulse);
 }
 
 void main() {
@@ -145,17 +150,23 @@ void main() {
   vec3 col;
   float tmax = min(tf, 60.0);
   float th = march(ro, rd, tmax, 40);
+  vec3 bl = blade(ro, rd, th, tf);
   if (th > 0.0) {
     col = shade(ro, rd, th);
     col = mix(uColor2 * 0.05, col, exp(-th * 0.045));
   } else if (tf < 60.0) {
-    vec3 pf = ro + rd * tf;
+    vec3 pf = ro + rd * tf + vec3(0.0, 0.01, 0.0);
     vec3 rr = vec3(rd.x, -rd.y, rd.z);
     float g0 = gGlow;
-    col = scene(pf + vec3(0.0, 0.01, 0.0), rr, 60.0, 24);
+    float tr = march(pf, rr, 60.0, 24);
+    col = vec3(0.0);
+    if (tr > 0.0) col = mix(uColor2 * 0.05, shade(pf, rr, tr), exp(-tr * 0.045));
+    // the blade on the mirror floor: a vertical streak, the strongest depth cue here
+    col += blade(pf, rr, tr, 1e5);
     // the reflection collects its own fog; keep it, dimmed (the mirror loses light)
     gGlow = g0 + (gGlow - g0) * 0.6;
-    float fres = 0.35 + 0.4 * pow(1.0 - abs(rd.y), 2.0);
+    float ay = 1.0 - abs(rd.y);
+    float fres = 0.35 + 0.4 * ay * ay;
     // floor: dark, with a few tile lines that run to the portal
     vec2 gp = pf.xz * 0.5;
     vec2 gl = abs(fract(gp) - 0.5);
@@ -165,6 +176,8 @@ void main() {
     col = uColor2 * 0.03 + uColor1 * 0.02 * (0.5 - uv.y);
   }
 
+  col += bl;   // crisp core; the fog glow below becomes its halo
+
   // fog: the glow collected on the way, tinted by the palette
   float hz = haze * (0.8 + 0.5 * uBass + 0.5 * gKick * pulse);
   vec3 fogC = mix(uColor1, slitColor(), 0.35 + 0.4 * gKick);
@@ -173,5 +186,7 @@ void main() {
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.25 - dot(uv, uv) * 0.9, 0.4, 1.0);
+  // IGN dither: the big smooth fog gradients band on RGBA8
+  col += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(col, 1.0);
 }

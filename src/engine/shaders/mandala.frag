@@ -33,8 +33,10 @@ vec3 mandalaLayer(float r, float a, float folds, float rt, float t) {
 
   // Concentric petal rings: radius is modulated by the fold, so each ring
   // becomes a scalloped garland.
+  // rings and jewels end below r ~0.85; past r = 1 their tails are < 1/255
+  // (skips most of the back layer, drawn at 1.7 r)
   float lines = 0.0;
-  for (int i = 0; i < 5; i++) {
+  if (r < 1.0) for (int i = 0; i < 5; i++) {
     float fi = float(i);
     float rr = r - (0.10 + fi * 0.11 + uBeat * 0.015 * (fi + 1.0) + uBassHit * 0.02 * fi)
                  - 0.035 * k * (0.5 + fi * 0.3);
@@ -53,12 +55,14 @@ vec3 mandalaLayer(float r, float a, float folds, float rt, float t) {
   // Jewels: dots on the middle of each half-fold
   float dots = 0.0;
   float fb = foldAngle * 0.25;
-  for (int i = 1; i < 6; i++) {
+  vec2 cfb = vec2(cos(fb), sin(fb));
+  if (r < 1.0) for (int i = 1; i < 6; i++) {
     float fi = float(i);
     float R = fi * 0.12 + uBeat * 0.02 * fi + uBassHit * 0.03 * fi;
-    vec2 c = R * vec2(cos(fb), sin(fb));
-    vec2 q = p - c;
-    dots += 0.0004 / (dot(q, q) + 0.0004) * (1.2 - 0.12 * fi);
+    vec2 q = p - R * cfb;
+    // squared: crisp gems, no milky 1/r^2 veil over the gaps
+    float j = 0.0004 / (dot(q, q) + 0.0004);
+    dots += j * j * (1.2 - 0.12 * fi) * 1.5;
   }
 
   // Spokes: thicker/sharper with the highs, fold edges are the weak ones.
@@ -105,7 +109,9 @@ void main() {
 
   vec3 color = vec3(0.0);
   color += ca * front.x + hot * front.y * 0.9 + cb * front.z;
-  color += (cb * back.x + ca * back.y * 0.6 + uColor3 * back.z) * 0.4 * (1.0 - 0.5 * smoothstep(0.2, 0.9, r));
+  // back layer pushed back: dimmer and shifted toward uColor3, separates in hue too
+  color += ((cb * 0.7 + uColor3 * 0.3) * back.x + ca * back.y * 0.6 + uColor3 * back.z)
+         * (0.3 + 0.1 * uBass) * (1.0 - 0.5 * smoothstep(0.2, 0.9, r));
 
   // Kick shockwave: a bright ring travelling outward while the hit decays
   float sr = 0.12 + 0.85 * (1.0 - uBassHit);

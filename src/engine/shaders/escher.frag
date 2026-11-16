@@ -230,7 +230,7 @@ void main() {
     }
   }
 
-  vec3 bg = mix(cB * 0.15, cA * 0.3, uv.y) + 0.08;
+  vec3 bg = mix(cB * 0.10, cA * 0.22, uv.y) + cB * 0.02;
   vec3 col = bg;
   float tFinal = 90.0;
   float hY = 0.0; // height of what the pixel shows: isometric depth cue
@@ -252,8 +252,8 @@ void main() {
     vec3 base;
     float side = dot(vec3(nrm), rr);
     if (axis == 1) base = cA * 1.0;
-    else if (side < 0.0) base = mix(cA, cB, 0.5) * 0.65;
-    else base = cB * 0.4;
+    else if (side < 0.0) base = mix(cA, cB, 0.5) * 0.6;
+    else base = cB * 0.28;
     if (typ == 2) base *= vec3(1.12, 1.0, 0.82);
     else if (typ == 3) base = (axis == 1 ? 1.0 : (side < 0.0 ? 0.8 : 0.5)) * cC * 0.5;
 
@@ -351,6 +351,6 @@ void main() {
 
   // gentle tonemap, flat look, never black
   col = 1.0 - exp(-col * 1.8);
-  col = max(col, vec3(0.04));
+  col = max(col, vec3(0.012));
   gl_FragColor = vec4(col, 1.0);
 }

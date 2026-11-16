@@ -73,7 +73,8 @@ vec3 sky(vec3 d) {
     c += mix(vec3(1.0), mix(uColor1, uColor3, fract(r * 9.0)), 0.45) * st * (k == 0 ? 1.6 : 0.7);
   }
   float n = vn(s * 2.2 + 3.0) * 0.6 + vn(s * 5.0 - 1.0) * 0.4;
-  float band = exp(-pow((d.y + 0.25 * sin(s.x * 2.0)) * 2.6, 2.0));
+  float bz = (d.y + 0.25 * sin(s.x * 2.0)) * 2.6; // pow() with a negative base is undefined
+  float band = exp(-bz * bz);
   c += mix(uColor3, uColor2, n) * pow(n, 3.0) * band * 0.22;
   return c;
 }
@@ -97,7 +98,8 @@ void main() {
   float rl = 0.22 + 0.05 * sin(t * 0.07);          // dutch angle: the disk never sits flat
   vec2 q = vec2(p.x * cos(rl) - p.y * sin(rl), p.x * sin(rl) + p.y * cos(rl));
   vec3 vel = normalize(fw * (1.9 + 0.06 * kick) + rt * q.x + up * q.y);
-  vec3 pos = ro;
+  // per-pixel start jitter: step banding in jets/halo becomes fine grain
+  vec3 pos = ro + vel * h21(gl_FragCoord.xy) * 0.35;
 
   vec3 hv = cross(pos, vel);
   float h2 = dot(hv, hv);
@@ -116,20 +118,22 @@ void main() {
   for (int i = 0; i < STEPS; i++) {
     float r2 = dot(pos, pos);
     if (r2 < 1.0) { captured = true; break; }
-    if (r2 > 900.0 && dot(pos, vel) > 0.0) break;
+    if (r2 > 420.0 && dot(pos, vel) > 0.0) break; // bending past r~20 is negligible
     float r = sqrt(r2);
     float dt = clamp(0.13 * r, 0.06, 2.2);
-    // finer near the disk plane so crossings are located well
-    dt = min(dt, max(abs(pos.y) * 0.6, 0.07 + 0.02 * r));
+    float dAx = dot(pos.xz, pos.xz);
+    // finer near the disk plane so crossings are located well (only within the disk's reach)
+    if (dAx < ROUT * ROUT * 1.3) dt = min(dt, max(abs(pos.y) * 0.6, 0.07 + 0.02 * r));
     vec3 acc = -1.5 * h2 * pos / (r2 * r2 * r);
     vel += acc * dt;
     vec3 np = pos + vel * dt;
 
     // polar jets and the faint glow of the photon sphere
-    float dAx = dot(pos.xz, pos.xz);
-    float ay = abs(pos.y);
-    float jp = 0.55 + 0.45 * sin(ay * 1.1 - bc * TAU * 0.5);
-    jet += dt * exp(-dAx * (5.0 + 0.05 * ay * ay)) * smoothstep(1.0, 2.5, ay) * exp(-ay * 0.16) * jp;
+    if (dAx < 2.0) { // exp(-10) beyond
+      float ay = abs(pos.y);
+      float jp = 0.55 + 0.45 * sin(ay * 1.1 - bc * TAU * 0.5);
+      jet += dt * exp(-dAx * (5.0 + 0.05 * ay * ay) - ay * 0.16) * smoothstep(1.0, 2.5, ay) * jp;
+    }
     halo += dt / (r2 * r2);
 
     if (pos.y * np.y < 0.0 && trans > 0.02) {
@@ -160,7 +164,8 @@ void main() {
         vec3 dc = mix(hot, uColor1, smoothstep(0.0, 0.16, rn));
         dc = mix(dc, uColor2, smoothstep(0.1, 0.45, rn));
         dc = mix(dc, uColor3, smoothstep(0.3, 0.7, rn));
-        float wv = exp(-pow((rr - waveR) * 1.3, 2.0)) * kick;
+        float wx = (rr - waveR) * 1.3;
+        float wv = exp(-wx * wx) * kick;
         float em = edge * dens * (0.6 + 5.0 * heat) * dop;
         em *= (0.35 + dk) * (0.8 + 0.5 * uBass + 0.6 * kick * heat);
         em += edge * wv * 2.2 * dop;
@@ -178,7 +183,7 @@ void main() {
   // jets and photon haze; the shadow itself stays pure black, that is the picture
   if (!captured) {
     col += mix(uColor3, vec3(0.8, 0.9, 1.0), 0.35) * jet * (0.3 + 0.3 * dk) * (0.5 + 0.6 * uBass + 0.9 * kick);
-    col += mix(uColor1, uColor2, 0.5) * min(halo, 0.6) * (0.5 + 0.5 * kick) * 0.5;
+    col += mix(uColor1, uColor2, 0.5) * pow(min(halo, 0.6) / 0.6, 2.0) * 0.3 * (0.5 + 0.5 * kick) * 0.5;
   }
 
   // floor: the disk never goes fully dark on silence (0.35 + dk above), plus a breath of colour

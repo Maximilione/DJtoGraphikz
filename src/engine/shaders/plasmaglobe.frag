@@ -109,7 +109,8 @@ void main() {
         float A = ampl(rn);
         float thk = centre(rn, th0, seed, tq, A);
         float k = A * 2.6 * rn;
-        float da = abs(wrap(a - thk)) * r / sqrt(1.0 + k * k);
+        float ik = inversesqrt(1.0 + k * k);
+        float da = abs(wrap(a - thk)) * r * ik;
         float w = 0.0018 * (1.0 + 2.0 * dis) * (1.2 - 0.6 * rn);
         float fade = smoothstep(0.08, 0.16, rn);
         I += glow(da, w) * life * fade;
@@ -119,7 +120,7 @@ void main() {
         if (rn > rf) {
           float sg = hash(seed + 3.0) > 0.5 ? 1.0 : -1.0;
           float thb = thk + sg * (rn - rf) * (0.8 + chaos) + 0.5 * A * vn(rn * 11.0 + seed * 2.0 + tq * 2.0);
-          float db = abs(wrap(a - thb)) * r / sqrt(1.0 + k * k);
+          float db = abs(wrap(a - thb)) * r * ik;
           I += glow(db, w * 0.6) * 0.6 * (0.5 + uHigh) * smoothstep(rf, rf + 0.08, rn) * life;
         }
       }
@@ -128,7 +129,8 @@ void main() {
 
   // glass
   float inside = 1.0 - step(1.0, rn);
-  float rim = (pow(smoothstep(0.75, 1.0, rn), 3.0) * 0.35 * inside + exp(-abs(rn - 1.0) * 120.0) * 0.5) * (1.0 + 2.0 * kick);
+  float rs = smoothstep(0.75, 1.0, rn);
+  float rim = (rs * rs * rs * 0.35 * inside + exp(-abs(rn - 1.0) * 120.0) * 0.5) * (1.0 + 2.0 * kick);
   vec2 q = p / R;
   float moon = 1.0 - smoothstep(0.0, 0.08, length(q - vec2(-0.38, 0.42)) - 0.12);
   float moonCut = 1.0 - smoothstep(0.0, 0.08, length(q - vec2(-0.32, 0.36)) - 0.12);
@@ -167,10 +169,11 @@ void main() {
   }
 
   float body = I * 0.5;
-  vec3 col = uColor1 * I * 0.6 + uColor1 * body * 0.3
+  // filaments dim toward the limb: they sit inside a volume, the glass reads nearer
+  vec3 col = uColor1 * I * 0.6 * (1.0 - 0.3 * rn * rn) + uColor1 * body * 0.3
            + uColor2 * (rim + spec + haze + hot * 0.25)
            + mix(uColor3, vec3(1.0), 0.6) * (core + hot + bolts * 0.7);
-  col += vec3(1.0) * smoothstep(1.2, 3.0, I) * 0.6;
+  col += vec3(1.0) * smoothstep(0.9, 2.2, I) * 0.6;
   col = mix(col, col.gbr * 0.9 + col * 0.1, 0.15 * sin(PI * fract(bc / 16.0)));
 
   vec3 bg = vec3(0.01, 0.008, 0.02) + exp(-max(rn - 1.0, 0.0) * 3.0) * 0.05 * uColor2 * (1.0 + uEnergy);
@@ -178,5 +181,6 @@ void main() {
   col += uColor2 * 0.06 * dis;
 
   col = 1.0 - exp(-max(col, 0.0) * 1.3);
+  col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;   // dither: the halo bands on 8-bit
   gl_FragColor = vec4(col, 1.0);
 }

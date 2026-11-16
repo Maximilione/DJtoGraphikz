@@ -81,7 +81,7 @@ void main() {
     vec3 dl = pp - vec3(0.0, 1.0, lz);
     float st = clamp(d * 0.9, 0.02, 0.6);
     shaft += st * 0.12 / (0.35 + dot(dl, dl)) * exp(-t * 0.08);
-    if (d < 0.002 || t > 40.0) break;
+    if (d < 0.002 + t * 0.001 || t > 40.0) break;
     t += d * 0.9;
   }
 
@@ -99,8 +99,9 @@ void main() {
     L /= dist;
     float diff = max(dot(n, L), 0.0) / (1.0 + dist * dist * 0.18);
     // concrete: grey, grainy, slightly darker in the seams
-    float grain = 0.75 + 0.25 * hash3(floor(vec3(pos.xy, mod(pos.z, sp)) * 12.0));
-    vec3 albedo = vec3(0.6) * grain;
+    // grain fades with distance: no shimmer far away at 4K
+    float grain = 0.875 + (hash3(floor(vec3(pos.xy, mod(pos.z, sp)) * 12.0)) - 0.5) * 0.25 * exp(-t * 0.12);
+    vec3 albedo = mix(vec3(0.6), uColor3 * 0.8 + 0.15, 0.25) * grain;
     float kick = 1.0 + 0.8 * uBass;
     col = albedo * diff * fl * kick * tint * 1.6;
     // fixed bay lamp nearest to the hit: keeps every bay lit, kick drives it
@@ -125,7 +126,7 @@ void main() {
     col += albedo * 0.12 * uBassHit;
   }
   float f = exp(-t * 0.13 * max(0.05, fog));
-  col = mix(uColor3 * 0.07, col, f);
+  col = mix(uColor3 * (0.07 + 0.35 * uBassHit), col, f); // far end flashes on the kick
   col += mix(uColor2, vec3(1.0), 0.3) * shaft * lampOn * 0.4;
   // dust in the beam
   col += vec3(hash(gl_FragCoord.xy + fract(uTime) * 31.0)) * 0.015;

@@ -34,6 +34,8 @@ void main() {
   float light = exp(-d * d * 9.0) * 1.4 + exp(-d * 14.0) * 0.8;
   // and a dim ambient so the room exists
   light += 0.012;
+  // wide dim tail: far slats still catch faint bars, depth across the width
+  light += exp(-d * 2.5) * 0.10;
 
   // slats: tilt turns the gap edge into a slope across the width
   float n = max(2.0, floor(slats));
@@ -47,8 +49,12 @@ void main() {
   // a highlight along the top edge of each slat where the light catches it
   float edge = exp(-abs(f - (0.5 + gap * 0.5)) * 40.0) * 0.25;
 
-  vec3 col = mix(vec3(1.0), uColor1, 0.35) * light * through;
+  // white-hot core, saturated colour 1 in the falloff
+  vec3 lc = mix(uColor1, vec3(1.0), smoothstep(0.35, 1.3, light));
+  vec3 col = lc * light * through;
   col += uColor2 * light * edge;
-  col += vec3(1.0) * uBassHit * through * light * 0.5;
+  col += mix(uColor3, vec3(1.0), 0.5) * uBassHit * through * light * 0.6;
+  // IGN dither: the gaussian falloff bands into rings on 8-bit targets
+  col += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(col, 1.0);
 }

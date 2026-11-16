@@ -85,12 +85,18 @@ void main() {
   color += armCol * armA * bright * (0.9 + uBass * 0.4);
   color += uColor2 * haloA * 0.18 * bright;
   color += uColor3 * armB * 0.35 * bright;
+  // hot filament down the middle of each arm, flaring on the kick: a tube profile
+  float cw = (fract(phase) - 0.5) / 0.05;
+  float core = exp(-cw * cw);
+  color += mix(armCol, vec3(1.0), 0.6) * core * bright * (0.25 + 0.75 * uBassHit);
   color += mix(uColor1, uColor2, 0.5) * rim * (0.5 + uBassHit * 0.5 + uBeat * 0.2);
 
   // a ring falls into the hole every beat
   float ring = abs(r - (1.0 - uBeatPhase) * rmax);
   color += mix(uColor2, uColor3, 0.5) * smoothstep(0.03, 0.0, ring) * uBeat * 0.45 * hole;
 
-  color = min(color, vec3(1.5));
+  // hue-keeping rolloff: a per-channel clip shifts hue on 8-bit targets
+  float mx = max(max(color.r, color.g), max(color.b, 1.0));
+  color = mix(color / mx, vec3(1.0), clamp((mx - 1.0) * 0.35, 0.0, 0.6));
   gl_FragColor = vec4(color, 1.0);
 }

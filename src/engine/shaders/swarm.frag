@@ -25,8 +25,8 @@ vec3 pal3(float x) {
 void main() {
   vec2 d = gl_PointCoord - 0.5;
   float r2 = dot(d, d);
-  if (r2 > 0.25) discard;
-  float fall = exp(-r2 * 11.0) - 0.028;
+  // falloff reaches 0 at the sprite edge (exp(-2.75) = 0.064): no discard, no hard rim
+  float fall = max(exp(-r2 * 11.0) - 0.064, 0.0);
 
   vec3 col = pal3(vSeed + clamp(vSpeed * 0.02, 0.0, 0.2));
   // 65k additive sprites: each one has to be faint or the frame clips to a
@@ -34,7 +34,7 @@ void main() {
   // a sprite covers a few pixels and its falloff averages about a quarter of
   // its peak, so the peak has to be well above 1 for the swarm to read on a
   // projector at all — the master stage tone maps whatever is too bright
-  col *= (1.9 + 1.1 * uEnergy + 0.7 * uHigh * vSeed) * vGain;
+  col *= (2.0 + 1.1 * uEnergy + 0.7 * uHigh * vSeed) * vGain;
 
   gl_FragColor = vec4(col * fall, 1.0);
 }

@@ -50,17 +50,18 @@ void main() {
   float d = r - rim;
 
   // rays: two octaves of angular noise, drifting opposite ways
-  float rays = noise(a / TAU * 72.0 + uTime * 0.6, 72.0)
-             * noise(a / TAU * 174.0 - uTime * 0.9, 174.0);
+  float n1 = noise(a / TAU * 72.0 + uTime * 0.6, 72.0);
+  float rays = n1 * noise(a / TAU * 174.0 - uTime * 0.9, 174.0);
   rays = rays * sqrt(rays) * 1.6;
   float reach = corona * (0.6 + 1.6 * uBass);
-  float halo = exp(-d * 9.0 / reach) * (0.35 + rays);
+  // streamers of uneven length: the first octave stretches the reach per angle
+  float halo = exp(-d * 9.0 / (reach * (0.55 + 0.9 * n1))) * (0.35 + rays);
   float e30 = exp(-d * 30.0);
   float shell = e30 * e30 * (0.6 + 0.8 * uHigh);
 
   vec3 col = uColor1 * halo + mix(uColor1, vec3(1.0), 0.6) * shell;
   col = mix(col, uColor2 * halo * 0.5, smoothstep(rim + 0.1, rim + 0.5, r));
-  col += vec3(1.0) * uBassHit * e30 * 0.4;
+  col += vec3(1.0) * uBassHit * e30 * (0.25 + 0.6 * rays);
   col *= outside;
   col += vec3(hash(gl_FragCoord.xy + fract(uTime) * 13.0)) * 0.008 * outside;
   gl_FragColor = vec4(col, 1.0);

@@ -88,7 +88,7 @@ void main() {
     // glass fill: dark body, brighter top edge, sheen band
     float gy = fy / max(h, 0.01);
     vec3 body = mix(uColor3, uColor2, 0.5 + 0.5 * hash(cell + lane * 0.37)) * (0.10 + 0.10 * (0.5 - gy * 0.5));
-    body += vec3(0.07) * smoothstep(0.5, 1.0, -gy);            // top sheen
+    body += mix(uColor1, vec3(1.0), 0.5) * 0.09 * smoothstep(0.7, 1.0, -gy);   // thin coloured top sheen: glass
     body *= 0.8 + 0.6 * uEnergy;
     col += body * inside;
     col += uColor1 * rim * (0.55 + 0.5 * uMid);
@@ -107,7 +107,8 @@ void main() {
                step(abs(fy + 0.43), 0.035 + 0.03 * step(0.9, fract(xw * 6.0 * 0.25)));
   col += uColor3 * tick * 0.45 * (0.5 + 0.5 * uHigh + 0.5 * waveL);
   col += uColor2 * 0.05 * exp(-abs(fy + 0.5) * 40.0) * (1.0 + 2.0 * uBass);
-  col += uColor3 * 0.04 * (1.0 - smoothstep(0.0, 0.5, abs(fy)));   // lane haze
+  // lane haze follows the light wave: gaps go black elsewhere
+  col += uColor3 * (0.015 + 0.05 * waveL) * (1.0 - smoothstep(0.0, 0.5, abs(fy)));
 
   // global kick pulse + bar sweep
   col *= 0.88 + 0.35 * exp(-ph * 5.0) * uBassHit;

@@ -48,7 +48,7 @@ float gPow;
 float map(vec3 p) {
   vec3 z = p;
   float dr = 1.0;
-  float r = length(z);
+  float r = 0.0;   // set at the top of every iteration
   gTrap = vec3(1e3);
   for (int i = 0; i < 7; i++) {
     r = max(length(z), 1e-5);
@@ -133,14 +133,15 @@ void main() {
     // (a step-count AO drew contour lines over every smooth face)
     float a1 = px * t * 30.0, a2 = px * t * 90.0;
     float ao = 0.5 * clamp(map(p + n * a1) / a1, 0.0, 1.0) + 0.5 * clamp(map(p + n * a2) / a2, 0.0, 1.0);
-    ao = 0.35 + 0.65 * ao;
+    ao = 0.12 + 0.88 * ao * ao;   // real blacks in the folds
     vec3 L = normalize(vec3(0.6, 0.8, 0.4) + 0.3 * rt);
     float dif = max(dot(n, L), 0.0);
     float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
     vec3 surf = base * (0.4 + 1.1 * dif) * ao
               + uColor3 * rim * (0.5 + 0.9 * kick + 0.6 * uHigh) * glow
-              + uColor1 * pow(max(dot(reflect(rd, n), L), 0.0), 24.0) * 0.5;
-    col = mix(col, surf, exp(-max(t - 1.2, 0.0) * 0.25));
+              + uColor3 * 0.25 * max(dot(n, -L), 0.0) * ao
+              + mix(uColor1, vec3(1.0), 0.5) * pow(max(dot(reflect(rd, n), L), 0.0), 40.0) * 0.9;
+    col = mix(col, surf, exp(-max(t - 1.2, 0.0) * 0.55));
   }
 
   col = col / (1.0 + 0.35 * col);

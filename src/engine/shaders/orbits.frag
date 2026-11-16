@@ -66,10 +66,9 @@ void main() {
     color += uColor3 * (smoothstep(max(0.004 * lkb, lminW), 0.0, d - fwidth(d)) * (0.22 * (1.0 + uLineBoost) + wv * 1.2) + 0.0012 * (1.0 + uLineBoost) / (d + 0.01) * (0.4 + uBass));
   }
 
-  // the trail steps back by a constant angle: one cos/sin for the step,
-  // then each past position is the previous one rotated (no trig per sample)
+  // trail length: 5 steps of trA radians behind the body (continuous arc)
   float trA = 0.09 * (0.5 + trail);
-  float trC = cos(trA), trS = sin(trA);
+  float pa = atan(uv.y, uv.x);
 
   for (float i = 0.0; i < 16.0; i++) {
     if (i >= bodies) break;
@@ -89,26 +88,27 @@ void main() {
     float core = (size * size) / (d * d + size * size * 0.25);
     color += (c + vec3(0.35) * core * core) * core * tw * (1.0 + uBassHit * 0.8);
 
-    // comet trail: a few past positions, i.e. ang - dir*s*trA
+    // comet trail: a continuous arc behind the body, fading and tapering
+    // (was 5 discrete samples that read as a row of beads on the outer ring)
     if (trail > 0.0) {
-      float ts = dir * trS;
-      float sz2 = size * size;
-      for (int s = 1; s <= 5; s++) {
-        dv = vec2(dv.x * trC + ts * dv.y, dv.y * trC - ts * dv.x);
-        vec2 pp = dv * rr - uv;
-        color += c * (sz2 * 0.4) / (dot(pp, pp) + sz2) * (1.0 - float(s) / 6.0) * trail;
-      }
+      float back = mod(dir * (ang - pa), TAU);
+      float tb = back / (trA * 5.0);
+      float tl = exp(-tb) * step(back, 3.14159);
+      float rw = (rad - rr) / (size * (1.0 - 0.6 * min(tb, 1.0)));
+      color += c * tl * exp(-rw * rw) * 0.45 * trail;
     }
   }
 
   // gravity well: bright star core breathing with the bar, flares on kick
   float cd = rad;
   vec3 wc = mix(uColor3, uColor1, uBarPhase);
-  color += wc * 0.015 / (cd * cd + 0.02) * (0.6 + uBass * 1.2 + uBassHit);
+  color += wc * 0.015 / (cd * cd + 0.02) * exp(-cd * 2.5) * (0.6 + uBass * 1.2 + uBassHit);
   color += mix(wc, vec3(1.0), 0.6) * 0.0025 / (cd * cd + 0.0025) * (0.5 + uBassHit * 1.5);
 
   color *= 1.0 + uBeat * 0.3;
 
-  color = min(color, vec3(2.0));
+  // soft knee: body cores roll off instead of clipping to flat discs
+  vec3 kn = max(color - 0.8, 0.0);
+  color = min(color, 0.8) + 0.2 * (1.0 - exp(-kn * 2.0));
   gl_FragColor = vec4(color, 1.0);
 }

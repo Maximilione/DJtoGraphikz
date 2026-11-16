@@ -41,7 +41,8 @@ void main() {
   // neon wireframe: palette runs along the height, additive
   float k = clamp(vP.y * 0.5 + 0.5, 0.0, 1.0);
   vec3 c = mix(uColor1, uColor2, k);
-  gl_FragColor = vec4(c * (0.55 + 0.5 * uEnergy) * spark, 1.0);
+  // depth cue: +z faces the camera (mesh.vert w = 3.4 - p.z), back lines dimmer
+  gl_FragColor = vec4(c * (0.55 + 0.5 * uEnergy) * spark * (0.45 + 0.55 * smoothstep(-1.0, 1.0, vP.z)), 1.0);
 #elif LOOK == 1
   vec2 q = gl_PointCoord - 0.5;
   float d = length(q);
@@ -91,12 +92,13 @@ void main() {
   float f1 = 1.0 - clamp(dot(n, v), 0.0, 1.0);
   float fres = f1 * f1 * sqrt(f1);   // f1^2.5
   float env = 0.5 + 0.5 * sin(r.y * 6.0 + r.x * 3.0 + uTime * 0.6);
+  env = smoothstep(0.30, 0.70, env);   // crisp studio strips: chrome, not soft plastic
   vec3 c = mix(uColor1, uColor2, env);
   c = mix(c, uColor3, fres);
   float s = max(dot(r, normalize(vec3(0.4, 0.7, 0.6))), 0.0);
   float s2 = s * s, s4 = s2 * s2, s8 = s4 * s4;
   float spec = s8 * s8 * s8;   // s^24
-  c = c * (0.3 + 0.7 * (0.5 + 0.5 * n.y)) + spec * (0.6 + uBass);
+  c = c * (0.12 + 0.88 * (0.5 + 0.5 * n.y)) + spec * (0.6 + uBass);
   c += uColor3 * fres * 0.5 * (1.0 + uHighHit * 2.0);
   c += uColor3 * edge * (1.6 + uBass);
   gl_FragColor = vec4(c, 1.0);

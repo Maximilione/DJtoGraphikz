@@ -58,7 +58,9 @@ void main() {
   float w0 = linew * 0.0016 * (1.0 + 1.5 * uBass);
   // ink half-width ~ 2w: floor it at lminPx pixels
   float w = max(w0 * lkb, lminPx * pxP * 0.5);
-  float acc = 0.0, near = 1e9;
+  float acc = 0.0, near = 1e9, idx = 0.0;
+  // no far-field chord skipping: even/odd chords are different families when
+  // fract(m/n) ~ 0.5, so a strided sum left a hard ring in the glow
 
   // The chord ends are two arithmetic progressions of angles (a0 = i*TAU/n,
   // a1 = TAU*fract(i*m/n) == i*TAU*fract(m/n) mod TAU), so they are walked
@@ -71,9 +73,10 @@ void main() {
   vec2 A = vec2(r, 0.0);
   vec2 B = vec2(r, 0.0);
   for (int i = 0; i < 120; i++) {
-    if (float(i) >= n) break;
+    float fi = float(i);
+    if (fi >= n) break;
     float d = segDist(p, A, B);
-    near = min(near, d);
+    if (d < near) { near = d; idx = fi; }
     acc += w0 / (d + w0 * 1.4);      // every chord adds a little light
     A = vec2(A.x * rA.x - A.y * rA.y, A.x * rA.y + A.y * rA.x);
     B = vec2(B.x * rB.x - B.y * rB.y, B.x * rB.y + B.y * rB.x);
@@ -86,9 +89,13 @@ void main() {
 
   // line art is mostly black by construction, so the ink and the accumulated
   // chord glow both have to carry more than they would in a filled effect
-  vec3 c = tint * line * (1.6 + 0.9 * uBeat);
+  // a light runs round the chords on the beat; highs sparkle single chords
+  float chase = 0.55 + 0.45 * smoothstep(0.25, 0.0, abs(fract(idx / n - uBeatClock * 0.25) - 0.5));
+  float spark = 1.0 + 0.4 * uHigh * step(0.5, fract(idx * 0.618 + floor(uTime * 12.0) * 0.37));
+  vec3 c = tint * line * (1.6 + 0.9 * uBeat) * chase * spark;
   c += mix(uColor1, uColor3, 0.5) * acc * (0.09 + 0.06 * uEnergy);
-  c += uColor3 * 0.03;
+  c += uColor3 * 0.03 * smoothstep(1.3, 0.6, length(p));   // floor only on the disc
+  c = 1.0 - exp(-c * 1.3);   // hot core, coloured edges, no flat clip
 
   gl_FragColor = vec4(c, 1.0);
 }

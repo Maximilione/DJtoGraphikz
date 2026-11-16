@@ -35,11 +35,13 @@ void main() {
   // three bands, each with its own slide and tear
   float band = floor(uv.y * 3.0);
   float slide = mod(uTime * 0.05 * jitter, 1.0) * (mod(band, 2.0) * 2.0 - 1.0);
-  float tear = (hash(vec2(band, mod(floor(uTime * 12.0), 512.0))) - 0.5) * 0.15 * uHighHit * jitter;
+  float th = hash(vec2(band, mod(floor(uTime * 12.0), 512.0)));
+  float tear = (th - 0.5) * 0.15 * uHighHit * jitter;
   float x = uv.x + slide + tear;
 
   float n = max(4.0, floor(bars));
-  float cell = floor(x * n);
+  // periodic in x: the slide wraps by 1 without re-rolling the bars
+  float cell = mod(floor(x * n), n);
   float f = fract(x * n);
   // width of the printed bar inside its cell: random per cell, re-rolled per beat
   float w = hash(vec2(cell, gen)) ;
@@ -56,7 +58,8 @@ void main() {
   float tinted = step(0.9, hash(vec2(cell, gen + 3.7)));
   vec3 ink = mix(vec3(1.0), uColor1, tinted);
   // the band that just tore flashes brighter
-  float bright = 0.75 + 0.35 * uBeat + 0.3 * uBassHit;
+  float bright = 0.6 + 0.25 * uBeat + 0.3 * uBassHit;
+  bright *= 1.0 + 0.5 * uHighHit * abs(th - 0.5) * 2.0;
   vec3 col = ink * bar * bright;
   // black separator lines between bands, and a dim digit strip at the bottom
   col *= step(0.01, fract(uv.y * 3.0));

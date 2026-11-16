@@ -18,7 +18,10 @@ uniform float sparks;
 varying vec2 vUv;
 
 float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  // trig-free hash: ~100 calls per pixel
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
 }
 
 float noise(vec2 p) {
@@ -35,10 +38,13 @@ float noise(vec2 p) {
 // rotate between octaves: kills the axis-aligned banding of naive fbm
 const mat2 ROT = mat2(0.8, 0.6, -0.6, 0.8);
 
-float fbm(vec2 p) {
+// oct < 5 for the warp layers: their fine octaves displace < 0.06, the detail
+// comes from the final fbm
+float fbm(vec2 p, int oct) {
   float val = 0.0;
   float amp = 0.5;
   for (int i = 0; i < 5; i++) {
+    if (i >= oct) break;
     val += noise(p) * amp;
     p = ROT * p * 2.02;
     amp *= 0.5;
@@ -58,19 +64,22 @@ void main() {
   // the tongues lick and curl instead of scrolling static noise upward
   float warp = 0.6 + turbulence * 1.4 + uMid * 0.4;
   vec2 q = vec2(
-    fbm(p * 3.0 + vec2(0.0, -rise)),
-    fbm(p * 3.0 + vec2(5.2, -rise * 1.31)));
+    fbm(p * 3.0 + vec2(0.0, -rise), 3),
+    fbm(p * 3.0 + vec2(5.2, -rise * 1.31), 3));
   vec2 r = vec2(
-    fbm(p * 3.0 + q * warp + vec2(1.7, -rise * 1.1)),
-    fbm(p * 3.0 + q * warp + vec2(8.3, -rise * 0.87)));
-  float f = fbm(p * vec2(2.6, 3.4) + r * 1.8 + vec2(0.0, -rise));
+    fbm(p * 3.0 + q * warp + vec2(1.7, -rise * 1.1), 4),
+    fbm(p * 3.0 + q * warp + vec2(8.3, -rise * 0.87), 4));
+  float f = fbm(p * vec2(2.6, 3.4) + r * 1.8 + vec2(0.0, -rise), 5);
 
   // Flame envelope: roaring at the bottom, dying with height.
   // Bass feeds the vigor, a kick makes the whole flame leap.
   // kept small: at the old gains a loud track lifted the envelope to 0.7 at
   // the top edge and the flame became a wall of white filling the frame
   float vigor = 1.0 + uBass * 0.15 + uBassHit * 0.3 + uBeat * 0.05;
-  float env = 1.0 - uv.y / max(vigor * (1.9 - falloff), 0.15);
+  // the top follows the low-freq rising warp q: separate tongues, not a flat
+  // horizontal fade (q.x averages ~0.47, mean height kept)
+  float top = vigor * (1.9 - falloff) * (0.75 + 0.9 * q.x);
+  float env = 1.0 - uv.y / max(top, 0.15);
   env = clamp(env, 0.0, 1.0);
   env *= 0.72 + 0.38 * (1.0 - min(abs(p.x) * 0.6, 1.0)); // hotter in the middle
 
@@ -83,6 +92,8 @@ void main() {
   col += uColor2 * smoothstep(0.18, 0.75, i2);
   col += uColor1 * smoothstep(0.55, 1.15, i2) * 1.35;
   col += vec3(1.0) * smoothstep(0.95, 1.6, i2);
+  // soft shoulder: the core keeps its gradient instead of clipping to a white slab
+  col = col / (1.0 + 0.18 * col) * 1.18;
 
   // Ember bed glowing at the bottom
   float bed = smoothstep(0.15, 0.0, uv.y) * (0.5 + 0.5 * noise(vec2(p.x * 9.0 + t, t * 2.3)));
@@ -97,13 +108,18 @@ void main() {
     float sy = fract(h2 + t * (0.2 + h1 * 0.3));
     float sx = (h1 - 0.5) * aspect * 0.85
              + sin(t * (1.5 + h1 * 3.0) + fi * 7.0) * 0.05 * (1.0 + sy * 2.0);
-    float d = length(p - vec2(sx, sy));
+    // streaked along the travel: embers, not bokeh
+    vec2 dv = p - vec2(sx, sy);
+    dv.y *= 0.4;
+    float d2 = dot(dv, dv);
+    if (d2 > 0.25) continue;   // glow ~1/255 there
     float flick = 0.7 + 0.3 * sin(t * (8.0 + h2 * 12.0) + fi);
-    float glow = 0.0016 / (d * d + 0.001) * flick;
-    col += mix(uColor1, uColor2, h2) * min(glow, 2.5) * (1.0 - sy) * (0.4 + uHigh * 0.6) * 0.35;
+    float glow = 0.0016 / (d2 + 0.001) * flick;
+    col += mix(uColor1, uColor2, h2) * min(glow, 2.5) * (1.0 - sy) * (0.4 + uHigh * 0.6 + 0.9 * uBassHit) * 0.35;
   }
 
   col *= smoothstep(-0.08, 0.05, uv.y);
-  col = pow(max(col, vec3(0.0)), vec3(0.92));
+  // no gamma lift: deep blacks between the tongues. IGN dither against banding
+  col += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(col, 1.0);
 }

@@ -49,17 +49,23 @@ void main() {
   float fy = fract(y);
   float ay = fwidth(y);
   float stripe = smoothstep(1.0 - th - ay, 1.0 - th, fy) * (1.0 - smoothstep(1.0 - ay, 1.0, fy));
+  // leading-edge gradient: the stripe reads as moving, not a flat slab
+  stripe *= 0.55 + 0.45 * smoothstep(1.0 - th, 1.0, fy);
   // lane gutters
   float ax = n / uResolution.x;
   float gutter = smoothstep(0.03 - ax, 0.03, fx) * (1.0 - smoothstep(0.97, 0.97 + ax, fx));
   // tinted lanes: every other one
   float tinted = mod(lane, 2.0);
   vec3 ink = mix(vec3(1.0), uColor1, tinted);
-  // one random lane flashes on the kick
-  float hot = step(0.999, hash(vec2(lane, mod(beat, 512.0))) + uBassHit * 0.1);
+  // exactly one lane per beat flashes on the kick, decaying with the hit
+  float hotLane = floor(hash(vec2(mod(beat, 512.0), 3.0)) * n);
+  float hot = (1.0 - step(0.5, abs(lane - hotLane))) * clamp(uBassHit, 0.0, 1.0);
+  // the hot lane goes towards white: a tinted overdrive clips per channel on 8-bit
+  ink = mix(ink, vec3(1.0), hot * 0.5);
   float bright = 0.55 + 0.4 * uBass + hot * 0.6;
   // dim the lanes away from the centre so the wall has a middle
   bright *= 1.0 - 0.5 * abs(uv.x - 0.5) * 2.0 * (1.0 - uEnergy);
+  bright = min(bright, 1.0);
   vec3 col = ink * stripe * gutter * bright;
   gl_FragColor = vec4(col, 1.0);
 }

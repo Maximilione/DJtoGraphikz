@@ -86,6 +86,8 @@ interface Output {
    * first one's screen and both landed on the same wall.
    */
   displayId: number | null
+  /** Projector screen unplugged mid-projection: put the projection back when it returns */
+  lostDisplayId?: number
 }
 
 /** id 1 is the projector every existing feature (and the release gate) means. */
@@ -156,6 +158,7 @@ function setOutputFullscreen(o: Output, on: boolean) {
   if (win.isFullScreen()) win.setFullScreen(false)
 
   if (on) {
+    o.lostDisplayId = undefined   // projecting again (by hand or on return): nothing to restore
     win.setAlwaysOnTop(true, 'screen-saver')   // covers menu bar and Dock
     try { win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }) } catch { /* not macOS */ }
     if (!win.isVisible()) win.showInactive()   // never re-show: that flashes
@@ -687,8 +690,30 @@ app.whenReady().then(async () => {
   const notifyDisplaysChanged = () => {
     if (controlWindow && !controlWindow.isDestroyed()) controlWindow.webContents.send('displays:changed')
   }
-  screen.on('display-added', () => { logDisplayState('display collegato', controlWindow, primaryOutput()?.win ?? null); notifyDisplaysChanged() })
-  screen.on('display-removed', () => { logDisplayState('display scollegato', controlWindow, primaryOutput()?.win ?? null); notifyDisplaysChanged() })
+  screen.on('display-added', (_e, added) => {
+    logDisplayState('display collegato', controlWindow, primaryOutput()?.win ?? null)
+    for (const o of liveOutputs()) {
+      if (o.lostDisplayId !== added.id) continue
+      o.lostDisplayId = undefined
+      o.displayId = added.id
+      setOutputFullscreen(o, true)
+    }
+    notifyOutputChanged()
+    notifyDisplaysChanged()
+  })
+  // Projector unplugged: macOS drops the window on the laptop screen still at
+  // screen-saver level, covering the console and its close dialog. Leave
+  // projection so the console stays reachable.
+  screen.on('display-removed', (_e, removed) => {
+    logDisplayState('display scollegato', controlWindow, primaryOutput()?.win ?? null)
+    for (const o of liveOutputs()) {
+      if (o.displayId !== removed.id || !o.win.isAlwaysOnTop()) continue
+      o.lostDisplayId = removed.id
+      setOutputFullscreen(o, false)
+    }
+    notifyOutputChanged()
+    notifyDisplaysChanged()
+  })
   screen.on('display-metrics-changed', () => {
     logDisplayState('display cambiato', controlWindow, primaryOutput()?.win ?? null)
     keepOutputOnItsDisplay()
@@ -792,7 +817,7 @@ app.whenReady().then(async () => {
   // unlike the native one, doesn't fight the window state when toggled fast.
   ipcMain.on('output:toggle-fullscreen', (_event, id: number = PRIMARY) => {
     const o = id === PRIMARY ? ensureOutputWindow() : outputs.get(id)
-    if (o && !o.win.isDestroyed()) setOutputFullscreen(o, !o.win.isAlwaysOnTop())
+    if (o && !o.win.isDestroyed()) { o.lostDisplayId = undefined; setOutputFullscreen(o, !o.win.isAlwaysOnTop()) }
     notifyOutputChanged()   // the toolbar chip reads isAlwaysOnTop, set synchronously above
   })
 

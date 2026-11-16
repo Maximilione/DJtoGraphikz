@@ -82,9 +82,11 @@ void main() {
   // interference into the fine banding a quasicrystal actually shows.
   vec3 w = sin(sum * (PI * 3.0) + uBeatClock * 0.3);
   float k = 1.0 + contrast * 9.0;
-  float band = 0.5 + 0.5 * tanh(w.y * k);
+  // screen-space AA: the lens raises frequency toward the rim, cap the slope at ~1 pixel
+  float fwv = fwidth(w.y);
+  float band = 0.5 + 0.5 * tanh(w.y * min(k, 1.2 / max(fwv, 1e-4)));
   // the boost widens the lit part of each fringe (capped: never a flat field)
-  vec3 edge = vec3(1.0) - smoothstep(vec3(0.0), vec3(min(0.55 * (1.0 + 1.5 * uLineBoost) / k, 0.5)), abs(w));
+  vec3 edge = vec3(1.0) - smoothstep(vec3(0.0), vec3(min(0.55 * (1.0 + 1.5 * uLineBoost) / k, 0.5) + fwv), abs(w));
 
   // Lit fringes take the palette by sector, turning slowly: band is ~0 or ~1
   // (tanh), so the old mix(…, uColor2, smoothstep(0.6, 1.0, band)) painted
