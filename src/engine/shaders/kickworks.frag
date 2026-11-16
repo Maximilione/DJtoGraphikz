@@ -168,7 +168,7 @@ void main() {
 
   // night sky: gradient plus a few fixed stars
   vec3 col = vec3(0.005, 0.006, 0.015) + vec3(0.01, 0.0, 0.02) * (1.0 - uv.y);
-  float st = step(0.997, hash21(floor(gl_FragCoord.xy / 2.0)));
+  float st = step(0.997, hash21(floor(gl_FragCoord.xy / max(uResolution.y / 540.0, 1.0))));
   col += st * 0.15 * (0.7 + 0.3 * uHigh) * mix(vec3(1.0), uColor3, 0.3);
 
   float bc = uBeatClock;
@@ -207,10 +207,13 @@ void main() {
 
     // smoke (always, even outside the spark bounding circle)
     float dc = length(p - c);
-    float smoke = vn2((p - c) * 6.0 + vec2(0.0, s * 0.3) + idx)
-                * exp(-dc / (Rmax * 1.3)) * smoothstep(0.0, 0.5, s)
-                * (1.0 - life) * 0.12 * (0.6 + uBass);
-    col += base * 0.6 * smoke * 3.0 * gate;
+    // past 6 Rmax the falloff is under 0.01: skip the noise
+    if (dc < Rmax * 6.0) {
+      float smoke = vn2((p - c) * 6.0 + vec2(0.0, s * 0.3) + idx)
+                  * exp(-dc / (Rmax * 1.3)) * smoothstep(0.0, 0.5, s)
+                  * (1.0 - life) * 0.12 * (0.6 + uBass);
+      col += base * 0.6 * smoke * 3.0 * gate;
+    }
 
     float sp = sparks(p, c, s, idx, type, Rmax, L, sq, tilt);
     if (finale > 0.5) {
@@ -230,6 +233,8 @@ void main() {
       // white-hot core of the break, gone within a quarter beat
       col += vec3(1.0, 0.92, 0.8) * 0.0012 / (dc * dc + 0.0006) * exp(-s * 12.0)
            * (0.6 + 0.8 * uBassHit) * gate;
+      // short sky flash: the whole frame answers the kick
+      col += base * 0.035 * exp(-s * 8.0) * (0.5 + uBassHit) * gate * exp(-dc * 1.5);
     }
   }
 

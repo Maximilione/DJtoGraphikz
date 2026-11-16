@@ -83,7 +83,10 @@ void main() {
   vec3 deep = uColor3 * 0.2;
   vec3 color = mix(deep, uColor1, clamp(hgt * 2.0 + 0.35, 0.0, 1.0));
   color = mix(color, uColor2, clamp(-hgt * 2.5, 0.0, 1.0) * 0.8);
-  color *= 0.5 + diff * 0.7;
+  color *= 0.32 + diff * 0.9;
+  // coloured rim on the wave slopes, flashing on the kick
+  float sl = 1.0 - nrm.z;
+  color += uColor2 * min(sl * sl, 0.3) * (0.25 + 0.9 * uBassHit); // bounded: +0.35 max on a kick, no tonemap downstream
   // the kick flashes the sheen: the rings alone read nearly the same in a
   // quiet room and on a loud track
   color += vec3(1.0) * spec * sheen * (0.7 + uBeat * 0.5);

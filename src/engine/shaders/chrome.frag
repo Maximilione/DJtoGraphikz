@@ -43,9 +43,11 @@ vec3 env(vec3 r, float t) {
   const vec3 KEY = vec3(0.48795, 0.78072, 0.39036);     // normalize(0.5, 0.8, 0.4)
   const vec3 RIM = vec3(-0.754829, 0.107833, -0.646997); // normalize(-0.7, 0.1, -0.6)
   float kd = max(dot(r, KEY), 0.0); kd *= kd; kd *= kd; kd *= kd; kd *= kd;
+  float kg = kd * kd; kg *= kg; // ^64: tight white glint the bloom can catch
   float rm = max(dot(r, RIM), 0.0); rm *= rm; rm *= rm; rm *= rm;
   c += mix(uColor3, vec3(1.0), 0.45) * kd * 2.6;
   c += uColor1 * rm * 1.3;
+  c += vec3(1.0) * kg * 4.0;
   // the floor of the studio is dark
   return c * (0.3 + 0.7 * smoothstep(-0.7, 0.3, r.y));
 }
@@ -82,8 +84,11 @@ float map(vec3 p) {
     if (float(i) >= blobs - 1.0) break;
     d = smin(d, length(p - gC[i]) - (0.46 - 0.03 * float(i)), 0.6);
   }
-  float w = sin(p.x * 3.5 + gT * 2.0) * sin(p.y * 3.1 - gT * 1.7) * sin(p.z * 3.8 + gT * 1.3);
-  d += gRip * w;
+  // ripple only near the surface (gRip <= 0.14, so far steps stay safe)
+  if (d < 0.5) {
+    float w = sin(p.x * 3.5 + gT * 2.0) * sin(p.y * 3.1 - gT * 1.7) * sin(p.z * 3.8 + gT * 1.3);
+    d += gRip * w;
+  }
   return d * 0.72; // the ripple breaks the distance bound: shorter steps
 }
 
@@ -108,7 +113,8 @@ void main() {
   vec3 rd = normalize(uv.x * rt + uv.y * up + fw * 1.6);
 
   // bounding sphere: skip the march entirely for rays that cannot touch it
-  float bR = 3.1;
+  // farthest satellite reach (spread from setupBlobs) plus blob radius and blend
+  float bR = 1.732 * (0.85 + 0.55 * gKick) * 1.26 + 0.76;
   float b = dot(ro, rd);
   float disc = b * b - (dot(ro, ro) - bR * bR);
   bool hit = false;
@@ -129,6 +135,8 @@ void main() {
   if (hit) {
     vec3 p = ro + rd * t;
     vec3 n = normalAt(p);
+    // one-tap AO: creases between melted blobs go dark
+    float ao = clamp(map(p + n * 0.25) / (0.25 * 0.72), 0.0, 1.0);
     vec3 r = reflect(rd, n);
     float ndv = max(dot(n, -rd), 0.0);
     float om = 1.0 - ndv;
@@ -144,7 +152,7 @@ void main() {
     vec3 e1 = env(normalize(r + n * 0.05), gT);
     vec3 e2 = env(normalize(r - n * 0.05), gT);
     vec3 refl = vec3(e0.r, e1.g, e2.b) * 0.5 + e0 * 0.5;
-    col = refl * (0.55 + 0.9 * film) * shine
+    col = refl * (0.35 + 0.65 * ao) * (0.55 + 0.9 * film) * shine
         + film * fres * 1.1 * shine
         + uColor3 * gKick * 0.35 * fres;
   } else {
@@ -153,6 +161,7 @@ void main() {
     col = env(rd, gT) * 0.16 * (1.0 - smoothstep(0.0, 1.2, length(uv)) * 0.5);
   }
 
-  col = col / (1.0 + 0.5 * col) + uColor1 * 0.01;
+  // shoulder with more mid contrast than plain Reinhard, capped like before
+  col = min(col * (1.0 + 0.18 * col) / (1.0 + 0.5 * col), vec3(2.0)) + uColor1 * 0.01;
   gl_FragColor = vec4(col, 1.0);
 }
