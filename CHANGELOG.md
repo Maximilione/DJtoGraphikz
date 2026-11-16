@@ -4,6 +4,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](ht
 
 ## [Unreleased]
 
+## [0.82.0-beta] — 2026-11-16
+
+### Changed
+- **Revisione effetti** (31c666b, d6c52f5, 2a29515, 1d9a848, e4b8a90, ff9db08, 134368e): 109 shader rivisti per resa sul proiettore e performance in 4K — raymarch con meno passi e uscite anticipate, calcoli spostati fuori dai cicli, neri piu' profondi, spalla morbida sui picchi al posto dei tagli, palette distribuita meglio, dither contro il banding.
+- **Spessore linee globale** (1ba5c96): ora agisce anche su Telemetry e Fluxlines (al default il look non cambia).
+- **Banding** (9030f8a, 811d887, 77b3fca): dither nel master e nel composito bloom; buffer del bloom in half-float.
+
+### Fixed
+- **Proiettore staccato** (1ec876e): l'uscita esce dalla proiezione e non copre piu' la console e il dialog di chiusura; ricollegando lo stesso schermo la proiezione torna da sola.
+- **Tunnel** non salta piu' a ogni battuta; **Voronoi** non sfarfalla piu' nei colori; **Galaxy** non disegna piu' sprite giganti dietro la camera; **Feedback** decade fino al nero vero.
+
 ## [0.81.1-beta] — 2026-11-16
 
 ### Changed
