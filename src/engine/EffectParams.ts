@@ -513,17 +513,17 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'beam', label: 'Fascio', min: 0, max: 2, default: 1 },
     { key: 'orbit', label: 'Orbita', min: 0, max: 2, default: 0.5 },
   ],
-  hallway: [
+  titanhand: [
     { key: 'tempo', label: 'Ritmo', min: 0.25, max: 2, default: 1 },
-    { key: 'crew', label: 'Personaggi', min: 1, max: 4, default: 4 },
-    { key: 'candle', label: 'Candele', min: 0, max: 2, default: 1 },
-    { key: 'shake', label: 'Scossa', min: 0, max: 2, default: 1 },
+    { key: 'crew', label: 'Eroi', min: 1, max: 3, default: 3 },
+    { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
+    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0.7 },
   ],
-  chase: [
+  kaijustomp: [
     { key: 'pace', label: 'Andatura', min: 0.3, max: 3, default: 1 },
-    { key: 'gap', label: 'Distacco', min: 0, max: 1, default: 0.5 },
-    { key: 'parallax', label: 'Parallasse', min: 0, max: 2, default: 1 },
-    { key: 'dust', label: 'Polvere', min: 0, max: 2, default: 1 },
+    { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
+    { key: 'haze', label: 'Fumo', min: 0, max: 2, default: 1 },
+    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0.7 },
   ],
   escher: [
     { key: 'complexity', label: 'Labirinto', min: 0.2, max: 1, default: 0.6 },

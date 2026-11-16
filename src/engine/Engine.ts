@@ -121,8 +121,8 @@ import auroraFrag from './shaders/aurora.frag?raw'
 import armillaryFrag from './shaders/armillary.frag?raw'
 import telemetryFrag from './shaders/telemetry.frag?raw'
 import aegisFrag from './shaders/aegis.frag?raw'
-import hallwayFrag from './shaders/hallway.frag?raw'
-import chaseFrag from './shaders/chase.frag?raw'
+import titanhandFrag from './shaders/titanhand.frag?raw'
+import kaijustompFrag from './shaders/kaijustomp.frag?raw'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -257,7 +257,7 @@ export type EffectId =
   | 'ringworld' | 'escher'
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
   | 'singularity' | 'aurora' | 'armillary' | 'telemetry' | 'aegis'
-  | 'hallway' | 'chase'
+  | 'titanhand' | 'kaijustomp'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -584,8 +584,8 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   armillary: armillaryFrag,
   telemetry: telemetryFrag,
   aegis: aegisFrag,
-  hallway: hallwayFrag,
-  chase: chaseFrag,
+  titanhand: titanhandFrag,
+  kaijustomp: kaijustompFrag,
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
