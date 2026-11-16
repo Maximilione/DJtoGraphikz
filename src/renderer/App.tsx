@@ -264,7 +264,7 @@ export function App() {
   }, [])
   const fxCenter = mode === 'pro' && wide
   const [vjEnabled, setVjEnabled] = useState(false)
-  const [vjGenre, setVjGenre] = useState<Genre>('acid-techno')
+  const [vjGenre, setVjGenre] = useState<Genre>(() => vjRef.current.getGenre())
   const [vjStatus, setVjStatus] = useState<{ current: string; count: number; phase: Phase }>({ current: '', count: 0, phase: 'groove' })
   // hold: picture stays put, phase detection keeps running underneath — the
   // on/off toggle was the only way to pin a look, and it also surrendered
