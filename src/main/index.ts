@@ -537,6 +537,13 @@ app.whenReady().then(async () => {
   if (!primaryInstance) return
   setupDebugLog()
 
+  // A file dropped outside a drop zone navigates the window to file://...: the
+  // console (engine, audio, MIDI, DMX) is gone with no crash to recover from.
+  app.on('web-contents-created', (_e, wc) => {
+    wc.on('will-navigate', (e, url) => { if (url !== wc.getURL()) e.preventDefault() })
+    wc.setWindowOpenHandler(() => ({ action: 'deny' }))
+  })
+
   // Under the release gate: no Dock icon, no app switch. Launching normally
   // makes macOS bring the app to the front and take the keyboard away from
   // whoever is working on this machine.
