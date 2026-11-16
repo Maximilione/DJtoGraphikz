@@ -77,7 +77,8 @@ void main() {
   float disc = smoothstep(sunR, sunR - 0.012, sd);
   // horizontal blinds cut into the sun (only inside the disc)
   if (disc > 0.0) disc *= 0.55 + 0.45 * smoothstep(0.3, 0.7, sin(uv.y * 90.0 + t * 2.0));
-  color += mix(uColor1, uColor2, uv.y * 2.0) * disc;
+  // gradient across the disc: colour 1 at the bottom, colour 2 at the top (clamped: no extrapolation)
+  color += mix(uColor1, uColor2, clamp((uv.y - sun.y + sunR) / (2.0 * sunR), 0.0, 1.0)) * disc;
   // the sun's 1/r glow spreads over the whole sky: colours 1 and 3, so the
   // sky (2 → 3) and the ridges are not drowned in colour 2
   color += mix(uColor1, uColor3, 0.5) * (0.035 / (sd + 0.05)) * (0.8 + uEnergy + uBassHit);
@@ -95,26 +96,34 @@ void main() {
     float row = floor(z * ridges * 0.3 + scroll);
     float rowF = fract(z * ridges * 0.3 + scroll);
     float h = ridgeH(x * (0.6 + depth01 * 1.6), row, row * 0.618);
-    // line where the fractional row crosses the ridge height baseline
-    float lineD = abs(rowF - 0.5 - h * 0.6 * depth01);
     // half-width in row units: authored one widened by the boost, floored at a
     // few screen pixels (rpx = rows per pixel), capped so rows never merge into
-    // a slab; where rows are denser than ~4 px the lines thin out instead
-    float rpx = fwidth(z * ridges * 0.3);
+    // a slab; where rows are denser than ~4 px the lines thin out instead.
+    // rpx is analytic (d(z)/d(uv.y) = z^2 / horizon): fwidth here sat in a per-pixel branch
+    float rpx = ridges * 0.3 * z * z / (horizon * uResolution.y);
     float w = min(max(0.03 * (1.0 + 2.5 * uLineBoost), rpx * (3.0 + 4.0 * uLineBoost)), 0.22);
+    // line where the fractional row crosses the ridge height baseline; the offset
+    // is clamped so strong bass never pushes the line past the row wrap
+    float off = clamp(h * 0.6 * depth01, -0.5 + w, 0.5 - w);
+    float lineD = abs(rowF - 0.5 - off);
     float line = smoothstep(w, 0.0, lineD) * (1.0 - 0.65 * smoothstep(0.08, 0.25, rpx));
     float fade = 0.3 + 0.7 * depth01;              // nearer = brighter, far ridges still read
     // each ridge one step along the palette loop: colour 3 too, which was
     // only on the faint verticals
     vec3 lc = pal3(fract(row * 0.23));
     color += lc * line * fade * (1.0 + glowamt * 0.6 + uBassHit * 1.2);
-    // glow under the lines
-    color += lc * smoothstep(0.4, 0.0, lineD) * 0.2 * glowamt * fade * (1.0 + uBass);
+    // glow only on the body under each crest (smaller rowF is lower on screen): solid hills, not wires
+    float below = step(rowF - 0.5 - off, 0.0);
+    color += lc * smoothstep(0.4, 0.0, lineD) * 0.2 * glowamt * fade * (1.0 + uBass) * mix(0.2, 1.0, below);
+    // kick front rolling from the horizon to the viewer
+    color += lc * line * exp(-abs(depth01 - (1.0 - uBassHit)) * 8.0) * uBassHit * 1.2;
     // ground haze so a silent room is not black below the horizon
     color += lc * 0.1 * depth01 * (0.5 + 0.5 * glowamt);   // in the ridge's colour
     // grid verticals
     float vx = abs(fract(x * (2.0 + depth01 * 6.0) + sin(row) * 0.3) - 0.5);
-    color += uColor3 * smoothstep(min(max(0.02, fwidth(vx) * (3.0 + 4.0 * uLineBoost)), 0.2), 0.0, vx) * 0.2 * fade * (1.0 + uBassHit);
+    // analytic |d vx| per pixel: fwidth(vx) spiked where sin(row) jumps at each row boundary
+    float vpx = (2.0 + depth01 * 6.0 + abs(x) * 6.0 / horizon) / uResolution.y;
+    color += uColor3 * smoothstep(min(max(0.02, vpx * (3.0 + 4.0 * uLineBoost)), 0.2), 0.0, vx) * 0.2 * fade * (1.0 + uBassHit);
   }
 
   color *= 1.0 + uBeat * 0.4;

@@ -30,9 +30,10 @@ float noise(vec2 p) {
   return mix(mix(hash21(i), hash21(i+vec2(1,0)), f.x),
              mix(hash21(i+vec2(0,1)), hash21(i+vec2(1,1)), f.x), f.y);
 }
-float fbm(vec2 p) {
+float fbm(vec2 p, int oct) {
   float v = 0.0, a = 0.5;
   for (int i = 0; i < 5; i++) {
+    if (i >= oct) break;
     v += a * noise(p);
     p = p * 2.1 + vec2(1.3, 1.7);
     a *= 0.5;
@@ -64,12 +65,14 @@ void main() {
 
   // Animated FBM pattern
   float t = uTime * 0.3;
-  float n1 = fbm(kuv + vec2(t, -t * 0.7));
-  float n2 = fbm(kuv * 1.5 + vec2(-t * 0.5, t * 0.3) + n1 * 2.0);
-  float n3 = fbm(kuv * 0.8 + n2 * 1.5 + vec2(t * 0.2));
+  float n1 = fbm(kuv + vec2(t, -t * 0.7), 4);
+  float n2 = fbm(kuv * 1.5 + vec2(-t * 0.5, t * 0.3) + n1 * 2.0, 5);
+  float n3 = fbm(kuv * 0.8 + n2 * 1.5 + vec2(t * 0.2), 4);
 
   // Warped domain coloring
   float pattern = n1 * 0.4 + n2 * 0.35 + n3 * 0.25;
+  // contrast: valleys go black so the neon lines have dark to sit on
+  pattern = smoothstep(0.28, 0.78, pattern);
   pattern = pow(pattern, 0.8 + uMid * 0.5);
 
   // Neon edge lines
@@ -93,7 +96,7 @@ void main() {
   color += uColor1 * pattern * 1.2;
   color += uColor2 * edge1;
   color += uColor3 * edge2;
-  color += (uColor1 + uColor2) * 0.3 * exp(-r * 3.0) * (1.0 + uBeat * 3.0);
+  color += (uColor1 + uColor2) * 0.3 * exp(-r * 5.0) * (1.0 + uBeat * 2.0);
 
   // Audio energy bloom
   color *= 0.8 + uEnergy * 0.3;
@@ -102,7 +105,7 @@ void main() {
   color = color / (1.0 + 0.6 * color);
 
   // Vignette
-  color *= smoothstep(2.0, 0.3, r);
+  color *= smoothstep(1.3, 0.35, r);
 
   gl_FragColor = vec4(color, 1.0);
 }

@@ -197,7 +197,8 @@ vec3 shadeTower(vec3 p, vec3 n, vec4 L, vec2 c, float t) {
   // slit; the ground mist lights the foot of every wall and the void takes the top
   vec3 nf = normalize(n + (xf ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0)) * (sh - 0.5) * 0.16
                         + vec3(0.0, 1.0, 0.0) * (fract(sh * 31.0) - 0.5) * 0.1);
-  float fres = pow(1.0 - max(dot(-gRd, n), 0.0), 3.0);
+  float fr1 = 1.0 - max(dot(-gRd, n), 0.0);
+  float fres = fr1 * fr1 * fr1;
   vec3 col = gHazeC * gLight * (xf ? 1.0 : 0.45) * (0.035 + 0.1 * exp(-p.y * 0.45))
            + backdrop(reflect(gRd, nf)) * (0.16 + 0.7 * fres);
   col *= (0.7 + 0.3 * sh) * relief * (1.0 - 0.7 * joint) * mix(0.3, 1.0, smoothstep(0.0, 1.2, p.y));   // and the street's occlusion
@@ -245,7 +246,8 @@ vec3 shadeTower(vec3 p, vec3 n, vec4 L, vec2 c, float t) {
 
 vec3 shadeGround(vec3 p, float t) {
   float px = gPx * t / max(-gRd.y, 0.04);                      // the footprint stretches at grazing angles
-  float fres = pow(1.0 - max(-gRd.y, 0.0), 4.0);
+  float fr1 = 1.0 - max(-gRd.y, 0.0);
+  float fres = fr1 * fr1; fres *= fres;
   vec3 col = backdrop(vec3(gRd.x, -gRd.y, gRd.z)) * (0.08 + 0.6 * fres);          // polished slab: the slit lies on it as a streak
   vec2 g = abs(fract(p.xz + 0.5) - 0.5);
   col += uColor3 * max(lineAA(g.x, 0.006, px), lineAA(g.y, 0.006, px)) * 0.22 * exp(-t * 0.08);   // the survey grid of the lots
@@ -264,11 +266,12 @@ vec3 lasers(float tMax) {
   float level = 0.3 + 0.75 * uEnergy;                             // energy brings more of them in
   for (int j = 1; j <= 5; j++) {
     float m = base + float(j);
+    float h = hash(vec2(mod(m, 384.0), 5.0));
+    if (level < h - 0.12) continue;                               // this laser is off at this energy (uniform per j)
     float dzk = m * 4.0 + 0.5 - gRo.z;
     float tk = dzk / gRd.z;
     if (tk > tMax) break;
     vec2 q = gRo.xy + gRd.xy * tk;
-    float h = hash(vec2(mod(m, 384.0), 5.0));
     float s = (fract(h * 57.3) - 0.5) * 1.1;
     float y0 = 1.2 + 4.5 * fract(h * 13.7);
     float d1 = abs(q.y - y0 - s * (q.x - 0.5)) / sqrt(1.0 + s * s);
@@ -388,6 +391,7 @@ vec3 view(vec2 fc) {
 
   color += mix(uColor2, vec3(1.0), 0.35) * beacon * (0.5 + 0.9 * uEnergy + 0.8 * gKick);
   color += lasers(tHit) + sparks(tHit);
+  color += (hash(fc) - 0.5) / 255.0;                              // dither: the haze gradients band on 8-bit targets
   return min(color, vec3(2.0));
 }
 

@@ -43,19 +43,22 @@ vec2 hash22(vec2 c) {
   return fract(sin(vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3)))) * 43758.5453);
 }
 
+// uniform-only terms of colH, set once in main (colH runs 15-16 times per pixel)
+float gBase, gSwT, gWk;
+
 // column height at integer cell c
 float colH(vec2 c, vec2 org, float front, float fade) {
-  float base = 0.15 + 0.5 * uBass;
+  float base = gBase;
   float r = length(c - org);
   float d = (r - front) * 0.7;
   float w = exp(-d * d) * fade;
   // the swell is centred on the screen, not on the wave origin: the origin
   // jumps every 4 beats and would make the whole field pop with it
-  float s = 0.5 + 0.5 * sin(length(c) * 0.6 - mod(uTime, 62.831853) * 1.2);
+  float s = 0.5 + 0.5 * sin(length(c) * 0.6 - gSwT);
   // a per-cell offset under the swell, then whole cubes only: eighth-cube
   // steps gave a flat sheet of lit tops with sliver sides, nothing like
   // tumbling blocks. Integer heights put full side faces on every step.
-  float h = height * (base * s + 0.3 * hash12(c + 17.0) + w * (0.6 + 0.8 * uBassHit) * (0.5 + hash12(c)));
+  float h = height * (base * s + 0.3 * hash12(c + 17.0) + w * gWk * (0.5 + hash12(c)));
   return min(floor(h + 0.5), 3.0);
 }
 
@@ -76,6 +79,9 @@ void main() {
   // size = cubes per screen height (a top rhombus is 1 unit tall)
   float cubes = clamp(size, 4.0, 16.0);
   vec2 p = p0 * cubes;
+  gBase = 0.15 + 0.5 * uBass;
+  gSwT = mod(uTime, 62.831853) * 1.2;
+  gWk = 0.6 + 0.8 * uBassHit;
 
   float beat = mod(uBeatClock, 256.0);
   float quad = floor(beat / 4.0);
@@ -142,17 +148,22 @@ void main() {
   int palRot = int(mod(floor(beat / 32.0), 3.0));
   int pi = int(mod(float(tone + palRot), 3.0));
   float L = toneLevel(tone);
-  vec3 col = mix(palette(pi) * L, vec3(L), 0.35);
+  vec3 col = mix(palette(pi) * L, vec3(L), 0.12);
   if (bFace == 0) col *= 0.85 + 0.4 * uBass;
   // the floor stays dim and the towers carry the light: a flat field of lit
   // tops was a wall of colour on the projector, with nothing for the kick to add
   col *= 0.4 + 0.6 * clamp(bH / 2.0, 0.0, 1.0);
+  // grounded occlusion: side faces darken towards the floor, towers read as volumes
+  if (bFace != 0) col *= 0.5 + 0.5 * smoothstep(0.0, 1.0, bUv.y);
 
   // soft shadow from the back neighbour onto a top face
   if (bFace == 0) {
     float hb = colH(bc - vec2(1.0, 0.0), org, front, fade);
     if (hb > bH + 0.3) col *= 0.7;
   }
+  // the beat wave carries light: the ring of raised tops glows, the kick flares it
+  float dw = (length(bc - org) - front) * 0.7;
+  if (bFace == 0) col += palette(int(mod(float(palRot + 1), 3.0))) * exp(-dw * dw) * fade * (0.2 + 0.6 * uBassHit);
 
   // neon edges
   float eD;
