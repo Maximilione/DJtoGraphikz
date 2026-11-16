@@ -1319,7 +1319,7 @@ export class Engine {
     for (let i = 0; i < chain.defs.length; i++) {
       const pm = chain.materials[i]
       this.applyEffectUniforms(pm, 0)
-      this.applyParams(pm)
+      if (mat === this.mainMaterial) this.applyParams(pm)   // params are keyed on deck A: deck B and the outgoing effect keep their own
       pm.uniforms.uResolution.value = chain.sizes[i]   // the buffer's size, not the screen's
       pm.uniforms.uFrame.value = chain.frames
       this.bindChainBuffers(pm.uniforms, chain)
