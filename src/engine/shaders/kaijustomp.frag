@@ -36,7 +36,7 @@ uniform float tape;
 
 const float SY = -0.2;                   // far kerb
 const float HS = 0.25;                   // height of a hero on screen
-const float FS = 0.42;                   // one unit of the foot on screen
+const float FS = 0.86;                   // one unit of the foot on screen: a toe is as tall as a hero
 
 // ---- tokusatsu kit: the same block lives in titanhand.frag and kaijustomp.frag ----
 // Everything here is drawn as a lit object, not as a flat shape: each 2D
@@ -57,6 +57,7 @@ float fbm(vec2 p) { return 0.62 * vn(p) + 0.38 * vn(p * 2.3 + 7.3); }
 
 vec3 gCol;                      // the frame being painted
 float gPx;                      // edge softness: one pixel in focus, many out of it
+float gAlpha;                   // 1 for solids, less for the smear behind a fast limb
 vec3 gL, gKey, gAmb, gRim;      // key direction and colour, ambient, back light
 vec3 cA, cB, cC;                // the three suit colours, from the palette
 
@@ -99,7 +100,7 @@ float sdSeg(vec2 p, vec2 a, vec2 b) {
 void lit(vec3 dg, float rad, vec3 alb, float gloss, vec2 bn) {
   float d = dg.x;
   if (d > 0.03) return;
-  gCol *= 1.0 - 0.4 * (1.0 - smoothstep(0.0, 0.03, d)) * step(0.0, d);     // it shades what is behind it
+  gCol *= 1.0 - 0.4 * gAlpha * (1.0 - smoothstep(0.0, 0.03, d)) * step(0.0, d);     // it shades what is behind it
   float t = clamp(-d / rad, 0.0, 1.0);
   float z = sqrt(max(1.0 - (1.0 - t) * (1.0 - t), 0.0));
   vec3 n = normalize(vec3(dg.yz * (1.0 - t) + bn, z + 0.06));
@@ -108,82 +109,148 @@ void lit(vec3 dg, float rad, vec3 alb, float gloss, vec2 bn) {
   float rim = pow(1.0 - n.z, 2.2) * max(dot(n.xy, -normalize(gL.xy)) * 0.6 + 0.6, 0.0);
   vec3 c = alb * (gAmb + gKey * dif) + gKey * sp + gRim * rim * (0.2 + 0.6 * alb + 0.3 * gloss);
   c *= 0.5 + 0.5 * smoothstep(0.0, 0.3, t);
-  gCol = mix(gCol, c, aa(d));
+  gCol = mix(gCol, c, aa(d) * gAlpha);
 }
 
-// two-bone limb from a to c, each bone l long, s picks the side the joint bends to
-void limb(vec2 q, vec2 a, vec2 c, float l, float s, float r, vec3 c1, vec3 c2, float gloss) {
-  vec2 dl = c - a;
-  float ln = max(length(dl), 1e-4);
-  vec2 dir = dl / ln;
-  ln = min(ln, 2.0 * l - 1e-3);
-  c = a + dir * ln;
-  vec2 j = a + dir * ln * 0.5 + vec2(-dir.y, dir.x) * s * sqrt(max(l * l - ln * ln * 0.25, 0.0));
-  lit(gSeg(q, a, j, r, r * 0.88), r, c1, gloss, vec2(0.0));
-  lit(gSeg(q, j, c, r * 0.9, r * 0.8), r, c2, gloss, vec2(0.0));
-  lit(gCirc(q - c, r * 0.95), r, c2, gloss, vec2(0.0));
+// ---- the suited hero: a skeleton, posed by joint angles ----
+// Angles are measured from straight down, positive toward the front. Every
+// pose is three vec4: L = hip A, knee A, hip B, knee B (A is the far side);
+// R = shoulder A, elbow A, shoulder B, elbow B; T = torso lean, head tilt,
+// spare, whole-body rotation. Poses blend by weight, so going from a sprint
+// into a roll into a stance is one continuous movement, never a swap.
+vec2 dn(float a) { return vec2(sin(a), -cos(a)); }
+float backOut(float x) { x = clamp(x, 0.0, 1.0) - 1.0; return 1.0 + x * x * (2.7 * x + 1.7); }
+
+void heroPose(vec4 w, float skid, float ph, float tu, float pp, float v, out vec4 L, out vec4 R, out vec4 T) {
+  float sum = w.x + w.y + w.z + w.w + skid + 1e-4;
+  // guard: weight on the back leg, fists up, breathing
+  float br = sin(uBeatClock * 3.14159 + v * 2.1);
+  L = w.x * vec4(-0.5, 0.45 + 0.07 * br, 0.55, 0.85 + 0.09 * br);
+  R = w.x * vec4(0.55, 2.0 - 0.06 * br, 1.15 + 0.06 * br, 1.7);
+  T = w.x * vec4(0.14 + 0.02 * br, -0.05, 0.0, 0.0);
+  // sprint: contact, down, passing, up. The knee folds as the leg comes through,
+  // the arms swing against the legs a touch late, the head stays level
+  float a = ph, b = ph + 3.14159;
+  L += w.y * vec4(0.18 + 0.85 * sin(a), 0.2 + 1.5 * pow(0.5 + 0.5 * cos(a + 0.4), 2.0),
+                  0.18 + 0.85 * sin(b), 0.2 + 1.5 * pow(0.5 + 0.5 * cos(b + 0.4), 2.0));
+  R += w.y * vec4(0.1 - 1.0 * sin(a - 0.25), 1.5 + 0.4 * sin(a - 0.5), 0.1 - 1.0 * sin(b - 0.25), 1.5 + 0.4 * sin(b - 0.5));
+  T += w.y * vec4(0.34 + 0.05 * sin(2.0 * a + 0.4), -0.22 - 0.06 * sin(2.0 * a + 1.0), 0.0, 0.0);
+  // dive and roll: reach, tuck, turn over, open out
+  float tuck = smoothstep(0.12, 0.4, tu) * (1.0 - smoothstep(0.72, 0.98, tu));
+  L += w.z * mix(vec4(-0.45, 0.15, -0.15, 0.35), vec4(1.9, 2.35, 2.05, 2.2), tuck);
+  R += w.z * mix(vec4(2.7, 0.15, 2.95, 0.2), vec4(1.3, 1.9, 1.55, 1.8), tuck);
+  T += w.z * vec4(mix(0.15, 0.8, tuck), mix(-0.3, 0.5, tuck), 0.0, -6.2831853 * smoothstep(0.02, 0.98, tu) - 1.1 * (1.0 - tuck) * sin(tu * 3.14159) * (1.0 - smoothstep(0.35, 0.6, tu)));
+  // roll call: legs set first, the arms sweep round and lock late with a bounce
+  float el = smoothstep(0.0, 0.45, pp), ea = backOut(clamp(pp * 1.15 - 0.15, 0.0, 1.0));
+  vec4 pl = v < 0.5 ? vec4(-0.6, 0.1, 0.62, 0.6) : v < 1.5 ? vec4(-0.8, 0.28, 0.78, 1.15) : vec4(-0.18, 0.05, 1.35, 1.75);
+  vec4 pr = v < 0.5 ? vec4(1.15, 2.3, 2.75, 0.06) : v < 1.5 ? vec4(-0.6, 2.1, 1.55, 0.06) : vec4(2.45, 0.3, -1.0, 0.45);
+  L += w.w * mix(vec4(-0.3, 0.5, 0.4, 0.7), pl, el);
+  R += w.w * (pr + (1.0 - ea) * vec4(2.4, 0.9, -2.6, 1.2));
+  T += w.w * vec4(v < 0.5 ? 0.04 : v < 1.5 ? 0.22 : -0.06, -0.08 * ea, 0.0, 0.0);
+  // skid stop: heels in, weight thrown back, arms out for balance
+  L += skid * vec4(0.3, 1.3, 1.0, 0.08);
+  R += skid * vec4(1.5, 0.5, 0.9, 0.6);
+  T += skid * vec4(-0.38, 0.3, 0.0, 0.0);
+  L /= sum; R /= sum; T /= sum;
 }
 
-// one of the suited team, feet at o, s = height on screen, facing dir.
-// mode 0 guard stance, 1 run, 2 tumble through the air, 3 the roll-call pose.
-// v 0..2 picks the colour, the visor and the pose
-void hero(vec2 p, vec2 o, float s, float dir, float mode, float ph, float v) {
+
+void heroLeg(vec2 q, vec2 hp, vec2 kn, vec2 an, vec2 toe, vec3 suit, vec3 boot) {
+  vec2 sd = normalize(an - kn);
+  vec3 g = gSeg(q, hp, kn, 0.072, 0.05);
+  g = smin3(g, gSeg(q, kn, an, 0.05, 0.032), 0.022);
+  g = smin3(g, gCirc(q - kn - sd * 0.09 - vec2(sd.y, -sd.x) * 0.014, 0.046), 0.03);     // calf
+  g = smin3(g, gSeg(q, an + vec2(0.0, 0.004), toe, 0.036, 0.026), 0.012);                // boot
+  float tb = dot(q - kn, sd);
+  vec3 alb = mix(suit, boot, smoothstep(0.07, 0.078, tb));
+  alb *= 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.007, abs(tb - 0.074)));                   // boot cuff
+  lit(g, 0.05, alb, 0.5, vec2(0.0));
+}
+void heroArm(vec2 q, vec2 sh, vec2 el, vec2 hd, vec3 suit, vec3 glove) {
+  vec2 fd = normalize(hd - el);
+  vec3 g = gSeg(q, sh, el, 0.052, 0.037);
+  g = smin3(g, gSeg(q, el, hd, 0.04, 0.03), 0.018);
+  g = smin3(g, gCirc(q - hd - fd * 0.022, 0.036), 0.012);                                // fist
+  float tb = dot(q - el, fd);
+  vec3 alb = mix(suit, glove, smoothstep(0.05, 0.058, tb));
+  alb *= 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.007, abs(tb - 0.054)));
+  lit(g, 0.04, alb, 0.5, vec2(0.0));
+}
+
+// feet at o, s = height on screen, facing dir. w = weights of guard, sprint,
+// dive-roll, roll-call pose; skid = weight of the skid stop. ph = stride phase,
+// tu = progress of the roll, pp = progress of the pose, look 1 ahead .. -1 back
+void hero(vec2 p, vec2 o, float s, float dir, vec4 w, float skid, float ph, float tu, float pp, float look, float v) {
   vec2 q = (p - o) / s;
   q.x *= dir;
-  if (q.x < -0.6 || q.x > 0.6 || q.y < -0.25 || q.y > 1.3) return;
+  if (q.y < -0.3 || q.y > 1.35 || abs(q.x) > 0.7) return;
   float keep = gPx;
   gPx /= s;
-  float run = step(0.5, mode) * step(mode, 1.5), tum = step(1.5, mode) * step(mode, 2.5), pose = step(2.5, mode);
-  float guard = 1.0 - run - tum - pose;
-  if (tum > 0.5) {
-    float ra = -ph;
-    vec2 c = q - vec2(0.0, 0.5);
-    q = vec2(c.x * cos(ra) - c.y * sin(ra), c.x * sin(ra) + c.y * cos(ra)) + vec2(0.0, 0.5);
-  }
+  // blend the poses, run the forward kinematics from the pelvis, stand the
+  // figure on whichever foot is lowest
+  vec4 L, R, T;
+  heroPose(w, skid, ph, tu, pp, v, L, R, T);
+  float sum = w.x + w.y + w.z + w.w + skid + 1e-4;
+  vec2 kA = dn(L.x) * 0.245, aA = kA + dn(L.x - L.y) * 0.245, tA = aA + dn(L.x - L.y + 1.5) * 0.1;
+  vec2 kB = dn(L.z) * 0.245, aB = kB + dn(L.z - L.w) * 0.245, tB = aB + dn(L.z - L.w + 1.5) * 0.1;
+  float lowest = min(min(aA.y, tA.y), min(aB.y, tB.y)) - 0.034;
+  vec2 pel = vec2(0.0, mix(-lowest, 0.36, w.z / sum));
+  vec2 up = vec2(sin(T.x), cos(T.x)), rt = vec2(up.y, -up.x);
+  vec2 chest = pel + up * 0.26;
+  vec2 hA = pel - rt * 0.03, hB = pel + rt * 0.03;
+  vec2 sA = chest - rt * 0.035 - up * 0.012, sB = chest + rt * 0.04 - up * 0.012;
+  vec2 eA = sA + dn(R.x) * 0.15, eB = sB + dn(R.z) * 0.15;
+  vec2 hu = vec2(sin(T.x + T.y), cos(T.x + T.y));
+  float fast = clamp((w.y + w.z) / sum, 0.0, 1.0);
   vec3 suit = v < 0.5 ? cA : v < 1.5 ? cB : cC;
   vec3 white = vec3(0.92, 0.92, 0.9);
-  float bob = 0.012 * sin(uBeatClock * TAU + v);
-  vec2 hip = vec2(0.0, 0.5 - 0.05 * guard - 0.02 * run + bob * guard + 0.03 * abs(sin(ph)) * run);
-  float lean = 0.26 * run + 0.08 * guard + 0.2 * tum;
-  vec2 chest = hip + vec2(lean * 0.3, 0.29 - 0.05 * tum);
-  float a0 = ph, a1 = ph + 3.14159;
-  vec2 fA = guard * vec2(-0.17, 0.02) + run * vec2(0.21 * cos(a1) - 0.03, 0.02 + 0.13 * max(sin(a1), 0.0)) + tum * (hip + vec2(0.1, -0.2)) + pose * vec2(-0.13, 0.02);
-  vec2 fB = guard * vec2(0.15, 0.02) + run * vec2(0.21 * cos(a0) - 0.03, 0.02 + 0.13 * max(sin(a0), 0.0)) + tum * (hip + vec2(0.17, -0.12)) + pose * vec2(0.14, 0.02);
-  vec2 hA, hB;
-  if (pose > 0.5) {
-    hA = v < 0.5 ? vec2(-0.25, 1.0) : v < 1.5 ? vec2(-0.2, 0.6) : vec2(-0.14, 0.5);
-    hB = v < 0.5 ? vec2(0.26, 1.0) : v < 1.5 ? vec2(0.3, 0.93) : vec2(0.07, 1.1);
-  } else {
-    hA = chest + guard * vec2(0.16, -0.03) + run * vec2(0.17 * cos(a0), -0.16 + 0.1 * cos(a0)) + tum * vec2(0.14, -0.18);
-    hB = chest + guard * vec2(0.22, -0.13) + run * vec2(0.17 * cos(a1), -0.16 + 0.1 * cos(a1)) + tum * vec2(0.2, -0.1);
+  float rot = T.w;
+  vec2 c = q - pel - vec2(0.0, 0.12);
+  q = vec2(c.x * cos(rot) + c.y * sin(rot), c.y * cos(rot) - c.x * sin(rot)) + pel + vec2(0.0, 0.12);
+  // a limb that is moving fast is soft at the edges: the shutter was open
+  float sharp = gPx, soft = gPx * (1.0 + 3.0 * fast);
+  gPx = soft;
+  heroArm(q, sA, eA, eA + dn(R.x + R.y) * 0.145, suit * 0.74, white * 0.74);
+  heroLeg(q, hA, hA + kA, hA + aA, hA + tA, suit * 0.74, white * 0.74);
+  gPx = sharp;
+  {
+    // torso: hips and shoulders have width, the waist does not
+    vec3 g = gSeg(q, pel + up * 0.03, chest - up * 0.03, 0.074, 0.098);
+    vec2 tq = vec2(dot(q - pel, rt), dot(q - pel, up));
+    vec3 hp = gEll(tq, vec2(0.092, 0.07));
+    hp.yz = hp.y * rt + hp.z * up;
+    g = smin3(g, hp, 0.03);
+    g = smin3(g, gSeg(q, chest - rt * 0.05, chest + rt * 0.055, 0.06, 0.06), 0.03);
+    vec3 ta = suit;
+    ta = mix(ta, white, 1.0 - smoothstep(0.0, 0.008, abs(tq.y - 0.2 + abs(tq.x - 0.015) * 0.95) - 0.02));   // chevron
+    ta = mix(ta, white, step(abs(tq.y - 0.045), 0.017));                                                    // belt
+    ta = mix(ta, vec3(1.0, 0.8, 0.25), step(length((tq - vec2(0.04, 0.045)) * vec2(1.0, 1.25)), 0.026));
+    ta *= 1.0 - 0.3 * (1.0 - smoothstep(0.0, 0.006, abs(tq.y - 0.045) - 0.017)) * step(abs(tq.y - 0.045), 0.03);
+    lit(g, 0.1, ta, 0.5, vec2(0.0));
   }
-  float es = pose > 0.5 ? 1.0 : -1.0;
-  limb(q, chest + vec2(-0.05, -0.025), hA, 0.165, -es, 0.047, suit * 0.8, white * 0.8, 0.45);
-  limb(q, hip + vec2(-0.035, 0.0), fA, 0.25, 1.0, 0.062, suit * 0.8, white * 0.8, 0.45);
-  lit(gEll(q - fA - vec2(0.04, -0.002), vec2(0.075, 0.038)), 0.04, white * 0.8, 0.5, vec2(0.0));
-  // torso: spandex with a white chevron and a belt
-  vec3 tg = gSeg(q, hip + vec2(0.0, 0.02), chest, 0.085, 0.118);
-  vec2 tq = q - chest;
-  vec3 ta = suit;
-  ta = mix(ta, white, 1.0 - smoothstep(0.0, 0.012, abs(tq.y + 0.07 + abs(tq.x - lean * 0.02) * 0.9 - 0.02) - 0.022));
-  ta = mix(ta, white, step(abs(q.y - hip.y - 0.035), 0.02));
-  ta = mix(ta, vec3(1.0, 0.8, 0.25), step(length((q - hip - vec2(0.03, 0.035)) * vec2(1.0, 1.3)), 0.027));
-  lit(tg, 0.1, ta, 0.45, vec2(0.0));
-  limb(q, hip + vec2(0.035, 0.0), fB, 0.25, 1.0, 0.062, suit, white, 0.45);
-  lit(gEll(q - fB - vec2(0.04, -0.002), vec2(0.075, 0.038)), 0.04, white, 0.5, vec2(0.0));
-  // helmet: one glossy shell, a black visor and a silver mouthpiece of our own
-  vec2 hc = chest + vec2(0.02 + lean * 0.06, 0.15);
-  vec2 e = q - hc;
-  float vis = v < 0.5 ? max(max(abs(e.x - 0.04) - 0.055, abs(e.y - 0.014) - 0.03), 0.016 - (e.y + 0.016) - abs(e.x - 0.04) * 0.9)
-            : v < 1.5 ? length((e - vec2(0.04, 0.014)) * vec2(0.62, 1.0)) - 0.034
-            : max(abs(e.x - 0.04) - 0.055, abs(e.y - 0.014 - (e.x - 0.04) * 0.4) - 0.02);
-  vec3 ha = suit;
-  ha = mix(ha, white, step(abs(e.x + 0.005), 0.011) * step(0.02, e.y) * step(v, 0.5));
-  ha = mix(ha, white, step(abs(e.y - 0.062), 0.008) * step(1.5, v));
-  ha = mix(ha, vec3(0.75, 0.77, 0.8), 1.0 - smoothstep(-0.004, 0.004, length((e - vec2(0.045, -0.047)) * vec2(0.6, 1.0)) - 0.022));
-  ha = mix(ha, vec3(0.015), 1.0 - smoothstep(-0.004, 0.004, vis));
-  lit(gCirc(e, 0.1), 0.1, ha, 0.95, vec2(0.0));
-  limb(q, chest + vec2(0.055, -0.025), hB, 0.165, -es, 0.047, suit, white, 0.45);
+  gPx = soft;
+  heroLeg(q, hB, hB + kB, hB + aB, hB + tB, suit, white);
+  gPx = sharp;
+  {
+    // helmet: the visor slides round the shell as the head turns
+    vec2 hc = chest + up * 0.05 + hu * 0.1;
+    vec2 e = vec2(dot(q - hc, vec2(hu.y, -hu.x)), dot(q - hc, hu));
+    vec3 hg = smin3(gEll(e, vec2(0.098, 0.105)), gEll(e - vec2(0.02 * look, -0.06), vec2(0.07, 0.055)), 0.03);
+    hg.yz = hg.y * vec2(hu.y, -hu.x) + hg.z * hu;
+    float vx = e.x - 0.042 * look;
+    float vw = 0.056 * (0.55 + 0.45 * abs(look));
+    float vis = v < 0.5 ? max(max(abs(vx) - vw, abs(e.y - 0.012) - 0.03), 0.014 - (e.y + 0.018) - abs(vx) * 0.9)
+              : v < 1.5 ? length(vec2(vx * 0.034 / vw, e.y - 0.012)) - 0.034
+              : max(abs(vx) - vw, abs(e.y - 0.012 - vx * 0.4 * look) - 0.02);
+    vec3 ha = suit;
+    ha = mix(ha, white, step(abs(e.x + 0.006 * look), 0.011) * step(0.03, e.y) * step(v, 0.5));
+    ha = mix(ha, white, step(abs(e.y - 0.066), 0.008) * step(1.5, v));
+    ha = mix(ha, vec3(0.75, 0.77, 0.8), 1.0 - smoothstep(-0.004, 0.004, length(vec2((vx - 0.004 * look) * 0.6, e.y + 0.05)) - 0.02));
+    ha = mix(ha, vec3(0.015), 1.0 - smoothstep(-0.004, 0.004, vis));
+    lit(hg, 0.1, ha, 0.95, vec2(0.0));
+  }
+  gPx = soft;
+  heroArm(q, sB, eB, eB + dn(R.z + R.w) * 0.145, suit, white);
   gPx = keep;
 }
 
@@ -214,7 +281,7 @@ void addBoom(vec2 q, float age, float R, vec3 hue, float seed) {
 vec3 sparks(vec2 q, float age, float R, float seed) {
   if (age <= 0.0 || age > 1.0 || dot(q, q) > R * R * 9.0) return vec3(0.0);
   float acc = 0.0;
-  for (int i = 0; i < 14; i++) {
+  for (int i = 0; i < 10; i++) {
     float fi = float(i);
     float an = mix(0.25, 2.9, h11(fi * 1.7 + seed));
     vec2 v = vec2(cos(an), sin(an)) * R * (0.8 + 1.8 * h11(fi * 3.1 + seed + 7.0));
@@ -223,7 +290,7 @@ vec3 sparks(vec2 q, float age, float R, float seed) {
     float d = sdSeg(q, pos, pos - vel * 0.07);
     acc += exp(-d * d / (R * R * 0.0004)) * (0.4 + 0.6 * h11(fi + seed * 3.0));
   }
-  return vec3(1.0, 0.72, 0.3) * acc * 2.2 * (1.0 - age) + vec3(1.0, 0.85, 0.6) * exp(-dot(q, q) / (R * R * 0.08)) * max(1.0 - age * 6.0, 0.0);
+  return vec3(1.0, 0.72, 0.3) * acc * 2.8 * (1.0 - age) + vec3(1.0, 0.85, 0.6) * exp(-dot(q, q) / (R * R * 0.08)) * max(1.0 - age * 6.0, 0.0);
 }
 
 // what a consumer deck did to the picture. c0 is the frame, cl the same frame a
@@ -248,48 +315,73 @@ vec3 tapeLook(vec3 c0, vec3 cl, vec2 fc, float amt) {
 float gPix, gFit, gKick, gSc, gU, gM, gPunch, gImpAge, gHaze, gPy;
 vec2 gShake;
 vec3 gSkin;
+vec4 gS0, gS1, gS2;                      // per hero: x, y, lane, look
+vec3 gD;                                 // per hero: progress of the dive
 
 float ease(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
-float land(float m) { return -0.46 + 0.3 * h11(m * 3.3 + 0.7); }   // where stomp m comes down, on screen at impact
+float land(float m) { return -1.08 + 0.17 * h11(m * 3.3 + 0.7); }  // heel of stomp m, on screen at impact: the toes end just short of the team
 
-// the boot of the suit: shin, ankle, foot, three toes, claws
+// the hide of the suit: raised keloid welts running up the leg, knobs between
+float hide(vec2 q) {
+  float r = abs(vn(vec2(q.x * 8.5 + 1.5 * vn(q * 2.0), q.y * 3.0)) - 0.5) * 2.0;
+  return (1.0 - r) * (1.0 - r) * 0.75 + 0.5 * vn(q * 15.0) + 0.22 * vn(q * 37.0);
+}
+
+// chunks of road thrown up by the toes
+void rubble(vec2 q, float age, float seed) {
+  if (age <= 0.0 || age > 1.0 || dot(q, q) > 0.6) return;
+  for (int i = 0; i < 9; i++) {
+    float fi = float(i);
+    float an = mix(0.35, 2.6, h11(fi * 1.9 + seed));
+    vec2 v = vec2(cos(an), sin(an)) * (0.35 + 0.55 * h11(fi * 2.7 + seed + 3.0));
+    vec2 e = q - v * age - vec2(0.0, -0.75 * age * age);
+    float ra = age * (5.0 + 9.0 * h11(fi + seed));
+    e = vec2(e.x * cos(ra) - e.y * sin(ra), e.x * sin(ra) + e.y * cos(ra));
+    float sz = 0.012 + 0.022 * h11(fi * 4.1 + seed);
+    lit(gBox(e, vec2(sz, sz * 0.7), 0.003), sz * 0.5, vec3(0.2, 0.2, 0.21), 0.15, vec2(0.0));
+  }
+}
+
+// the boot of the suit, side on: a column of a leg, rolls of rubber at the
+// ankle, a heavy instep, three separate toes with blunt claws. o is the heel
+// end of the sole
 void foot(vec2 p, vec2 o, float squash) {
   vec2 q = (p - o) / FS;
-  if (q.x < -1.1 || q.x > 1.5 || q.y < -0.15) return;
+  if (q.x < -0.75 || q.x > 1.4 || q.y < -0.08) return;
   float keep = gPx;
   gPx /= FS;
   q.y /= 1.0 - squash;
-  q.x /= 1.0 + 0.6 * squash;
-  // claws first: they sit under the toes
-  for (int k = 0; k < 3; k++) {
+  q.x /= 1.0 + 0.5 * squash;
+  float h0 = hide(q);
+  vec2 bn = -vec2(hide(q + vec2(0.012, 0.0)) - h0, hide(q + vec2(0.0, 0.012)) - h0) * 13.0;
+  vec3 skin = gSkin * (0.55 + 0.8 * h0);
+  vec3 ivory = vec3(0.74, 0.69, 0.55) * (0.75 + 0.3 * vn(q * 30.0));
+  for (int k = 2; k >= 0; k--) {
+    if (k == 0) {
+      // the leg and the foot proper go in before the nearest toe
+      vec3 g = gSeg(q, vec2(-0.08, 0.8), vec2(-0.2, 3.4), 0.4, 0.47);
+      g = smin3(g, gEll(q - vec2(-0.09, 0.84), vec2(0.45, 0.1)), 0.035);
+      g = smin3(g, gEll(q - vec2(-0.07, 0.68), vec2(0.47, 0.105)), 0.035);
+      g = smin3(g, gEll(q - vec2(-0.08, 0.52), vec2(0.5, 0.115)), 0.035);
+      g = smin3(g, gCirc(q - vec2(-0.3, 0.27), 0.3), 0.08);
+      g = smin3(g, gEll(q - vec2(0.16, 0.3), vec2(0.54, 0.29)), 0.07);
+      g.x += (h0 - 0.65) * 0.05;
+      lit(gSeg(q, vec2(-0.5, 0.2), vec2(-0.7, 0.08), 0.1, 0.035), 0.07, ivory, 0.6, vec2(0.0));    // heel spur
+      lit(g, 0.34, skin, 0.42, bn);
+      gCol *= 1.0 - 0.35 * aa(g.x + 0.03) * (1.0 - smoothstep(0.0, 0.012, abs(q.x + 0.36 + 0.012 * sin(q.y * 31.0)))) * step(0.9, q.y);   // the seam
+    }
     float fk = float(k);
-    vec2 tip = vec2(1.0 - 0.17 * fk, 0.13 - 0.015 * fk);
-    lit(gSeg(q, tip - vec2(0.05, 0.0), tip + vec2(0.24, -0.075), 0.085, 0.012), 0.07, vec3(0.78, 0.72, 0.56), 0.9, vec2(0.0));
+    vec2 base = vec2(0.42 - 0.1 * fk, 0.21 + 0.045 * fk), tip = vec2(1.0 - 0.16 * fk, 0.155 + 0.04 * fk);
+    float r = 0.155 - 0.014 * fk;
+    float shade = 1.0 - 0.2 * fk;
+    lit(gSeg(q, tip - vec2(0.03, 0.01), tip + vec2(0.17, -0.055), 0.105, 0.05), 0.08, ivory * shade, 0.6, vec2(0.0));
+    vec3 t = gSeg(q, base, tip, r * 1.05, r);
+    t = smin3(t, gCirc(q - mix(base, tip, 0.5) - vec2(0.0, 0.035), r * 0.97), 0.04);     // the knuckle
+    t.x += (h0 - 0.65) * 0.045;
+    lit(t, r, skin * shade, 0.42, bn);
   }
-  lit(gSeg(q, vec2(-0.5, 0.26), vec2(-0.8, 0.1), 0.1, 0.012), 0.08, vec3(0.78, 0.72, 0.56), 0.9, vec2(0.0));
-  vec3 g = gSeg(q, vec2(-0.14, 0.55), vec2(-0.3, 3.0), 0.33, 0.42);
-  g = smin3(g, gCirc(q - vec2(-0.2, 0.33), 0.34), 0.12);
-  g = smin3(g, gEll(q - vec2(0.25, 0.22), vec2(0.56, 0.23)), 0.1);
-  for (int k = 0; k < 3; k++) {
-    float fk = float(k);
-    g = smin3(g, gSeg(q, vec2(0.5, 0.17), vec2(1.0 - 0.17 * fk, 0.14 - 0.015 * fk), 0.15, 0.13), 0.035);
-  }
-  // latex texture: cast scales, folds where the ankle bends, a belly of plates
-  float f = 24.0;
-  vec2 sq2 = q + 0.05 * vec2(fbm(q * 5.0), fbm(q * 5.0 + 4.0));
-  vec2 bn = 0.4 * vec2(cos(sq2.x * f) * sin(sq2.y * f + sq2.x * 9.0), sin(sq2.x * f) * cos(sq2.y * f + sq2.x * 9.0)) * (0.5 + fbm(q * 3.0));
-  float fold = smoothstep(0.3, 0.45, q.y) * (1.0 - smoothstep(0.75, 1.0, q.y));
-  bn.y += 0.75 * fold * sin(q.y * 34.0 + 2.5 * sin(q.x * 5.0));
-  float axis = q.x + 0.14 + (q.y - 0.55) * 0.065;                  // across the shin
-  float belly = smoothstep(0.08, 0.14, axis) * smoothstep(0.55, 0.7, q.y);
-  bn = mix(bn, vec2(0.0, 0.8 * sin(q.y * 24.0)), belly);
-  vec3 alb = gSkin * (0.75 + 0.5 * fbm(q * 7.0));
-  alb = mix(alb, mix(gSkin, vec3(0.75, 0.68, 0.42), 0.6), belly);
-  alb *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 0.25, abs(sin(q.y * 24.0)))) * belly;
-  lit(g, 0.3, alb, 0.7, bn);
-  // the seam up the back of the leg, and the grime from the last take
-  gCol *= 1.0 - 0.45 * aa(g.x + 0.02) * (1.0 - smoothstep(0.0, 0.014, abs(axis + 0.2 + 0.01 * sin(q.y * 40.0)))) * step(0.5, q.y);
-  gCol = mix(gCol, gCol * vec3(0.6, 0.55, 0.5), 0.5 * aa(g.x) * (1.0 - smoothstep(0.0, 0.3, q.y)) * fbm(q * 12.0));
+  // the grime of the last take, up from the sole
+  gCol = mix(gCol, gCol * vec3(0.7, 0.62, 0.52), 0.45 * step(q.y, 0.35) * (1.0 - smoothstep(0.0, 0.3, q.y)) * step(-0.6, q.x) * step(q.x, 1.15) * vn(q * 11.0));
   gPx = keep;
 }
 
@@ -341,11 +433,12 @@ vec3 render(vec2 fc) {
     vec2 nrm = normalize(vec2(-(pb.y - pa.y), pb.x - pa.x));
     // back plates of our own: round paddles, big and small in turn
     float pr = (0.065 - 0.04 * t) * (mod(float(i), 2.0) < 0.5 ? 1.0 : 0.65);
-    lit(gEll(p - pb - nrm * (0.1 - 0.075 * t + pr * 0.55), vec2(pr * 0.85, pr * 1.2)), pr, mix(uColor2, vec3(0.8, 0.5, 0.3), 0.4) * 0.8, 0.6, vec2(0.0));
+    lit(gEll(p - pb - nrm * (0.1 - 0.075 * t + pr * 0.55), vec2(pr * 0.85, pr * 1.2)), pr, mix(gSkin * 2.2, uColor2 * 0.5, 0.25), 0.5, vec2(0.0));
     tg = smin3(tg, gSeg(p, pa, pb, 0.1 - 0.075 * (t - 1.0 / 6.0), 0.1 - 0.075 * t), 0.02);
     pa = pb;
   }
-  lit(tg, 0.08, gSkin * (0.75 + 0.5 * fbm(p * 14.0)), 0.6, 0.4 * vec2(cos(p.x * 60.0) * sin(p.y * 60.0), sin(p.x * 60.0) * cos(p.y * 60.0)));
+  float th = hide(p * 4.0);
+  lit(tg, 0.08, gSkin * (0.6 + 0.8 * th), 0.45, (vec2(vn(p * 60.0), vn(p * 60.0 + 7.0)) - 0.5) * 0.9);
   col = mix(gCol, hazeC, 0.3);
 
   // ---- model blocks along the street ----
@@ -366,7 +459,7 @@ vec3 render(vec2 fc) {
       road = mix(road, vec3(0.85, 0.83, 0.75), 0.75 * step(abs(f - 0.085), 0.006 + 0.01 * f) * step(0.45, fract(Xr / 0.22)));
       road *= 0.6 + 0.4 * smoothstep(0.0, 0.03, f);
       // what the last stomp left: a dent and cracks, carried off by the road
-      vec2 cq = vec2(p.x / (1.0 + f * 1.4) - (land(gM) + 0.1 - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0)), f - 0.07);
+      vec2 cq = vec2(p.x / (1.0 + f * 1.4) - (land(gM) + 0.75 - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0)), f - 0.1) * 0.45;
       float cr = length(cq * vec2(1.0, 3.0));
       float crack = 1.0 - smoothstep(0.0, 0.012, abs(fract(atan(cq.y * 3.0, cq.x) / TAU * 7.0 + 0.3 * sin(cr * 20.0)) - 0.5) * cr);
       road *= 1.0 - 0.5 * crack * smoothstep(0.42, 0.1, cr) - 0.25 * smoothstep(0.3, 0.0, cr);
@@ -384,10 +477,15 @@ vec3 render(vec2 fc) {
     gCol = mix(gCol, vec3(0.1, 0.11, 0.12), aa(pole));
     gCol += vec3(1.0, 0.9, 0.6) * (0.9 * aa(length(lq - vec2(0.04, 0.193)) - 0.008) + 0.25 * exp(-dot(lq - vec2(0.04, 0.19), lq - vec2(0.04, 0.19)) * 900.0));
     float ci = floor(X / 0.9);
-    float jump = max(0.0, sin(clamp(gImpAge * 3.0 - 0.3 * h11(ci), 0.0, 1.0) * 3.14159)) * 0.05 * step(0.0, gImpAge);
-    vec2 c = (vec2(mod(X, 0.9) - 0.45, p.y - SY - 0.012 - jump)) / 0.085;
-    c = vec2(c.x + c.y * 0.3 * jump * 8.0, c.y);
-    if (abs(c.x) < 1.3 && c.y > -0.2 && c.y < 1.1) {
+    // the nearer the toes, the further the car is thrown, and it turns over in the air
+    float carx = (ci + 0.5) * 0.9 - gSc;
+    float near = exp(-pow((carx - (land(gM) + 1.0 - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0))) / 0.45, 2.0));
+    float jp = clamp(gImpAge * 2.2 - 0.2 * h11(ci), 0.0, 1.0);
+    float jump = sin(jp * 3.14159) * (0.04 + 0.22 * near);
+    vec2 c = (vec2(mod(X, 0.9) - 0.45, p.y - SY - 0.012 - jump)) / 0.085 - vec2(0.0, 0.35);
+    float spin = jp * (1.0 - jp) * 4.0 * near * 1.4 * (h11(ci + 3.0) > 0.5 ? 1.0 : -1.0);
+    c = vec2(c.x * cos(spin) - c.y * sin(spin), c.x * sin(spin) + c.y * cos(spin)) + vec2(0.0, 0.35);
+    if (abs(c.x) < 1.4 && c.y > -0.5 && c.y < 1.3) {
       float keep = gPx;
       gPx /= 0.085;
       float hc = h11(ci * 3.7);
@@ -408,8 +506,8 @@ vec3 render(vec2 fc) {
   float pc = clamp(pace, 0.3, 3.0);
   float nxt = land(gM + 1.0) + (1.0 - gU) * 4.0 * 0.2 * pc;
   float sh = smoothstep(0.4, 1.0, gU);
-  vec2 sq = (p - vec2(nxt + 0.12, -0.3)) / vec2(0.2 + 0.25 * sh, 0.03 + 0.045 * sh);
-  gCol *= 1.0 - 0.62 * sh * (1.0 - smoothstep(0.35, 1.0, dot(sq, sq)));
+  vec2 sq = (p - vec2(nxt + 0.4, -0.31)) / vec2(0.35 + 0.45 * sh, 0.04 + 0.085 * sh);
+  gCol *= 1.0 - 0.72 * sh * (1.0 - smoothstep(0.3, 1.0, dot(sq, sq)));
 
   // ---- charges along the street, behind the team ----
   float boomAge = mod(gM, 2.0) < 0.5 ? gImpAge : -1.0;
@@ -423,31 +521,27 @@ vec3 render(vec2 fc) {
   float drift = gU * 4.0 * 0.2 * pc;
   float up = ease((gU - 0.5) / 0.22);
   float sqz = 0.14 * exp(-gImpAge * 9.0);
-  foot(p, vec2(land(gM) - drift + 0.5 * up * up, -0.29 + 1.1 * up * up), sqz);
-  float dn = clamp((gU - 0.8) / 0.2, 0.0, 1.0);
-  if (gU > 0.78) foot(p, vec2(nxt, -0.29 + 1.1 * (1.0 - dn * dn)), -0.06 * (1.0 - dn));
+  foot(p, vec2(land(gM) - drift + 0.5 * up * up, -0.3 + 1.3 * up * up), sqz * 0.6);
+  float dwn = clamp((gU - 0.8) / 0.2, 0.0, 1.0);
+  if (gU > 0.78) foot(p, vec2(nxt, -0.3 + 1.3 * (1.0 - dwn * dwn)), -0.05 * (1.0 - dwn));
 
   // ---- impact: dust thrown out both ways along the road, sparks ----
   float fx = land(gM) - drift;
-  addBoom(p - vec2(fx + 0.45, -0.3), gImpAge * 0.9 + 0.3, 0.2 * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 11.0);
-  addBoom(p - vec2(fx - 0.3, -0.3), gImpAge * 0.9 + 0.3, 0.17 * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 12.0);
+  addBoom(p - vec2(fx + 1.12, -0.35), gImpAge * 0.9 + 0.55, (0.07 + 0.11 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 11.0);
+  addBoom(p - vec2(fx + 0.55, -0.37), gImpAge * 0.9 + 0.55, (0.06 + 0.1 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 12.0);
 
   // ---- the team ----
   for (int k = 0; k < 3; k++) {
-    float fk = float(k);
-    float x = 0.2 + 0.21 * fk + 0.015 * sin(uBeatClock * 0.9 + fk * 2.0);
-    float ly = k == 1 ? -0.4 : -0.37;
-    float hopA = gImpAge > 0.0 ? sin(clamp(gImpAge * 2.6 - 0.12 * fk, 0.0, 1.0) * 3.14159) : 0.0;
-    float mode = 1.0, ph = uBeatClock * TAU * 1.5 + fk * 2.1, hop = 0.05 * hopA;
-    // the last one in line throws himself clear as it lands
-    float dv = k == 0 ? clamp((gU > 0.5 ? gU - 0.93 : gU + 0.07) / 0.2, 0.0, 1.0) : 0.0;
-    if (dv > 0.001 && dv < 0.999) { mode = 2.0; ph = dv * TAU; hop = 0.11 * sin(dv * 3.14159); x += 0.05 * sin(dv * 3.14159); }
-    vec2 s2 = (p - vec2(x, ly)) / vec2(0.075, 0.013);
+    vec4 hs = k == 0 ? gS0 : k == 1 ? gS1 : gS2;
+    float dv = k == 0 ? gD.x : 0.0;
+    float wT = smoothstep(0.0, 0.08, dv) * (1.0 - smoothstep(0.9, 1.0, dv));
+    vec2 s2 = (p - vec2(hs.x, hs.z)) / vec2(0.075, 0.013);
     gCol *= 1.0 - 0.5 * (1.0 - smoothstep(0.4, 1.0, dot(s2, s2)));
-    hero(p, vec2(x, ly + hop), HS, 1.0, mode, ph, fk);
+    hero(p, hs.xy, HS, 1.0, vec4(0.0, 1.0 - wT, wT, 0.0), 0.0, uBeatClock * TAU * 1.5 + float(k) * 2.3, dv, 0.0, hs.w, float(k));
   }
-  gCol += sparks(p - vec2(fx + 0.4, -0.3), gImpAge * 1.2, 0.2 * (0.3 + 0.7 * gPy), gM);
-  gCol += sparks(p - vec2(fx - 0.2, -0.3), gImpAge * 1.2 - 0.05, 0.15 * gPy, gM + 5.0);
+  gCol += sparks(p - vec2(fx + 1.0, -0.31), gImpAge * 1.2, 0.26 * (0.3 + 0.7 * gPy), gM);
+  gCol += sparks(p - vec2(fx + 0.55, -0.31), gImpAge * 1.2 - 0.05, 0.18 * gPy, gM + 5.0);
+  rubble(p - vec2(fx + 0.95, -0.31), gImpAge * 1.1, gM);
 
   // ---- smoke machine, then whatever is too close to the lens to focus on ----
   float hz = fbm(vec2(p.x * 2.2 + gSc * 1.2 - uTime * 0.05, p.y * 6.0));
@@ -461,6 +555,7 @@ vec3 render(vec2 fc) {
 void main() {
   float tp = clamp(tape, 0.0, 1.0);
   gKick = clamp(uBassHit, 0.0, 1.0);
+  gAlpha = 1.0;
   gFit = max(1.0, 1.5 * uResolution.y / uResolution.x);
   gPix = 1.0 * gFit / uResolution.y;
   gHaze = clamp(haze, 0.0, 2.0);
@@ -468,7 +563,7 @@ void main() {
   cA = mix(uColor1, vec3(1.0), 0.1);
   cB = mix(uColor2, vec3(1.0), 0.1);
   cC = mix(uColor3, vec3(1.0), 0.1);
-  gSkin = mix(vec3(0.14, 0.27, 0.17), uColor1 * 0.45, 0.4);
+  gSkin = mix(vec3(0.115, 0.13, 0.11), uColor1 * 0.22, 0.14);            // charcoal with a breath of grey-green
 
   gSc = uBeatClock * 0.2 * clamp(pace, 0.3, 3.0);
   float sb = uBeatClock / 4.0;
@@ -476,9 +571,25 @@ void main() {
   gU = fract(sb);
   gImpAge = gU * 4.0 * 0.47;
 
+  // the team: three strides out of step, a look back as the shadow comes over,
+  // and the last in line dives clear and rolls back onto his feet
+  for (int k = 0; k < 3; k++) {
+    float fk = float(k);
+    float x = 0.3 + 0.2 * fk + 0.02 * sin(uBeatClock * (0.7 + 0.23 * fk) + fk * 2.0);
+    float ly = k == 1 ? -0.4 : -0.37;
+    float hop = 0.045 * sin(clamp(gImpAge * 2.6 - 0.12 * fk, 0.0, 1.0) * 3.14159);
+    float dv = k == 0 ? clamp((gU > 0.5 ? gU - 0.92 : gU + 0.08) / 0.24, 0.0, 1.0) : 0.0;
+    float wT = smoothstep(0.0, 0.08, dv) * (1.0 - smoothstep(0.9, 1.0, dv));
+    hop = mix(hop, 0.12 * sin(dv * 3.14159), wT);
+    x += 0.06 * sin(dv * 3.14159);
+    float lb = k == 2 ? 0.0 : smoothstep(0.5 + 0.06 * fk, 0.6 + 0.06 * fk, gU) * (1.0 - smoothstep(0.84, 0.92, gU));
+    vec4 hs = vec4(x, ly + hop, ly, 1.0 - 2.0 * lb);
+    if (k == 0) { gS0 = hs; gD.x = dv; } else if (k == 1) gS1 = hs; else gS2 = hs;
+  }
+
   float hit = exp(-gImpAge * 5.0) + 0.1 * gKick;
-  gShake = hit * 0.028 * vec2(sin(uTime * 57.0), cos(uTime * 43.0)) + vec2(0.0, 0.004 * sin(uBeatClock * TAU * 1.5));
-  gPunch = 1.0 - 0.06 * exp(-gImpAge * 4.0);
+  gShake = hit * vec2(0.03 * sin(uTime * 57.0), 0.05 * cos(uTime * 43.0)) + vec2(0.0, 0.004 * sin(uBeatClock * TAU * 1.5) - 0.03 * exp(-gImpAge * 11.0));
+  gPunch = 1.0 - 0.08 * exp(-gImpAge * 4.0);
   float flash = (mod(gM, 2.0) < 0.5 ? exp(-max(gImpAge - 0.1, 0.0) * 5.0) : 0.0) * gPy;
   gL = normalize(vec3(-0.55, 0.5, 0.67));
   gKey = vec3(1.0, 0.94, 0.84) * (1.0 + 0.4 * flash);
