@@ -1110,6 +1110,8 @@ export function App() {
   // Every one of those latches on a tap and is momentary on a hold — see momentary.ts.
   useEffect(() => {
     if (!engine) return
+    // Shift can change e.key between down and up; e.code does not
+    const downAs = new Map<string, string>()
     const onKey = (e: KeyboardEvent) => {
       if (shouldIgnoreHotkey(e)) return
 
@@ -1119,6 +1121,7 @@ export function App() {
       // the state captured to go back to — and holding B should not strobe
       // the blackout either.
       if (e.repeat || momentary.isDown(k)) return
+      downAs.set(e.code, k)
 
       // The engine is driven in the keydown itself, through the mirror refs:
       // inside a setState updater React ran it later, and twice under
@@ -1193,10 +1196,14 @@ export function App() {
     }
 
     // Hold it and it is momentary; tap it and it latches. One key, both.
-    const onKeyUp = (e: KeyboardEvent) => { momentary.release(e.key.toLowerCase()) }
+    const onKeyUp = (e: KeyboardEvent) => {
+      const k = downAs.get(e.code) ?? e.key.toLowerCase()
+      downAs.delete(e.code)
+      momentary.release(k)
+    }
     // A keyup that never arrives (the window lost focus mid-hold) would leave
     // the key logically down for ever, and the next press would be ignored.
-    const onBlur = () => momentary.clear()
+    const onBlur = () => { momentary.clear(); downAs.clear() }
 
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKeyUp)
