@@ -313,6 +313,17 @@ function createControlWindow(): BrowserWindow {
   // outputs keep going on main's last state meanwhile). Repeats back off and
   // give up after a few in a minute, so a renderer that dies on load does not
   // spin.
+  // A reloaded console starts with no overlays and does not know the old ids:
+  // what main cached would stay on the walls with nothing able to remove it.
+  let navigated = false
+  win.webContents.on('did-navigate', () => {
+    if (navigated) {
+      for (const id of overlays.keys()) broadcastOutputs('overlay:remove', id)
+      overlays.clear()
+    }
+    navigated = true
+  })
+
   let reloads: number[] = []
   win.webContents.on('render-process-gone', (_e, d) => {
     if (quitting || d.reason === 'clean-exit' || win.isDestroyed()) return
