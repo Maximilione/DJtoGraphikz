@@ -24,6 +24,12 @@ vec2 hash2(vec2 p) {
   return fract(sin(vec2(dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)))) * 43758.5453);
 }
 
+// animated site of a cell: bass drives the speed (integrated clock), not the
+// position, so the lattice surges instead of shaking in unison
+vec2 site(vec2 cell, float t) {
+  return 0.5 + 0.5 * sin(t * 0.8 + TAU * hash2(cell) + uBassTime * 0.6);
+}
+
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
@@ -36,40 +42,42 @@ void main() {
   vec2 ip = floor(p);
   vec2 fp = fract(p);
 
-  float d1 = 8.0; // nearest
-  float d2 = 8.0; // second nearest
-  vec2 nearestPoint = vec2(0.0);
-
+  // pass 1: nearest site (squared distances, one sqrt after the loop)
+  float d1 = 64.0;
+  vec2 mr = vec2(0.0);      // vector from the pixel to the nearest site
+  vec2 mb = vec2(0.0);      // its cell offset
   for (int y = -1; y <= 1; y++) {
     for (int x = -1; x <= 1; x++) {
       vec2 neighbor = vec2(float(x), float(y));
-      vec2 point = hash2(ip + neighbor);
+      vec2 diff = neighbor + site(ip + neighbor, t) - fp;
+      float dd = dot(diff, diff);
+      if (dd < d1) { d1 = dd; mr = diff; mb = neighbor; }
+    }
+  }
+  d1 = sqrt(d1);
+  // stable id: the cell, not the moving site (that re-hashed the hue every frame)
+  vec2 nearestCell = ip + mb;
 
-      // Animate points with audio
-      point = 0.5 + 0.5 * sin(t * 0.8 + TAU * point + uBass * 3.0);
-
-      vec2 diff = neighbor + point - fp;
-      float dist = length(diff);
-
-      if (dist < d1) {
-        d2 = d1;
-        d1 = dist;
-        nearestPoint = point;
-      } else if (dist < d2) {
-        d2 = dist;
-      }
+  // pass 2: exact distance to the cell border (F2-F1 pinched at vertices and
+  // varied in width), doubled to keep the old F2-F1 scale for the edge widths
+  float bd = 8.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 neighbor = mb + vec2(float(x), float(y));
+      vec2 r = neighbor + site(ip + neighbor, t) - fp;
+      vec2 dr = r - mr;
+      if (dot(dr, dr) > 1e-5) bd = min(bd, dot(0.5 * (mr + r), normalize(dr)));
     }
   }
 
   // Edge detection: sharp neon core + wide halo for the bloom
-  float edge = d2 - d1;
+  float edge = 2.0 * bd;
   float ew = edgewidth + uHigh * 0.05;
   float edgeLine = 1.0 - smoothstep(0.0, ew, edge);
   float halo = exp(-edge * 9.0);
 
   // Cell color based on point hash
-  float cellId = dot(nearestPoint, vec2(12.9898, 78.233));
-  float cellHue = fract(cellId * 43758.5453 + t * 0.1);
+  float cellHue = fract(hash2(nearestCell).x + t * 0.1);
   vec3 cellColor = mix(uColor1, uColor2, cellHue);
   cellColor = mix(cellColor, uColor3, fract(cellHue * 3.0 + 0.5));
 
@@ -94,7 +102,9 @@ void main() {
   color += uColor2 * exp(-rr * 2.0) * uEnergy * 0.5;
   color *= (0.55 + 0.45 * smoothstep(1.2, 0.2, rr)) * (1.0 + uBeat * 0.4);
   color += uColor2 * 0.02;
-  color = min(color, vec3(1.8));
+  // soft knee: kick edges roll off instead of clipping flat
+  vec3 kn = max(color - 0.8, 0.0);
+  color = min(color, 0.8) + 0.2 * (1.0 - exp(-kn * 2.0));
 
   gl_FragColor = vec4(color, 1.0);
 }

@@ -32,7 +32,7 @@ float field(vec2 p, float t) {
   v = mix(v, 0.5 + 0.5 * sin(length(q) * 9.0 - t * 2.0), 0.35);
   // kick ring: one wave per beat, from the centre out
   float ring = exp(-abs(length(p) - uBeatPhase * 1.4) * 5.0) * (0.4 + 0.6 * uBass);
-  return clamp(v * 0.75 + ring, 0.0, 1.0);
+  return clamp(max(v * 0.75, ring), 0.0, 1.0); // ring wins: one clean kick front
 }
 
 void main() {
@@ -57,6 +57,8 @@ void main() {
 
   // ink is white with a breath of the palette; paper is black
   vec3 inkc = mix(vec3(1.0), uColor1, 0.25 + 0.35 * uHigh);
-  vec3 col = inkc * ink * (0.85 + 0.3 * uBeat);
+  // riso underprint: a colour plate from the same dot, knocked out of register by the kick
+  float ink2 = 1.0 - smoothstep(r, r + aa, length(f - vec2(0.10, -0.07) * (0.4 + 1.2 * uBassHit)));
+  vec3 col = max(inkc * ink * (0.85 + 0.3 * uBeat), uColor2 * ink2 * 0.6);
   gl_FragColor = vec4(col, 1.0);
 }

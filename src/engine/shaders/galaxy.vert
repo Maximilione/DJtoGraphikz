@@ -69,7 +69,7 @@ void main() {
   float a = arm * 6.2831853 / nArms + r * twist * 2.4 + scatter + spin;
 
   float thick = 0.07 * exp(-r * 2.2) + 0.012;
-  float y = (hash3(id + 31.0).x - 0.5) * 2.0 * thick * (1.0 + 2.0 * uMid * g.x);
+  float y = (fract(g.x * 91.37 + h.z * 57.11) - 0.5) * 2.0 * thick * (1.0 + 2.0 * uMid * g.x);
   vec3 p = vec3(cos(a) * rr, y, sin(a) * rr);
 
   // camera: tilted, swinging with the bar so it never sits still. Its cos/sin
@@ -80,6 +80,8 @@ void main() {
 
   float dist = 2.6 - 0.25 * kick;
   float z = p.z + dist;
+  // behind the camera (strong kick burst): clip it, do not draw a huge near sprite
+  if (z < 0.3) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 1.0; vRad = 0.0; vSeed = 0.0; vGain = 0.0; return; }
   float inv = 1.9 / max(z, 0.3);
   float aspect = uResolution.x / uResolution.y;
   gl_Position = vec4(p.x * inv / aspect, p.y * inv, 0.0, 1.0);

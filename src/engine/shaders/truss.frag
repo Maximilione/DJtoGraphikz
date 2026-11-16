@@ -61,6 +61,8 @@ const float SP = 1.5;               // head spacing
 const float XT = 9.5;               // half length of a truss
 const float W0 = 0.075;             // beam radius at the lens
 const float PHI = 2.4;              // phase a wave gains across half a truss
+// (cos, sin) of ua = (m + 0.5) / 6 * PHI for the 6 head positions m = 0..5
+const vec2 CSU[6] = vec2[6](vec2(0.9800666, 0.1986693), vec2(0.8253356, 0.5646425), vec2(0.5403023, 0.8414710), vec2(0.1699671, 0.9854497), vec2(-0.2272021, 0.9738476), vec2(-0.5885011, 0.8084964));
 const float FOC = 1.05;
 const vec3 COLD = vec3(0.78, 0.90, 1.0);
 const vec3 WARM = vec3(1.0, 0.60, 0.28);
@@ -258,8 +260,7 @@ float sdFix(vec3 q, out float part) {
   vec3 h = vec3(q.x - xc, q.y + TH + 0.50, q.z);         // from the tilt pivot
   if (abs(h.x) > 0.5) return abs(h.x) - 0.38;
   float m = floor(abs(xc) / SP);
-  float ua = (m + 0.5) / 6.0 * PHI;
-  vec4 sl = pairSlopes(m, vec2(cos(ua), sin(ua)));
+  vec4 sl = pairSlopes(m, CSU[int(m)]);
   vec2 ab = xc < 0.0 ? sl.zw : sl.xy;
   vec3 D = normalize(vec3(ab.x, -1.0, ab.y));
   float d = sdBox(vec3(h.x, h.y - 0.43, h.z), vec3(0.025, 0.07, TH + 0.03));          // hanger across the chords
@@ -442,12 +443,12 @@ void main() {
     float t = max(max(min(ta, tb), tc), 0.0);
     tf = min(max(ta, tb), td);
     if (t < tf) {
-      float cb = 0.0, tbest = t, part;
+      float cb = 0.0, tbest = t, part, pbest = 1.0;
       for (int i = 0; i < 20; i++) {
         float d = sdFix(o + rd * t, part);
         float pr = t * gPix;
         float c = 1.0 - d / pr;
-        if (c > cb) { cb = c; tbest = t; }
+        if (c > cb) { cb = c; tbest = t; pbest = part; }
         if (d < 0.3 * pr) break;
         t += max(d * 0.9, 0.4 * pr);
         if (t > tf) break;
@@ -459,12 +460,11 @@ void main() {
         float p1;
         vec3 nr = normalize(k.xyy * sdFix(hq + k.xyy * e, p1) + k.yyx * sdFix(hq + k.yyx * e, p1) +
                             k.yxy * sdFix(hq + k.yxy * e, p1) + k.xxx * sdFix(hq + k.xxx * e, p1));
-        sdFix(hq, part);
         vec3 sh = shadeMetal(nr, 0.04, 0.6, 0.2);
-        if (part > 1.5) {                                // the lens
+        if (pbest > 1.5) {                                // the lens
           float xc = (clamp(floor(hq.x / SP), -6.0, 5.0) + 0.5) * SP;
-          float m = floor(abs(xc) / SP), ua = (m + 0.5) / 6.0 * PHI;
-          vec4 sl = pairSlopes(m, vec2(cos(ua), sin(ua)));
+          float m = floor(abs(xc) / SP);
+          vec4 sl = pairSlopes(m, CSU[int(m)]);
           vec2 ab = xc < 0.0 ? sl.zw : sl.xy;
           float face = max(dot(normalize(vec3(ab.x, -1.0, ab.y)), normalize(vec3(ro.x - xc, ro.y - FY, -rZ))), 0.0);
           float f2 = face * face; f2 *= f2;
@@ -542,11 +542,10 @@ void main() {
       float dF = band < 0.03 ? 99.0 : FLARE_R * rZ / FOC + 0.5;
       for (int mi = 0; mi < 6; mi++) {
         float m = float(mi);
-        float litm = clamp(gLit - rankOf(m), 0.0, 1.0);
+        float litm = lit[mi];
         if (litm <= 0.0) continue;
         float x = (m + 0.5) * SP;
-        float ua = (m + 0.5) / 6.0 * PHI;
-        vec4 sl = pairSlopes(m, vec2(cos(ua), sin(ua)));
+        vec4 sl = pairSlopes(m, CSU[mi]);
         // The two heads share a tilt, so their beams lie in one sheet and the
         // ray meets it at one point: only a beam passing within reach of that
         // point (xc across, h below the pivots) can light this pixel
@@ -624,5 +623,6 @@ void main() {
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.2 - dot(gUv, gUv) * 0.7, 0.4, 1.0);
+  col += (hash21(gl_FragCoord.xy) - 0.5) / 255.0; // dither: haze gradients band on 8-bit
   gl_FragColor = vec4(col, 1.0);
 }
