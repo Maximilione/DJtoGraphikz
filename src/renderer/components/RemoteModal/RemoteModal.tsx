@@ -41,7 +41,8 @@ export function RemoteModal({ onClose }: RemoteModalProps) {
 
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
-      <div className="onboarding-card" style={{ width: '340px', alignItems: 'center', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+      {/* shortcut: no aria-modal and no focus trap, add both together when a modal gets focus management */}
+      <div className="onboarding-card" role="dialog" aria-label="Remote dal telefono" style={{ width: '340px', alignItems: 'center', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
         <h2>Remote dal telefono</h2>
         <p className="onboarding-hint">
           Telefono sulla <b>stessa rete wifi</b>: inquadra il QR, poi inserisci il codice di abbinamento.

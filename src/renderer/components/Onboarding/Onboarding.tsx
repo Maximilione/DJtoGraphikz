@@ -58,7 +58,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
 
   return (
     <div className="onboarding-backdrop">
-      <div className="onboarding-card">
+      <div className="onboarding-card" role="dialog" aria-label="Configurazione iniziale">
         {/* Step indicator */}
         <div className="onboarding-steps">
           {steps.map((label, i) => (

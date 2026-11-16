@@ -1683,7 +1683,7 @@ export function App() {
               {gifBusy ?? 'Strumenti'} ▾
             </button>
             {toolsOpen && (
-              <div className="tb-menu" role="menu">
+              <div className="tb-menu">
                 {mode === 'live' && (
                   <>
                     <button className="btn btn-sm" onClick={screenshot} title="Screenshot PNG"><IconCamera /> Foto</button>
@@ -1790,7 +1790,7 @@ export function App() {
 
       {/* Banners: one stack. Static in Simple and Pro; in Live it floats over
           the monitor, so pads and rail never move while something is wrong. */}
-      <div className="banner-stack">
+      <div className="banner-stack" role="alert">
       {gpuLost && <div className="audio-banner">⚠ Preview persa (contesto grafico), ripristino in corso… il proiettore ha il suo motore</div>}
       {/* U1.2 — slim static banner: layout shifts once, no overlay on the preview */}
       {audioStatus === 'reconnecting' && (

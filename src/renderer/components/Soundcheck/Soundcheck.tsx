@@ -91,7 +91,7 @@ export function Soundcheck({ engine, outputRes, onClose }: SoundcheckProps) {
 
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
-      <div className="onboarding-card soundcheck" onClick={e => e.stopPropagation()}>
+      <div className="onboarding-card soundcheck" role="dialog" aria-label="Soundcheck" onClick={e => e.stopPropagation()}>
         <h2>Soundcheck</h2>
         <p className="onboarding-hint">
           {overall === null ? `Ascolto l'ingresso per ${INPUT_WINDOW_S} secondi e interrogo proiettore, rete e disco…`
