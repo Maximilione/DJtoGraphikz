@@ -65,7 +65,7 @@ void main() {
   float rd = abs(fract(ru) - 0.5);
   float raa = 2.2 * pxu / r;
   float ring = 1.0 - smoothstep(0.03 - raa, 0.03 + raa + 0.02 * hit, rd);
-  col += uColor3 * ring * (0.25 + 0.5 * hit) * depthFade;
+  col += mix(uColor3, grad, 0.5) * ring * (0.25 + 0.5 * hit) * depthFade;
 
   // 2. counter-rotating thin spiral, twice the arms
   float n2 = n * 2.0;
@@ -111,5 +111,6 @@ void main() {
   float lip = exp(-abs(r - 0.05) * 90.0) * (0.3 + 0.7 * hit);
   col = col * hole + uColor1 * lip * 0.6;
   col *= depthFade * 0.6 + 0.4;
+  col = 1.0 - exp(-col * 1.35);   // highlight rolloff: the rim keeps the palette gradient
   gl_FragColor = vec4(col, 1.0);
 }

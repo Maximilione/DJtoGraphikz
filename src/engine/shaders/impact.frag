@@ -69,6 +69,8 @@ void main() {
 
   vec3 col = vec3(0.0);
   float fw = fwidth(r) * 1.5;
+  // striated wake (same phase as the ripple lattice below): black between the stripes
+  float wakeStr = 0.35 + 0.65 * smoothstep(0.0, 0.6, fract(r * 9.0 - uBassTime * 0.1));
   life = life0;
   for (int k = 0; k < 8; k++) {
     if (float(k) >= n) break;
@@ -81,7 +83,7 @@ void main() {
     float front = exp(-d * d / (w * w));
     float wake = d < 0.0 ? exp(d / (w * 6.0 + 0.04)) : exp(-d / (w * 0.8));
     vec3 ringc = mix(uColor1, uColor3, h1(sd + 2.0));
-    col += (mix(ringc, vec3(1.0), front * 0.7) * front * 1.5 + uColor2 * wake * 0.22) * life;
+    col += (mix(ringc, vec3(1.0), front * 0.7) * front * 1.5 + uColor2 * wake * 0.22 * wakeStr) * life;
     // sparks riding the front: radial streaks in angular cells. The tail is
     // non-zero only for r in (radius - 0.16, radius + 0.09): the rest of the
     // plane skips the two sin hashes and the smoothsteps (no derivatives here)
@@ -123,8 +125,9 @@ void main() {
   float down = step(uBarPhase, 0.04) * (1.0 - uBarPhase / 0.04);
   col += uColor1 * exp(-r0 * 3.0) * down * 0.4;
 
-  col *= 1.0 - smoothstep(0.3, 0.75, length(vec2(uv.x - 0.5, uv.y - 0.5) * vec2(aspect, 1.0)) / max(mn, 0.35) * 0.9);
+  col *= 1.0 - smoothstep(0.3, 0.75, length((uv - 0.5) * vec2(aspect, 1.0) - c0 * 0.5) / max(mn, 0.35) * 0.9);
   col *= 1.0 + 0.3 * uBeat;
+  col = 1.0 - exp(-col * 1.25);   // highlight rolloff: peak stays white, ring hue survives in the shoulders
   col += vec3(hash(gl_FragCoord.xy + fract(uTime) * 11.0)) * 0.01;
   gl_FragColor = vec4(col, 1.0);
 }

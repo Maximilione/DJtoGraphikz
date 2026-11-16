@@ -87,8 +87,8 @@ float nodeGlowAt(vec3 p) {
 }
 
 float map(vec3 p) {
-  vec3 po = transpose(gRout) * p;
-  vec3 pi = transpose(gRin) * p;
+  vec3 po = p * gRout;   // = transpose(gRout) * p
+  vec3 pi = p * gRin;
   float d = sdBoxFrame(po, vec3(gOuterS), gEdgeR);
   d = min(d, sdBoxFrame(pi, vec3(gInnerS), gEdgeR * 0.85));
   d = min(d, connectors(p));
@@ -116,7 +116,7 @@ void main() {
   gRout = rotY(t0 * 0.37) * rotX(t0 * 0.23 + 0.6) * rotZ(t0 * 0.11);
   gRin = rotY(-t0 * 0.29 + 1.3) * rotX(t0 * 0.41) * rotZ(-t0 * 0.19 + 2.1);
   gOuterS = sc;
-  gInnerS = gOuterS * (0.42 + 0.07 * sin(uTime * 0.5));
+  gInnerS = gOuterS * (0.42 + 0.07 * sin(uTime * 0.5) + 0.06 * kick);
   float lb = 1.0 + 1.6 * uLineBoost;
   gEdgeR = (0.026 + 0.018 * gl) * sc * lb;
   for (int i = 0; i < 8; i++) {
@@ -125,7 +125,7 @@ void main() {
     gA[i] = gRout * sgn * gOuterS;
     gB[i] = gRin * sgn * gInnerS;
     gBA[i] = gB[i] - gA[i];
-    gInvBA2[i] = 1.0 / dot(gBA[i], gBA[i]);   // never 0: inner <= 0.49 * outer
+    gInvBA2[i] = 1.0 / dot(gBA[i], gBA[i]);   // never 0: inner <= 0.55 * outer
   }
 
   vec3 ro = vec3(0.0, 0.0, -4.2 / sc);
@@ -140,17 +140,30 @@ void main() {
   float nodeGlow = 0.0;
   bool hit = false;
   vec3 p = ro;
+  // bounding sphere at the origin: corners (sqrt(3) * sc) + edge + glow reach
+  float R = 1.75 * sc + gEdgeR + 0.6;
+  float bq = dot(ro, rd);
+  float bh = bq * bq - (dot(ro, ro) - R * R);
+  float tExit = -1.0;
+  if (bh > 0.0) {
+    float sq = sqrt(bh);
+    t = max(-bq - sq, 0.0);
+    tExit = -bq + sq;
+  }
+  float zc = 4.2 / sc;   // camera to cube centre
   for (int i = 0; i < 72; i++) {
+    if (t > tExit) break;
     p = ro + rd * t;
     float d = map(p);
-    haloGlow += gEdgeR * gEdgeR * 3.0 / (d * d * 40.0 + 0.03) * 0.02 * gl;
+    // depth cue: near edges hot, far edges dim
+    float depthK = mix(1.25, 0.45, smoothstep(-1.5 * sc, 1.5 * sc, t - zc));
+    haloGlow += gEdgeR * gEdgeR * 3.0 / (d * d * 40.0 + 0.03) * 0.02 * gl * depthK;
     // nodeGlowAt loops the 8 corners — too costly to pay every one of the 72
     // steps for an accumulator this smooth; sample every 3rd step and scale
     // up to keep the same total contribution
     if (i % 3 == 0) nodeGlow += nodeGlowAt(p) * 0.018 * 3.0;
-    if (d < 0.0015) { hit = true; break; }
+    if (d < 0.0015 + 0.0005 * t) { hit = true; break; }
     t += clamp(d * 0.9, 0.01, 0.5);
-    if (t > 14.0) break;
   }
 
   vec3 col = vec3(0.0);
@@ -163,16 +176,19 @@ void main() {
     vec3 edgeCol = pal3(0.5 + 0.33 * n.x + 0.2 * n.y + 0.1 * n.z + uTime * 0.02);
     col += edgeCol * (0.5 + 0.5 * rim) * 1.2;
     col += vec3(1.0) * rim * 0.3;
+    col *= mix(1.25, 0.45, smoothstep(-1.5 * sc, 1.5 * sc, t - zc));
   }
   vec3 haloCol = mix(uColor1, uColor3, 0.4 + 0.3 * sin(uTime * 0.3));
   col += haloCol * haloGlow;
   vec3 nodeCol = mix(uColor3, vec3(1.0), 0.5 + 0.5 * kick);
-  col += nodeCol * nodeGlow * (0.6 + 1.8 * kick + 1.2 * beat);
+  col += nodeCol * nodeGlow * (0.6 + 1.8 * kick + 1.2 * beat + 0.8 * uHigh);
 
   // dark hangar with a hint of fog, never fully flat at silence
-  vec3 bg = uColor2 * 0.02 + uColor1 * 0.012 * smoothstep(1.0, -1.0, uv.y);
+  // radial: fog behind the cube, corners stay black on a projector
+  float bgR = exp(-dot(uv, uv) * 2.5);
+  vec3 bg = (uColor2 * 0.02 + uColor1 * 0.012 * smoothstep(1.0, -1.0, uv.y)) * bgR;
   col += bg;
-  col += mix(uColor1, uColor2, 0.5) * 0.02;
+  col += mix(uColor1, uColor2, 0.5) * 0.02 * bgR;
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.25 - dot(uv, uv) * 0.8, 0.4, 1.0);

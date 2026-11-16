@@ -217,7 +217,7 @@ void main() {
     if (t > tMax) break;
     l = toHead(ro + rd * t, th);
     float d = head(l);
-    if (d < 0.002) { hit = true; break; }
+    if (d < 0.002 + 0.0005 * t) { hit = true; break; }
     t += d * 0.9;
   }
 
