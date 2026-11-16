@@ -252,6 +252,9 @@ void main() {
     col += lc * (max(lx, lz) * 1.5 + halo * 0.22) * fog * pulse * (1.0 + 2.5 * wave + 1.6 * under);
     col += mix(lc, vec3(1.0), 0.5) * lx * lz * fog * 1.2;
     col += cAcc * (under * 0.10 + wave * 0.10 * fog);
+    // soft knee above the idle line level (asymptote 1.6): the kick still lifts the secondary channels toward white
+    float mxl = max(col.r, max(col.g, col.b));
+    if (mxl > 1.0) col *= (1.0 + 0.6 * (1.0 - exp(-(mxl - 1.0) * 1.5))) / mxl;
 
     // road: glowing edges and a dashed centre line rushing past
     float we = max(0.03, fx * pw);
@@ -343,10 +346,13 @@ void main() {
   }
 
   // ---- VHS: scanlines (the hi-hats shimmer them), a slow tracking band, vignette ----
-  col *= 1.0 - (0.07 + 0.06 * uHighHit) * step(mod(gl_FragCoord.y, 3.0), 1.0);
+  // pitch follows the frame height: visible at 4K, stable when dynamic resolution steps
+  float sl = max(3.0, floor(uResolution.y / 360.0));
+  col *= 1.0 - (0.07 + 0.06 * uHighHit) * step(mod(gl_FragCoord.y, sl), sl / 3.0);
   float band = fract(uv.y * 0.6 - t * 0.05) - 0.5;
   col *= 1.0 + 0.05 * exp(-band * band * 180.0);
   col *= 1.0 - 0.28 * dot(uv, uv);
 
+  col += (hash2(gl_FragCoord.xy) - 0.5) / 255.0;   // dither: 8-bit target bands the sky
   gl_FragColor = vec4(max(col, vec3(0.0)), 1.0);
 }

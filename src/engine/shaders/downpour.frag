@@ -123,7 +123,7 @@ void main() {
 
   // --- sky: dark gradient + clouds lit by the lightning
   float sky = smoothstep(hz, 1.0, vy);
-  vec3 col = mix(uColor2 * 0.10, uColor1 * 0.16, sky);
+  vec3 col = mix(uColor2 * 0.05, uColor1 * 0.10, sky);
   float cl = vnoise(vec2(xr * 1.3 - uTime * 0.03 * (1.0 + gust), vy * 2.6)) * 0.6
            + vnoise(vec2(xr * 3.1 + uTime * 0.05, vy * 6.0 - uTime * 0.02)) * 0.4;
   float lightX = (hash(vec2(floor(uBeatClock), 3.0)) - 0.5) * asp;
@@ -135,7 +135,7 @@ void main() {
   float fg = vnoise(vec2(xr * 1.6 + uBassTime * 0.05, vy * 3.0 - uTime * 0.04)) * 0.7
            + vnoise(vec2(xr * 3.7 - uTime * 0.07, vy * 6.0)) * 0.3;
   float fogD = (0.25 + 0.75 * fg) * (0.25 + 0.75 * exp(-abs(vy - hz) * 5.0));
-  col += mix(uColor3, uColor1, vy) * fogD * (0.16 + 0.12 * uBass + 0.12 * kick);
+  col += mix(uColor3, uColor1, vy) * fogD * (0.10 + 0.12 * uBass + 0.16 * kick);
 
   // --- skylines: far (lit windows) and near (black), city lights over them
   float aa = 1.5 * px;
@@ -148,7 +148,7 @@ void main() {
   if (vy <= hFar - 0.01) { // windows only below the far skyline (== step(0.0, hFar - vy - 0.01))
     vec2 wc = vec2(xr * 36.0 * sw, (vy - hz) * 40.0);
     vec2 wf = floor(wc);
-    float win = step(0.78, hash(wf + sd)) * step(0.15, fract(wc.x)) * step(0.15, fract(wc.y));
+    float win = step(0.78, hash(wf + sd)) * smoothstep(0.10, 0.2, fract(wc.x)) * smoothstep(0.10, 0.2, fract(wc.y));
     fcol += mix(uColor2, uColor3, hash(wf)) * win * (0.15 + 0.9 * uHigh + 1.2 * bolt);
   }
   col = mix(col, fcol, mFar);
@@ -185,8 +185,10 @@ void main() {
     vec3 bc3 = mix(uColor3, uColor1, hash(vec2(fi, 2.0)));
     col += bc3 * b * (0.10 + 0.14 * fg) * (0.8 + 0.6 * uBeat + 0.5 * uBass);
     col += bc3 * exp(-length(vec2(dx, uv.y - hy)) * 55.0) * (0.6 + 0.6 * uBeat); // lamp head
-    float pool = exp(-(dx * dx / 0.05 + (uv.y - hz * 0.45) * (uv.y - hz * 0.45) / 0.004));
-    col += bc3 * pool * 0.25 * (0.6 + 0.8 * uBass);
+    if (uv.y < 0.4) {                   // pool < 1e-6 above: exact to 8 bits
+      float pool = exp(-(dx * dx / 0.05 + (uv.y - hz * 0.45) * (uv.y - hz * 0.45) / 0.004));
+      col += bc3 * pool * 0.25 * (0.6 + 0.8 * uBass);
+    }
     beams += b * (0.4 + 0.6 * fg);
   }
 
@@ -209,5 +211,6 @@ void main() {
   col *= clamp(1.15 - dot(vq, vq) * 0.9, 0.35, 1.0);
   col += uColor1 * 0.02;
   col = 1.0 - exp(-col * 1.5);                         // soft tone-map: flashes never clip to flat white
+  col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;        // dither: 8-bit target bands the fog
   gl_FragColor = vec4(col, 1.0);
 }
