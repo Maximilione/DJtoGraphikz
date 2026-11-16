@@ -3301,9 +3301,12 @@ export class Engine {
    * projector stays frozen on whatever it drew last — usually black, because
    * the freeze happens before the first state arrives over IPC.
    * A timer keeps the frame going whenever rAF goes quiet.
+   * The control window needs the timer as well: its renderFrame runs the audio
+   * analysis, the audio frame listeners (Auto VJ, idle, sequences) and the
+   * track-change detector that the projector depends on.
    */
   private startWatchdog() {
-    if (this.watchdogId || !this.remote) return
+    if (this.watchdogId) return
     this.watchdogId = window.setInterval(() => {
       if (this.disposed) return
       // rAF healthy → nothing to do (this is just a timestamp compare).
