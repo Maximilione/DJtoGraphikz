@@ -50,6 +50,8 @@ void main() {
   float seed = hash(cell.x * 7.77);
   float tail = 6.0 + hash(cell.x * 3.31) * 16.0;      // per-column trail length
   float baseSpeed = fallspeed + hash(cell.x * 0.123) * 3.0;
+  // depth from the hashed speed: fast columns are near and bright
+  float near = 0.45 + 0.55 * hash(cell.x * 0.123);
 
   // head travels down; the cycle is longer than the screen so columns restart
   // staggered instead of all together. The bass speeds the fall through
@@ -85,9 +87,13 @@ void main() {
   color += uColor1 * g * fade * inTrail * 0.9;                 // body of the trail
   color += mix(uColor2, vec3(1.0), 0.6) * g * headMask * (1.7 + uBeat * 1.2);  // bright head, pulses
   color += uColor3 * g * inTrail * (f2 * f2) * 0.35;           // accent near the head
+  color += uColor1 * fade * inTrail * 0.07;                    // column back-glow: trails read from the back of the room
+  color *= near;
   color += mix(uColor1, vec3(1.0), 0.3) * flashCol * uBassHit * g * 1.6;   // the kick's whole-lit columns
 
-  color *= 0.92 + 0.08 * sin(pixel.y * 3.0);                    // scanlines
+  // scanlines at a real pitch (sin(y*3) beat into moire against the pixel grid)
+  float sl = max(2.0, floor(uResolution.y / 540.0));
+  color *= 0.92 + 0.08 * step(0.5, fract(pixel.y / sl));
   color *= 0.75 + uEnergy * 0.45;
   gl_FragColor = vec4(min(color, vec3(2.0)), 1.0);
 }

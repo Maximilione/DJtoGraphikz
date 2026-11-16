@@ -36,8 +36,9 @@ void main() {
   // once t is in the thousands.
   float travel = t * 0.15 + uBassTime * 0.2;
   float ringSpacing = spacing + uMid * 0.04;
-  float haloK = 30.0 / (1.0 + uLineBoost);
-  float haloAmp = 0.7 * (1.0 - 0.5 * uEnergy);
+  // tight halo: rings read in silence, the gaps between them stay black
+  float haloK = 48.0 / (1.0 + uLineBoost);
+  float haloAmp = 0.5 * (1.0 - 0.6 * uEnergy);
   // Per-ring phases are linear in the ring index, so inside the loop the
   // sin/cos pairs advance by a fixed rotation (angle-addition, 4 mads) instead
   // of 3 sin per ring: thickness phase steps by 2, gap phase by 1 + 0.1 t.
@@ -81,7 +82,8 @@ void main() {
       float ringR = mod(i * ringSpacing + travel, 1.0);
 
       // Ring thickness varies with angle
-      float thickness = 0.006 + th.x * 0.002;
+      // and grows with the radius, like a tunnel coming at the camera
+      float thickness = (0.006 + th.x * 0.002) * (0.6 + 1.4 * ringR);
 
       // Broken ring — gaps
       float gapMask = smoothstep(0.0, 0.3, g.x);
@@ -119,9 +121,11 @@ void main() {
   // Connecting lines between ring systems
   float linePattern = sin(uv.x * 50.0 + t * 2.0) * sin(uv.y * 50.0 - t * 1.5);
   linePattern = smoothstep(0.95, 1.0, linePattern);
-  color += uColor3 * linePattern * 0.2 * (0.3 + 0.7 * uEnergy);
+  color += uColor3 * linePattern * 0.2 * (0.15 + 0.5 * uEnergy + 0.8 * uHigh);
 
   color *= 1.0 + uBeat * 0.3;
-  color = min(color, vec3(2.0));
+  // soft knee on the max channel where systems cross: no per-channel clip skewing the hue
+  float mx = max(color.r, max(color.g, color.b));
+  if (mx > 0.8) color *= (0.8 + 0.2 * (1.0 - exp(-(mx - 0.8) * 5.0))) / mx;
   gl_FragColor = vec4(color, 1.0);
 }

@@ -66,6 +66,8 @@ void main() {
   // Edge glow
   float hw = max(1.9 * px, 0.03);   // ~ fwidth(hexDist) * 1.5
   float edge = smoothstep(0.48 - hw, 0.48, hexDist);
+  // inner neon falloff next to the outline
+  float eg = exp(-(0.48 - hexDist) * 14.0) * (1.0 - edge);
 
   // Beat: random cells flash — a third of them at most, or it is a strobe
   float beatFlash = step(0.9 - uBeat * 0.25, cellHash) * uBeat;
@@ -74,7 +76,7 @@ void main() {
   vec3 cellColor = cellHash < 0.3333333 ? uColor1 : (cellHash < 0.6666667 ? uColor2 : uColor3);
 
   // Shift color with wave
-  cellColor = mix(cellColor, uColor2, wave * 0.3);
+  cellColor = mix(cellColor, uColor2, max(wave, 0.0) * 0.3);
 
   // Fill with pattern — isolated round dots on a small sub-grid, drifting
   // slowly. The previous version thresholded sin(x)*sin(y): a product of
@@ -97,7 +99,10 @@ void main() {
   // tint), the faint tint every cell gets so the lattice never reads as
   // black on a wall, the dots and the beat flash; plus the centre dot
   float body = fill * 0.3 + (0.1 + 0.1 * wave) + fill * innerPattern * 0.3 + beatFlash;
-  vec3 color = cellColor * (edge * (0.8 + uEnergy * 0.2) + (1.0 - edge) * body + centerDot * 0.1 * fill);
+  body *= 1.0 + 0.9 * gv.y;   // lit from above: a bevel gradient per tile
+  // outlines ride the wave: lit rings of lattice run out over a dark one
+  float ride = 0.3 + 0.7 * fill;
+  vec3 color = cellColor * (edge * ride * (0.8 + uEnergy * 0.2) + (1.0 - edge) * body + centerDot * 0.1 * fill + eg * 0.35 * ride);
 
   // Vignette, relaxed along a LED strip
   float aspect = uResolution.x / uResolution.y;

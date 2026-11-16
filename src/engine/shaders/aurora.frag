@@ -66,8 +66,10 @@ vec2 foot(vec2 q, float tt, float ws, float az) {
   // each curtain breaks up along its length, and the kick surges through it
   float along = q.x * 0.16 + id * 3.7;
   float life = vn1(along - tt * 0.12) * vn1(along * 0.37 + 9.0 + tt * 0.05);
-  float surge = exp(-pow(fract(along * 0.25 - uBeatClock * 0.25) - 0.5, 2.0) * 40.0) * gKick;
+  float sg = fract(along * 0.25 - uBeatClock * 0.25) - 0.5;
+  float surge = exp(-sg * sg * 40.0) * gKick;
   float amp = smoothstep(0.12, 0.5, life + 0.35 * surge) * (0.55 + 0.9 * h11(id + 4.0));
+  if (amp <= 0.0) return vec2(0.0);       // exact: f.x scales everything
   // ws = how far w moves between two altitude samples: the sheet is widened to
   // that (and dimmed to keep its energy) so a thin curtain is never missed
   float s2 = 0.0038 + ws * ws * 0.6;
@@ -99,7 +101,10 @@ vec3 sky(vec3 d, int steps) {
   float n = float(steps);
   float az = atan(d.x, d.z);
   float ws = 0.3 * gCurt * abs(d.z) * (top - base) / (n * dy);
-  for (int i = 0; i < SKY_STEPS; i++) {
+  // exp(-k*2.1) and exp(-k*14) run incrementally: k steps by 1/n
+  float e1 = exp(-1.05 / n), e2 = exp(-7.0 / n), p1 = e1, p2 = e2;
+  e1 *= e1; e2 *= e2;
+  if (d.y > 0.03) for (int i = 0; i < SKY_STEPS; i++) {
     if (i >= steps) break;
     float k = (float(i) + 0.5) / n;
     float alt = mix(base, top, k);
@@ -107,13 +112,14 @@ vec3 sky(vec3 d, int steps) {
     q.y += 3.0;
     vec2 f = foot(q, tt, ws, az);
     // hard hem, long fade: the profile every photograph of an aurora shows
-    float prof = smoothstep(0.0, 0.07, k) * exp(-k * 2.1);
-    float hem = exp(-k * 14.0);
+    float prof = smoothstep(0.0, 0.07, k) * p1;
+    float hem = p2;
+    p1 *= e1; p2 *= e2;
     vec3 c = mix(uColor1, uColor2, smoothstep(0.05, 0.45, k));
     c = mix(c, uColor3 * 1.6, smoothstep(0.3, 0.8, k));
     c += vec3(1.0) * hem * (0.15 + 0.6 * gKick);
     float st = mix(f.y, 1.0, hem * 0.5);
-    acc += c * f.x * prof * st * (1.0 + 1.6 * gKick * hem + 0.6 * uBass);
+    acc += c * f.x * prof * st * (1.0 + 1.6 * gKick * hem + 0.35 * gKick + 0.6 * uBass);
   }
   // distance fade: far curtains sink into the haze at the horizon
   float fade = smoothstep(0.03, 0.24, d.y);
@@ -157,22 +163,10 @@ void main() {
   float cy = cos(yaw), sy = sin(yaw);
   d.xz = vec2(d.x * cy + d.z * sy, -d.x * sy + d.z * cy);
 
-  vec3 col = water ? sky(d, LAKE_STEPS) : sky(d, SKY_STEPS);
-
   // far range: hazy, takes the colour of the horizon glow
   float px = xm + yaw * 0.9;
   float r1 = 0.035 + ridge(px, 3.0, 0.11, 2.1);
   float m1 = 1.0 - smoothstep(r1 - 0.003, r1 + 0.003, ym);
-  col = mix(col, uColor3 * 0.035 + vec3(0.004, 0.006, 0.012), m1);
-
-  if (water) {
-    // the lake: darker than the sky, a sheen where ripples catch the light
-    col *= 0.85 - 0.3 * depth;
-    col += mix(uColor1, uColor2, 0.5 + 0.5 * sin(rp.y * 0.02)) * max(rip, 0.0) * 1.6 * (1.0 - depth * 0.5);
-    col += uColor3 * 0.008;
-    // shore line mist
-    col += mix(uColor1, uColor3, 0.6) * 0.035 * exp(y * 60.0);
-  }
 
   // near shore: black spit of land with pines, only above the waterline
   float nx = p.x + yaw * 1.6;
@@ -184,9 +178,27 @@ void main() {
   // a pine is a stack of tiers: saw-tooth silhouette tapering to the tip
   float hy = (p.y - land) / max(th, 1e-3);
   float tier = fract(hy * 7.0);
-  float pine = step(tf, (1.0 - hy) * (0.55 + 0.45 * (1.0 - tier))) * step(0.0, hy) * step(hy, 1.0);
+  // one screen pixel in tf units, so the teeth are antialiased
+  float e = 26.0 / uResolution.y;
+  float wdt = (1.0 - hy) * (0.55 + 0.45 * (1.0 - tier));
+  float pine = (1.0 - smoothstep(-e, e, tf - wdt)) * step(0.0, hy) * step(hy, 1.0);
   float ground = 1.0 - smoothstep(land - 0.002, land + 0.002, p.y);
   float fg = max(ground, pine * step(1e-3, th));
+
+  // the sky march only where the ridge and the shore leave it visible
+  vec3 col = vec3(0.0);
+  if (m1 < 1.0 && fg < 1.0) col = water ? sky(d, LAKE_STEPS) : sky(d, SKY_STEPS);
+  col = mix(col, uColor3 * 0.035 + vec3(0.004, 0.006, 0.012), m1);
+
+  if (water) {
+    // the lake: darker than the sky, a sheen where ripples catch the light
+    col *= 0.7 - 0.35 * depth;
+    col += mix(uColor1, uColor2, 0.5 + 0.5 * sin(rp.y * 0.02)) * max(rip, 0.0) * 1.6 * (1.0 - depth * 0.5);
+    col += uColor3 * 0.008;
+    // shore line mist
+    col += mix(uColor1, uColor3, 0.6) * 0.035 * exp(y * 60.0);
+  }
+
   // rim of light on the silhouette, so the foreground is cut out and not a hole
   float rim = smoothstep(land - 0.012, land, p.y) * ground;
   col = mix(col, vec3(0.0015, 0.002, 0.004) + uColor1 * 0.03 * rim * (0.5 + gKick), fg);
@@ -194,5 +206,6 @@ void main() {
   col += uColor3 * 0.004;                 // floor on silence
   col = col / (1.0 + 0.45 * col);
   col *= clamp(1.15 - dot(p, p) * 0.5, 0.5, 1.0);
+  col += (h21(gl_FragCoord.xy) - 0.5) / 255.0;   // dither: 8-bit target bands the sky
   gl_FragColor = vec4(max(col, 0.0), 1.0);
 }

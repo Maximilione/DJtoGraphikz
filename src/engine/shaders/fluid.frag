@@ -75,9 +75,9 @@ void main() {
   // crumpled noise with no readable shape
   float warpStrength = swirl + uBass * 0.6 + uBeat * 0.25;
   vec2 warp1 = vec2(
-    fbm(p + vec2(t * 0.3, t * 0.1)),
-    fbm(p + vec2(t * 0.1, t * 0.4) + 5.0)
-  ) * warpStrength;
+    fbm2(p + vec2(t * 0.3, t * 0.1)),
+    fbm2(p + vec2(t * 0.1, t * 0.4) + 5.0)
+  ) * warpStrength;   // only an offset for the next stages: two octaves are enough
 
   vec2 warp2 = vec2(
     fbm(p + warp1 + vec2(t * 0.2, 0.0) + 1.7),
@@ -95,6 +95,9 @@ void main() {
   float v1 = f1 * 0.5 + 0.5;
   float v2 = f2 * 0.5 + 0.5;
   float v3 = f3 * 0.5 + 0.5;
+  // contrast: dark channels open between the colour veins (v stays in [0, 1])
+  v1 = smoothstep(0.22, 0.85, v1);
+  v2 = smoothstep(0.22, 0.85, v2);
 
   // v^1.5 = v * sqrt(v), v^2 = v * v: v is in [0.06, 0.94], never negative
   vec3 color = vec3(0.0);
@@ -102,8 +105,15 @@ void main() {
   color += uColor2 * (v2 * sqrt(v2));
   color += uColor3 * (v3 * v3) * 0.5;
 
+  // liquid relief from the field itself, colour neutral
+  vec2 gr = vec2(dFdx(f1), dFdy(f1)) * uResolution.y / max(zoom, 0.5);
+  vec3 nn = normalize(vec3(-gr * 0.35, 1.0));
+  float spec = pow(max(dot(nn, normalize(vec3(0.4, 0.5, 0.75))), 0.0), 24.0);
+  color *= 0.875 + 0.25 * dot(nn.xy, vec2(0.6, 0.8));
+  color += vec3(1.0) * spec * (0.25 + 0.5 * uBeat);
+
   // Highlights at field extremes
-  float highlight = smoothstep(0.7, 1.0, v1 * v2);
+  float highlight = smoothstep(0.45, 0.8, v1 * v2);
   color += (uColor1 + uColor2) * highlight * 0.5;
 
   // Beat brightness
@@ -114,6 +124,7 @@ void main() {
   vec2 fc = (vUv - 0.5) * vec2(1.78, 1.0);
   float vig = 1.0 - length(fc) * 0.5;
   color *= vig;
+  color += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
 
   gl_FragColor = vec4(color, 1.0);
 }
