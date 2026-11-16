@@ -98,6 +98,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'quasicrystal', label: 'Quasi', icon: '❉' },
       { id: 'moire', label: 'Moiré', icon: '◎' },
       { id: 'vegabulge', label: 'Vega', icon: '◙' },
+      { id: 'hallway', label: 'Hallway', icon: '∩' },
+      { id: 'chase', label: 'Chase', icon: '»' },
       { id: 'spaceghost', label: 'Ghost', icon: '☁' },
       { id: 'lissajous', label: 'Lissaj', icon: '∞' },
       { id: 'stringart', label: 'String', icon: '✴' },

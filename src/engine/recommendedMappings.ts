@@ -533,6 +533,15 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     impacts: { source: 'energy', depth: 0.3, value: 1 },
     orbit: { source: 'lfo-sine', depth: 0.3, lfoRate: 64, value: 0.5 },
   },
+  hallway: {
+    candle: { source: 'bass', depth: 0.4, value: 1 },
+    shake: { source: 'energy', depth: 0.3, value: 1 },
+  },
+  chase: {
+    pace: { source: 'energy', depth: 0.3, value: 1 },
+    dust: { source: 'bass', depth: 0.4, value: 1 },
+    gap: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.5 },
+  },
   escher: {
     edge: { source: 'bass', depth: 0.4, value: 1 },
     spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.3 },
