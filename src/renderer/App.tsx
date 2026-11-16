@@ -1959,7 +1959,7 @@ export function App() {
                 <div className="ld-row">
                   <span className="ld-label">Scaletta</span>
                   <select
-                    value={seqPlayer.playingSeq ? seqPlayer.sequences.indexOf(seqPlayer.playingSeq) : liveSeq}
+                    value={seqPlayer.playing && seqPlayer.playingSeq ? seqPlayer.sequences.indexOf(seqPlayer.playingSeq) : liveSeq}
                     onChange={e => setLiveSeq(+e.target.value)}
                     disabled={seqPlayer.playing}
                     title="Scaletta da avviare"
