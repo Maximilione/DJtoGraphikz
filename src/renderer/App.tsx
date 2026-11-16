@@ -1203,7 +1203,7 @@ export function App() {
     }
     // A keyup that never arrives (the window lost focus mid-hold) would leave
     // the key logically down for ever, and the next press would be ignored.
-    const onBlur = () => { momentary.clear(); downAs.clear() }
+    const onBlur = () => { momentary.clear(k => !k.includes(':') || k.startsWith('look:')); downAs.clear() }
 
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKeyUp)
