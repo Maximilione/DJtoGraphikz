@@ -331,6 +331,15 @@ function createControlWindow(): BrowserWindow {
     reloads = [...reloads.filter(t => now - t < 60_000), now]
     if (reloads.length > 3) {
       console.error(`[Main] control renderer: ${reloads.length} crash in 60s, non lo ricarico (${d.reason})`)
+      // Async: a sync dialog blocks main, which relays state and audio to the walls
+      if (!SELFTEST) void dialog.showMessageBox(win, {
+        type: 'error',
+        message: 'La console si è chiusa più volte di seguito',
+        detail: 'Le uscite restano sull\'ultimo stato. Ricarica per riprovare.',
+        buttons: ['Ricarica', 'Annulla'], defaultId: 0, cancelId: 1,
+      }).then(r => {
+        if (r.response === 0 && !quitting && !win.isDestroyed()) { reloads = []; win.webContents.reload() }
+      })
       return
     }
     console.error(`[Main] control renderer gone (${d.reason}), ricarico tra ${500 * reloads.length}ms`)
