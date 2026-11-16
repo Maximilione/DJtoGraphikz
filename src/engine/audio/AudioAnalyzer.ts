@@ -468,7 +468,8 @@ export class AudioAnalyzer {
         if (data.bpm && data.bpm.length > 0) {
           const top = data.bpm[0]
           this.libraryBpm = Math.round(top.tempo)
-          this.libraryConfidence = top.confidence ?? (top.count > 20 ? 0.8 : top.count / 25)
+          // the library's own confidence is always 0 (v5.0.2 groupByTempo): use the interval count
+          this.libraryConfidence = top.count > 20 ? 0.8 : top.count / 25
         }
       })
 
