@@ -773,7 +773,7 @@ export class Engine {
     new THREE.Color(DEFAULT_COLORS[1]),
     new THREE.Color(DEFAULT_COLORS[2]),
   ]
-  private colorLerpSpeed = 0.04  // per frame, ~0.7s at 60fps
+  private colorLerpSpeed = 0.04  // per 1/60s, ~0.7s
 
   // Palette cycling
   private cycleEnabled = false
@@ -3380,6 +3380,7 @@ export class Engine {
     // Frame delta from elapsed time — clock.getDelta() is consumed by getElapsedTime()
     const dt = Math.min(time - this.lastFrameTime, 0.25)
     this.lastFrameTime = time
+    const k = dt * 60   // frames at 60Hz: per-frame constants below are tuned for 60fps
 
     let beatDetected: boolean
     let bpm: number
@@ -3401,7 +3402,7 @@ export class Engine {
       const ATTACK = 0.55
       const RELEASE = 0.09
       const env = (current: number, target: number) =>
-        current + (target - current) * (target > current ? ATTACK : RELEASE)
+        current + (target - current) * (1 - Math.pow(1 - (target > current ? ATTACK : RELEASE), k))
       this.smoothBass = env(this.smoothBass, audio.bass)
       this.smoothMid = env(this.smoothMid, audio.mid)
       this.smoothHigh = env(this.smoothHigh, audio.high)
@@ -3418,7 +3419,7 @@ export class Engine {
 
       // Beat pulse with decay
       if (beatDetected) this.beatPulse = 1.0
-      this.beatPulse *= 0.88
+      this.beatPulse *= Math.pow(0.88, k)
     }
 
     // Impact layer: same maths in both windows, driven by the audio each has
@@ -3484,7 +3485,7 @@ export class Engine {
 
     // Smooth color transitions (lerp current → target)
     for (let i = 0; i < 3; i++) {
-      this.colors[i].lerp(this.targetColors[i], this.colorLerpSpeed)
+      this.colors[i].lerp(this.targetColors[i], 1 - Math.pow(1 - this.colorLerpSpeed, k))
     }
 
     // Per-effect params: speed drives the effect clock, reactivity scales the
