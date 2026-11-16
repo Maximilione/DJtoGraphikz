@@ -60,7 +60,7 @@ void main() {
     o = 0.5 + 0.4 * sin(uTime * 0.3 + 6.2831 * o);
     vec2 rr = nb + o - f;
     if (dot(r1 - rr, r1 - rr) > 1e-5)
-      edge = min(edge, dot(0.5 * (r1 + rr), normalize(rr - r1)));
+      edge = min(edge, dot(0.5 * (r1 + rr), (rr - r1) * inversesqrt(dot(r1 - rr, r1 - rr))));
   }
 
   // half-width in cell units: widened by the boost, floored at a few screen
@@ -73,13 +73,16 @@ void main() {
   float pulse = exp(-abs(dist - uBeatPhase * 0.9) * 6.0) * (0.5 + 0.8 * uBass);
   // idle travelling pulse so a silent room still has light running in the cracks
   float pulse2 = exp(-abs(dist - fract(uTime * 0.12) * 1.1) * 7.0) * 0.6;
-  float lit = crack * (0.55 + (pulse * 1.4 + pulse2) * glow) * (1.0 + uBeat * 0.9);
+  float lit = crack * (0.3 + (pulse * 2.0 + pulse2) * glow) * (1.0 + uBeat * 0.9);
 
   // slabs: near black, a little grain, slightly lighter toward the crack
   float slab = 0.03 + 0.05 * h1 + exp(-edge * 8.0) * 0.07;
+  // each plate tilts toward a light: r1 runs linearly across it
+  slab *= 1.0 + 0.6 * dot(r1, vec2(0.5, 0.7));
+  vec3 slabC = mix(vec3(slab), uColor3 * slab * 1.6, 0.6) * 0.7;
   // slabs lit from below: the underglow rises from the bottom edge
   vec3 under = mix(uColor1, uColor3, uv.x) * (0.05 + 0.1 * (1.0 - uv.y) * (1.0 - uv.y)) * (0.6 + 0.8 * uEnergy);
-  vec3 col = vec3(slab) * (1.0 + 0.8 * uBassHit) + under * (0.5 + 0.9 * exp(-edge * 6.0));
+  vec3 col = slabC * (1.0 + 1.6 * uBassHit * step(0.6, h1)) + under * (0.5 + 0.9 * exp(-edge * 6.0));
   col += mix(uColor1, vec3(1.0), pulse * 0.5 + 0.15) * lit;
   // wide halo bleeding out of the crack, hot core on the kick
   col += mix(uColor2, uColor1, 0.5) * exp(-edge * 14.0 / (1.0 + uLineBoost)) * (0.12 + 0.5 * uBassHit) * glow;

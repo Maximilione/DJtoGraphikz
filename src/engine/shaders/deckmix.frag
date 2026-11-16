@@ -55,7 +55,11 @@ void main() {
       float d = length((vUv - 0.5) * 2.0 * h) / length(h);
       float r = uMix;
       // audio: the circle breathes with the bass and jumps on the beat
-      if (uMaskMode == 5) r = clamp(uMix * (0.7 + 0.6 * uBass) + 0.25 * uBeat, 0.0, 1.0);
+      if (uMaskMode == 5) {
+        // k = 0 at both fader ends (all A / all B), 1 at the centre: audio breathes only mid-fader
+        float k = uMix * (1.0 - uMix) * 4.0;
+        r = clamp(mix(uMix, uMix * (0.7 + 0.6 * uBass) + 0.25 * uBeat, k), 0.0, 1.0);
+      }
       m = edge(d, r, w);
     }
   }

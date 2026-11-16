@@ -58,14 +58,17 @@ void main() {
   }
 
   // idle glow so the grid never dies: slow breathing per cell
-  float idle = 0.2 + 0.08 * sin(uTime * (0.5 + h * 1.5) + h * TAU) + uEnergy * 0.1;
+  float idle = 0.10 + 0.06 * sin(uTime * (0.5 + h * 1.5) + h * TAU) + uEnergy * 0.1;
 
   // cell shape with a gap and soft edge
   vec2 e = smoothstep(0.0, 0.06, f) * smoothstep(1.0, 0.94, f);
   float shape = e.x * e.y;
+  // lens falloff: each cell reads as a fixture, not a flat square
+  shape *= 1.0 - 1.1 * dot(f - 0.5, f - 0.5);
 
   vec3 c1 = mix(uColor1, uColor2, hash(cell + 4.2));
-  vec3 color = c1 * (idle + kick * 1.8) * shape;
+  // fired cells get a white-hot core on the kick
+  vec3 color = mix(c1, vec3(1.0), 0.4 * lit * uBassHit) * (idle + kick * 1.8) * shape;
   color += uColor3 * spark * 2.2 * shape;
   // scan sweep line for motion between kicks
   float sweepPos = fract(uBarPhase);

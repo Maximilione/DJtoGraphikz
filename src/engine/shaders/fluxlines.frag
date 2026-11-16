@@ -13,6 +13,7 @@ uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
 uniform vec2 uResolution;
+uniform float uLineBoost;
 
 varying vec2 vUv;
 
@@ -95,9 +96,9 @@ void main() {
   for (int i = 0; i < MAXP; i++) {
     if (i >= N) break;
     float fi = float(i);
-    vec2 a = orbit(fi, pat - 1.0, w);
+    // uniform branch: the previous pattern only matters during the crossfade
     vec2 b = orbit(fi, pat, w);
-    vec2 pi = R * mix(a, b, xf);
+    vec2 pi = R * (xf < 1.0 ? mix(orbit(fi, pat - 1.0, w), b, xf) : b);
 
     float qbase = mod(fi, 2.0) < 0.5 ? 1.0 : -1.0;
     float nf = kc >= fi ? floor((kc - fi) / fN) + 1.0 : 0.0;
@@ -136,9 +137,12 @@ void main() {
   float lk = mod(lineId, K);
   float lh = hash11(lk);
   float shim = hash11(lk * 1.7 + floor(uTime * 12.0));
-  float wd = px * (1.2 + 0.8 * uHigh * shim);
+  // drawn widths scale with the output so 4K lines match 1080p on the wall
+  float pxl = px * max(1.0, uResolution.y / 1080.0);
+  float lb = (1.0 + 2.5 * uLineBoost) / 2.25;
+  float wd = pxl * (1.2 + 0.8 * uHigh * shim) * lb;
   float cor = smoothstep(wd * 1.5, 0.0, dist1);
-  float halo = exp(-dist1 / (px * 6.0 * glow + 1e-4)) * 0.35 * glow;
+  float halo = exp(-dist1 / (pxl * 6.0 * glow * lb + 1e-4)) * 0.35 * glow;
   float sp = TAU / (K * gpsi) / px;
   float avg = 0.25 + 0.15 * glow;
   float lineAA = mix(avg, cor + halo, smoothstep(1.5, 4.0, sp));
@@ -152,7 +156,8 @@ void main() {
 
   // travelling pulses along the lines: one wave per beat
   float ph = phi * 1.2 - uBeatClock * flow + lh * 0.3;
-  float pulse = pow(0.5 + 0.5 * cos(TAU * ph), 8.0);
+  float pulse = 0.5 + 0.5 * cos(TAU * ph);
+  pulse *= pulse; pulse *= pulse; pulse *= pulse;
   // |grad phi| == |grad psi|: near the poles the pulses get denser than a pixel,
   // fade them to their mean (0.196) there
   pulse = mix(0.196, pulse, smoothstep(0.4, 0.15, gpsi * 1.2 * px));
@@ -160,7 +165,7 @@ void main() {
 
   // shockwave ring from the flipping pole
   float dr = abs(length(p - pFl) - rw);
-  float sw = exp(-dr / (px * 3.0)) * front * 1.2 + exp(-dr * 18.0) * front * 0.25;
+  float sw = exp(-dr / (pxl * 3.0)) * front * 1.2 + exp(-dr * 18.0) * front * 0.25;
   bl *= 1.0 + 3.0 * exp(-dr * 25.0) * front;
   bl *= 0.75 + 0.5 * uEnergy;
 
@@ -173,6 +178,7 @@ void main() {
   vec3 col = lc * bl;
   col += mix(uColor3, vec3(1.0), 0.6) * core * (0.8 + 0.6 * uBass);
   col += vec3(1.0) * smoothstep(0.6, 1.0, bl * cor) * 0.5;
+  col += mix(lc, vec3(1.0), 0.6) * pulse * pulse * cor * 0.5;
   col += uColor3 * sw;
 
   // background and soft vignette

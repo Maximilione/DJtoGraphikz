@@ -44,7 +44,9 @@ void main() {
   // Infinite tunnel. Travel is integrated (uBassTime, uTime) so speed changes
   // never teleport the pattern; the kick adds an instant lurch forward.
   float build = uBarPhase * uBarPhase;
-  float depth = 1.0 / (r + 0.05) + uTime * (2.0 + build * 1.5) + uBassTime * 1.6 + uBassHit * 0.7;
+  // bar surge: offset is 0 at both ends of the bar, so position stays continuous and
+  // only speed changes (slow early, surging into the downbeat); always forward at club BPM
+  float depth = 1.0 / (r + 0.05) + uTime * 2.0 + 2.4 * uBarPhase * (uBarPhase - 1.0) + uBassTime * 1.6 + uBassHit * 0.7;
 
   // Wall panels: sectors around, slabs along the depth
   float sg = max(floor(sides + uMid * 3.0), 3.0);
@@ -68,6 +70,7 @@ void main() {
   float litThr = 0.82 - 0.14 * uBassHit - 0.08 * uHigh;
   float lit = step(litThr, h) * smoothstep(0.02, 0.14, ea) * smoothstep(0.02, 0.12, ez) * nr;
   lit *= 0.7 + 0.3 * sin(uTime * 6.0 + h * TAU);
+  lit *= 0.45 + 0.55 * fz;                      // bright leading edge, dark tail: speed and depth
 
   // Soft wall texture, keeps the tube readable between the lines
   float p1 = sin(depth * 4.0 + a * sg) * 0.5 + 0.5;
@@ -90,7 +93,7 @@ void main() {
   color += c1 * rings * (1.3 + 0.8 * uBassHit);
   color += c2 * segs * 1.1;
   color += c3 * lit * 1.2;
-  color += c3 * p1 * p2 * 0.3;
+  color += c3 * p1 * p2 * 0.3 * (0.4 + 0.6 * step(0.5, h)); // dark slabs between textured ones
   color += mix(c1, vec3(1.0), 0.7) * spark * (0.8 + uHigh);
 
   // Floor of light: never black even in silence
@@ -107,9 +110,6 @@ void main() {
   float fog = mix(0.35, 1.0, exp(-r * 1.5));
   float pulse = 1.0 + uBeat * 0.6 + build * 0.3;
   color *= fog * pulse;
-
-  // Scanlines
-  color *= 0.97 + 0.03 * sin(gl_FragCoord.y * 1.5);
 
   color = vec3(1.0) - exp(-color * 1.3);
   gl_FragColor = vec4(color, 1.0);

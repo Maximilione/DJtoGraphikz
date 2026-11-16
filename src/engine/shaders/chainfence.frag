@@ -60,23 +60,67 @@ void beamAxis(float i, float extra, out vec3 a, out vec3 d) {
   d = normalize(vec3(-cos(ang) * 0.6 + tilt, -sin(ang) * 0.6 + tilt * 0.7, 0.5));
 }
 
-// density contributed by all beams at sample p, integrated with the step weight
-float beamsAt(vec3 p, float kick) {
-  float d = 0.0;
+// Beam axes, weights and colours depend only on uniforms: built once per pixel
+// in main() (was 27x per pixel inside the march).
+vec3 gA[5];
+vec3 gD[5];
+float gW[5];
+float gK[5];
+vec3 gC[5];
+
+void setupBeams(float kick) {
+  vec3 c1 = mix(uColor1, vec3(1.0), 0.35);
+  vec3 c2 = mix(uColor2, vec3(1.0), 0.35);
   for (int i = 0; i < 4; i++) {
-    vec3 a, dir;
-    beamAxis(float(i), 0.0, a, dir);
+    beamAxis(float(i), 0.0, gA[i], gD[i]);
     float base = (i == 0) ? 0.35 : 0.2; // beam 0: the one that never turns off
     float react = 0.5 * uMid + 0.4 * uHigh * hash21(vec2(float(i), floor(uTime * 3.0)));
-    float k2 = lineDist2(p, a, dir);
-    d += exp(-k2 * 10.0) * (base + react) * (1.0 + 1.6 * kick);
+    gW[i] = (base + react) * (1.0 + 1.6 * kick);
+    gK[i] = 10.0;
+    gC[i] = (i == 1 || i == 3) ? c2 : c1;
   }
   // the fifth beam: a fresh, randomly aimed shaft that exists only on the hit
   float bucket = floor(uBeatClock);
-  vec3 a5, d5;
-  beamAxis(4.0 + mod(bucket, 7.0), hash21(vec2(bucket, 2.3)) * TAU, a5, d5);
-  d += exp(-lineDist2(p, a5, d5) * 12.0) * kick * 2.2;
+  beamAxis(4.0 + mod(bucket, 7.0), hash21(vec2(bucket, 2.3)) * TAU, gA[4], gD[4]);
+  gW[4] = kick * 2.2;
+  gK[4] = 12.0;
+  gC[4] = mix(uColor3, vec3(1.0), 0.6);
+}
+
+// coloured beam density at a point (used on the wall)
+vec3 beamsAt(vec3 p) {
+  vec3 d = vec3(0.0);
+  for (int i = 0; i < 5; i++) d += gC[i] * exp(-lineDist2(p, gA[i], gD[i]) * gK[i]) * gW[i];
   return d;
+}
+
+float erfApprox(float x) {
+  float x2 = x * x;
+  return sign(x) * sqrt(1.0 - exp(-x2 * (1.2732 + 0.14 * x2) / (1.0 + 0.14 * x2)));
+}
+
+// exact integral of every beam's gaussian density along the ray over [0.1, tEnd]
+// (replaces a 26-step march that beaded beams crossing the tube axis)
+vec3 beamsAlongRay(vec3 ro, vec3 rd, float tEnd) {
+  vec3 acc = vec3(0.0);
+  for (int i = 0; i < 5; i++) {
+    vec3 q = ro - gA[i];
+    float rdd = dot(rd, gD[i]);
+    float qd = dot(q, gD[i]);
+    float A = max(1.0 - rdd * rdd, 1e-3);
+    float B = dot(q, rd) - qd * rdd;
+    float C = dot(q, q) - qd * qd;
+    float k = gK[i];
+    float s = sqrt(k * A);
+    float m = B / A;
+    float I = exp(-k * max(C - B * m, 0.0)) * 0.5 * sqrt(3.14159 / (k * A))
+            * (erfApprox(s * (tEnd + m)) - erfApprox(s * (0.1 + m)));
+    // dust motes: sparkle sampled where the ray passes closest to the beam
+    vec3 p = ro + rd * clamp(-m, 0.1, tEnd);
+    float dust = 0.8 + 0.4 * sin(p.z * 3.1 + p.x * 5.0 + uTime * 0.6);
+    acc += gC[i] * I * gW[i] * dust;
+  }
+  return acc;
 }
 
 void main() {
@@ -100,34 +144,30 @@ void main() {
   }
   tWall = min(tWall, 60.0);
 
-  // march the open air for the beams and their dust
-  vec3 vol = vec3(0.0);
+  // the open air: beams and their dust, integrated in closed form
+  setupBeams(kick);
   float hz = haze * (0.5 + 0.5 * uBass);
-  float t = 0.1;
-  int steps = 26;
-  float dt = tWall / float(steps);
-  for (int i = 0; i < 26; i++) {
-    vec3 p = ro + rd * t;
-    float bd = beamsAt(p, kick) * beamIntensity;
-    vec3 beamCol = mix(uColor1, vec3(1.0), 0.5);
-    // dust motes: cheap per-sample sparkle riding the beam density
-    float dust = 0.8 + 0.4 * sin(p.z * 3.1 + p.x * 5.0 + uTime * 0.6);
-    vol += beamCol * bd * hz * dust * dt * 0.55;
-    t += dt;
-  }
+  vec3 vol = beamsAlongRay(ro, rd, tWall) * beamIntensity * hz * 0.55;
 
   vec3 col = vol;
   if (tWall < 59.0) {
     vec3 p = ro + rd * tWall;
     float theta = atan(p.y, p.x) + uTime * rotSpeed * 0.2;
-    vec2 wuv = vec2(theta * R * 2.6, p.z * 2.6);
+    // integer cell count per turn: no lattice seam at atan = +-pi
+    vec2 wuv = vec2(theta * (34.0 / TAU), p.z * 2.6);
     float wd = cellWire(wuv);
     float thickness = 0.05 + 0.015 * uHigh;
-    float wire = smoothstep(thickness, 0.0, wd);
-    float lit = beamsAt(p, kick) * beamIntensity;
+    // pixel footprint in lattice units; fade to mean coverage where the mesh is sub-pixel
+    float px = 2.6 * tWall / (1.2 * uResolution.y);
+    float wire = 1.0 - smoothstep(max(thickness - px, 0.0), thickness + px, wd);
+    wire = mix(wire, 2.0 * thickness, smoothstep(0.12, 0.4, px));
+    vec3 lit = beamsAt(p) * beamIntensity;
     vec3 metal = mix(vec3(0.03, 0.032, 0.035), uColor2 * 0.06, 0.5);
     vec3 wireCol = mix(uColor1, vec3(1.0), 0.4);
-    vec3 surf = metal * wire * 0.3 + wireCol * wire * (0.15 + 1.1 * lit);
+    vec3 surf = metal * wire * 0.3 + wireCol * wire * 0.15 + lit * wire * 1.1;
+    // kick ripple travelling down the fence
+    float rip = exp(-abs(p.z - ro.z - (1.0 - kick) * 18.0) * 0.9) * kick;
+    surf += mix(uColor3, vec3(1.0), 0.4) * wire * rip * 0.9;
     // rim: the fence catches a cold edge even outside any beam, so it never vanishes
     surf += uColor3 * wire * 0.05;
     float fog = exp(-tWall * 0.028);
@@ -140,5 +180,6 @@ void main() {
   col += mix(uColor1, uColor2, 0.5) * 0.015;
   col = col / (1.0 + 0.6 * col);
   col *= clamp(1.2 - dot(uv, uv) * 0.8, 0.45, 1.0);
+  col += (hash21(gl_FragCoord.xy) - 0.5) / 255.0; // dither: dark haze bands on 8-bit
   gl_FragColor = vec4(col, 1.0);
 }

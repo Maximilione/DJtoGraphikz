@@ -65,24 +65,24 @@ void main() {
   float lines = smoothstep(0.0, 0.5, m12) - smoothstep(0.5, 1.0, m12);
   float iso = exp(-abs(m12 - 0.5) * 12.0);
 
-  vec3 color = uColor1 * smoothstep(0.2, 0.9, m12);
-  color += uColor2 * smoothstep(0.4, 1.0, -m123) * 0.8;
+  vec3 color = uColor1 * smoothstep(0.38, 0.62, m12);
+  color += uColor2 * smoothstep(0.45, 0.75, -m123) * 0.8;
   color += uColor3 * (lines * 0.35 + iso * 0.3);
   color += uColor3 * smoothstep(0.7, 1.0, f1 * f4) * 0.25;
 
   // White-hot where all three fields align: bloom food, stronger on the kick
   float hot = smoothstep(0.86, 1.0, abs(m123));
-  color += vec3(1.0) * hot * (0.25 + 0.7 * uBassHit);
+  color += vec3(1.0) * hot * (0.25 + 0.7 * uBassHit + 0.5 * uHighHit);
 
   // beat inverts the field polarity briefly: the classic op-art flip
-  color = mix(color, uColor2 * (1.0 - smoothstep(0.2, 0.9, m12)) + uColor3 * iso * 0.4, uBassHit * 0.5);
+  color = mix(color, uColor2 * (1.0 - smoothstep(0.2, 0.9, m12)) + uColor3 * iso * 0.4, smoothstep(0.35, 0.65, uBassHit) * 0.75);
 
   // Kick shockwave ring
   float sw = (r0 - (0.05 + 0.9 * (1.0 - uBassHit))) * 14.0;
   color += mix(uColor3, vec3(1.0), 0.5) * exp(-sw * sw) * uBassHit * 0.9;
 
   // Faint palette haze: never black
-  color += mix(uColor1, uColor3, r0) * 0.04;
+  color += mix(uColor1, uColor3, r0) * 0.04 * smoothstep(0.9, 0.2, r0);
 
   color *= 1.0 + 0.3 * uBeat;
   color *= smoothstep(1.35, 0.55, r0);

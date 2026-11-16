@@ -72,10 +72,14 @@ vec3 src(vec2 p, float t, float look, float seed, float asp) {
     c = pick(i, seed);
     vec2 dc = p - vec2(sin(t * 0.9) * 0.3, 0.02);
     float r = length(dc);
-    if (r < 0.28) c = (r > 0.25) ? uColor3 : vec3(0.95);
+    // antialiased over ~1.5 px: no crawling jaggies on the clean I-frames
+    float e = 1.5 / uResolution.y;
+    c = mix(c, uColor3, 1.0 - smoothstep(0.28 - e, 0.28 + e, r));
+    c = mix(c, vec3(0.95), 1.0 - smoothstep(0.25 - e, 0.25 + e, r));
     if (p.y < -0.3) {
       float g = floor(clamp((p.x / asp + 0.5), 0.0, 0.999) * 12.0) / 11.0;
-      c = vec3(g * 0.9 + 0.05);
+      // test-card ramp tinted in palette, not a neutral grey strip
+      c = mix(uColor3, vec3(1.0), 0.45) * (g * 0.9 + 0.05);
     }
   } else if (look == 1.0) {
     c = uColor2 * 0.35;
@@ -85,7 +89,8 @@ vec3 src(vec2 p, float t, float look, float seed, float asp) {
     if (p.x > 0.0 && p.y > 0.0 && fract((p.x + p.y) * 8.0 + t) > 0.5) c = uColor1;
     vec2 o = vec2(cos(t * 1.1), sin(t * 1.3)) * 0.33;
     if (sdBox(p - o, vec2(0.07)) < 0.0) c = uColor3;
-    if (cr < 0.0) c = vec3(0.95);
+    float e = 1.5 / uResolution.y;
+    c = mix(c, vec3(0.95), 1.0 - smoothstep(-e, e, cr));
   } else {
     vec2 ce = vec2(sin(t * 0.5) * 0.15, cos(t * 0.4) * 0.1);
     float ring = step(0.5, fract(length(p - ce) * 6.0 - t * 0.8));
@@ -94,7 +99,7 @@ vec3 src(vec2 p, float t, float look, float seed, float asp) {
     float b2 = smoothstep(0.26, 0.08, length(p - vec2(0.3 * asp * 0.8, -0.12 * cos(t * 1.2))));
     c = mix(c, uColor2, max(b1, b2) * 0.85);
   }
-  return max(c, vec3(0.05));
+  return max(c, vec3(0.015));
 }
 
 vec2 flow(vec2 q, float e) {
@@ -169,7 +174,8 @@ void main() {
   vec2 pcPx = (floor((px - D * (1.0 + 0.6 * bleed)) / cb2) + 0.5) * cb2;
   vec2 pc = (pcPx - half_) / uResolution.y;
   vec3 s2 = src(pc, tS, look, seedBar, asp);
-  vec3 s3 = src(pc - D * 0.5 * bleed / uResolution.y, tS, look, seedBar, asp);
+  // still blocks (D == 0) sample the same point twice: reuse s2
+  vec3 s3 = (D.x == 0.0 && D.y == 0.0) ? s2 : src(pc - D * 0.5 * bleed / uResolution.y, tS, look, seedBar, asp);
   vec3 cm = 0.5 * (s2 + s3);
   float Yc = lum(cm);
   float Cb = (cm.b - Yc) * 0.564;
@@ -209,6 +215,6 @@ void main() {
     rgb = mix(rgb, cs, clean) + 0.15 * clean;
   }
 
-  rgb = max(rgb, vec3(0.04));
+  rgb = max(rgb, vec3(0.01));
   gl_FragColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
 }

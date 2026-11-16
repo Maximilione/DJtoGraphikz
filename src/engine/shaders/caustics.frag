@@ -83,7 +83,7 @@ void main() {
   float shafts = (sh * sh * sh) * smoothstep(0.0, 1.0, uvp.y) * (0.05 + 0.10 * uEnergy + 0.18 * uBassHit);
 
   vec3 c = water * 0.35 + uColor3 * 0.035;
-  c += uColor1 * light2 * (0.10 + 0.12 * uEnergy);
+  c += mix(uColor1, uColor3, 0.5) * light2 * (0.16 + 0.14 * uEnergy);
   c += uColor2 * shafts;
   c += uColor2 * light * (0.22 + 0.40 * uEnergy + 0.35 * uBeat + 0.45 * uBassHit);
   c += uColor1 * pow(light, 1.6) * 0.22;

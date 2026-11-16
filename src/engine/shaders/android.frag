@@ -88,25 +88,34 @@ float body(vec3 p) {
     float head = sdEllipsoid(p - vec3(0.0, 0.64, -0.01), vec3(0.235, 0.31, 0.27));
     float jaw = sdEllipsoid(p - vec3(0.0, 0.44, 0.06), vec3(0.165, 0.18, 0.2));
     float h = smin(head, jaw, 0.14);
-    h = smin(h, sdEllipsoid(p - vec3(0.0, 0.33, 0.15), vec3(0.075, 0.07, 0.08)), 0.07);   // chin
-    h = smin(h, sdEllipsoid(m - vec3(0.105, 0.55, 0.15), vec3(0.09, 0.065, 0.085)), 0.08); // cheekbones
-    h = smin(h, sdEllipsoid(p - vec3(0.0, 0.54, 0.255), vec3(0.03, 0.065, 0.05)), 0.05);   // nose
-    h = smax(h, -sdEllipsoid(m - vec3(0.095, 0.62, 0.245), vec3(0.075, 0.04, 0.06)), 0.035); // eye sockets
-    h = smax(h, -sdEllipsoid(m - vec3(0.1, 0.5, 0.2), vec3(0.06, 0.03, 0.05)), 0.04);        // under-eye hollows
-    d = smin(d, h, 0.12);
+    if (h > 0.2) {
+      // far from the head: the details cannot protrude more than 0.08, keep the bound conservative
+      d = smin(d, h - 0.08, 0.12);
+    } else {
+      h = smin(h, sdEllipsoid(p - vec3(0.0, 0.33, 0.15), vec3(0.075, 0.07, 0.08)), 0.07);   // chin
+      h = smin(h, sdEllipsoid(m - vec3(0.105, 0.55, 0.15), vec3(0.09, 0.065, 0.085)), 0.08); // cheekbones
+      h = smin(h, sdEllipsoid(p - vec3(0.0, 0.54, 0.255), vec3(0.03, 0.065, 0.05)), 0.05);   // nose
+      h = smax(h, -sdEllipsoid(m - vec3(0.095, 0.62, 0.245), vec3(0.075, 0.04, 0.06)), 0.035); // eye sockets
+      h = smax(h, -sdEllipsoid(m - vec3(0.1, 0.5, 0.2), vec3(0.06, 0.03, 0.05)), 0.04);        // under-eye hollows
+      d = smin(d, h, 0.12);
+    }
   }
   if (p.y < 0.3) {
     // trapezius slopes from the neck to the rounded shoulders
     float lo = sdEllipsoid(m - vec3(0.24, -0.02, -0.045), vec3(0.2, 0.09, 0.11));
     lo = smin(lo, sdEllipsoid(m - vec3(0.46, -0.15, -0.02), vec3(0.17, 0.15, 0.15)), 0.14);
-    // clavicles
-    lo = smin(lo, sdCapsule(m, vec3(0.04, -0.09, 0.1), vec3(0.34, -0.08, 0.06), 0.03), 0.05);
-    // torso tapering to the waist, with soft pectorals
+    // torso tapering to the waist
     vec3 q = p - vec3(0.0, -0.52, 0.0);
     q.x *= 1.0 + 0.5 * (q.y + 0.4);
     float torso = sdEllipsoid(q, vec3(0.34, 0.5, 0.2)) * 0.85;
     lo = smin(lo, torso, 0.18);
-    lo = smin(lo, sdEllipsoid(m - vec3(0.14, -0.29, 0.1), vec3(0.16, 0.12, 0.1)), 0.1);
+    if (lo < 0.2) {
+      // clavicles and soft pectorals only near the skin
+      lo = smin(lo, sdCapsule(m, vec3(0.04, -0.09, 0.1), vec3(0.34, -0.08, 0.06), 0.03), 0.05);
+      lo = smin(lo, sdEllipsoid(m - vec3(0.14, -0.29, 0.1), vec3(0.16, 0.12, 0.1)), 0.1);
+    } else {
+      lo -= 0.05;
+    }
     d = smin(d, lo, 0.16);
   }
   return d;
@@ -176,7 +185,7 @@ void main() {
     t += hash21(gl_FragCoord.xy) * 0.01;
     for (int i = 0; i < 60; i++) {
       float d = map(roO + rdO * t);
-      if (d < 0.002) { hit = true; break; }
+      if (d < 0.002 + 0.0008 * (t - ts)) { hit = true; break; }
       t += d;
       if (t > tEnd) break;
     }
@@ -187,6 +196,8 @@ void main() {
       // normal taps overwrite it
       float eroHit = gEro;
       vec3 nO = normalAt(pO);
+      // 1-tap occlusion: sockets, under-jaw and neck go dark, the bust reads as volume
+      float ao = clamp(0.4 + 0.6 * map(pO + nO * 0.12) / 0.12, 0.0, 1.0);
       vec3 n = rotY(nO, gRotC.x, gRotC.y);      // back to world, for the reflections
       vec3 r = reflect(rd, n);
       float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
@@ -207,7 +218,7 @@ void main() {
         vec3 rough = studio(normalize(r + (vec3(ph, hash21(cid + 3.0), hash21(cid + 7.0)) - 0.5) * 0.9));
         metal = mix(metal, rough, 0.2);
       }
-      vec3 surf = metal * (0.55 + 0.9 * fres) * mix(1.0, 0.45, seam);
+      vec3 surf = metal * (0.32 + 1.15 * fres) * mix(1.0, 0.45, seam) * ao;
       surf += uColor2 * 0.06;   // ambient: never a black body
 
       // fine luminous veins running under the skin; the slow pulse noise only
@@ -231,7 +242,7 @@ void main() {
 
       // the eroded edge burns
       float rim = 1.0 - smoothstep(0.0, 0.08, eroHit - gLvl);
-      surf += mix(uColor3, vec3(1.0), 0.3) * rim * (1.4 + 1.5 * uBass) * (0.4 + 0.6 * glow);
+      surf += mix(uColor3, vec3(1.0), 0.3) * rim * (1.4 + 1.5 * uBass) * (1.0 + 0.8 * gKick) * (0.4 + 0.6 * glow);
 
       col = surf;
     }
@@ -240,7 +251,7 @@ void main() {
   if (!hit) {
     // night behind the figure: dark cold gradient, a halo that breathes with the bass
     vec2 bd = uv - vec2(0.0, 0.1);
-    col = uColor2 * (0.05 + 0.05 * (1.0 - uv.y))
+    col = uColor2 * (0.015 + 0.035 * (1.0 - uv.y))
         + uColor1 * exp(-dot(bd, bd) * 7.0) * (0.12 + 0.2 * uBass + 0.25 * gKick)
         + uColor3 * exp(-abs(uv.x) * 14.0) * 0.05 * (0.5 + uMid);
   }

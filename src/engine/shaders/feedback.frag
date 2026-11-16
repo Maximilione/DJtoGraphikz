@@ -49,5 +49,8 @@ void main() {
 
   // The decay IS the wet of this effect: the mix only fades the trail in over
   // the first quarter of the fader so the intensity macro can take it to zero.
-  gl_FragColor = mix(current, max(current, prev * decay), smoothstep(0.0, 0.25, a));
+  // 8-bit target: prev*decay rounds back to itself below ~16/255, so trails never
+  // reached black. The small subtractive floor lets the residue clear.
+  vec4 hist = max(prev * decay - 1.5 / 255.0, 0.0);
+  gl_FragColor = mix(current, max(current, hist), smoothstep(0.0, 0.25, a));
 }

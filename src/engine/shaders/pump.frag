@@ -111,13 +111,17 @@ void main() {
     float d = sdPolyA(4.71238898 - ang + th, rP, size, sides);
     float ad = abs(d);
     float aa = fwidth(d) + 1e-4;
-    float line = aaBand(ad, w, aa);
-    float hot = aaBand(ad, w * 0.35, aa);
-    float glow = exp(-ad * (26.0 + 10.0 * odd)) * 0.4;
+    // depth: inner (far) rings thin and dim, outer (near) thick and hot
+    float dep = 0.55 + 0.45 * fi / n;
+    float line = aaBand(ad, w * dep, aa);
+    float hot = aaBand(ad, w * dep * 0.35, aa);
+    // glow reach tied to ring spacing: black gaps survive at 9-12 rings
+    float gk = max(26.0 + 10.0 * odd, 2.2 / (stp * fit));
+    float glow = exp(-ad * gk) * 0.4;
     // inner side dimmer, outer side brighter: the ring reads as a lit edge
     glow *= d < 0.0 ? 0.6 : 1.0;
     vec3 tint = mod(fi, 3.0) == 0.0 ? uColor1 : mod(fi, 3.0) == 1.0 ? uColor2 : uColor3;
-    float level = mix(0.6 + 0.6 * uHigh, 0.6 + 0.8 * uBassHit, fi / n);
+    float level = mix(0.6 + 0.6 * uHigh, 0.6 + 0.8 * uBassHit, fi / n) * dep;
     col += tint * (line + glow) * level + vec3(1.0) * hot * 0.35 * level;
 
     // ticks standing on the outside of the ring, growing with the bass
@@ -142,6 +146,8 @@ void main() {
   // a core that breathes with the bass and flashes on the beat
   float core = exp(-r0 * (36.0 - 14.0 * uBass));
   col += mix(uColor1, vec3(1.0), 0.55) * core * (0.4 + uBeat * 1.1);
+
+  col = 1.0 - exp(-col * 1.3);   // highlight rolloff
 
   // vignette in frame units
   vec2 qv = uv - 0.5;

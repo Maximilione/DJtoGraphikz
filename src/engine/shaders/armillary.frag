@@ -54,12 +54,13 @@ mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0.0, -s, 0.0, 
 
 float ringR(int i) { return 0.62 + 0.3 * float(i); }
 
-// distance to ring i; q returns the section coordinates (radial, axial) and angle
+// distance to ring i; q returns the section coordinates (radial, axial).
+// The angle (q.z) is filled once per hit in shadeRing, not at every march step.
 float sdRing(vec3 p, int i, out vec3 q) {
   vec3 l = gM[i] * p;
   float R = ringR(i);
   float rad = length(l.xz) - R;
-  q = vec3(rad, l.y, atan(l.z, l.x));
+  q = vec3(rad, l.y, 0.0);
   vec2 d = abs(vec2(rad, l.y)) - vec2(0.03, 0.1 + 0.014 * float(i));
   return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - 0.012;
 }
@@ -68,8 +69,11 @@ float map(vec3 p, out int id, out vec3 q) {
   float d = 1e5;
   id = -1;
   q = vec3(0.0);
+  float lp = length(p);
   for (int i = 0; i < MAXR; i++) {
     if (float(i) >= gN) break;
+    // each ring lies inside the shell ringR +- 0.06: skip rings that cannot be nearer
+    if (abs(lp - ringR(i)) - 0.2 > d) continue;
     vec3 qq;
     float di = sdRing(p, i, qq);
     if (di < d) { d = di; id = i; q = qq; }
@@ -77,13 +81,12 @@ float map(vec3 p, out int id, out vec3 q) {
   return d;
 }
 
-float mapD(vec3 p) { int id; vec3 q; return map(p, id, q); }
-
-vec3 normalAt(vec3 p) {
-  vec2 e = vec2(0.0015, 0.0);
-  return normalize(vec3(mapD(p + e.xyy) - mapD(p - e.xyy),
-                        mapD(p + e.yxy) - mapD(p - e.yxy),
-                        mapD(p + e.yyx) - mapD(p - e.yyx)));
+// gradient of the hit ring only: rings never touch (0.3 apart, section < 0.1)
+vec3 normalAt(vec3 p, int id) {
+  vec2 e = vec2(0.0015, -0.0015);
+  vec3 q;
+  return normalize(e.xyy * sdRing(p + e.xyy, id, q) + e.yyx * sdRing(p + e.yyx, id, q)
+                 + e.yxy * sdRing(p + e.yxy, id, q) + e.xxx * sdRing(p + e.xxx, id, q));
 }
 
 vec3 palI(float k) {
@@ -105,7 +108,8 @@ vec3 env(vec3 d) {
   }
   // a ring of thin light pillars around the hall: what the chrome really mirrors
   float pa = a / TAU * 14.0;
-  float pil = exp(-pow((fract(pa) - 0.5) * 9.0, 2.0)) * smoothstep(-0.12, 0.05, d.y) * fall(0.5, 0.95, d.y);
+  float pv = (fract(pa) - 0.5) * 9.0;
+  float pil = exp(-pv * pv) * smoothstep(-0.12, 0.05, d.y) * fall(0.5, 0.95, d.y);
   c += palI(floor(pa)) * pil * (0.35 + 0.5 * uMid + 0.8 * gKick);
   c *= smoothstep(-0.5, 0.05, d.y) * 0.9 + 0.1;
   return c;
@@ -125,15 +129,17 @@ float march(vec3 ro, vec3 rd, int steps, out int id, out vec3 q) {
     if (i >= steps || t > tEnd) break;
     float d = map(ro + rd * t, id, q);
     if (d < 0.0012) return t;
-    t += d * 0.92;
+    t += d;
   }
   return -1.0;
 }
 
 vec3 shadeRing(vec3 pos, vec3 rd, int id, vec3 q) {
-  vec3 n = normalAt(pos);
+  vec3 l = gM[id] * pos;
+  q.z = atan(l.z, l.x);
+  vec3 n = normalAt(pos, id);
   vec3 r = reflect(rd, n);
-  float fr = 0.55 + 0.45 * pow(1.0 - max(dot(-rd, n), 0.0), 3.0);
+  float fr = 0.35 + 0.65 * pow(1.0 - max(dot(-rd, n), 0.0), 3.0);
   // brushed along the band: the mirror image is smeared a little by angle
   float brush = h21(vec2(floor(q.z * 220.0), float(id)));
   vec3 col = env(normalize(r + (brush - 0.5) * 0.05)) * fr;
@@ -148,9 +154,12 @@ vec3 shadeRing(vec3 pos, vec3 rd, int id, vec3 q) {
   float head = mod(floor(uBeatClock * 4.0) + float(id) * 5.0, 32.0);
   float dist = mod(head - seg, 32.0);
   float chase = exp(-dist * 0.35) + 0.08;
+  // the ring swinging this beat lights its whole groove, decaying as it locks
+  float act = fall(0.0, 1.0, fract((uBeatClock + float(id)) / gN) * gN);
+  chase = max(chase, act);
   float groove = fall(0.018, 0.03, abs(q.y)) * step(0.02, abs(q.x)) * gap;
   col = mix(col, vec3(0.0), groove * 0.85);
-  col += palI(float(id)) * groove * chase * (1.4 + 1.2 * uMid + 2.0 * gKick);
+  col += palI(float(id)) * groove * chase * (1.4 + 1.2 * uMid + 2.0 * gKick) * (1.0 + 1.5 * act);
   // rim strip on the outer edge catches the highs
   float edge = smoothstep(0.075, 0.1, abs(q.y)) * step(0.0, q.x);
   col += palI(float(id) + 1.0) * edge * 0.25 * (0.4 + 2.0 * uHigh);
@@ -231,7 +240,8 @@ void main() {
     vec3 fcol = vec3(0.004, 0.005, 0.008) + coreC * 0.02 * lightF;
     fcol += mix(uColor3, uColor1, 0.5 + 0.5 * sin(fr * 1.3 - bc * 1.5708)) * (ringsL + spokes) * (0.05 + 0.3 * lightF);
     // beat ripple engraved in the dial
-    float rip = exp(-pow((fr - (1.0 - gKick) * 9.0) * 12.0, 2.0)) * gKick;
+    float rv = (fr - (1.0 - gKick) * 9.0) * 12.0;
+    float rip = exp(-rv * rv) * gKick;
     fcol += uColor1 * rip * 0.8;
     // mirror: the machine again, upside down, blurred by distance from contact
     vec3 rr = reflect(rd, vec3(0.0, 1.0, 0.0));
@@ -260,5 +270,6 @@ void main() {
   col += uColor3 * 0.004;
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.18 - dot(p, p) * 0.6, 0.45, 1.0);
+  col += (h21(gl_FragCoord.xy) - 0.5) / 255.0;   // dither: 8-bit targets band the dark hall
   gl_FragColor = vec4(max(col, 0.0), 1.0);
 }

@@ -51,7 +51,8 @@ void main() {
 
   // side count morphs smoothly: blend two ngons around the target
   float nBase = sides; // sides is the anchor
-  float morph = fract(t * 0.1 + uBassTime * 0.05);
+  // ping-pong: a plain fract snapped N+1 back to N in one frame on the wrap
+  float morph = abs(fract(t * 0.05 + uBassTime * 0.025) * 2.0 - 1.0);
   float nA = nBase, nB = nBase + 1.0;
   float segA = TAU / nA, segB = TAU / nB, offA = PI / nA, offB = PI / nB;
   float mo = smoothstep(0.3, 0.7, morph);
@@ -62,7 +63,8 @@ void main() {
   for (float i = 0.0; i < 8.0; i++) {
     if (i >= layers) break;
     float k = i / max(layers - 1.0, 1.0);
-    float r = (0.15 + k * 0.62) * (1.0 + uBassHit * 0.2 + uBass * 0.06);
+    // inner rings packed tighter: reads as a tunnel receding
+    float r = (0.15 + pow(k, 1.3) * 0.62) * (1.0 + uBassHit * 0.2 + uBass * 0.06);
     float ang = wrapA(ang0 + t * (0.2 + k * 0.5) * (mod(i, 2.0) < 1.0 ? 1.0 : -1.0));
 
     // mo depends on uniforms only: a uniform branch, fwidth(d) stays valid
@@ -78,7 +80,7 @@ void main() {
 
     vec3 c = mix(uColor1, uColor2, k);
     c = mix(c, uColor3, step(0.5, fract(i * 0.5 + uHighTime * 1.5)) * 0.4);
-    color += c * (line * (1.1 + uBassHit * 0.8) + glow * (0.7 + uBass * 0.5)) * (1.0 - k * 0.35);
+    color += c * (line * (1.1 + uBassHit * 0.8) + glow * (0.7 + uBass * 0.5)) * (0.55 + 0.45 * k);   // near (outer) rings brightest
   }
 
   // kick echo: a ghost polygon is thrown outward and fades
@@ -111,6 +113,6 @@ void main() {
   }
 
   color *= 1.0 + uBeat * 0.3;
-  color = min(color, vec3(2.0));
+  color = 1.0 - exp(-color * 1.25);   // white-hot cores, glow keeps the palette
   gl_FragColor = vec4(color, 1.0);
 }

@@ -41,7 +41,8 @@ void main() {
   } else if (uType == 4) {
     // Dissolve noise
     // noise is in [0, 1): the edge runs -0.1 -> 1.1 so both ends are complete
-    float noise = hash(floor(vUv * uResolution / 4.0));
+    // 4 px cells at 1080p, same grain at any output size or dynamic-resolution step
+    float noise = hash(floor(vUv * vec2(uResolution.x / uResolution.y, 1.0) * 270.0));
     float e = t * 1.2 - 0.1;
     mix_val = 1.0 - smoothstep(e - 0.1, e + 0.1, noise);
   }

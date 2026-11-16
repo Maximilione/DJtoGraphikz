@@ -24,6 +24,9 @@ uniform float uGamma;
 uniform float uOutBright;
 varying vec2 vUv;
 
+// interleaved gradient noise, static per pixel (no time term: nothing shimmers on a LED wall or in a recording)
+float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+
 void main() {
   vec2 uv = vUv;
   if (uWarpOn) {
@@ -66,6 +69,11 @@ void main() {
   // (log2 + exp2 each) on every pixel of every frame when it is
   c = max(c, vec3(0.0));
   if (uGamma != 1.0) c = pow(c, vec3(1.0 / uGamma));
+
+  // the grade (vignette, exposure, presence, gamma) makes gradients finer than
+  // 8 bit: dither them. Under half a step, so black stays exactly black and a
+  // value already on an 8-bit level is written back unchanged.
+  c += (ign(gl_FragCoord.xy + vec2(31.0, 17.0)) - 0.5) / 256.0;
 
   gl_FragColor = vec4(c, 1.0);
 }

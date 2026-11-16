@@ -61,12 +61,16 @@ float ringsField(float r, float zc) {
   return length(vec2(r - (0.9 + i * gRingStep), zc)) - 0.07;
 }
 
+float spokesLat(float r, float lat, float zc) {
+  vec3 bp = vec3(r - (HUB_R + OUT_R) * 0.5, lat, zc);
+  return sdBox(bp, vec3((OUT_R - HUB_R) * 0.5, 0.04, 0.05));
+}
+
 float spokesField(vec2 pxy, float r, float zc) {
   vec2 q = abs(pxy);
   q = q.y > q.x ? q.yx : q;                        // octant [0, 45deg]
   float lat = min(q.y, (q.x - q.y) * 0.70710678);  // distance to the 0 / 45deg line
-  vec3 bp = vec3(r - (HUB_R + OUT_R) * 0.5, lat, zc);
-  return sdBox(bp, vec3((OUT_R - HUB_R) * 0.5, 0.04, 0.05));
+  return spokesLat(r, lat, zc);
 }
 
 float hub(float r, float z) {
@@ -84,19 +88,27 @@ float map(vec3 p) {
 
 // marches the shaft; gGlow collects fog brightness along the way, boosted
 // near the travelling shockwave so the haze itself flashes outward too.
+// The camera sits on the axis (ro.xy = 0), so along a ray p.xy = rd.xy * t:
+// r and the octant-folded lateral distance are per-ray constants times t.
 float march(vec3 ro, vec3 rd, float tmax) {
+  float kR = length(rd.xy);
+  vec2 qf = abs(rd.xy);
+  qf = qf.y > qf.x ? qf.yx : qf;
+  float kLat = min(qf.y, (qf.x - qf.y) * 0.70710678);
   float t = 0.1;
   for (int i = 0; i < 100; i++) {
     if (t > tmax) break;
     vec3 p = ro + rd * t;
-    float d = map(p);
+    float r = kR * t;
+    float zc = cellZ(p.z);
+    float d = min(hub(r, p.z), min(ringsField(r, zc), spokesLat(r, kLat * t, zc)));
     // the gaussian is negligible past ~3.5 units from the front — skip the
     // transcendentals on the 100-step march for every step that isn't near it
     float dz = (p.z - gShockZ) * (1.0 / 1.1);
     float shock = abs(dz) < 3.1818 ? exp(-dz * dz) : 0.0;
     float st = clamp(d, 0.03, 0.6);
     gGlow += st * 0.05 * (0.4 + 2.2 * shock);
-    if (d < 0.003) return t;
+    if (d < 0.002 + 0.0006 * t) return t; // sub-pixel at 4K, fewer grazing steps
     t += d * 0.9;
   }
   return -1.0;
@@ -121,6 +133,9 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
   float f = clamp(1.0 - dot(n, -rd), 0.0, 1.0);
   float rim = f * f * sqrt(f);
   c += uColor1 * rim * 0.25;
+  // diffuse from the rod: inner faces catch light, outer fall off; the kick lights the structure
+  float ndl = max(dot(n, normalize(vec3(-p.xy, 0.8))), 0.0);
+  c += mix(uColor1, vec3(1.0), 0.5) * ndl * (0.08 + 0.45 * gKick) / (1.0 + 0.4 * r);
 
   float sz = (p.z - gShockZ) * (1.0 / 1.1);
   float shock = exp(-sz * sz);
@@ -128,7 +143,10 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
   float isHub = step(hub(r, p.z), min(ringsField(r, zc), spokesField(p.xy, r, zc)));
   vec3 shockCol = mix(vec3(1.0), uColor3, 0.25);
   c += shockCol * shock * gKick * clamp(glow, 0.3, 2.0) * 2.6;
-  c += shockCol * isHub * (0.4 + shock * gKick * 2.0) * 0.8;
+  // hub cap as a glowing core: hot centre, dark rim, slow ring
+  float hr = r / HUB_R;
+  float coreK = (0.15 + 0.85 * exp(-hr * hr * 3.5)) * (0.85 + 0.15 * sin(hr * 14.0 - uTime * 1.5));
+  c += shockCol * isHub * (0.4 + shock * gKick * 2.0) * 0.8 * coreK;
   return c;
 }
 
@@ -170,5 +188,6 @@ void main() {
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.25 - dot(uv, uv) * 0.85, 0.4, 1.0);
+  col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0; // dither
   gl_FragColor = vec4(col, 1.0);
 }

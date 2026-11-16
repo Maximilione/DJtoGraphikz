@@ -62,11 +62,9 @@ float ramY(float zc, float t) {
   return TOPY - STROKE * clamp(c + snap, 0.0, 1.05);
 }
 
-float press(vec3 p, float side, float t) {
-  float zc = floor(p.z / SP + 0.5);
-  float zl = p.z - zc * SP;
+// one row's gantry and ram; zc, zl, ry do not depend on the side
+float press(vec3 p, float side, float zc, float zl, float ry) {
   float h = 0.75 + 0.25 * hash11(zc * 3.1 + side * 7.0);
-  float ry = ramY(zc, t);
   // an H-frame gantry: two static rail posts and a cap, open in between so
   // the ram sliding through the gap is actually visible from the front
   vec3 q = vec3(p.x - side * ROWX, p.y, zl);
@@ -76,16 +74,23 @@ float press(vec3 p, float side, float t) {
   float postR = sdBox(q - vec3(gap, 0.9, 0.0), vec3(postW, 1.9, 0.4 * h));
   float cap = sdBox(q - vec3(0.0, 2.75, 0.0), vec3(gap + postW, 0.12, 0.4 * h));
   float ram = sdBox(q - vec3(0.0, ry, 0.0), vec3(gap - 0.08, 0.45, 0.42 * h));
-  float d = min(min(postL, postR), min(cap, ram));
-  // spark at the ram's foot, brightest right as it bottoms and a kick lands
-  float bottomed = 1.0 - smoothstep(0.0, 0.35, abs(ry - (FLOORY + 0.5)));
-  gSpark += bottomed * (0.15 + 0.85 * uBassHit) / (1.0 + 20.0 * (zl * zl + q.x * q.x));
-  return d;
+  return min(min(postL, postR), min(cap, ram));
 }
 
 float map(vec3 p, float t) {
   float floor_ = p.y - FLOORY;
-  float d = min(press(p, 1.0, t), press(p, -1.0, t));
+  float zc = floor(p.z / SP + 0.5);
+  float zl = p.z - zc * SP;
+  float ry = ramY(zc, t);
+  // only the row on the point's side: its inner faces sit 1.19..1.42 from the
+  // axis, so outside a 0.25 sliver it is provably the nearer one (same field)
+  float sd = p.x < 0.0 ? -1.0 : 1.0;
+  float d = press(p, sd, zc, zl, ry);
+  if (abs(p.x) < 0.25) d = min(d, press(p, -sd, zc, zl, ry));
+  // spark at each ram's foot, both rows: the corridor glow is the sum over the march
+  float b = (1.0 - smoothstep(0.0, 0.35, abs(ry - (FLOORY + 0.5)))) * (0.15 + 0.85 * uBassHit);
+  float xa = p.x - ROWX, xb = p.x + ROWX;
+  gSpark += b * (1.0 / (1.0 + 20.0 * (zl * zl + xa * xa)) + 1.0 / (1.0 + 20.0 * (zl * zl + xb * xb)));
   d = min(d, floor_);
   float ceil_ = TOPY + 1.3 - p.y;
   d = min(d, ceil_);
@@ -122,6 +127,9 @@ vec3 shade(vec3 p, vec3 rd, float t) {
   vec3 L = normalize(lampPos - p);
   float lamp = max(dot(n, L), 0.0) / (1.0 + 0.05 * dot(lampPos - p, lampPos - p));
   vec3 col = mix(uColor1, uColor3, 0.5) * lamp * (0.25 + 0.5 * blink + 0.3 * uBeat);
+  // wet steel glints under the service lights
+  vec3 hv = normalize(L - rd);
+  col += mix(uColor3, vec3(1.0), 0.5) * pow(max(dot(n, hv), 0.0), 32.0) * (0.25 + 0.5 * blink + 0.4 * uBeat) / (1.0 + 0.05 * dot(lampPos - p, lampPos - p));
 
   // dark wet steel base + cold rim
   col += uColor2 * 0.05;
@@ -130,6 +138,8 @@ vec3 shade(vec3 p, vec3 rd, float t) {
   // hazard stripes on the floor skirting close to each row
   float stripeMask = smoothstep(1.4, 1.1, abs(abs(p.x) - ROWX));
   float stripe = step(0.5, fract((p.x + p.z) * 1.1));
+  // fade to the mean far down the corridor (camera at z = 4.5): no shimmer
+  stripe = mix(0.5, stripe, clamp(1.0 - (4.5 - p.z) * 0.06, 0.0, 1.0));
   col += onFloor * stripeMask * mix(vec3(0.0), uColor3 * 0.45, stripe) * 0.5;
   // faint standing floor grid elsewhere
   col += onFloor * uColor2 * 0.03;
@@ -151,7 +161,8 @@ void main() {
   if (dist > 0.0) {
     vec3 p = ro + rd * dist;
     col = shade(p, rd, t);
-    col = mix(uColor2 * 0.04, col, exp(-dist * 0.05));
+    // the vanishing point glows: presses silhouette against it
+    col = mix(mix(uColor2, uColor3, 0.3) * (0.05 + 0.05 * uBass), col, exp(-dist * 0.075));
   } else {
     col = uColor2 * 0.03 + uColor1 * 0.02 * (0.5 - uv.y);
   }
@@ -169,5 +180,6 @@ void main() {
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.2 - dot(uv, uv) * 0.7, 0.4, 1.0);
+  col += (hash21(gl_FragCoord.xy) - 0.5) / 255.0;   // dither: 8-bit target bands the mist
   gl_FragColor = vec4(col, 1.0);
 }

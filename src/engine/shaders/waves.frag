@@ -38,7 +38,6 @@ void main() {
   // loop invariants, lifted by hand: with the dynamic break below drivers do
   // not always hoist them, and the beat wobble was one of 3 sin per wave
   float beatWob = sin(uv.x * 1.5 + t * 0.3) * uBeat * 0.05;
-  float amp1 = amp + uBass * 0.05;
   float amp2 = 0.02 + uMid * 0.03;
   float gA = 0.004 * (1.0 + 1.5 * uLineBoost);
   float lineW = 0.003 * (1.0 + 2.5 * uLineBoost);
@@ -49,6 +48,10 @@ void main() {
   for (float i = 0.0; i < 40.0; i++) {
     if (i >= numWaves) break;
     float fi = i * invN;
+    // each wave listens to its own band: bottom kicks, top shimmers (a spectrum)
+    float band = mix(mix(uBass, uMid, smoothstep(0.2, 0.5, fi)), uHigh, smoothstep(0.55, 0.85, fi));
+    // near (bottom) waves thick and bright, far (top) thin and dim: depth
+    float near = 1.0 - fi;
 
     // Y position for this wave — spread across screen
     float baseY = (fi - 0.5) * 1.5;
@@ -58,7 +61,7 @@ void main() {
     float freq2 = 5.0 + i * 0.3;
 
     float wave = baseY
-      + sin(uv.x * freq1 + t * (1.0 + fi) + i) * amp1
+      + sin(uv.x * freq1 + t * (1.0 + fi) + i) * (amp + band * 0.07)
       + sin(uv.x * freq2 - t * 0.7 + i * 2.0) * amp2
       + beatWob;
 
@@ -69,30 +72,28 @@ void main() {
     float glow = pow(gA / (d + gA), 1.3);
 
     // Sharp line
-    float line = smoothstep(max(lineW, fwidth(d) * fwK), 0.0, d);
+    float line = smoothstep(max(lineW * (0.6 + 0.9 * near), fwidth(d) * fwK), 0.0, d);
 
     // Colour by wave index, the whole palette across the stack, drifting.
     // It was mix(mix(c1, c2, fi), c3, sin(fi*PI…)*0.5+0.5): that weight never
     // drops below ~0.5, so colour 3 painted most of every wave.
     vec3 wColor = pal3(fi + t * 0.03);
 
-    // Opacity fades for outer waves
-    float fade = 1.0 - abs(fi - 0.5) * 1.5;
-    fade = max(fade, 0.2);
-
-    color += wColor * (glow * 0.4 + line) * fade * lum;
+    color += wColor * (glow * 0.4 + line) * (0.45 + 0.75 * near) * lum;
   }
 
   // Horizontal energy bars at extreme positions
   float energyBar = smoothstep(0.002 * (1.0 + 2.5 * uLineBoost), 0.0, abs(uv.y - 0.46 * sign(uv.y))) * uEnergy;
   color += uColor2 * energyBar;
 
-  // faint tinted haze so the wall is never black between the lines
-  color += mix(uColor1, uColor3, uv.y * 0.5 + 0.5) * 0.06;
+  // faint tinted haze gathered behind the stack; the edges go black
+  color += mix(uColor1, uColor3, uv.y * 0.5 + 0.5) * 0.06 * exp(-dot(uv, uv) * 2.2);
 
-  // Beat pulse
-  color *= 1.0 + uBeat * 0.4;
+  // Beat pulse, plus a pulse fleeing the centre on each beat
+  float run = exp(-abs(abs(uv.x) - (1.0 - uBeat) * 0.9) * 9.0) * uBeat;
+  color *= 1.0 + uBeat * 0.25 + run * 0.9;
 
-  color = min(color, vec3(2.0));
+  // hue-preserving clip: crossings stay coloured on RGBA8
+  color /= max(1.0, max(color.r, max(color.g, color.b)));
   gl_FragColor = vec4(color, 1.0);
 }

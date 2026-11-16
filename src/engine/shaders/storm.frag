@@ -125,11 +125,11 @@ void main() {
     pulse = max(pulse, pl);
     float x0 = (hash(seed + 0.5) - 0.5) * 1.1;
     float w = i == 0 ? 1.0 : 0.55;
-    g += w * forks(p, x0, seed, 1.1, nb);
+    g += w * forks(p, x0, seed, 1.1, nb) * (0.35 + 1.0 * pl);   // each bolt slams in, decays to a filament
     if (!below) lamp += w * exp(-abs(uv.x - x0) * 2.2) * (1.0 + pl);   // lights the clouds only
   }
   float flash = flash0 + 1.2 * pulse;
-  g = min(g, 6.0) * flash * (below ? 0.32 : 1.0);
+  g = min(g, 6.0) * flash * (below ? 0.45 * exp(-(H - uv.y) * 2.5) : 1.0);   // reflection fades with depth
 
   float haze = clamp(fog, 0.3, 2.0);
   // sky or ground, never both: `below` is constant along a row, so the branch
@@ -137,7 +137,7 @@ void main() {
   vec3 col;
   if (below) {
     // wet ground: dark gradient with a sheen at the horizon
-    vec3 ground = mix(uColor1 * 0.30, uColor2 * 0.18, smoothstep(H, -0.6, uv.y));
+    vec3 ground = mix(uColor1 * 0.10, uColor2 * 0.06, smoothstep(H, -0.6, uv.y));
     ground += uColor3 * 0.8 * smoothstep(0.1, 0.0, abs(uv.y - H)) * (0.5 + kick);
     // puddles mirroring the glow of the sky
     ground += uColor2 * 0.9 * exp(-(H - uv.y) * 5.0) * (0.4 + 0.6 * vn2(vec2(uv.x * 3.0 + uTime * 0.1, uv.y * 30.0)));
@@ -146,17 +146,17 @@ void main() {
     // storm clouds, lit from within by the strikes
     float cl = vn2(uv * vec2(2.2, 4.0) + vec2(uTime * 0.04, 0.0)) * 0.6 + vn2(uv * vec2(5.0, 9.0) - uTime * 0.07) * 0.4;
     cl = smoothstep(0.15, 0.9, cl) * smoothstep(H - 0.05, 0.4, uv.y);
-    vec3 sky = mix(uColor2 * 0.40, uColor1 * 0.40, smoothstep(H, 0.5, uv.y));
+    vec3 sky = mix(uColor2 * 0.14, uColor1 * 0.14, smoothstep(H, 0.5, uv.y));
     // the clouds carry most of the frame: lit in large slow patches of the
     // whole palette, not colour 2 alone
     vec3 cloudC = pal3(vn2(uv * vec2(0.7, 1.2) + vec2(uTime * 0.02, 0.0)) * 1.3);
-    sky += cloudC * cl * (0.8 + 0.28 * lamp * flash * haze) + uColor1 * cl * 0.05;
+    sky += cloudC * cl * (0.22 + 0.85 * lamp * flash * haze) + uColor1 * cl * 0.05;
     // far flashes: a distant strike lights a patch of cloud now and then
     float tf = uTime * 0.37 + 0.2;
     float fx = (hash(floor(tf)) - 0.5) * 1.6;
     float far = exp(-fract(tf) * 4.0) * exp(-((uv.x - fx) * (uv.x - fx) * 3.0 + (uv.y - 0.15) * (uv.y - 0.15) * 8.0));
     sky += mix(uColor2, uColor3, 0.5) * far * (0.3 + cl) * 2.0;
-    sky += uColor3 * 0.15 * smoothstep(H, 0.55, uv.y) * (0.4 + cl);
+    sky += uColor3 * 0.06 * smoothstep(H, 0.55, uv.y) * (0.4 + cl);
     col = sky;
   }
 

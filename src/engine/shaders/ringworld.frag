@@ -137,7 +137,10 @@ void main() {
 
   vec3 sunC = mix(vec3(1.0, 0.93, 0.8), uColor3, 0.2);
   // haze: dark and coloured, a little warmer with the sun; never milky
-  vec3 hazeCol = mix(uColor2 * 0.10, sunC * 0.16, 0.35 + 0.2 * sunI) + uColor1 * 0.02;
+  // haze leans to colour 3, not the near-constant sun white: coloured depth,
+  // the sun itself stays white-hot
+  vec3 hazeSun = mix(sunC, uColor3, 0.5);
+  vec3 hazeCol = mix(uColor2 * 0.10, hazeSun * 0.16, 0.35 + 0.2 * sunI) + uColor1 * 0.02;
   vec3 col = hazeCol;
 
   // closest approach of the ray to the axis (closed form) -> sun filament
@@ -194,6 +197,7 @@ void main() {
     vec2 cell = vec2(mod(floor(pos.x), gNC), mod(floor(pos.y), NCZ));
     float hb = 0.0, hl = 0.0;
     bool bld = false;
+    float city0 = -1.0;   // level 0 is the ground cell: reused below
     for (int i = 6; i >= 0; i--) {
       if (i > top) continue;
       float hi = HMAX * float(i) / 6.0;
@@ -203,7 +207,9 @@ void main() {
       vec2 cc = vec2(mod(floor(ps2.x), gNC), mod(floor(ps2.y), NCZ));
       float hh = heightAt(cc);
       if (hh < hi) continue;
-      if (cityAt(cc) > 0.5) {
+      float cv = cityAt(cc);
+      if (i == 0) city0 = cv;
+      if (cv > 0.5) {
         bld = true;
         pos = ps2;
         cell = cc;
@@ -269,7 +275,7 @@ void main() {
       // canals: dark and glossy, they mirror the sun
       float canalGlow = river * 0.16 * sunI * (1.0 - 0.85 * sh) * (0.6 + 0.4 * det);
       surf = ground * lit + mix(uColor3, sunC, 0.4) * canalGlow;
-      if (cityAt(gc) > 0.5) {
+      if ((city0 >= 0.0 ? city0 : cityAt(gc)) > 0.5) {
         // streets and plazas inside a district, amber lamp dots
         float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
         float lamp = rampDown(0.03, 0.07, edge) * step(0.6, fract((gp.x + gp.y) * 2.0));
@@ -308,12 +314,14 @@ void main() {
   fil *= 1.0 - 0.7 * shAx;
   col += sunC * fil * (0.12 + sunI) * 0.5;
   // soft core where the axis vanishes
-  col += sunC * (0.12 + sunI) * (0.1 + 0.3 * kick + 0.12 * uBass) / (1.0 + pow(rs * 8.0, 2.0)) * (1.0 - 0.5 * shAx);
+  col += sunC * (0.12 + sunI) * (0.1 + 0.3 * kick + 0.12 * uBass) / (1.0 + rs * rs * 64.0) * (1.0 - 0.5 * shAx);
 
   // minimum floor so silence is never dead
   col += uColor2 * 0.01;
 
   col = col / (1.0 + 0.6 * col);
   col *= clamp(1.2 - dot(p, p) * 0.7, 0.45, 1.0);
+  // IGN dither: long haze and vignette gradients band on RGBA8
+  col += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(max(col, 0.0), 1.0);
 }

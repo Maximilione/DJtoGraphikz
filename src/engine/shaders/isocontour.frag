@@ -135,7 +135,9 @@ void main() {
   float idx = floor(v + 0.5);
   float major = (mod(idx, 5.0) < 0.5) ? 1.0 : 0.0;
 
-  float lw = (0.9 + 1.2 * uLineBoost + 1.5 * uBassHit) * wpx;
+  // widths in 1080p-equivalent pixels so 4K lines keep their weight on the wall
+  float rs = max(1.0, uResolution.y / 1080.0);
+  float lw = (0.9 + 1.2 * uLineBoost + 1.5 * uBassHit) * wpx * rs;
   float hw = 0.5 * lw * mix(1.0, 1.8, major);
   float line = 1.0 - smoothstep(hw, hw + wpx, fv);
   // when lines get denser than ~2px apart, fade to an average instead of aliasing
@@ -157,10 +159,11 @@ void main() {
   float bright = (0.8 + 0.5 * uBeat) * (1.0 + 0.6 * major);
 
   vec3 col = lc * line * fade * inside * bright;
-  col += uColor2 * 0.06 * (1.0 - step(0.0, d));
+  // interior lit as a volume under the etched lines
+  col += uColor2 * (0.04 + 0.22 * smoothstep(0.0, -0.14, d)) * (1.0 - step(0.0, d));
 
   // white-hot zero contour
-  float edge = 1.0 - smoothstep(0.0, wd * 2.0, abs(d));
+  float edge = 1.0 - smoothstep(0.0, wd * (2.0 + 2.5 * uLineBoost) * rs, abs(d));
   col += vec3(1.0) * edge * (0.8 + 0.8 * uHigh + 0.6 * uHighHit);
 
   // shockwave band

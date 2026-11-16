@@ -22,7 +22,7 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
   // backdrop: vertical palette haze plus a column of light behind the helices
-  vec3 color = mix(uColor3, uColor1, uv.y + 0.5) * (0.03 + 0.03 * uEnergy);
+  vec3 color = mix(uColor3, uColor1, uv.y + 0.5) * (0.03 + 0.03 * uEnergy) * smoothstep(0.9, 0.2, abs(uv.x));
   color += mix(uColor1, uColor2, 0.5) * exp(-abs(uv.x) * 3.0) * (0.04 + 0.08 * uBass);
 
   // bass through the gated clock: t * uBass teleports the helix on every
@@ -51,11 +51,11 @@ void main() {
       float helixX = sg * s0 * amplitude + offsetX;
       // cos(ph) is the depth: strand in front is bright and thick, behind is dim
       float zf = sg * c0 * 0.5 + 0.5;
-      float depthK = (0.45 + 0.55 * zf) * nr;
+      float depthK = (0.25 + 0.75 * zf) * nr;
 
       // Distance to helix strand: thin bright core plus a wide soft halo
       float d = abs(uv.x - helixX);
-      float th = 0.0035 * (0.7 + 0.8 * zf) * nr;
+      float th = 0.0035 * (0.45 + 1.3 * zf) * nr;
       float glow = th / (d + th);
       glow = min(glow, 2.0);
       float halo = exp(-d * 28.0) * 0.45;
@@ -78,8 +78,12 @@ void main() {
         float dot1 = 0.005 / (length(vec2(uv.x - helixX, rungDist)) + 0.005);
         float dot2 = 0.005 / (length(vec2(uv.x - otherHelixX, rungDist)) + 0.005);
 
+        // rung depth runs from one strand's depth to the other's: the ladder twists in 3D
+        float k = clamp((uv.x - minX) / max(maxX - minX, 1e-4), 0.0, 1.0);
+        bool leftIsThis = helixX < otherHelixX;
+        float zr = mix(leftIsThis ? zf : 1.0 - zf, leftIsThis ? 1.0 - zf : zf, k);
         vec3 rungColor = mix(uColor1, uColor2, 0.5);
-        color += rungColor * rung * 0.9 * nr * (1.0 + uBeat * 0.6);
+        color += rungColor * rung * 0.9 * nr * (1.0 + uBeat * 0.6) * (0.25 + 0.75 * zr);
         color += uColor3 * (dot1 + dot2) * 0.3 * nr;
       }
     }
@@ -93,14 +97,14 @@ void main() {
     float pd = length(uv - vec2(px, py));
     float particle = 0.003 / (pd + 0.003);
     float pAlpha = sin(t + fi * 3.0) * 0.5 + 0.5;
-    color += uColor3 * particle * 0.12 * (0.4 + pAlpha);
+    color += uColor3 * particle * 0.12 * (0.4 + pAlpha + 1.5 * uHigh);
   }
 
   // Beat pulse: flash through the helices
   color *= 1.0 + uBeat * 0.7;
 
   // Subtle scanlines (multiplicative: they never push a pixel negative)
-  color *= 1.0 - 0.05 * (sin(gl_FragCoord.y * 2.0) * 0.5 + 0.5);
+  color *= 1.0 - 0.05 * (sin(vUv.y * 270.0 * 6.2831853) * 0.5 + 0.5);
 
   // soft shoulder for clean bloom highlights
   color = vec3(1.0) - exp(-max(color, vec3(0.0)) * 1.3);

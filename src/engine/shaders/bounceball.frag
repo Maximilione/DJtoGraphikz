@@ -34,6 +34,10 @@ void main() {
   vec3 col = vec3(0.0);
   // the floor: a line that flashes on the kick
   col += mix(uColor3, vec3(1.0), 0.5) * exp(-abs(p.y - floorY) * 120.0) * (0.25 + 0.75 * uBassHit);
+  // mirror floor: below the line the balls are seen reflected, fading with depth
+  float below = step(p.y, floorY);
+  vec2 pr = vec2(p.x, below > 0.5 ? 2.0 * floorY - p.y : p.y);
+  float refl = mix(1.0, 0.35 * exp(-(floorY - p.y) * 6.0), below);
 
   for (int i = 0; i < 8; i++) {
     if (float(i) >= n) break;
@@ -56,22 +60,30 @@ void main() {
     float sx = 1.0 + squash * (0.5 * onFloor - 0.15 * vel);
     float sy = 1.0 - squash * (0.4 * onFloor - 0.25 * vel);
     vec2 c = vec2(x, floorY + r * sy + height);
-    vec2 d = (p - c) / vec2(sx, sy);
+    vec2 d = (pr - c) / vec2(sx, sy);
     float dist = length(d);
     float over = dist - r;
     vec3 tint = i % 3 == 0 ? uColor1 : i % 3 == 1 ? uColor2 : uColor3;
-    col += tint * exp(-max(0.0, over) * 18.0) * 0.25;   // glow, everywhere
+    if (over < 0.4) col += tint * exp(-max(0.0, over) * 18.0) * 0.25 * refl;   // glow (< 1/255 beyond 0.4)
     if (over < 0.004) {   // disc and highlight: only on the ball itself
       float ball = 1.0 - smoothstep(r, r + 0.004, dist);
       // highlight top-left
       float hi = exp(-length(d - vec2(-0.3, 0.35) * r) * 25.0);
-      col += tint * ball * (0.85 + 0.3 * uBeat) + vec3(1.0) * hi * ball * 0.6;
+      // shaded as a sphere: dark rim, lit centre
+      float nz = sqrt(max(1.0 - dist * dist / (r * r), 0.0));
+      col += (tint * ball * (0.30 + 0.70 * nz) * (0.85 + 0.3 * uBeat) + vec3(1.0) * hi * ball * 0.6) * refl;
     }
+    // each landing strikes the floor on its own beat offset
+    float imp = exp(-min(phase, 1.0 - phase) * 12.0);
+    col += tint * imp * exp(-abs(p.x - x) * 10.0) * exp(-abs(p.y - floorY) * 90.0) * 0.8;
     // shadow on the floor, smaller when high: only below the floor line
     if (p.y <= floorY + 0.01) {
       float sh = exp(-length((p - vec2(x, floorY)) / vec2(1.6 * (1.0 - 0.5 * h), 0.25)) * 25.0);
       col *= 1.0 - sh * 0.35 * (1.0 - h);
     }
   }
+  // soft knee: stacked glows roll off instead of clipping flat
+  vec3 k = max(col - 0.8, 0.0);
+  col = min(col, 0.8) + 0.2 * (1.0 - exp(-k * 2.5));
   gl_FragColor = vec4(col, 1.0);
 }

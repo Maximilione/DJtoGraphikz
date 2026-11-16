@@ -23,8 +23,12 @@ float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+// sin-free (same form as reaction.sim.frag): this runs ~6 times per particle per pixel
 float hash1(float n) {
-  return fract(sin(n) * 43758.5453);
+  n = fract(n * 0.1031);
+  n *= n + 33.33;
+  n *= n + n;
+  return fract(n);
 }
 
 void main() {
@@ -45,7 +49,9 @@ void main() {
     float fl = float(layer);
     float speed = 1.0 + fl * 0.5;
     // Guard: beat shrink must not push small sizes negative (pow(neg) = NaN)
-    float pSize = max(size + fl * 0.004 - uBeat * 0.003, 0.001);
+    // layer 1 is the near plane: larger, softer, a little dimmer
+    float pSize = max(size + fl * 0.004 - uBeat * 0.003, 0.001) * (layer == 0 ? 1.0 : 1.6);
+    float layerMul = beatMul * (layer == 0 ? 1.0 : 0.6);
     float haloK = 1.0 / (pSize * pSize * 60.0 + 0.0004);
 
     for (int i = 0; i < 40; i++) {
@@ -56,30 +62,36 @@ void main() {
       // Particle position — spiral outward from center
       // bass through the gated clock, never as a multiplier of t: at minute
       // thirty, t * uBass makes every particle teleport on each bass change
-      float radius = fract(hash1(seed + 2.0) * 0.8 + t * hash1(seed + 3.0) * 0.3) * (spread + uEnergy * 0.4);
+      float life = fract(hash1(seed + 2.0) * 0.8 + t * hash1(seed + 3.0) * 0.3);
+      float radius = life * (spread + uEnergy * 0.4);
       // Add explosion on beat
       radius += uBeat * hash1(seed + 4.0) * 0.5;
 
       // Fade with distance from center. radius depends on the particle alone
       // (uniform across pixels): a faded-out particle costs nobody anything
       float fade = 1.0 - smoothstep(0.3, 0.9, radius);
+      // fade in at birth and out before fract() wraps: no popping
+      fade *= smoothstep(0.0, 0.06, life) * (1.0 - smoothstep(0.8, 1.0, life));
       if (fade <= 0.0) continue;
 
       float angle = hash1(seed) * PI * 2.0 + (t * speed + uBassTime * 2.0) * (0.5 + hash1(seed + 1.0));
       vec2 pos = vec2(cos(angle) * stretch, sin(angle)) * radius;
 
       // Particle glow
-      float d = length(uv - pos);
+      vec2 dv = uv - pos;
+      float d2 = dot(dv, dv);
+      float d = sqrt(d2);
       float glow = pSize / (d + 0.001);
       glow *= sqrt(glow); // ^1.5
       glow = min(glow, 2.0);
-      // soft halo around every spark, swells on the kick
-      glow += exp(-d * d * haloK) * haloA;
+      // soft halo around every spark, swells on the kick (exp(-9) ~ 0: skipped)
+      if (d2 * haloK < 9.0) glow += exp(-d2 * haloK) * haloA;
 
       // Color based on layer and position
+      float h7 = hash1(seed + 7.0);
       vec3 pColor;
-      if (layer == 0) pColor = mix(uColor1, uColor3, step(0.6, hash1(seed + 7.0)));
-      else pColor = mix(uColor2, uColor3, step(0.7, hash1(seed + 7.0)));
+      if (layer == 0) pColor = mix(uColor1, uColor3, step(0.6, h7));
+      else pColor = mix(uColor2, uColor3, step(0.7, h7));
       // hot white-ish core on the brightest sparks, kept for the bloom
       pColor = mix(pColor, vec3(1.0), clamp(glow - 1.0, 0.0, 1.0) * 0.35);
 
@@ -87,7 +99,7 @@ void main() {
       float twinkle = sin(t * 3.0 + fi * 2.0 + uHigh * 5.0) * 0.5 + 0.5;
       glow *= 0.5 + twinkle * 0.5;
 
-      color += pColor * glow * (0.35 + 0.65 * fade) * fade * beatMul;
+      color += pColor * glow * (0.35 + 0.65 * fade) * fade * layerMul;
     }
   }
 
@@ -109,6 +121,7 @@ void main() {
 
   // soft shoulder: highlights stay clean for the bloom, never flat white
   color = vec3(1.0) - exp(-color * 1.4);
+  color += (hash(gl_FragCoord.xy) - 0.5) / 255.0;   // dither the dark radial haze
 
   gl_FragColor = vec4(color, 1.0);
 }

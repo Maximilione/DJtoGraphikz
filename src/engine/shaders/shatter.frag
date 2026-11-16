@@ -75,7 +75,7 @@ void main() {
   // the shove fades to zero at the centre: a constant radial offset flips
   // the inner shards across the origin and draws a bullseye on every kick
   vec2 p = (uv - dir * blast * smoothstep(0.0, 0.4, length(uv))) * shards * 0.45;
-  voro(p, cellId, edgeD);
+  vec2 mo = voro(p, cellId, edgeD);
 
   float h = hash(cellId);
   float h2 = hash(cellId + 3.3);
@@ -84,11 +84,16 @@ void main() {
   float glint = 0.5 + 0.5 * sin(t * (0.4 + h * 1.2) + h * TAU + uBass * 2.0);
   vec3 base = mix(uColor1, uColor2, h);
   base = mix(base, uColor3, h2 * 0.5);
-  vec3 color = base * (0.14 + glint * 0.25 + uBassHit * h * 0.9);
+  // each shard a tilted pane: linear gradient across it, direction per shard
+  float facet = clamp(0.5 + 0.7 * dot(mo, vec2(cos(h * TAU), sin(h * TAU))), 0.0, 1.0);
+  vec3 color = base * (0.14 + glint * 0.25 + uBassHit * h * 1.3);
+  color *= 0.55 + 0.9 * facet;
 
   // cracks: bright edges
   float crack = smoothstep(0.05, 0.0, edgeD);
   color += mix(uColor3, vec3(1.0), 0.3) * crack * (0.35 + edgeglow * 0.6 + uHighHit * 0.8);
+  // bevel on the lit side: glass thickness
+  color += base * smoothstep(0.22, 0.05, edgeD) * facet * (0.25 + 0.5 * uBassHit);
 
   // vignette to keep the frame
   // measured in frame-normalised units: in height units a 6:1 LED strip

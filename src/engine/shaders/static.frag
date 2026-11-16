@@ -62,7 +62,9 @@ void main() {
   vec2 cc = uv - 0.5;
   uv = cc * (1.0 + 0.10 * dot(cc, cc) * 2.0) + 0.5;
   float glass = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-  float g = max(1.0, grain);
+  // grain in 1080p pixels: same snow size at 4K and across dynamic resolution steps
+  float g = max(1.0, grain * res.y / 1080.0);
+  float sl = max(2.0, floor(res.y / 540.0));   // scanline pitch, same reason
   float tk = mod(floor(uTime * 24.0), 1024.0);
   float bt = mod(uBassTime, 64.0);
   float hit = clamp(uBassHit, 0.0, 1.0);
@@ -98,9 +100,9 @@ void main() {
   float n = hash(c + vec2(fract(uTime * 7.31) * 100.0, fract(uTime * 3.7) * 50.0));
   float n2 = hash(c + vec2(31.7, fract(uTime * 5.1) * 77.0));
   float mask = smoothstep(1.0 - emerge * 0.75, 1.0, n2 + 0.25 * sin(uv.y * 6.0 + bt));
-  ghost *= mask * (0.25 + 0.6 * emerge);
+  ghost *= mask * (0.2 + 0.9 * emerge);
   // thin horizontal break-up of the picture
-  ghost *= 0.75 + 0.25 * step(0.5, fract(gl_FragCoord.y * 0.5));
+  ghost *= 0.75 + 0.25 * step(0.5, fract(gl_FragCoord.y / sl));
 
   // snow: tinted, per-channel slightly different
   float snow = pow(n, 6.0) * (0.4 + 0.8 * uEnergy);
@@ -108,6 +110,7 @@ void main() {
   sn.r += pow(hash(c + 7.7 + tk), 10.0) * 0.5 * uHigh;
   sn.b += pow(hash(c + 3.3 + tk), 10.0) * 0.5 * uHigh;
   sn *= 1.0 - inBand * bands * 0.85;
+  sn *= 1.0 - 0.5 * mask * hit;   // the picture punches through the snow on the kick
 
   // fine per-pixel grain on top of the coarse snow
   float fine = hash(gl_FragCoord.xy + tk * 1.7);
@@ -135,7 +138,7 @@ void main() {
   col *= 0.92 + 0.08 * hash(vec2(tk, 1.3)) + 0.05 * sin(uTime * 90.0) * uHigh;
 
   // scanlines + CRT glow (soft bright halo of what is bright, vignette in frame units)
-  col *= 0.78 + 0.22 * step(0.5, fract(gl_FragCoord.y * 0.5));
+  col *= 0.78 + 0.22 * step(0.5, fract(gl_FragCoord.y / sl));
   float lum = dot(col, vec3(0.333));
   col += col * smoothstep(0.35, 0.9, lum) * 0.5;
   vec2 vq = (uv - 0.5) * vec2(asp, 1.0);
