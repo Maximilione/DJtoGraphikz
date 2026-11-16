@@ -85,9 +85,8 @@ export function Toasts() {
     listener = setList
     return () => { if (listener === setList) listener = null }
   }, [])
-  if (list.length === 0) return null
   return (
-    <div className="toast-stack">
+    <div className="toast-stack" role="status" aria-live="polite">
       {list.map(t => (
         <div key={t.id} className={`toast toast-${t.level}${t.action ? ' toast-action' : ''}`}>
           {t.msg}

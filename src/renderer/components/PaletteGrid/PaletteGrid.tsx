@@ -29,6 +29,15 @@ export function warnPaletteLimit() {
   if (u.length >= MAX_USER) pushToast(`Limite ${MAX_USER} palette: rimossa la più vecchia (${u[0].label})`, 'pal-limit')
 }
 
+/**
+ * Saturation at 0 in Regolazione colore greys every palette out: the pick
+ * lands (the colours do change) but the wall stays black and white, and the
+ * setting persists across sessions. Say so at the moment a palette is picked.
+ */
+export function warnDesaturated(saturation: number, restore: () => void) {
+  if (saturation < 0.2) pushToast('Saturazione a zero: la palette resta in bianco e nero', 'pal-desat', { label: 'Ripristina', fn: restore })
+}
+
 export function PaletteGrid({ isActive, onPick, title, size = 'md' }: PaletteGridProps) {
   const [, bump] = useState(0)
   useEffect(() => onPalettes(() => bump(n => n + 1)), [])

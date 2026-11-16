@@ -313,8 +313,11 @@ const TEMPLATE_CATEGORIES = TEMPLATES.reduce((acc, t, i) => {
   return acc
 }, {} as Record<string, (typeof TEMPLATES[0] & { index: number })[]>)
 
+// survives the unmount when the mode leaves Pro; session only, not saved to disk
+let kept: { code: string; meta: { params: EffectParam[]; imageInputs: string[] } | null } | null = null
+
 function ShaderEditorImpl({ engine }: ShaderEditorProps) {
-  const [code, setCode] = useState(TEMPLATES[TEMPLATES.length - 1].code)
+  const [code, setCode] = useState(() => kept?.code ?? TEMPLATES[TEMPLATES.length - 1].code)
   const [error, setError] = useState<string | null>(null)
   const [liveMode, setLiveMode] = useState(false)
   const [lastApplied, setLastApplied] = useState('')
@@ -323,7 +326,8 @@ function ShaderEditorImpl({ engine }: ShaderEditorProps) {
   // params and image inputs of the imported ISF/Shadertoy; null for a template
   // or a .frag, which have none: setCustomShader(code) alone kept the previous
   // shader's defs, so dead sliders stayed in the Effetti panel
-  const meta = useRef<{ params: EffectParam[]; imageInputs: string[] } | null>(null)
+  const meta = useRef<{ params: EffectParam[]; imageInputs: string[] } | null>(kept?.meta ?? null)
+  useEffect(() => { kept = { code, meta: meta.current } }, [code])
   // a template or a .frag replaced hand-written code with no way back
   const replaceCode = useCallback((next: string) => {
     const prev = code, prevMeta = meta.current

@@ -109,6 +109,23 @@ check('clear libera i tasti senza annullare niente', () => {
   assert.equal(m.release('q'), false)
 })
 
+check('clear filtrato tiene le prese di telefono/MIDI/gamepad', () => {
+  const m = new Momentary()
+  const back = []
+  now = 0
+  m.press('b', () => back.push('b'))
+  m.press('look:1', () => back.push('look:1'))
+  m.press('remote:x', () => back.push('remote:x'))
+  now += HOLD_MS + 1
+  m.clear(k => !k.includes(':') || k.startsWith('look:'))
+  assert.equal(m.isDown('b'), false)
+  assert.equal(m.isDown('look:1'), false)
+  assert.deepEqual(back, [])
+  assert.equal(m.isDown('remote:x'), true)
+  assert.equal(m.release('remote:x'), true)
+  assert.deepEqual(back, ['remote:x'])
+})
+
 check('ripremere senza rilascio tiene la prima via del ritorno', () => {
   // MIDI note-on doppio, release persa dal telefono: il secondo press era
   // catturato su uno stato gia' cambiato e al rilascio lo strobe restava
