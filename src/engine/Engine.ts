@@ -1080,6 +1080,7 @@ export class Engine {
       else h = Math.round(w / outAspect)
       w = Math.max(2, w || winW)
       h = Math.max(2, h || winH)
+      this.renderer.setPixelRatio(window.devicePixelRatio || 1)
       this.renderer.setSize(w, h)
       this.setRenderSize(this.outputWidth, this.outputHeight)
       return
@@ -3334,7 +3335,10 @@ export class Engine {
     else h = Math.round(w / outAspect)
     w = Math.max(2, w)
     h = Math.max(2, h)
-    if (this.canvas.width !== w || this.canvas.height !== h) {
+    // setPixelRatio resizes the canvas on every call: only inside the branch. floor(w*dpr) is what setSize writes
+    const dpr = window.devicePixelRatio || 1
+    if (this.canvas.width !== Math.floor(w * dpr) || this.canvas.height !== Math.floor(h * dpr)) {
+      this.renderer.setPixelRatio(dpr)
       this.renderer.setSize(w, h)
       this.setRenderSize(this.outputWidth, this.outputHeight)
     }
