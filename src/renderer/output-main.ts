@@ -121,16 +121,17 @@ api.onAudioData((data: any) => engine.setAudioData(data))
 // deduplicate: a replay after a reconnect used to add every overlay again —
 // textures and decoded GIFs doubled on each one, the picture visibly stacked,
 // and the ones removed while the link was down stayed.
-const live = new Set<string>()
+const live = new Map<string, object>()
 function feedReconnected() {
-  for (const id of live) engine.removeOverlay(id)
+  for (const id of live.keys()) engine.removeOverlay(id)
   live.clear()
 }
 
 api.onOverlayAdd((data: any) => {
+  const tok = {}
   if (typeof data?.id === 'string') {
     if (live.has(data.id)) engine.removeOverlay(data.id)   // an add for an id we have is a replace
-    live.add(data.id)
+    live.set(data.id, tok)
   }
   const added = data.source?.kind === 'text'
     ? Promise.resolve(engine.addTextOverlay(data.source.text, data.source, data.id))
@@ -140,6 +141,12 @@ api.onOverlayAdd((data: any) => {
       ? engine.addVideoOverlay(data.name, data.source, data.id)
       : engine.addOverlay(data.name, data.dataUrl, data.id)
   added.then(overlay => {
+    // an add that finished after its remove or a reconnect is stale
+    // shortcut: removeOverlay drops the first copy with this id, which may be the newer one; remove by object in Engine if params ever differ
+    if (typeof data?.id === 'string' && live.get(data.id) !== tok) {
+      engine.removeOverlay(overlay.id)
+      if (!live.has(data.id)) return
+    }
     engine.updateOverlay(overlay.id, {
       opacity: data.opacity, scale: data.scale,
       offsetX: data.offsetX, offsetY: data.offsetY,
