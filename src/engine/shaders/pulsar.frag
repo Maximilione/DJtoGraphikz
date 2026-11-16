@@ -162,7 +162,8 @@ void main() {
   vec3 bg = uColor3 * 0.030 * smoothstep(1.35, 0.2, length((uv - 0.5) * vec2(1.5, 1.0)));
   bg += mix(uColor1, uColor2, 0.5) * exp(-hz * hz) * hwin * (0.035 + 0.10 * uBass + 0.35 * uBassHit);
   bg += uColor3 * 0.05 * smoothstep(0.0, HORIZON, uv.y) * smoothstep(1.0, HORIZON, uv.y + 0.4);
-  vec3 col = bg + sqrt(clamp(acc, 0.0, 1.0)) * (0.85 + 0.4 * uBeat + 0.35 * uBassHit);
+  // 0.65 instead of sqrt: lines as bright, the dim glow between ridges stays black
+  vec3 col = bg + pow(clamp(acc, 0.0, 1.0), vec3(0.65)) * (0.85 + 0.4 * uBeat + 0.35 * uBassHit);
   col += (hash21(uv * 971.0 + uTime) - 0.5) * 0.012;
 
   gl_FragColor = vec4(clamp(max(col, 0.0), 0.0, 0.95), 1.0);
