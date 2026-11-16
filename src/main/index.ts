@@ -382,7 +382,6 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
   } else {
     win.once('ready-to-show', () => {
       if (win.isDestroyed()) return
-      out.displayId = externalDisplay.id
       // Going fullscreen before the renderer has painted its first frame is
       // exactly when the projector comes up black: the macOS fullscreen
       // transition catches a window that is not compositing yet. Wait for the
@@ -490,7 +489,7 @@ function reconcileOutputs(list: OutputCfg[]) {
     const id = i + 1
     const o = outputs.get(id)
     if (!o || o.win.isDestroyed()) { createOutputWindow(id, cfg); return }
-    const moved = cfg.displayId !== null && cfg.displayId !== o.displayId
+    const moved = cfg.displayId !== null && cfg.displayId !== o.displayId && screen.getAllDisplays().some(d => d.id === cfg.displayId)
     const prev = o.cfg
     o.cfg = cfg
     o.win.webContents.send('output:slice', cfg)
@@ -499,7 +498,8 @@ function reconcileOutputs(list: OutputCfg[]) {
     if (!prev || prev.width !== cfg.width || prev.height !== cfg.height) {
       o.win.webContents.send('output:set-resolution', cfg.width, cfg.height)
     }
-    if (moved) setOutputFullscreen(o, true)
+    // without the assignment targetDisplay keeps resolving the old display and `moved` is true on every tick
+    if (moved) { o.displayId = cfg.displayId; setOutputFullscreen(o, true) }
   })
   notifyOutputChanged()
 }
