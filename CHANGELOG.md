@@ -2,6 +2,11 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](https://semver.org/) con suffisso `-beta`.
 
+## [Unreleased]
+
+### Changed
+- **Esposizione** ora funziona davvero (guadagno nel master pass; prima il controllo non aveva effetto). Gli show salvati al default 1.1 restano identici; i look a 1.0 risultano circa il 9% piu' scuri, quelli a 1.15 circa il 5% piu' luminosi; uno show salvato con lo slider spostato cambiera' luminosita'.
+
 ## [0.81.0-beta] — 2026-11-14
 
 ### Added
