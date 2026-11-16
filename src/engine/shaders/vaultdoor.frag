@@ -117,11 +117,14 @@ vec3 shade(vec3 p, vec3 rd) {
   float ang = atan(p.y, p.x);
 
   // light from the hole, always on (floor), stronger with bass / kick
-  vec3 lp = vec3(0.0, 0.0, ZDOOR);
+  // the light sits just in front of the opening, so the flat face gets a
+  // radial falloff from the hole (in the door plane it was almost unlit),
+  // and flares when the iris snaps open
+  vec3 lp = vec3(0.0, 0.0, ZDOOR + 0.9);
   vec3 L = normalize(lp - p);
-  float lit = max(dot(n, L), 0.0) / (1.0 + 0.15 * r * r);
-  float bleed = 0.35 + 0.9 * uBass + 1.2 * uBassHit;
-  vec3 col = glowColor() * lit * bleed * 0.6;
+  float lit = max(dot(n, L), 0.0) / (1.0 + 0.9 * r * r);
+  float bleed = (0.35 + 0.9 * uBass + 1.2 * uBassHit) * (0.5 + 1.5 * gAper / R);
+  vec3 col = glowColor() * lit * bleed * 0.3;
 
   // dark brushed steel base + cold rim
   col += uColor2 * 0.045;
@@ -144,8 +147,11 @@ vec3 shade(vec3 p, vec3 rd) {
     col += uColor1 * bandEdge * 0.12;
   } else if (r < R + 0.9) {
     // hazard border on the recessed wall around the door
-    float stripe = fract((p.x + p.y) * 2.2 - uTime * 0.05);
-    float band = step(0.5, stripe);
+    // antialiased stripes (step() aliased on both edges)
+    float sv = (p.x + p.y) * 2.2 - uTime * 0.05;
+    float tri = abs(fract(sv) - 0.5);
+    float wv = min(fwidth(sv), 0.25);
+    float band = smoothstep(0.25 - wv, 0.25 + wv, tri);
     col += mix(vec3(0.0), uColor3 * 0.5, band) * 0.35;
     col += uColor2 * 0.03;
   }
@@ -191,5 +197,6 @@ void main() {
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.2 - dot(uv, uv) * 0.85, 0.35, 1.0);
+  col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0; // dither
   gl_FragColor = vec4(col, 1.0);
 }

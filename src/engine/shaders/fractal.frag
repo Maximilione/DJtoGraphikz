@@ -71,18 +71,24 @@ void main() {
     color  = uColor1 * (sin(phase) * 0.5 + 0.5);
     color += uColor2 * (sin(phase + 2.094) * 0.5 + 0.5);
     color += uColor3 * (sin(phase + 4.189) * 0.5 + 0.5);
-    color *= 0.45 + 0.55 * f;
-    // filaments picked out by the orbit trap
-    color += uColor3 * exp(-trapX * 14.0) * 0.5;
+    // luminance banding: escape contours read as depth, not only hue
+    color *= 0.55 + 0.45 * sin(phase * 2.0 + 1.0);
+    // far exterior falls to near black, the boundary glows (figure/ground)
+    color *= 0.10 + 0.90 * f * f;
+    // filaments picked out by the orbit trap, width kept stable with the zoom
+    color += uColor3 * exp(-trapX * 14.0 / max(zm, 0.5)) * 0.5;
   } else {
     // inside the set: shade by how close the orbit came to the origin
     float g = exp(-sqrt(trapR2) * 2.2);
     color = mix(uColor3 * 0.06, uColor1 * 0.7, g);
-    color += uColor2 * exp(-trapX * 9.0) * 0.35;
+    color += uColor2 * exp(-trapX * 9.0 / max(zm, 0.5)) * 0.35;
     color *= 0.6 + uBass * 0.3;
   }
 
   color *= 1.0 + uBeat * 0.25;
+  // soft knee before the 8-bit target clips per channel
+  vec3 k = max(color - 0.8, 0.0);
+  color = min(color, 0.8) + 0.2 * (1.0 - exp(-k * 2.5));
 
   gl_FragColor = vec4(color, 1.0);
 }

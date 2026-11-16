@@ -40,6 +40,7 @@ float gKick;
 float gAngle;
 float gNB;
 float gSector, gInvSector; // TAU / gNB and its reciprocal, once per pixel
+vec2 gHubUv;               // the hub's screen position, for the backlight
 
 float sdBox(vec3 p, vec3 b) {
   vec3 q = abs(p) - b;
@@ -90,7 +91,13 @@ float march(vec3 ro, vec3 rd) {
   h = sqrt(h);
   float t = max(0.1, -b - h);
   float tEnd = min(30.0, -b + h);
-  for (int i = 0; i < 90; i++) {
+  // the rotor is a slab |z - HUB.z| <= 0.6 (rd.z < 0 always): rays through the
+  // blade gaps stop right behind it instead of crossing the whole sphere
+  float ta = (HUB.z + 0.6 - ro.z) / rd.z, tb = (HUB.z - 0.6 - ro.z) / rd.z;
+  t = max(t, min(ta, tb));
+  tEnd = min(tEnd, max(ta, tb));
+  if (t > tEnd) return -1.0;
+  for (int i = 0; i < 64; i++) {
     vec3 p = ro + rd * t;
     float d = map(p);
     if (d < 0.003) return t;
@@ -104,6 +111,8 @@ vec3 backdrop(vec2 uv) {
   vec3 c = uColor2 * 0.03 + uColor1 * 0.015 * (0.5 - uv.y);
   float girders = smoothstep(0.985, 1.0, abs(sin(uv.x * 14.0)));
   c += uColor1 * girders * 0.015;
+  // backlight behind the hub: the blades turn as silhouettes even in silence
+  c += mix(uColor3, uColor1, 0.4) * (0.10 + 0.18 * uBass) * exp(-length(uv - gHubUv) * 2.4);
   return c;
 }
 
@@ -121,6 +130,11 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
   vec3 c = uColor2 * 0.05 + uColor1 * rim * 0.22;
   vec3 Lamb = normalize(vec3(0.3, 0.6, 0.6));
   c += uColor2 * max(dot(n, Lamb), 0.0) * 0.12;
+  // moving glint from the fixed key: each blade flashes as it passes the highlight
+  vec3 H = normalize(Lamb - rd);
+  float sp = max(dot(n, H), 0.0);
+  sp *= sp; sp *= sp; sp *= sp; sp *= sp;
+  c += mix(uColor1, vec3(1.0), 0.5) * sp * 0.35;
 
   // strobe: a hard flash from the hub, synced to the kick only (uniform
   // branch: between kicks the whole block is a multiply by zero)
@@ -167,6 +181,8 @@ void main() {
 
   vec3 ro = vec3(0.6 + 0.35 * sin(uTime * 0.09), 0.25, 2.2);
   vec3 rd = normalize(vec3(uv, -1.35));
+  vec3 hv = HUB - ro;
+  gHubUv = hv.xy / -hv.z * 1.35;
 
   float t = march(ro, rd);
   vec3 col;
@@ -180,5 +196,6 @@ void main() {
 
   col = col / (1.0 + 0.5 * col);
   col *= clamp(1.25 - dot(uv, uv) * 0.85, 0.4, 1.0);
+  col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0; // dither
   gl_FragColor = vec4(col, 1.0);
 }
