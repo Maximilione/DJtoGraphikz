@@ -192,9 +192,15 @@ function setOutputFullscreen(o: Output, on: boolean) {
   logLine('output', `uscita ${o.id}: proiezione=${on} su display ${d.id} ${JSON.stringify(win.getBounds())}`)
 }
 
+/** Tell an output window its display's refresh rate: the dynamic-resolution thresholds follow it */
+function sendDisplayHz(win: BrowserWindow) {
+  if (!win.isDestroyed()) win.webContents.send('output:display-hz', screen.getDisplayMatching(win.getBounds()).displayFrequency || 60)
+}
+
 /** Put each projector back if it wandered off its display */
 function keepOutputOnItsDisplay() {
   for (const o of liveOutputs()) {
+    sendDisplayHz(o.win)
     if (o.displayId === null) continue
     const current = screen.getDisplayMatching(o.win.getBounds()).id
     if (current === o.displayId) continue
@@ -423,6 +429,7 @@ function createOutputWindow(id: number, cfg: OutputCfg): Output {
   win.webContents.on('did-finish-load', () => {
     logDisplayState('output caricata', controlWindow, win)
     replayShow((channel, ...args) => win.webContents.send(channel, ...args), out.cfg)
+    sendDisplayHz(win)
   })
 
   // Auto-recreate if the output renderer crashes mid-set. The first crash

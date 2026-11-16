@@ -161,6 +161,11 @@ const api = {
     ipcRenderer.on('output:set-resolution', handler)
     return () => ipcRenderer.removeListener('output:set-resolution', handler)
   },
+  onOutputDisplayHz: (callback: (hz: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, hz: number) => callback(hz)
+    ipcRenderer.on('output:display-hz', handler)
+    return () => ipcRenderer.removeListener('output:display-hz', handler)
+  },
 
   // Engine state sync (control → output)
   sendEngineState: (state: unknown) => ipcRenderer.send('engine:state-update', state),
