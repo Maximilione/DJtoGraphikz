@@ -48,7 +48,8 @@ void main() {
   vec3 color = vec3(0.0);
 
   // Time quantization — glitch frames
-  float glitchTime = floor(t * fps) / max(fps, 1.0);
+  // wrapped so the hash arguments stay small after hours of uptime
+  float glitchTime = mod(floor(t * fps), 4096.0) / max(fps, 1.0);
   // uBassHit: kicks slam in extra glitch on top of the beat envelope
   float glitchIntensity = (uBeat * 0.8 + uBass * 0.3 + uBassHit * 0.4) * intensity;
 
@@ -68,11 +69,11 @@ void main() {
   vec3 pb = pattern(centered + vec2(displacement * -0.8, 0.0), t, glitchTime);
 
   // Scanlines
-  float scan = sin(gl_FragCoord.y * 2.0) * 0.5 + 0.5;
+  float scan = sin(uv.y * 540.0 * 3.14159) * 0.5 + 0.5; // fixed line count at any resolution
   scan = sqrt(scan);
 
   // Compose: .x blocks, .y stripes, .z data columns
-  float rVal = pr.x * step(0.3, hash(centered * 10.0 + displacement * 15.0 + glitchTime)) + pr.z * 0.5;
+  float rVal = pr.x * step(0.3, hash(floor(centered * 180.0) + displacement * 15.0 + glitchTime)) + pr.z * 0.5;
   float gVal = pg.y * 0.3 + pg.z * 0.7;
   float bVal = pb.x * 0.5 + pb.y * 0.5;
 
@@ -80,6 +81,8 @@ void main() {
   // (color.r from uColor1.r…), which bent every palette toward red/blue and
   // dropped colour 2 and 3 whenever they lacked that channel
   color = (uColor1 * rVal + uColor2 * gVal + uColor3 * bVal) * 0.7;
+  // negative space: a third of the blocks drop near black on the glitch clock
+  color *= mix(0.12, 1.0, step(0.38, hash(floor(centered * vec2(5.0, 12.0)) + glitchTime * 3.7)));
 
   // Big glitch blocks on beat (block size clamped: at full intensity it hit
   // zero, the division made NaN and the blocks silently disappeared)
@@ -94,7 +97,7 @@ void main() {
 
   // Horizontal tear lines (weight 0 at zero intensity)
   if (glitchIntensity > 0.0) {
-    float tearLine = step(0.98, hash(vec2(floor(gl_FragCoord.y), glitchTime)));
+    float tearLine = step(0.98, hash(vec2(floor(gl_FragCoord.y / max(uResolution.y / 540.0, 1.0)), glitchTime)));
     color += uColor3 * tearLine * min(glitchIntensity, 1.5);
   }
 

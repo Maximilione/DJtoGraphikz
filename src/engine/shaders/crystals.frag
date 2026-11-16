@@ -41,6 +41,7 @@ float gT;
 float gKick;
 float gN;
 float gSec, gInvSec; // sector angle and its reciprocal, once per pixel
+vec3 gQ;             // last map() local coords: facet edges where one is 0
 
 float map(vec3 p) {
   float zc = floor(p.z * (1.0 / PZ) + 0.5);
@@ -58,6 +59,7 @@ float map(vec3 p) {
   float tw = h * TAU;
   float c = cos(tw), sn = sin(tw);
   q.yz = vec2(q.y * c - q.z * sn, q.y * sn + q.z * c);
+  gQ = vec3(q.x / 0.55, q.yz);
   return (abs(q.x) + abs(q.y) + abs(q.z) - s) * 0.577 * 0.55 * 0.8;
 }
 
@@ -137,17 +139,20 @@ void main() {
     float fres = f1 * f1 * f1;
     vec3 refl = mix(uColor3, vec3(1.0), 0.35) * studio(mir) * fres;
 
-    // facet edges: the normal turns quickly across a small step
-    vec3 tg = normalize(cross(n, vec3(0.3, 1.0, 0.2)));
-    float edge = 1.0 - smoothstep(0.9, 0.995, dot(n, normalAt(p + tg * 0.035)));
+    // facet edges: on an octahedron one folded coordinate is 0 (gQ from the
+    // last normalAt tap, 0.002 off p)
+    float em = min(abs(gQ.x), min(abs(gQ.y), abs(gQ.z)));
+    float edge = 1.0 - smoothstep(0.0, 0.02 + t * 0.0015, em);
 
     vec3 surf = trans * 0.85 + refl * 1.3
               + uColor3 * edge * (0.7 + 0.8 * uHigh + 0.6 * gKick);
-    float fogK = exp(-t * 0.055);
+    // kick wave: a ring of lit crystals running away down the tunnel
+    surf += uColor3 * gKick * exp(-abs(t - (1.0 - gKick) * 30.0) * 0.6) * 1.2;
+    float fogK = exp(-t * 0.075);
     col = mix(col, surf, fogK);
   }
 
-  col = col / (1.0 + 0.5 * col) + uColor1 * 0.012;
+  col = min(col * (1.0 + 0.18 * col) / (1.0 + 0.5 * col), vec3(2.0)) + uColor1 * 0.012;
   col *= clamp(1.2 - dot(uv, uv) * 0.7, 0.45, 1.0);
   gl_FragColor = vec4(col, 1.0);
 }

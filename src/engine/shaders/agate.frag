@@ -106,7 +106,8 @@ void main() {
   vec2 q = vec2(fbm3(s + vec2(0.0, t)), fbm3(s + vec2(5.2, 1.3) - t * 0.7));
   float k = (1.2 + 0.8 * uBass) * wp;
   vec2 sk = s + k * q;
-  vec2 r = vec2(fbm4(sk + vec2(1.7, 9.2)), fbm4(sk + vec2(8.3, 2.8)));
+  // r steers the warp like q: 3 octaves are enough
+  vec2 r = vec2(fbm3(sk + vec2(1.7, 9.2)), fbm3(sk + vec2(8.3, 2.8)));
   vec2 sr = s + k * r;
   float rad = length(p - c);
   vec2 f03 = fbm4p(sr);
@@ -132,7 +133,7 @@ void main() {
   float shiftN = mod(shiftRaw + 1.0, 61.0);
   float xf = smoothstep(7.0, 8.0, mod(bc, 8.0));
   vec3 col = mix(bandCol(idx, shift), bandCol(idx, shiftN), xf);
-  col *= 0.85 + 0.3 * fr;
+  col *= 0.72 + 0.45 * fr;
 
   // relief: gradient of a smooth 3-octave copy of the field (2 extra taps)
   float e = 0.004;
@@ -146,7 +147,7 @@ void main() {
   g += (fr - 0.5) * 0.08 * gl * normalize(dg + dc + vec2(1e-4, 0.0));
   vec3 n = normalize(vec3(-g * 1.5, 1.0));
   vec3 L = normalize(vec3(cos(t * 2.0), sin(t * 2.0), 1.2));
-  float diff = 0.55 + 0.45 * max(dot(n, L), 0.0);
+  float diff = 0.35 + 0.65 * max(dot(n, L), 0.0);
   vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
   float spec = pow(max(dot(n, H), 0.0), 60.0) * gl * (0.6 + 1.4 * uBassHit);
 
@@ -162,18 +163,23 @@ void main() {
   float thick = h * 3.0 + n.z * 0.5 + tw * 0.03 + 0.35 * uHigh + 0.15 * uMid;
   vec3 irid = 0.5 + 0.5 * cos(6.2831853 * (thick + vec3(0.0, 0.33, 0.67)));
   vec3 veinCol = mix(irid, vec3(1.0, 0.85, 0.6), 0.35) * (0.8 + 0.8 * uBassHit + 0.5 * uHigh);
+  // the kick ring lights the veins as it passes
+  veinCol *= 1.0 + 2.0 * uBassHit * exp(-dr * dr);
 #if LOOK == 2
   col = mix(col, irid * dot(col, vec3(0.5)) * 1.6 + col * 0.3, 0.7);
 #endif
 
   // druse crystals: innermost band and a few lucky ones
   float inner = max(step(rad, 0.18), step(0.9, hash1(idx + shift * 3.0)));
-  vec2 g2 = p * 60.0;
-  vec2 id = floor(g2);
-  float dd = length(fract(g2) - 0.5 - (hash2(id) - 0.5) * 0.5);
-  float hid = hash(id);
-  float sparkle = step(0.75, hid) * exp(-dd * dd * 160.0) * (0.4 + 1.6 * (uHigh + 0.5 * uHighHit))
-                * (0.5 + 0.5 * sin(tw * 8.0 + hid * 50.0)) * inner;
+  float sparkle = 0.0;
+  if (inner > 0.0) {
+    vec2 g2 = p * 60.0;
+    vec2 id = floor(g2);
+    float dd = length(fract(g2) - 0.5 - (hash2(id) - 0.5) * 0.5);
+    float hid = hash(id);
+    sparkle = step(0.75, hid) * exp(-dd * dd * 160.0) * (0.4 + 1.6 * (uHigh + 0.5 * uHighHit))
+            * (0.5 + 0.5 * sin(tw * 8.0 + hid * 50.0)) * inner;
+  }
 
   col = col * diff + veinCol * vein * 0.9 + vec3(1.0) * spec * 0.6
       + mix(uColor2, vec3(1.0), 0.6) * sparkle;
