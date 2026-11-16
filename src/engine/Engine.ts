@@ -652,6 +652,7 @@ export class Engine {
   // scale until the frame rate holds, then climb back when there's headroom
   private perfScale = 1
   private perfEmaMs = 16.7
+  private framePeriodMs = 1000 / 60
   private perfLastNow = 0
   private perfCooldown = 300 // ~5s warmup: boot + output-window spawn jank must not downscale
   private perfSpikeLast = false
@@ -3261,16 +3262,16 @@ export class Engine {
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
-    if (this.perfEmaMs > 20 && this.perfScale > 0.3) {
+    if (this.perfEmaMs > this.framePeriodMs * 1.2 && this.perfScale > 0.3) {
       // under ~50fps (was 42: 42-58fps judders on a 60Hz projector and never scaled): step proportional to how late we are, so a volumetric
       // raymarcher at 15fps converges in 2 steps instead of crawling down.
-      // (a 30Hz display lands here too — softer buffers there are invisible)
-      const step = Math.max(0.55, Math.min(0.9, Math.sqrt(16.7 / this.perfEmaMs)))
+      // (thresholds follow the output display's refresh: a 30/50Hz projector no longer reads as overload)
+      const step = Math.max(0.55, Math.min(0.9, Math.sqrt(this.framePeriodMs / this.perfEmaMs)))
       this.perfScale = Math.max(0.3, this.perfScale * step)
-      this.perfCooldown = this.perfEmaMs > 40 ? 20 : 45
+      this.perfCooldown = this.perfEmaMs > this.framePeriodMs * 2.4 ? 20 : 45
       this.setRenderSize(this.outputWidth, this.outputHeight)
       console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
-    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < 20) {
+    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < this.framePeriodMs * 1.2) {
       // headroom: climb back slowly, and only when the frame still fits once the
       // bigger buffer is paid for (x1.38 pixels a step). Climbing on "< 17ms" alone
       // put a 26ms shader back at full size every 5s, then down again: a hitch
@@ -3280,6 +3281,9 @@ export class Engine {
       this.setRenderSize(this.outputWidth, this.outputHeight)
     }
   }
+
+  /** Refresh rate of the display the output window sits on (main sends it) */
+  setDisplayHz(hz: number) { this.framePeriodMs = 1000 / Math.min(60, Math.max(24, hz || 60)) }
 
   private lastFrameAt = 0
   private watchdogId = 0

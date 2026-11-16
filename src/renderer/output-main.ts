@@ -174,3 +174,5 @@ api.onOutputResolution((w: number, h: number) => {
   // the letterbox depends on the output aspect — recompute it
   window.dispatchEvent(new Event('resize'))
 })
+// Electron only: browser/OBS outputs keep the 60Hz default
+window.api?.onOutputDisplayHz?.((hz: number) => engine.setDisplayHz(hz))
