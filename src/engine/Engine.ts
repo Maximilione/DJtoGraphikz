@@ -788,6 +788,7 @@ export class Engine {
   private transitionType: TransitionType = 'crossfade'
   private transitionDuration = 0.8 // seconds
   private transitionProgress = -1  // -1 = not transitioning
+  private transitionFrom: EffectId = 'tunnel'
   private transitionOldMaterial: THREE.ShaderMaterial | null = null
   private rtTransition: THREE.WebGLRenderTarget
   private transitionMaterial: THREE.ShaderMaterial
@@ -1587,7 +1588,7 @@ export class Engine {
       this.startTransition(id)
       return
     }
-    if (id === this.currentEffect && this.transitionProgress < 0) return
+    if (id === this.currentEffect) return
 
     // If beat-sync is on and no beat right now, queue the transition
     if (this.transitionBeatSync) {
@@ -1625,6 +1626,7 @@ export class Engine {
     }
 
     const fromEffect = this.currentEffect
+    this.transitionFrom = fromEffect
 
     if (this.transitionDuration <= 0 || id === this.currentEffect) {
       // Instant switch
@@ -1646,17 +1648,7 @@ export class Engine {
     // Emit state with transition info for output window. The panels listen
     // too: with a transition > 0 the grid, the "In onda" line and the params
     // stayed on the old effect until some other emit came by.
-    if (!this.onStateChange && !this.stateListeners.size) return
-    const snap = {
-      ...this.stateSnapshot(),
-      transition: {
-        type: this.transitionType,
-        duration: this.transitionDuration,
-        fromEffect,
-      },
-    }
-    this.onStateChange?.(snap)
-    this.notifyStateListeners(snap)
+    this.emitState()
   }
 
   // ---- Custom Shader API ----
@@ -3161,6 +3153,7 @@ export class Engine {
       customParams: this.usingCustom ? this.customParamDefs : undefined,
       customImageInputs: this.usingCustom ? this.customImageInputs : undefined,
       customImages: this.usingCustom ? this.customImages : undefined,
+      transition: this.transitionProgress >= 0 ? { type: this.transitionType, duration: this.transitionDuration, fromEffect: this.transitionFrom } : undefined,
       transitionType: this.transitionType,
       transitionDuration: this.transitionDuration,
       transitionBeatSync: this.transitionBeatSync,
@@ -3559,6 +3552,7 @@ export class Engine {
           this.disposeEffectMaterial(this.transitionOldMaterial)
           this.transitionOldMaterial = null
           this.transitionProgress = -1
+          this.emitState()
         } else {
           // Render old effect → rtTransition
           this.applyEffectUniforms(this.transitionOldMaterial, time)
