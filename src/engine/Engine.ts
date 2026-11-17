@@ -123,6 +123,9 @@ import telemetryFrag from './shaders/telemetry.frag?raw'
 import aegisFrag from './shaders/aegis.frag?raw'
 import titanhandFrag from './shaders/titanhand.frag?raw'
 import kaijustompFrag from './shaders/kaijustomp.frag?raw'
+import tokuHeroesUrl from './assets/toku-heroes.png?url'
+import tokuFootUrl from './assets/toku-foot.png?url'
+import tokuHandUrl from './assets/toku-hand.png?url'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -727,6 +730,7 @@ export class Engine {
   // float texel per chunk header / run; pipesTime is the clock it was built for
   private pipesPixels = new Float32Array(PIPES_TEX_WIDTH * 4)
   private pipesTex: THREE.DataTexture | null = null
+  private spriteSheets = new Map<string, THREE.Texture>()
   private pipesTime = NaN
   private pipesEpoch = NaN   // screen the pipe count was latched for
   private pipesN = 0
@@ -1211,6 +1215,8 @@ export class Engine {
       ...paramUniforms,
       ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
       ...(id === 'pipes' ? { uPipes: { value: this.getPipesTexture() } } : {}),
+      ...(id === 'titanhand' ? { uAtlasHero: { value: this.getSpriteSheet(tokuHeroesUrl) }, uAtlasHand: { value: this.getSpriteSheet(tokuHandUrl) } } : {}),
+      ...(id === 'kaijustomp' ? { uAtlasHero: { value: this.getSpriteSheet(tokuHeroesUrl) }, uAtlasFoot: { value: this.getSpriteSheet(tokuFootUrl) } } : {}),
       // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
       // applyEffectUniforms computes them once a frame instead of per vertex
       ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),
@@ -1873,6 +1879,24 @@ export class Engine {
       this.spectrumTex = tex
     }
     return this.spectrumTex
+  }
+
+  /**
+   * Pixel-art sprite sheet of an effect (scripts/gen-toku-sprites.py), loaded on
+   * first use and kept: nearest filtering, no mipmaps, no colour conversion, so
+   * the shader reads exactly the texel the artist put there.
+   */
+  private getSpriteSheet(url: string): THREE.Texture {
+    let tex = this.spriteSheets.get(url)
+    if (!tex) {
+      tex = new THREE.TextureLoader().load(url)
+      tex.magFilter = tex.minFilter = THREE.NearestFilter
+      tex.generateMipmaps = false
+      tex.colorSpace = THREE.NoColorSpace
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+      this.spriteSheets.set(url, tex)
+    }
+    return tex
   }
 
   private getPipesTexture(): THREE.DataTexture {
