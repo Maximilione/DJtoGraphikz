@@ -15,15 +15,16 @@ the shadow side, the material's own dark tone where the light hits it.
     python3 scripts/gen-toku-sprites.py heroes     # or: foot, hand, duel
 
 Output, in src/engine/assets:
-  toku-hero-0/1/2.png  2048 x 1024 each, 16 x 8 cells of 128 px, a hero is 84 px
-                   tall. Three designs (helmet, visor, emblem), same moves:
+  toku-hero-0/1/2.png  2304 x 1152 each, 16 x 8 cells of 144 px, a hero is 95 px
+                   tall, 8 heads, lean. Three designs (helmet, visor, emblem), same moves:
                    stance 0-7, walk 8-15, run 16-27, run looking back 28-39,
                    flip 40-51, skid 52-57, knocked down 58-65, getting up 66-75,
                    roll-call pose 76-87, jab and cross 88-95, roundhouse 96-103,
                    flying kick 104-111, energy bolt 112-121, turning 122-123,
                    the bolt in flight 124-127
   toku-foot.png    1536 x 704, 4 x 2 cells of 384 x 352: coming down, coming
-                   down (smear), impact, settling, planted, heel up, lifting
+                   down (smear), impact, settling, planted, heel up, lifting.
+                   The same foot as the kaiju of the duel, building-sized
   toku-hand.png    1728 x 864, 6 x 3 cells of 288 px: grope 0-3, pat 4-5,
                    grab 6-9, wound up 10, slam 11-12, fist 13-14, withdrawing
                    15-16. Drawn already turned the way it points
@@ -267,7 +268,7 @@ class Canvas:
 # =====================================================================
 # heroes
 # =====================================================================
-CELL, HPX = 128, 84                       # cell size, pixels per unit (1 unit = a hero's height, 7.5 heads)
+CELL, HPX = 144, 95                       # cell size, pixels per unit (1 unit = a hero's height, 8 heads: lean, long in the leg)
 SUIT, WHITE, VISOR, GOLD, FX = 1, 2, 3, 4, 6
 POSE0 = dict(hipA=0.0, kneeA=0.0, hipB=0.0, kneeB=0.0, shA=0.0, elA=0.0, shB=0.0, elB=0.0,
              lean=0.0, head=0.0, rot=0.0, look=1.0, air=-1.0, lie=0.0, open=0.0)
@@ -386,7 +387,7 @@ def dn(a):
     return np.array([math.sin(a), -math.cos(a)])
 
 
-TH, SHN, FT, TORSO, UARM, FARM = 0.26, 0.255, 0.12, 0.25, 0.155, 0.15
+TH, SHN, FT, TORSO, UARM, FARM = 0.268, 0.268, 0.1, 0.235, 0.15, 0.148
 
 
 def joints(p):
@@ -399,9 +400,9 @@ def joints(p):
     j["pel"] = np.zeros(2)
     j["chest"] = up * TORSO
     j["neck"] = j["chest"] + up * 0.045
-    j["head"] = j["neck"] + hu * 0.082
+    j["head"] = j["neck"] + hu * 0.07
     for s, sg in (("A", -1.0), ("B", 1.0)):
-        hip = rt * 0.042 * sg
+        hip = rt * 0.035 * sg
         kn = hip + dn(p["hip" + s]) * TH
         an = kn + dn(p["hip" + s] - p["knee" + s]) * SHN
         j["hip" + s], j["kn" + s], j["an" + s] = hip, kn, an
@@ -419,9 +420,9 @@ def joints(p):
     if p["air"] >= 0.0:
         low = -p["air"]
     else:
-        low = min(j["anA"][1] - 0.04, j["toeA"][1] - 0.03, j["anB"][1] - 0.04, j["toeB"][1] - 0.03)
+        low = min(j["anA"][1] - 0.034, j["toeA"][1] - 0.026, j["anB"][1] - 0.034, j["toeB"][1] - 0.026)
         if p["lie"] > 0.0:
-            low = min(low, j["pel"][1] - 0.085, j["chest"][1] - 0.1, j["head"][1] - 0.08, j["wrA"][1] - 0.04, j["wrB"][1] - 0.04,
+            low = min(low, j["pel"][1] - 0.07, j["chest"][1] - 0.09, j["head"][1] - 0.07, j["wrA"][1] - 0.04, j["wrB"][1] - 0.04,
                       j["knA"][1] - 0.05, j["knB"][1] - 0.05, j["elA"][1] - 0.04, j["elB"][1] - 0.04)
     for k in j:
         if k not in ("up", "hu"):
@@ -435,20 +436,20 @@ def draw_leg(cv, j, s, dim):
     bk = np.array([sd[1], -sd[0]])                 # the back of the leg
     th = unit(kn - hip)
     mid = kn + sd * 0.085
-    cv.begin().cap(hip, kn, 0.078, 0.05).ell(hip + th * 0.1 - np.array([th[1], -th[0]]) * 0.014, 0.09, 0.066, math.atan2(th[1], th[0]))
-    cv.cap(kn, mid, 0.05, 0.047)
+    cv.begin().cap(hip, kn, 0.062, 0.041).ell(hip + th * 0.1 - np.array([th[1], -th[0]]) * 0.01, 0.085, 0.05, math.atan2(th[1], th[0]))
+    cv.cap(kn, mid, 0.041, 0.038)
     cv.paint(cv.mask(), SUIT, gloss=0.4, sig=5.5, dim=dim)
     # boot: a chunky shaft with a calf, a turned-over cuff, a heel, a long foot, a dark sole
     ft = unit(toe - an)
     fn = np.array([ft[1], -ft[0]])
     if fn[1] > 0:
         fn = -fn
-    cv.begin().cap(mid, an, 0.053, 0.04).disc(mid + sd * 0.045 + bk * 0.016, 0.046).disc(an + bk * 0.008, 0.043).cap(an + ft * 0.012, toe, 0.042, 0.032)
+    cv.begin().cap(mid, an, 0.044, 0.033).disc(mid + sd * 0.045 + bk * 0.012, 0.039).disc(an + bk * 0.006, 0.035).cap(an + ft * 0.01, toe, 0.034, 0.026)
     bm = cv.mask()
     cv.paint(bm, WHITE, gloss=0.7, sig=4.5, dim=dim)
-    cv.begin().cap(an - ft * 0.03 + fn * 0.036, toe + ft * 0.02 + fn * 0.027, 0.012, 0.011)
+    cv.begin().cap(an - ft * 0.03 + fn * 0.03, toe + ft * 0.02 + fn * 0.022, 0.011, 0.01)
     cv.decal(cv.mask() * bm, mul=0.2)
-    cv.begin().cap(mid - sd * 0.008, mid + sd * 0.014, 0.06, 0.059)
+    cv.begin().cap(mid - sd * 0.008, mid + sd * 0.014, 0.05, 0.049)
     cv.paint(cv.mask(), WHITE, gloss=0.6, sig=3.0, dim=dim, cast=0.6)
 
 
@@ -457,17 +458,17 @@ def draw_arm(cv, j, s, dim, opened):
     fd = unit(wr - el)
     fnm = np.array([-fd[1], fd[0]])
     m2 = el + fd * 0.055
-    cv.begin().disc(sh, 0.064).cap(sh, el, 0.056, 0.04).cap(el, m2, 0.043, 0.04)
+    cv.begin().disc(sh, 0.057).cap(sh, el, 0.048, 0.034).cap(el, m2, 0.036, 0.033)
     cv.paint(cv.mask(), SUIT, gloss=0.4, sig=4.5, dim=dim)
     # glove: gauntlet, flared cuff, and either a square fist with a thumb or an open hand
-    cv.begin().cap(m2, wr, 0.043, 0.036)
+    cv.begin().cap(m2, wr, 0.036, 0.03)
     if opened > 0.5:
-        cv.cap(wr, wr + fd * 0.075, 0.04, 0.03).cap(wr + fd * 0.01, wr + fd * 0.045 + fnm * 0.045, 0.02, 0.014)
+        cv.cap(wr, wr + fd * 0.065, 0.033, 0.025).cap(wr + fd * 0.01, wr + fd * 0.04 + fnm * 0.038, 0.017, 0.012)
     else:
-        cv.poly([wr - fnm * 0.045 - fd * 0.005, wr + fnm * 0.045 - fd * 0.005, wr + fnm * 0.045 + fd * 0.065, wr - fnm * 0.045 + fd * 0.065])
-        cv.disc(wr + fd * 0.03, 0.05).disc(wr + fd * 0.02 + fnm * 0.04, 0.022)
+        cv.poly([wr - fnm * 0.036 - fd * 0.005, wr + fnm * 0.036 - fd * 0.005, wr + fnm * 0.036 + fd * 0.055, wr - fnm * 0.036 + fd * 0.055])
+        cv.disc(wr + fd * 0.026, 0.04).disc(wr + fd * 0.018 + fnm * 0.033, 0.018)
     cv.paint(cv.mask(), WHITE, gloss=0.7, sig=4.0, dim=dim)
-    cv.begin().cap(m2 - fd * 0.008, m2 + fd * 0.014, 0.053, 0.051)
+    cv.begin().cap(m2 - fd * 0.008, m2 + fd * 0.014, 0.044, 0.042)
     cv.paint(cv.mask(), WHITE, gloss=0.6, sig=3.0, dim=dim, cast=0.6)
 
 
@@ -478,12 +479,12 @@ def draw_hero(cv, p, v):
     rt = np.array([up[1], -up[0]])
     pel = j["pel"]
     tw = 0.45 + 0.55 * abs(look)
-    T = lambda x, y: pel + rt * x * tw + up * y       # torso coordinates
+    T = lambda x, y: pel + rt * x * tw + up * y * 0.94   # torso coordinates
     draw_arm(cv, j, "A", 0.72, p["open"])
     draw_leg(cv, j, "A", 0.72)
     # torso: broad shoulders, deep chest, narrow waist, hips
-    cv.begin().poly([T(-0.118, 0.25), T(0.122, 0.25), T(0.1, 0.16), T(0.07, 0.07), T(0.088, 0.0), T(-0.085, 0.0), T(-0.066, 0.07), T(-0.094, 0.16)])
-    cv.disc(T(-0.07, 0.235), 0.055).disc(T(0.075, 0.235), 0.057).disc(T(-0.045, 0.0), 0.05).disc(T(0.048, 0.0), 0.05).disc(T(0.005, 0.2), 0.105 * tw + 0.02)
+    cv.begin().poly([T(-0.116, 0.25), T(0.12, 0.25), T(0.09, 0.16), T(0.052, 0.07), T(0.07, 0.0), T(-0.067, 0.0), T(-0.049, 0.07), T(-0.085, 0.16)])
+    cv.disc(T(-0.07, 0.235), 0.05).disc(T(0.075, 0.235), 0.052).disc(T(-0.034, 0.0), 0.042).disc(T(0.037, 0.0), 0.042).disc(T(0.005, 0.205), 0.09 * tw + 0.018)
     tm = cv.mask()
     cv.paint(tm, SUIT, gloss=0.4, sig=8.0)
     if v == 0:      # a chevron
@@ -503,15 +504,16 @@ def draw_hero(cv, p, v):
     cv.decal(cv.mask() * tm, mul=0.45)
     cv.begin().poly([T(-0.012, 0.014), T(0.05, 0.014), T(0.05, 0.066), T(-0.012, 0.066)])
     cv.decal(cv.mask() * tm, mat=GOLD, spec=1.0)                                     # buckle
-    cv.begin().cap(T(0.0, 0.26), j["head"] - hu * 0.04, 0.036, 0.034)
+    cv.begin().cap(T(0.0, 0.26), j["head"] - hu * 0.035, 0.03, 0.028)
     cv.paint(cv.mask(), SUIT, gloss=0.2, sig=3.0, dim=0.55)                          # neck
     draw_leg(cv, j, "B", 1.0)
     # helmet
     hr = np.array([hu[1], -hu[0]])
-    H = lambda x, y: j["head"] + hr * x + hu * y
+    HS = 0.85                                          # the helmet, a notch smaller than the body would make it
+    H = lambda x, y: j["head"] + (hr * x + hu * y) * HS
     ha = math.atan2(hu[1], hu[0]) - math.pi / 2
     vx, vw = 0.034 * look, 0.046 * (0.5 + 0.5 * abs(look))
-    cv.begin().ell(j["head"], 0.08, 0.086, ha).ell(H(0.016 * look, -0.047), 0.058, 0.046, ha)
+    cv.begin().ell(j["head"], 0.08 * HS, 0.086 * HS, ha).ell(H(0.016 * look, -0.047), 0.058 * HS, 0.046 * HS, ha)
     if v == 0:      # a fin from brow to nape
         cv.poly([H(0.03 * look, 0.07), H(-0.012 * look, 0.118), H(-0.07 * look, 0.085), H(-0.06 * look, 0.03)])
     elif v == 2:    # a peak over the brow and a jutting chin guard
@@ -523,16 +525,16 @@ def draw_hero(cv, p, v):
         cv.decal(cv.mask() * hm, mat=WHITE)
         cv.begin().poly([H(vx - vw, 0.036), H(vx + vw, 0.036), H(vx + vw, -0.004), H(vx, -0.022), H(vx - vw, -0.004)])
     elif v == 1:    # ear discs and a round visor
-        cv.begin().disc(H(-0.03 * look, 0.0), 0.03)
+        cv.begin().disc(H(-0.03 * look, 0.0), 0.03 * HS)
         cv.decal(cv.mask() * hm, mat=WHITE)
-        cv.begin().ell(H(vx, 0.01), vw * 0.95, 0.034, ha)
+        cv.begin().ell(H(vx, 0.01), vw * 0.95 * HS, 0.034 * HS, ha)
     else:           # a slanted slit
         cv.begin().poly([H(vx - vw, 0.03), H(vx + vw, 0.044), H(vx + vw, 0.012), H(vx - vw, -0.004)])
     vm = cv.mask() * hm
     cv.decal(vm, mat=VISOR)
     cv.begin().cap(H(vx - vw * 0.5, 0.022), H(vx - vw * 0.05, 0.026), 0.007, 0.005)
     cv.decal(cv.mask() * vm, spec=1.4)                                               # the glint on the visor
-    cv.begin().ell(H(vx + 0.003 * look, -0.042), 0.027 * (0.55 + 0.45 * abs(look)), 0.016, ha)
+    cv.begin().ell(H(vx + 0.003 * look, -0.042), 0.027 * HS * (0.55 + 0.45 * abs(look)), 0.016 * HS, ha)
     cv.decal(cv.mask() * hm, mat=WHITE, mul=0.85)                                    # mouthpiece
     draw_arm(cv, j, "B", 1.0, p["open"])
     return j
@@ -547,7 +549,7 @@ def arc(cv, c, r0, r1, a0, a1, n=14):
 
 
 def hero_frame(p, v, prev=None, fx=None):
-    cv = Canvas(CELL, CELL, HPX, (CELL // 2, CELL - 12), 0.47)
+    cv = Canvas(CELL, CELL, HPX, (CELL // 2, CELL - 12), 0.53)
     if prev is not None:
         # smear: where the limbs were half a frame ago, under the figure
         j = joints(mixp(prev, p, 0.5))
@@ -562,7 +564,7 @@ def hero_frame(p, v, prev=None, fx=None):
 
 def fx_frame(kind, i):
     """The energy bolt in flight: a white core in a shell of the hero's colour."""
-    cv = Canvas(CELL, CELL, HPX, (CELL // 2, CELL // 2), 0.47)
+    cv = Canvas(CELL, CELL, HPX, (CELL // 2, CELL // 2), 0.53)
     wob = 0.04 * math.sin(i * 1.7)
     cv.begin().cap((0.2, 0.0), (-0.5, wob), 0.14 + 0.02 * (i % 2), 0.02)
     cv.fx.append((cv.mask(), FX, 2))
@@ -663,7 +665,7 @@ def build_heroes():
 # =====================================================================
 HIDE, IVORY = 1, 2
 FOOT_PAL = {
-    HIDE: [(8, 9, 12), (17, 19, 23), (29, 32, 37), (46, 51, 58), (84, 93, 104)],      # charcoal, blue-grey where the light catches
+    HIDE: [(11, 12, 18), (25, 28, 37), (45, 50, 61), (73, 82, 96), (124, 136, 152)],   # charcoal, blue-grey where the light catches
     IVORY: [(60, 44, 34), (128, 104, 74), (196, 176, 134), (238, 228, 196), (255, 252, 240)],
     INK: [(5, 5, 9)],
 }
@@ -684,66 +686,41 @@ def hide_bump(w, h, seed):
 
 
 def foot_frame(spread, lift, squash, heel, stretch=0.0):
-    """spread: toes fanned; lift: toes raised; squash: flattened by its own weight;
+    """The same foot the kaiju of the duel stands on (kaiju_foot), at the size of a building: a column of a leg,
+    two folds of hide over the ankle, the mitt, four toes in a row each with its claw.
+    spread: toes fanned; lift: toes raised; squash: flattened by its own weight;
     heel: heel off the ground; stretch: pulled long by the speed of the fall (the smear)."""
-    cv = Canvas(FW, FH, FPX, FO, 0.37)
-    bump = hide_bump(FW, FH, 7)
-    sy = 1.0 - 0.16 * squash + 0.2 * stretch
+    global FBUMP
+    if FBUMP is None:
+        FBUMP = knob_bump(FW, FH, 8.5, 7)
+    cv = Canvas(FW, FH, FPX, FO, 1.0)
+    sy = 1.0 - 0.14 * squash + 0.2 * stretch
     tilt = 0.35 * heel
-    c0 = np.array([0.55, 0.0])
+    c0 = np.array([0.75, 0.0])
+    S = 1.18                                            # the length of the mitt, in units
 
-    def X(x, y):                                       # squash or stretch, then rock forward on the toes
-        v = np.array([x * (1.0 + 0.07 * squash - 0.05 * stretch), y * sy]) - c0
+    def F(x, y):                                       # squash or stretch, then rock forward on the toes
+        v = np.array([x * S * (1.0 + 0.06 * squash - 0.05 * stretch), y * S * sy]) - c0
         return np.array([v[0] * math.cos(tilt) + v[1] * math.sin(tilt), -v[0] * math.sin(tilt) + v[1] * math.cos(tilt)]) + c0
 
-    def skin(m, sig, dim=1.0):
-        cv.paint(m, HIDE, gloss=0.3, sig=sig, bump=bump, kb=9.0, dim=dim * 0.92, cast=0.55, rim=0.35)
+    def hide(m, sig, dim=1.0, cast=0.55):
+        cv.paint(m, HIDE, gloss=0.3, sig=sig, bump=FBUMP, kb=3.4, dim=0.88 * dim, cast=cast, rim=0.7, keep=True)
 
-    def toe(k):
-        """Four short toes side by side, the near one lowest; each ends in a long curved claw."""
-        ang = -0.05 + lift * (0.5 - 0.08 * k) - 0.1 * squash
-        base = np.array([0.5 - 0.1 * k, 0.17 + 0.075 * k + spread * 0.03 * k])
-        d = np.array([math.cos(ang), math.sin(ang)])
-        tip = base + d * (0.36 - 0.03 * k)
-        r = 0.135 - 0.01 * k
-        dim = 1.0 - 0.1 * k
-        # the claw: three tapering joints curving down to a point, dark at the root, pale at the tip
-        pts = [tip - d * 0.02]
-        a = ang - 0.08
-        for step, bend in ((0.14, 0.3), (0.13, 0.42), (0.11, 0.0)):
-            pts.append(pts[-1] + np.array([math.cos(a), math.sin(a)]) * step)
-            a -= bend
-        cv.begin().cap(X(*pts[0]), X(*pts[1]), 0.092, 0.066).cap(X(*pts[1]), X(*pts[2]), 0.066, 0.036).cap(X(*pts[2]), X(*pts[3]), 0.036, 0.006)
-        cm = cv.mask()
-        cv.paint(cm, IVORY, gloss=0.85, sig=5.0, dim=dim, cast=0.5)
-        cv.begin().disc(X(*pts[0]), 0.125)
-        cv.decal(cv.mask() * cm, mul=0.5)
-        cv.begin().cap(X(*base), X(*tip), r * 1.05, r).disc(X(*(base + d * 0.2 + np.array([0.0, 0.03]))), r * 1.03)
-        skin(cv.mask(), 13.0, dim)
-
-    # the leg, out of the top of the frame
-    cv.begin().cap(X(-0.1, 0.9), X(-0.22, 2.6), 0.4, 0.47)
+    kaiju_foot(cv, F, S, hide, 1.0, lift, spread, 6.0)
+    cv.begin().cap(F(-0.06, 0.82), F(-0.14, 2.6), 0.37 * S, 0.43 * S)
     lm = cv.mask()
-    skin(lm, 30.0)
-    cv.begin().cap(X(-0.4, 0.95), X(-0.53, 2.6), 0.008, 0.008)                      # the seam of the suit
-    cv.decal(cv.mask() * lm, mul=0.45)
-    toe(3)
-    toe(2)
-    toe(1)
-    # the ankle: one heavy roll of rubber sagging over the foot, a smaller one above it
-    cv.begin().ell(X(-0.1, 0.95), 0.45, 0.1)
-    skin(cv.mask(), 11.0)
-    cv.begin().ell(X(-0.07, 0.72 - 0.03 * squash), 0.53, 0.17 * (1.0 - 0.2 * squash))
-    skin(cv.mask(), 15.0)
-    cv.begin().cap(X(-0.5, 0.22), X(-0.72, 0.09), 0.1, 0.04)                        # heel spur
-    cv.paint(cv.mask(), IVORY, gloss=0.8, sig=6.0, cast=0.5, dim=0.85)
-    cv.begin().disc(X(-0.3, 0.28), 0.3).ell(X(-0.04, 0.31), 0.42, 0.31).cap(X(-0.3, 0.3), X(-0.1, 0.5), 0.3, 0.42)
-    skin(cv.mask(), 26.0)
-    toe(0)
+    hide(lm, 34.0)
+    cv.begin().ell(F(-0.06, 0.72 - 0.02 * squash), 0.395 * S, 0.085 * S * (1.0 - 0.15 * squash), -tilt)
+    hide(cv.mask(), 9.0, 1.0, 0.65)
+    cv.begin().ell(F(-0.04, 0.55 - 0.03 * squash), 0.415 * S, 0.11 * S * (1.0 - 0.2 * squash), -tilt)
+    hide(cv.mask(), 11.0, 1.0, 0.65)
     # dirt of the last take, up from the sole
-    yy = (np.arange(FH, dtype=np.float32)[:, None] - (FO[1] - 0.3 * FPX)) / (0.3 * FPX)
-    cv.light *= 1.0 - 0.3 * np.clip(yy, 0.0, 1.0)
+    yy = (np.arange(FH, dtype=np.float32)[:, None] - (FO[1] - 0.22 * FPX)) / (0.22 * FPX)
+    cv.light *= 1.0 - 0.25 * np.clip(yy, 0.0, 1.0)
     return cv.colour_image(FOOT_PAL)
+
+
+FBUMP = None
 
 
 def build_foot():
@@ -759,9 +736,9 @@ def build_foot():
 # =====================================================================
 LATEX, FUR, NAIL = 1, 2, 3
 HAND_PAL = {
-    LATEX: [(5, 5, 6), (11, 10, 11), (19, 18, 19), (30, 28, 28), (58, 54, 52)],          # black leather, a dull sheen
-    FUR: [(6, 5, 5), (13, 9, 8), (22, 15, 12), (33, 23, 17), (50, 37, 27)],
-    NAIL: [(30, 26, 24), (52, 46, 42), (80, 72, 66), (112, 102, 94), (150, 140, 130)],
+    LATEX: [(4, 4, 5), (11, 10, 11), (21, 19, 20), (33, 30, 30), (46, 42, 41)],           # black leather, matte: no tone is grey
+    FUR: [(8, 5, 3), (19, 11, 6), (33, 20, 11), (50, 31, 17), (74, 48, 27)],            # dark brown
+    NAIL: [(26, 20, 16), (48, 38, 30), (76, 62, 50), (108, 92, 76), (150, 134, 114)],
     INK: [(4, 3, 6)],
 }
 HW, HH, HPXH, HO = 288, 288, 110, (144, 144)  # hand cell, pixels per unit (wrist to fingertip = 1), where the wrist sits
@@ -771,73 +748,84 @@ AIM = {"reach": unit([0.55, -1.0]), "slam": unit([0.9, -0.45]), "up": unit([0.25
 
 
 def hand_frame(curl, spread, wig, flat, aim="reach"):
-    """Back of the hand, fingers pointing +x. curl 0 open .. 1 fist; flat presses it wide."""
+    """Back of the hand, fingers pointing +x. curl 0 open .. 1 fist; flat presses it wide.
+    Matte black leather: fingers that swell at the knuckles and taper, creased, each with a
+    nail; and a shaggy sleeve of dark brown fur, laid on lock by lock like thatch."""
     cv = Canvas(HW, HH, HPXH, HO, 0.38)
     d = AIM[aim]
     cv.tf = np.array([[d[0], d[1]], [d[1], -d[0]]])    # fingers along d, the thumb side kept on the inside
     rng = np.random.default_rng(3)
     wy = 1.0 + 0.12 * flat
-    strand = norm01(blur(rng.random((HH, HW // 6 + 1)).astype(np.float32).repeat(6, 1)[:, :HW], 1.0))
 
     def rot(v, a):
         return np.array([v[0] * math.cos(a) - v[1] * math.sin(a), v[0] * math.sin(a) + v[1] * math.cos(a)])
 
-    def furry(m, sig, dim=1.0):
-        cv.paint(m, FUR, gloss=0.2, sig=sig, bump=strand, kb=4.5, cast=0.45, rim=0.8, dither=True, dim=dim)
+    def leather(m, sig, dim=1.0):
+        cv.paint(m, LATEX, gloss=0.12, sig=sig, cast=0.55, rim=0.25, dim=dim)
+
+    def locks(n, x0, x1, half, dim, clip=None):
+        """Fur: tapering locks, the ones nearer the arm laid over the ones nearer the fingers."""
+        seeds = sorted(((rng.uniform(x0, x1), rng.uniform(-1.0, 1.0), rng.uniform(-0.35, 0.35), rng.uniform(0.15, 0.26), rng.uniform(0.032, 0.05), rng.uniform(0.82, 1.08))
+                        for _ in range(n)), key=lambda t: -t[0])
+        for x, v, a, ln, w, dm in seeds:
+            root = np.array([x, v * half * wy])
+            a += 0.55 * v
+            dd = np.array([math.cos(a), math.sin(a)])
+            nn = np.array([-dd[1], dd[0]])
+            mid = root + dd * ln * 0.55 + nn * 0.02 * math.copysign(1.0, v)
+            cv.begin().poly([root - nn * w, root + nn * w, mid + nn * w * 0.75, root + dd * ln, mid - nn * w * 0.75])
+            m = cv.mask() if clip is None else cv.mask() * clip
+            cv.paint(m, FUR, gloss=0.3, sig=4.0, cast=0.6, rim=0.5, dim=dim * dm)
 
     def finger(base, ang, l1, l2, r, thumb=False):
         d1 = rot(np.array([1.0, 0.0]), ang)
         mid = base + d1 * l1 * (1.0 - 0.42 * curl)
         d2 = rot(d1, (0.75 if thumb else -1.0) * (2.3 * curl + 0.22 * (1.0 - curl)))
         tip = mid + d2 * l2 * (1.0 - 0.3 * curl)
-        cv.begin().cap(mid, tip, r * 0.9, r * 0.76)
+        n2 = np.array([-d2[1], d2[0]])
+        # the end joint, tapering to a blunt tip, and its nail
+        cv.begin().cap(mid, tip, r * 0.82, r * 0.62)
         dm = cv.mask()
-        cv.paint(dm, LATEX, gloss=0.5, sig=6.0, cast=0.5, rim=0.45)
-        nd = unit(tip - mid)
-        cv.begin().ell(tip - nd * 0.02, r * 0.62, r * 0.5, math.atan2(nd[1], nd[0]))
-        cv.decal(cv.mask() * dm, mat=NAIL, mul=1.25)
-        cv.begin().cap(base - d1 * 0.08, mid, r * 1.04, r * 0.92).disc(mid, r * 0.98)
+        leather(dm, 5.5)
+        cv.begin().ell(tip - d2 * r * 0.25, r * 0.5, r * 0.4, math.atan2(d2[1], d2[0]))
+        nm = cv.mask() * dm
+        cv.decal(nm, mat=NAIL, mul=1.15)
+        cv.begin().cap(tip - d2 * r * 0.5 + n2 * r * 0.12, tip - d2 * r * 0.12 + n2 * r * 0.12, 0.008, 0.006)
+        cv.decal(cv.mask() * nm, spec=1.25)
+        # the first joint, waisted between two knuckles
+        cv.begin().cap(base - d1 * 0.08, mid, r * 0.92, r * 0.78).disc(mid, r * 0.96).disc(base + d1 * 0.02, r * 1.06)
         pm = cv.mask()
-        cv.paint(pm, LATEX, gloss=0.5, sig=6.5, cast=0.5, rim=0.45)
+        leather(pm, 6.0)
         n1 = np.array([-d1[1], d1[0]])
-        for o in (-0.03, 0.03):                        # creases
+        for o, wd in ((-0.028, 0.62), (0.0, 0.74), (0.028, 0.6)):   # the creases over the knuckle: short, not ruled across
             q = mid + d1 * o
-            cv.begin().cap(q + n1 * r * 0.7, q - n1 * r * 0.7, 0.008, 0.008)
-            cv.decal(cv.mask() * pm, mul=0.45)
+            cv.begin().cap(q + n1 * r * wd, q - n1 * r * wd * 0.6, 0.007, 0.007)
+            cv.decal(cv.mask() * pm, mul=0.4)
+        cv.begin().disc(mid - d1 * 0.004 + n1 * r * 0.2, r * 0.3)
+        cv.decal(cv.mask() * pm, mul=1.25)                          # the knuckle itself takes the light
 
     def fan(k):
         return k * (0.14 + 0.3 * spread) * (1.0 - 0.5 * curl) + wig * 0.1 * math.sin(k * 2.3 + 1.0)
 
-    # the fur sleeve behind the wrist, ragged along both edges
-    cv.begin().cap((-0.3, 0.0), (0.02, 0.0), 0.29, 0.3)
-    for i in range(40):
-        x = rng.uniform(-0.3, 0.1)
-        sg = 1.0 if i % 2 else -1.0
-        y = sg * 0.29 * wy
-        cv.poly([(x - 0.03, y * 0.9), (x + 0.035, y * 0.9), (x + rng.uniform(0.04, 0.11), y + sg * rng.uniform(0.02, 0.055))])
+    # the fur sleeve behind the wrist: a dark core, then the locks
+    cv.begin().cap((-0.34, 0.0), (0.0, 0.0), 0.25, 0.27)
     sm = cv.mask()
-    furry(sm, 22.0, 0.82)
+    cv.paint(sm, FUR, gloss=0.1, sig=20.0, cast=0.45, rim=0.3, dim=0.6)
     finger(np.array([0.12, -0.22 * wy]), -0.9 + 0.35 * curl - 0.3 * spread, 0.22, 0.18, 0.115, thumb=True)
     if curl > 0.6:                                     # a closed fist: the fingers go under the back of the hand
         for k in (-1, 0, 1):
             finger(np.array([0.5, 0.19 * k * wy]), fan(k), 0.27, 0.24 - 0.02 * abs(k), 0.108)
     cv.begin().ell((0.3, 0.0), 0.34, 0.3 * wy)
     pm = cv.mask()
-    cv.paint(pm, LATEX, gloss=0.45, sig=20.0, cast=0.45, rim=0.45)
+    leather(pm, 20.0)
     for k in (-1, 0, 1):
         if curl <= 0.6:
             finger(np.array([0.5, 0.19 * k * wy]), fan(k), 0.27, 0.24 - 0.02 * abs(k), 0.108)
         else:
             cv.begin().disc(np.array([0.5, 0.19 * k * wy]) + rot(np.array([1.0, 0.0]), fan(k)) * 0.27 * (1.0 - 0.42 * curl), 0.1)
-            cv.paint(cv.mask(), LATEX, gloss=0.5, sig=7.0, cast=0.5, rim=0.45)        # knuckles of the fist
-    # fur glued over the back of the hand, ragged at its edge
-    cv.begin().ell((0.1, 0.0), 0.27, 0.25 * wy)
-    for i in range(34):
-        a = rng.uniform(-1.35, 1.35)
-        c = np.array([0.1 + 0.27 * math.cos(a), 0.25 * wy * math.sin(a)])
-        t = np.array([-math.sin(a), math.cos(a)]) * 0.03
-        cv.poly([c - t - np.array([0.02, 0.0]), c + t - np.array([0.02, 0.0]), c + np.array([rng.uniform(0.05, 0.12), rng.uniform(-0.02, 0.02)])])
-    furry(cv.mask() * np.maximum(pm, sm), 14.0, 0.9)
+            leather(cv.mask(), 7.0)                    # knuckles of the fist
+    locks(26, 0.02, 0.26, 0.2, 0.95)                   # over the back of the hand, short of the knuckles
+    locks(70, -0.5, 0.06, 0.26, 1.0)
     return cv.colour_image(HAND_PAL)
 
 

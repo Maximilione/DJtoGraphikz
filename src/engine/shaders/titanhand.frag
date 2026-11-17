@@ -124,7 +124,7 @@ vec2 snapv(vec2 o) { return floor(o / gVP + 0.5) * gVP; }
 float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 
-// frames on a hero's sheet (16 x 8 cells of 128 px)
+// frames on a hero's sheet (16 x 8 cells of 144 px, a hero 95 px tall)
 const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 40.0, F_SKID = 52.0, F_KNOCK = 58.0, F_GETUP = 66.0,
             F_POSE = 76.0, F_PUNCH = 88.0, F_KICK = 96.0, F_FKICK = 104.0, F_BLAST = 112.0, F_TURN = 122.0, F_BOLT = 124.0;
 
@@ -132,10 +132,10 @@ const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 
 // G = tone 1..5; the ramp of each material is built here from the suit colour
 void heroSprite(vec2 p, vec2 o, float dir, float idx, vec3 suit, float v) {
   vec2 c = (p - snapv(o)) / gVP;
-  c = vec2(c.x * dir + 64.0, c.y + 12.0);
-  if (c.x < 0.0 || c.y < 0.0 || c.x >= 128.0 || c.y >= 128.0) return;
-  vec2 px = vec2(mod(idx, 16.0) * 128.0 + floor(c.x), floor(idx / 16.0) * 128.0 + 127.0 - floor(c.y));
-  vec2 uv = vec2((px.x + 0.5) / 2048.0, 1.0 - (px.y + 0.5) / 1024.0);
+  c = vec2(c.x * dir + 72.0, c.y + 12.0);
+  if (c.x < 0.0 || c.y < 0.0 || c.x >= 144.0 || c.y >= 144.0) return;
+  vec2 px = vec2(mod(idx, 16.0) * 144.0 + floor(c.x), floor(idx / 16.0) * 144.0 + 143.0 - floor(c.y));
+  vec2 uv = vec2((px.x + 0.5) / 2304.0, 1.0 - (px.y + 0.5) / 1152.0);
   vec4 t = v < 0.5 ? texture2D(uAtlasHero0, uv) : v < 1.5 ? texture2D(uAtlasHero1, uv) : texture2D(uAtlasHero2, uv);
   if (t.a < 0.5) return;
   float mat = floor(t.r * 255.0 / 40.0 + 0.5), lv = floor(t.g * 255.0 / 50.0 + 0.5);
@@ -328,10 +328,13 @@ void titanHand(vec2 p) {
     pa = pb;
   }
   vec2 ad = normalize(gW - C);
-  float strand = fbm(vec2(dot(p, vec2(-ad.y, ad.x)) * 140.0, dot(p, ad) * 16.0));
-  g.x += (strand - 0.5) * 0.02;
+  // fur in locks, like the sprite's: long clusters along the arm, three tones of dark brown
+  vec2 fq = vec2(dot(p, vec2(-ad.y, ad.x)), dot(p, ad)) / gVP;
+  float lock = h21(vec2(floor(fq.x / 3.0), floor((fq.y + 7.0 * h11(floor(fq.x / 3.0))) / 14.0)));
+  float strand = floor(lock * 3.0) / 2.0;
+  g.x += (lock - 0.5) * 0.016;
   vec3 under = gCol;
-  lit(g, 0.11 * sc, vec3(0.055, 0.04, 0.03) * (0.5 + 1.1 * strand), 0.15, vec2(strand - 0.5) * 0.9);
+  lit(g, 0.11 * sc, vec3(0.2, 0.115, 0.06) * (0.35 + 0.9 * strand), 0.05, vec2(0.0));
   gCol = mix(gCol, mix(under, vec3(0.01, 0.012, 0.018), 0.85), aa(g.x) * (1.0 - smoothstep(0.03, 0.22, length(p - R))));
   // the hand: one frame of the 6 x 3 sheet (288 px cells), wrist on gW. It is drawn
   // already turned the way it points, for a reach to the right: mirrored for the left
@@ -379,7 +382,7 @@ vec3 render(vec2 fc) {
   gCol *= 1.0 - 0.5 * (1.0 - smoothstep(0.4, 1.0, dot(s0, s0)));
   heroSprite(p, vec2(gS0.x, -0.385 + gS0.y), gS0.z, gS0.w, cA, 0.0);
   // the second one's bolt, on its way to the hand
-  if (gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 52.0 * gVP), gBolt.w, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
+  if (gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 60.0 * gVP), gBolt.w, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
 
   // practical sparks: the slam, the two pats, the doors
   vec3 sp = sparks(p - vec2(gSlamX, -0.36), gImpAge * 1.3, 0.22 * (0.5 + 0.5 * py), 1.0);

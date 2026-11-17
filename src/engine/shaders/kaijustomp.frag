@@ -124,7 +124,7 @@ vec2 snapv(vec2 o) { return floor(o / gVP + 0.5) * gVP; }
 float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 
-// frames on a hero's sheet (16 x 8 cells of 128 px)
+// frames on a hero's sheet (16 x 8 cells of 144 px, a hero 95 px tall)
 const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 40.0, F_SKID = 52.0, F_KNOCK = 58.0, F_GETUP = 66.0,
             F_POSE = 76.0, F_PUNCH = 88.0, F_KICK = 96.0, F_FKICK = 104.0, F_BLAST = 112.0, F_TURN = 122.0, F_BOLT = 124.0;
 
@@ -132,10 +132,10 @@ const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 
 // G = tone 1..5; the ramp of each material is built here from the suit colour
 void heroSprite(vec2 p, vec2 o, float dir, float idx, vec3 suit, float v) {
   vec2 c = (p - snapv(o)) / gVP;
-  c = vec2(c.x * dir + 64.0, c.y + 12.0);
-  if (c.x < 0.0 || c.y < 0.0 || c.x >= 128.0 || c.y >= 128.0) return;
-  vec2 px = vec2(mod(idx, 16.0) * 128.0 + floor(c.x), floor(idx / 16.0) * 128.0 + 127.0 - floor(c.y));
-  vec2 uv = vec2((px.x + 0.5) / 2048.0, 1.0 - (px.y + 0.5) / 1024.0);
+  c = vec2(c.x * dir + 72.0, c.y + 12.0);
+  if (c.x < 0.0 || c.y < 0.0 || c.x >= 144.0 || c.y >= 144.0) return;
+  vec2 px = vec2(mod(idx, 16.0) * 144.0 + floor(c.x), floor(idx / 16.0) * 144.0 + 143.0 - floor(c.y));
+  vec2 uv = vec2((px.x + 0.5) / 2304.0, 1.0 - (px.y + 0.5) / 1152.0);
   vec4 t = v < 0.5 ? texture2D(uAtlasHero0, uv) : v < 1.5 ? texture2D(uAtlasHero1, uv) : texture2D(uAtlasHero2, uv);
   if (t.a < 0.5) return;
   float mat = floor(t.r * 255.0 / 40.0 + 0.5), lv = floor(t.g * 255.0 / 50.0 + 0.5);
@@ -218,7 +218,7 @@ uniform sampler2D uAtlasFoot;
 vec4 gBolt;                              // the energy bolt: x, y, on, which way its hero faces
 
 float ease(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
-float land(float m) { return -0.8 + 0.1 * h11(m * 3.3 + 0.7); }  // heel of stomp m, on screen at impact: the toes end just short of the team
+float land(float m) { return -0.9 + 0.1 * h11(m * 3.3 + 0.7); }  // heel of stomp m, on screen at impact: the toes end just short of the team
 
 // chunks of road thrown up by the toes
 void rubble(vec2 q, float age, float seed) {
@@ -273,42 +273,50 @@ vec3 render(vec2 fc) {
   vec2 p = (fc - 0.5 * uResolution) / uResolution.y * gFit + gShake;
   float X = p.x + gSc;
   vec3 hazeC = mix(vec3(0.72, 0.7, 0.68), uColor3, 0.12);
-  // ---- sky and the far skyline: out of focus, sunk in haze ----
-  vec3 col = mix(hazeC, mix(vec3(0.35, 0.47, 0.66), uColor3, 0.25), smoothstep(-0.1, 0.55, p.y));
-  col = mix(col, vec3(0.95, 0.93, 0.9), 0.35 * smoothstep(0.45, 0.8, fbm(vec2(p.x * 1.5 + gSc * 0.05, p.y * 4.0))));
-  float cov;
-  gPx = gPix * 9.0;
-  vec3 far = blocks(p, p.x + gSc * 0.18 + 7.0, SY + 0.02, 0.19, 0.22, 0.36, 3.0, uColor3, cov);
-  col = mix(col, mix(far, hazeC, 0.62), cov);
-
-  // ---- the tail, over the rooftops ----
-  gPx = gPix * 3.0;
-  gCol = col;
-  float sway = sin(uBeatClock * TAU / 8.0);
-  vec2 t0 = vec2(-1.1, 0.5), t1 = vec2(-0.55 + 0.1 * sway, 0.5 + 0.06 * sway), t2 = vec2(-0.2 + 0.22 * sway, 0.24 - 0.05 * sway);
-  vec3 tg = vec3(1e3, 0.0, 0.0);
-  vec2 pa = t0;
-  for (int i = 1; i <= 6; i++) {
-    float t = float(i) / 6.0;
-    vec2 pb = mix(mix(t0, t1, t), mix(t1, t2, t), t);
-    vec2 nrm = normalize(vec2(-(pb.y - pa.y), pb.x - pa.x));
-    // back plates of our own: round paddles, big and small in turn
-    float pr = (0.065 - 0.04 * t) * (mod(float(i), 2.0) < 0.5 ? 1.0 : 0.65);
-    lit(gEll(p - pb - nrm * (0.1 - 0.075 * t + pr * 0.55), vec2(pr * 0.85, pr * 1.2)), pr, mix(gSkin * 2.2, uColor2 * 0.5, 0.25), 0.5, vec2(0.0));
-    tg = smin3(tg, gSeg(p, pa, pb, 0.1 - 0.075 * (t - 1.0 / 6.0), 0.1 - 0.075 * t), 0.02);
-    pa = pb;
-  }
-  lit(tg, 0.08, gSkin * (0.6 + 0.8 * fbm(p * 40.0)), 0.45, (vec2(vn(p * 60.0), vn(p * 60.0 + 7.0)) - 0.5) * 0.9);
-  col = mix(gCol, hazeC, 0.3);
-
-  // ---- model blocks along the street ----
+  vec3 col;
+  // nothing above the kerb is worked out for a pixel of road, and the other way round
+  if (p.y >= SY + 0.04) {
+  // ---- model blocks along the street: where one stands, nothing behind it is worked out ----
+  float cov, covM;
   gPx = gPix * 2.0;
-  vec3 mid = blocks(p, p.x + gSc * 0.55, SY + 0.03, 0.3, 0.2, 0.34, 1.0, mix(uColor2, uColor1, 0.5), cov);
-  col = mix(col, mix(mid, hazeC, 0.22), cov);
+  vec3 mid = blocks(p, p.x + gSc * 0.55, SY + 0.03, 0.3, 0.2, 0.34, 1.0, mix(uColor2, uColor1, 0.5), covM);
+  col = hazeC;
+  if (covM < 0.995) {
+    // ---- sky and the far skyline: out of focus, sunk in haze ----
+    col = mix(hazeC, mix(vec3(0.35, 0.47, 0.66), uColor3, 0.25), smoothstep(-0.1, 0.55, p.y));
+    col = mix(col, vec3(0.95, 0.93, 0.9), 0.35 * smoothstep(0.45, 0.8, fbm(vec2(p.x * 1.5 + gSc * 0.05, p.y * 4.0))));
+    gPx = gPix * 9.0;
+    vec3 far = blocks(p, p.x + gSc * 0.18 + 7.0, SY + 0.02, 0.19, 0.22, 0.36, 3.0, uColor3, cov);
+    col = mix(col, mix(far, hazeC, 0.62), cov);
 
+    // ---- the tail, over the rooftops ----
+    gPx = gPix * 3.0;
+    gCol = col;
+    if (p.x < 0.3 && p.y > 0.05) {
+    float sway = sin(uBeatClock * TAU / 8.0);
+    vec2 t0 = vec2(-1.1, 0.5), t1 = vec2(-0.55 + 0.1 * sway, 0.5 + 0.06 * sway), t2 = vec2(-0.2 + 0.22 * sway, 0.24 - 0.05 * sway);
+    vec3 tg = vec3(1e3, 0.0, 0.0);
+    vec2 pa = t0;
+    for (int i = 1; i <= 6; i++) {
+      float t = float(i) / 6.0;
+      vec2 pb = mix(mix(t0, t1, t), mix(t1, t2, t), t);
+      vec2 nrm = normalize(vec2(-(pb.y - pa.y), pb.x - pa.x));
+      // back plates of our own: round paddles, big and small in turn
+      float pr = (0.065 - 0.04 * t) * (mod(float(i), 2.0) < 0.5 ? 1.0 : 0.65);
+      lit(gEll(p - pb - nrm * (0.1 - 0.075 * t + pr * 0.55), vec2(pr * 0.85, pr * 1.2)), pr, mix(gSkin * 2.2, uColor2 * 0.5, 0.25), 0.5, vec2(0.0));
+      tg = smin3(tg, gSeg(p, pa, pb, 0.1 - 0.075 * (t - 1.0 / 6.0), 0.1 - 0.075 * t), 0.02);
+      pa = pb;
+    }
+    lit(tg, 0.08, gSkin * (0.6 + 0.8 * fbm(p * 40.0)), 0.45, (vec2(vn(p * 60.0), vn(p * 60.0 + 7.0)) - 0.5) * 0.9);
+    }
+    col = mix(gCol, hazeC, 0.3);
+
+  }
+  col = mix(col, mix(mid, hazeC, 0.22), covM);
+  } else
   // ---- pavement, road ----
   gPx = gPix;
-  if (p.y < SY + 0.04) {
+  {
     float f = SY - p.y;
     vec3 pav = vec3(0.56, 0.55, 0.52) * (0.8 + 0.3 * fbm(vec2(X * 30.0, p.y * 80.0)));
     pav *= 1.0 - 0.3 * step(fract(X / 0.06), 0.06);
@@ -377,17 +385,19 @@ vec3 render(vec2 fc) {
     addBoom(p - vec2(0.72 - boomAge * 0.2 * pc * 2.1, -0.2), boomAge - 0.27, 0.25 * gPy, cC, gM + 3.0);
   }
 
-  // ---- the feet ----
+  // ---- impact: dust thrown up behind the foot, at the heel and out past the claws: the toes stay in the clear ----
   float drift = gU * 4.0 * 0.2 * pc;
+  float fx = land(gM) - drift;
+  float dR = (0.08 + 0.12 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze);
+  addBoom(p - vec2(fx - 0.38, -0.3), gImpAge * 0.9 + 0.55, dR, vec3(0.62, 0.58, 0.52), 11.0);
+  addBoom(p - vec2(fx + 0.5, -0.2), gImpAge * 0.9 + 0.55, dR * 1.2, vec3(0.62, 0.58, 0.52), 12.0);
+
+  // ---- the feet ----
   float up = ease((gU - 0.5) / 0.22);
   footSprite(p, vec2(land(gM) - drift + 0.5 * up * up, -0.3 + 1.3 * up * up), up > 0.35 ? 6.0 : up > 0.02 ? 5.0 : gImpAge < 0.07 ? 2.0 : gImpAge < 0.2 ? 3.0 : 4.0);
   float dwn = clamp((gU - 0.8) / 0.2, 0.0, 1.0);
   if (gU > 0.78) footSprite(p, vec2(nxt, -0.3 + 1.3 * (1.0 - dwn * dwn)), dwn > 0.5 ? 1.0 : 0.0);
 
-  // ---- impact: dust thrown out both ways along the road, sparks ----
-  float fx = land(gM) - drift;
-  addBoom(p - vec2(fx + 1.0, -0.35), gImpAge * 0.9 + 0.55, (0.07 + 0.11 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 11.0);
-  addBoom(p - vec2(fx + 0.55, -0.37), gImpAge * 0.9 + 0.55, (0.06 + 0.1 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 12.0);
 
   // ---- the team ----
   for (int k = 0; k < 3; k++) {
@@ -395,11 +405,11 @@ vec3 render(vec2 fc) {
     vec2 s2 = (p - vec2(hs.x, hs.z)) / vec2(0.075, 0.013);
     gCol *= 1.0 - 0.5 * (1.0 - smoothstep(0.4, 1.0, dot(s2, s2)));
     heroSprite(p, hs.xy, k == 1 ? gBolt.w : 1.0, hs.w, k == 0 ? cA : k == 1 ? cB : cC, float(k));
-    if (k == 1 && gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 52.0 * gVP), -1.0, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
+    if (k == 1 && gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 60.0 * gVP), -1.0, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
   }
-  gCol += sparks(p - vec2(fx + 1.0, -0.26), (gU * 4.0 * 0.47 - 0.95) * 2.0 * step(0.5, mod(gM, 2.0)), 0.14, gM + 9.0);   // where the bolt lands
-  gCol += sparks(p - vec2(fx + 0.95, -0.31), gImpAge * 1.2, 0.26 * (0.3 + 0.7 * gPy), gM);
-  rubble(p - vec2(fx + 0.85, -0.31), gImpAge * 1.1, gM);
+  gCol += sparks(p - vec2(fx + 1.05, -0.27), (gU * 4.0 * 0.47 - 0.95) * 2.0 * step(0.5, mod(gM, 2.0)), 0.14, gM + 9.0);   // where the bolt lands
+  gCol += sparks(p - vec2(fx + 1.2, -0.33), gImpAge * 1.2, 0.2 * (0.3 + 0.7 * gPy), gM);
+  rubble(p - vec2(fx + 1.22, -0.33), gImpAge * 1.1, gM);
 
   // ---- smoke machine, then whatever is too close to the lens to focus on ----
   float hz = fbm(vec2(p.x * 2.2 + gSc * 1.2 - uTime * 0.05, p.y * 6.0));
@@ -424,7 +434,7 @@ void main() {
   cA = mix(uColor1, vec3(1.0), 0.1);
   cB = mix(uColor2, vec3(1.0), 0.1);
   cC = mix(uColor3, vec3(1.0), 0.1);
-  gSkin = vec3(0.2, 0.22, 0.2);                                         // the tail: the same charcoal as the foot's palette
+  gSkin = vec3(0.17, 0.19, 0.23);                                        // the tail: the same charcoal as the foot's palette
 
   gSc = uBeatClock * 0.2 * clamp(pace, 0.3, 3.0);
   float sb = uBeatClock / 4.0;
