@@ -310,6 +310,11 @@ def keys(ks, t, f=ease):
     return ks[-1][1]
 
 
+def held(ks, t):
+    """The key drawing nearest in time: a frame is a pose that was drawn, never a blend of two."""
+    return min(ks, key=lambda k: abs(k[0] - t))[1]
+
+
 def run_pose(ph, look=1.0, amp=1.0):
     """Sprint (amp 1) or walk (amp ~0.45): contact, down, passing, up."""
     a, b = ph, ph + math.pi
@@ -430,46 +435,100 @@ def joints(p):
     return j
 
 
-def draw_leg(cv, j, s, dim):
+def tube(cv, pts, prof):
+    """A limb drawn as one form, not as two sticks hinged together: the line through pts is rounded at the
+    joint and the flesh follows prof (pairs of position 0..1 along it, half-width), so it swells and tapers."""
+    pts = [np.asarray(q, float) for q in pts]
+    for _ in range(2):
+        q = [pts[0]]
+        for a, b in zip(pts, pts[1:]):
+            q += [0.75 * a + 0.25 * b, 0.25 * a + 0.75 * b]
+        pts = q + [pts[-1]]
+    seg = [float(np.linalg.norm(b - a)) for a, b in zip(pts, pts[1:])]
+    ts = np.concatenate([[0.0], np.cumsum(seg)]) / max(sum(seg), 1e-6)
+    w = np.interp(ts, [t for t, _ in prof], [r for _, r in prof])
+    for k in range(len(pts) - 1):
+        if seg[k] > 1e-9:
+            cv.cap(pts[k], pts[k + 1], w[k], w[k + 1])
+    return cv
+
+
+LEG_W = [(0.0, 0.056), (0.13, 0.064), (0.32, 0.055), (0.47, 0.041), (0.53, 0.04), (0.66, 0.048), (0.84, 0.04), (1.0, 0.037)]   # thigh, knee, calf, ankle
+ARM_W = [(0.0, 0.05), (0.14, 0.05), (0.3, 0.041), (0.47, 0.033), (0.56, 0.034), (0.7, 0.04), (0.92, 0.033), (1.0, 0.033)]      # deltoid, biceps, elbow, forearm, wrist
+
+
+def leg_shape(cv, j, s):
+    """Adds a whole leg to the outline being drawn: thigh to toe, one line."""
     hip, kn, an, toe = j["hip" + s], j["kn" + s], j["an" + s], j["toe" + s]
     sd = unit(an - kn)
-    bk = np.array([sd[1], -sd[0]])                 # the back of the leg
-    th = unit(kn - hip)
-    mid = kn + sd * 0.085
-    cv.begin().cap(hip, kn, 0.062, 0.041).ell(hip + th * 0.1 - np.array([th[1], -th[0]]) * 0.01, 0.085, 0.05, math.atan2(th[1], th[0]))
-    cv.cap(kn, mid, 0.041, 0.038)
-    cv.paint(cv.mask(), SUIT, gloss=0.4, sig=5.5, dim=dim)
-    # boot: a chunky shaft with a calf, a turned-over cuff, a heel, a long foot, a dark sole
+    bk = np.array([sd[1], -sd[0]])
+    ft = unit(toe - an)
+    tube(cv, [hip, kn + bk * -0.006, an], LEG_W)
+    cv.disc(kn + sd * 0.1 + bk * 0.012, 0.04)                                     # the calf, behind
+    cv.cap(kn + sd * 0.078, kn + sd * 0.096, 0.049, 0.048)                        # the turned-over top of the boot
+    cv.disc(an + bk * 0.006, 0.039).cap(an + ft * 0.01, toe, 0.037, 0.028)
+    return cv
+
+
+def leg_trim(cv, j, s, lm):
+    """What the leg wears, laid over the form without breaking it: the boot, its cuff, its sole, the knee."""
+    hip, kn, an, toe = j["hip" + s], j["kn" + s], j["an" + s], j["toe" + s]
+    sd = unit(an - kn)
     ft = unit(toe - an)
     fn = np.array([ft[1], -ft[0]])
     if fn[1] > 0:
         fn = -fn
-    cv.begin().cap(mid, an, 0.044, 0.033).disc(mid + sd * 0.045 + bk * 0.012, 0.039).disc(an + bk * 0.006, 0.035).cap(an + ft * 0.01, toe, 0.034, 0.026)
-    bm = cv.mask()
-    cv.paint(bm, WHITE, gloss=0.7, sig=4.5, dim=dim)
+    cv.begin().cap(kn + sd * 0.085, an, 0.07, 0.06).cap(an - ft * 0.03, toe + ft * 0.03, 0.06, 0.05)
+    bm = cv.mask() * lm
+    cv.decal(bm, mat=WHITE, mul=1.32)
+    cv.begin().cap(kn + sd * 0.103, kn + sd * 0.104, 0.07, 0.07)
+    cv.decal(cv.mask() * (1.0 - shift(cv.mask(), -1, 0)) * bm, mul=0.5)           # under the cuff
     cv.begin().cap(an - ft * 0.03 + fn * 0.03, toe + ft * 0.02 + fn * 0.022, 0.011, 0.01)
-    cv.decal(cv.mask() * bm, mul=0.2)
-    cv.begin().cap(mid - sd * 0.008, mid + sd * 0.014, 0.05, 0.049)
-    cv.paint(cv.mask(), WHITE, gloss=0.6, sig=3.0, dim=dim, cast=0.6)
+    cv.decal(cv.mask() * bm, mul=0.2)                                             # sole
+    kf = np.array([-sd[1], sd[0]])
+    cv.begin().ell(kn + kf * 0.012, 0.02, 0.026, math.atan2(sd[1], sd[0]))
+    cv.decal(cv.mask() * lm * (1.0 - bm), mul=1.18)                               # the knee takes the light
 
 
-def draw_arm(cv, j, s, dim, opened):
+def arm_shape(cv, j, s, opened):
     sh, el, wr = j["sh" + s], j["el" + s], j["wr" + s]
     fd = unit(wr - el)
     fnm = np.array([-fd[1], fd[0]])
-    m2 = el + fd * 0.055
-    cv.begin().disc(sh, 0.057).cap(sh, el, 0.048, 0.034).cap(el, m2, 0.036, 0.033)
-    cv.paint(cv.mask(), SUIT, gloss=0.4, sig=4.5, dim=dim)
-    # glove: gauntlet, flared cuff, and either a square fist with a thumb or an open hand
-    cv.begin().cap(m2, wr, 0.036, 0.03)
+    tube(cv, [sh, el, wr], ARM_W)
+    cv.disc(sh, 0.053)
+    cv.cap(el + fd * 0.05, el + fd * 0.066, 0.042, 0.041)                         # the cuff of the glove
     if opened > 0.5:
-        cv.cap(wr, wr + fd * 0.065, 0.033, 0.025).cap(wr + fd * 0.01, wr + fd * 0.04 + fnm * 0.038, 0.017, 0.012)
+        cv.cap(wr, wr + fd * 0.068, 0.035, 0.026).cap(wr + fd * 0.01, wr + fd * 0.042 + fnm * 0.04, 0.018, 0.012)
     else:
-        cv.poly([wr - fnm * 0.036 - fd * 0.005, wr + fnm * 0.036 - fd * 0.005, wr + fnm * 0.036 + fd * 0.055, wr - fnm * 0.036 + fd * 0.055])
-        cv.disc(wr + fd * 0.026, 0.04).disc(wr + fd * 0.018 + fnm * 0.033, 0.018)
-    cv.paint(cv.mask(), WHITE, gloss=0.7, sig=4.0, dim=dim)
-    cv.begin().cap(m2 - fd * 0.008, m2 + fd * 0.014, 0.044, 0.042)
-    cv.paint(cv.mask(), WHITE, gloss=0.6, sig=3.0, dim=dim, cast=0.6)
+        cv.ell(wr + fd * 0.03, 0.047, 0.04, math.atan2(fd[1], fd[0])).disc(wr + fd * 0.02 + fnm * 0.034, 0.019)
+    return cv
+
+
+def arm_trim(cv, j, s, am):
+    sh, el, wr = j["sh" + s], j["el" + s], j["wr" + s]
+    fd = unit(wr - el)
+    ud = unit(el - sh)
+    cv.begin().cap(el + fd * 0.056, wr + fd * 0.09, 0.07, 0.07)
+    gm = cv.mask() * am
+    cv.decal(gm, mat=WHITE, mul=1.32)
+    cv.begin().cap(el + fd * 0.074, el + fd * 0.075, 0.07, 0.07)
+    cv.decal(cv.mask() * gm, mul=0.5)
+    cv.begin().ell(sh + ud * 0.02, 0.03, 0.036, math.atan2(ud[1], ud[0]))
+    cv.decal(cv.mask() * am * (1.0 - gm), mul=1.15)                               # deltoid
+
+
+def draw_leg(cv, j, s, dim):
+    leg_shape(cv.begin(), j, s)
+    lm = cv.mask()
+    cv.paint(lm, SUIT, gloss=0.4, sig=5.0, dim=dim)
+    leg_trim(cv, j, s, lm)
+
+
+def draw_arm(cv, j, s, dim, opened):
+    arm_shape(cv.begin(), j, s, opened)
+    am = cv.mask()
+    cv.paint(am, SUIT, gloss=0.4, sig=4.5, dim=dim)
+    arm_trim(cv, j, s, am)
 
 
 def draw_hero(cv, p, v):
@@ -480,13 +539,27 @@ def draw_hero(cv, p, v):
     pel = j["pel"]
     tw = 0.45 + 0.55 * abs(look)
     T = lambda x, y: pel + rt * x * tw + up * y * 0.94   # torso coordinates
-    draw_arm(cv, j, "A", 0.72, p["open"])
-    draw_leg(cv, j, "A", 0.72)
-    # torso: broad shoulders, deep chest, narrow waist, hips
+    # the far arm and leg: one drawing, a tone down
+    leg_shape(arm_shape(cv.begin(), j, "A", p["open"]), j, "A")
+    fm = cv.mask()
+    cv.paint(fm, SUIT, gloss=0.4, sig=5.0, dim=0.72)
+    arm_trim(cv, j, "A", fm)
+    leg_trim(cv, j, "A", fm)
+    # the body and the near leg are one outline: shoulders, chest, waist, hip, thigh, down to the toe.
+    # What tells chest from stomach from thigh is the modelling, not a seam
     cv.begin().poly([T(-0.116, 0.25), T(0.12, 0.25), T(0.09, 0.16), T(0.052, 0.07), T(0.07, 0.0), T(-0.067, 0.0), T(-0.049, 0.07), T(-0.085, 0.16)])
     cv.disc(T(-0.07, 0.235), 0.05).disc(T(0.075, 0.235), 0.052).disc(T(-0.034, 0.0), 0.042).disc(T(0.037, 0.0), 0.042).disc(T(0.005, 0.205), 0.09 * tw + 0.018)
     tm = cv.mask()
-    cv.paint(tm, SUIT, gloss=0.4, sig=8.0)
+    leg_shape(cv, j, "B")
+    bm = cv.mask()
+    kB, hB = j["knB"], j["hipB"]
+    qd = unit(kB - hB)
+    cv.begin().ell(T(-0.046, 0.205), 0.05, 0.036, math.atan2(rt[1], rt[0])).ell(T(0.05, 0.205), 0.05, 0.036, math.atan2(rt[1], rt[0]))   # pectorals
+    for y in (0.075, 0.108, 0.141):
+        cv.ell(T(-0.02, y), 0.019, 0.013, math.atan2(rt[1], rt[0])).ell(T(0.024, y), 0.019, 0.013, math.atan2(rt[1], rt[0]))           # the stomach, in rows
+    cv.ell(hB + qd * 0.11 + np.array([-qd[1], qd[0]]) * 0.012, 0.085, 0.03, math.atan2(qd[1], qd[0]))                                   # the thigh
+    cv.paint(bm, SUIT, gloss=0.4, sig=6.5, bump=blur(cv.mask(), 1.3), kb=2.2)
+    leg_trim(cv, j, "B", bm * (1.0 - tm))
     if v == 0:      # a chevron
         cv.begin().poly([T(-0.115, 0.29), T(0.012, 0.19), T(0.125, 0.29), T(0.125, 0.235), T(0.012, 0.135), T(-0.115, 0.235)])
         cv.decal(cv.mask() * tm, mat=WHITE)
@@ -506,7 +579,6 @@ def draw_hero(cv, p, v):
     cv.decal(cv.mask() * tm, mat=GOLD, spec=1.0)                                     # buckle
     cv.begin().cap(T(0.0, 0.26), j["head"] - hu * 0.035, 0.03, 0.028)
     cv.paint(cv.mask(), SUIT, gloss=0.2, sig=3.0, dim=0.55)                          # neck
-    draw_leg(cv, j, "B", 1.0)
     # helmet
     hr = np.array([hu[1], -hu[0]])
     HS = 0.85                                          # the helmet, a notch smaller than the body would make it
@@ -588,14 +660,14 @@ def build_heroes():
         fr = []
         add = lambda p, prev=None, fx=None: fr.append(hero_frame(p, v, prev, fx))
         for i in range(8):                                                     # 0-7 stance, breathing
-            br = math.sin(2 * math.pi * i / 8)
+            br = math.sin(2 * math.pi * (i // 2) / 4)                              # four drawings, each held twice
             add(dict(GUARD, kneeA=0.5 + 0.08 * br, kneeB=0.85 + 0.1 * br, elA=2.0 - 0.07 * br, shB=1.15 + 0.07 * br, lean=0.14 + 0.02 * br))
         for i in range(8):                                                     # 8-15 walk
             add(run_pose(2 * math.pi * i / 8, 1.0, 0.45))
         for i in range(12):                                                    # 16-27 run
-            add(run_pose(2 * math.pi * i / 12))
+            add(run_pose(2 * math.pi * (i // 2) / 6))                              # six drawings, each held twice
         for i in range(12):                                                    # 28-39 run, looking back
-            add(run_pose(2 * math.pi * i / 12, -1.0))
+            add(run_pose(2 * math.pi * (i // 2) / 6, -1.0))
         dv = [dive_pose(i / 11) for i in range(12)]                            # 40-51 flip
         for i, p in enumerate(dv):
             add(p, dv[i - 1] if 0 < i < 11 else None)
@@ -605,15 +677,15 @@ def build_heroes():
             for k in ("shA", "elA", "shB", "elB"):
                 p[k] = mixp(run_pose(1.9), SKID, ease(t * 1.4 - 0.4))[k]
             add(p)
-        kn = [keys(KNOCK, i / 7) for i in range(8)]                            # 58-65 knocked down
+        kn = [held(KNOCK, i / 7) for i in range(8)]                            # 58-65 knocked down
         for i, p in enumerate(kn):
             add(p, kn[i - 1] if 0 < i < 5 else None)
         for i in range(10):                                                    # 66-75 getting up
-            add(keys(GETUP, i / 9))
-        rc = [roll_call(v, i / 11) for i in range(12)]                         # 76-87 roll-call pose
+            add(held(GETUP, i / 9))
+        rc = [roll_call(v, round(i / 11 * 5) / 5) for i in range(12)]                         # 76-87 roll-call pose
         for i, p in enumerate(rc):
             add(p, rc[i - 1] if 3 <= i <= 6 else None)
-        pc = [keys(PUNCH, i / 7, snap) for i in range(8)]                      # 88-95 jab, cross
+        pc = [held(PUNCH, i / 7) for i in range(8)]                      # 88-95 jab, cross
         for i, p in enumerate(pc):
             def sw(cv, j, i=i):
                 if i in (1, 5):                                                # a short white streak behind the fist
@@ -621,7 +693,7 @@ def build_heroes():
                     cv.begin().cap(w - np.array([0.03, 0.0]), w - np.array([0.26, -0.01]), 0.03, 0.004)
                     cv.fx.append((cv.mask(), FX, 5))
             add(p, pc[i - 1] if i in (1, 5) else None, sw)
-        kc = [keys(KICK, i / 7, snap) for i in range(8)]                       # 96-103 roundhouse
+        kc = [held(KICK, i / 7) for i in range(8)]                       # 96-103 roundhouse
         for i, p in enumerate(kc):
             def sw(cv, j, i=i):
                 if i in (3, 4):                                                # the arc the boot has just cut
@@ -629,7 +701,7 @@ def build_heroes():
                     a1 = math.atan2(j["toeB"][1] - c[1], j["toeB"][0] - c[0])
                     cv.fx.append((arc(cv, c, 0.36, 0.56, a1 + (1.9 if i == 3 else 1.1), a1 + 0.08), FX, 5 if i == 3 else 3))
             add(p, kc[i - 1] if i == 3 else None, sw)
-        fk = [keys(FKICK, i / 7, snap) for i in range(8)]                      # 104-111 flying kick
+        fk = [held(FKICK, i / 7) for i in range(8)]                      # 104-111 flying kick
         for i, p in enumerate(fk):
             def sw(cv, j, i=i):
                 if 3 <= i <= 5:                                                # speed lines off the trailing side
@@ -637,7 +709,7 @@ def build_heroes():
                         cv.begin().cap((-0.28, dy + 0.02 * (i % 2)), (-0.28 - ln, dy + 0.02 * (i % 2) + 0.05), 0.012, 0.003)
                         cv.fx.append((cv.mask(), FX, 5 if k == 1 else 3))
             add(p, None, sw)
-        bl = [keys(BLAST, i / 9, snap) for i in range(10)]                     # 112-121 energy bolt
+        bl = [held(BLAST, i / 9) for i in range(10)]                     # 112-121 energy bolt
         for i, p in enumerate(bl):
             def sw(cv, j, i=i):
                 c = 0.5 * (j["wrA"] + j["wrB"]) + np.array([0.05, 0.0])
