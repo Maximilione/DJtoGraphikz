@@ -115,29 +115,41 @@ void lit(vec3 dg, float rad, vec3 alb, float gloss, vec2 bn) {
 // scripts/gen-toku-sprites.py. The whole picture lives on one grid of
 // virtual pixels (about 270 lines): sprites are drawn 1:1 on it and their
 // positions snap to it, so every pixel on screen is the same size.
-uniform sampler2D uAtlasHero;
+uniform sampler2D uAtlasHero0;
+uniform sampler2D uAtlasHero1;
+uniform sampler2D uAtlasHero2;
 float gVP;                      // one virtual pixel, in scene units
 vec3 gSprLight;                 // the light of the set on the sprites
 vec2 snapv(vec2 o) { return floor(o / gVP + 0.5) * gVP; }
 float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 
-// one frame of the hero sheet (18 x 8 cells of 112 px), feet at o. The sheet is
-// indexed: R = material, G = tone; each hero's ramp is built from his colour
-void heroSprite(vec2 p, vec2 o, float dir, float idx, vec3 suit) {
+// frames on a hero's sheet (16 x 8 cells of 128 px)
+const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 40.0, F_SKID = 52.0, F_KNOCK = 58.0, F_GETUP = 66.0,
+            F_POSE = 76.0, F_PUNCH = 88.0, F_KICK = 96.0, F_FKICK = 104.0, F_BLAST = 112.0, F_TURN = 122.0, F_BOLT = 124.0;
+
+// one frame of hero v's sheet, feet at o. The sheet is indexed: R = material,
+// G = tone 1..5; the ramp of each material is built here from the suit colour
+void heroSprite(vec2 p, vec2 o, float dir, float idx, vec3 suit, float v) {
   vec2 c = (p - snapv(o)) / gVP;
-  c = vec2(c.x * dir + 56.0, c.y + 12.0);
-  if (c.x < 0.0 || c.y < 0.0 || c.x >= 112.0 || c.y >= 112.0) return;
-  vec2 px = vec2(mod(idx, 18.0) * 112.0 + floor(c.x), floor(idx / 18.0) * 112.0 + 111.0 - floor(c.y));
-  vec4 t = texture2D(uAtlasHero, vec2((px.x + 0.5) / 2016.0, 1.0 - (px.y + 0.5) / 896.0));
+  c = vec2(c.x * dir + 64.0, c.y + 12.0);
+  if (c.x < 0.0 || c.y < 0.0 || c.x >= 128.0 || c.y >= 128.0) return;
+  vec2 px = vec2(mod(idx, 16.0) * 128.0 + floor(c.x), floor(idx / 16.0) * 128.0 + 127.0 - floor(c.y));
+  vec2 uv = vec2((px.x + 0.5) / 2048.0, 1.0 - (px.y + 0.5) / 1024.0);
+  vec4 t = v < 0.5 ? texture2D(uAtlasHero0, uv) : v < 1.5 ? texture2D(uAtlasHero1, uv) : texture2D(uAtlasHero2, uv);
   if (t.a < 0.5) return;
   float mat = floor(t.r * 255.0 / 40.0 + 0.5), lv = floor(t.g * 255.0 / 50.0 + 0.5);
-  vec3 base = mat < 1.5 ? suit : mat < 2.5 ? vec3(0.96, 0.96, 0.93) : mat < 3.5 ? vec3(0.12, 0.14, 0.24) : vec3(1.0, 0.8, 0.25);
-  float lo = mat > 1.5 && mat < 2.5 ? 0.58 : 0.4;
-  // the ramp: shadows go cool, the highlight goes warm, the way a palette is picked by hand
-  vec3 col = lv < 1.5 ? mix(base * lo, vec3(0.12, 0.08, 0.3), 0.25) : lv < 2.5 ? base * mix(lo, 1.0, 0.55)
-           : lv < 3.5 ? base : mix(base, vec3(1.0, 1.0, 0.9), 0.55);
-  gCol = mat > 4.5 ? vec3(0.04, 0.03, 0.08) : col * gSprLight;
+  vec3 base = mat < 1.5 ? suit : mat < 2.5 ? vec3(0.96, 0.96, 0.93) : mat < 3.5 ? vec3(0.1, 0.12, 0.22) : vec3(1.0, 0.8, 0.25);
+  // five tones: the shadows go cool, the top one is a warm specular pixel
+  float wh = step(1.5, mat) * step(mat, 2.5);
+  float k = lv < 1.5 ? mix(0.3, 0.5, wh) : lv < 2.5 ? mix(0.5, 0.66, wh) : lv < 3.5 ? mix(0.75, 0.82, wh) : 1.0;
+  vec3 col = base * k;
+  if (lv < 1.5) col = mix(col, vec3(0.12, 0.08, 0.3), 0.25);
+  if (lv > 4.5) col = mix(base, vec3(1.0, 1.0, 0.92), 0.6);
+  if (mat > 2.5 && mat < 3.5 && lv > 3.5) col = vec3(0.8, 0.88, 1.0);                     // the glint on the visor
+  col *= gSprLight;
+  if (mat > 5.5) col = lv > 4.5 ? vec3(1.0) : lv > 2.5 ? mix(suit, vec3(1.0), 0.6) : suit * 1.25;   // energy, swooshes
+  gCol = mat > 4.5 && mat < 5.5 ? vec3(0.04, 0.03, 0.08) : col;
 }
 
 // a pyro charge: white-hot core, coloured fire, then smoke that rises. q from the
@@ -203,9 +215,10 @@ vec2 gShake;
 vec3 gSkin;
 vec4 gS0, gS1, gS2;                      // per hero: x, y, lane, frame on the sheet
 uniform sampler2D uAtlasFoot;
+vec4 gBolt;                              // the energy bolt: x, y, on, which way its hero faces
 
 float ease(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
-float land(float m) { return -0.72 + 0.1 * h11(m * 3.3 + 0.7); }  // heel of stomp m, on screen at impact: the toes end just short of the team
+float land(float m) { return -0.8 + 0.1 * h11(m * 3.3 + 0.7); }  // heel of stomp m, on screen at impact: the toes end just short of the team
 
 // chunks of road thrown up by the toes
 void rubble(vec2 q, float age, float seed) {
@@ -222,14 +235,14 @@ void rubble(vec2 q, float age, float seed) {
   }
 }
 
-// the foot: one frame of the 4 x 2 sheet (448 x 400 cells), heel end of the sole
+// the foot: one frame of the 4 x 2 sheet (384 x 352 cells), heel end of the sole
 // at o. Above the top of the cell the leg just goes on
 void footSprite(vec2 p, vec2 o, float f) {
-  vec2 c = (p - snapv(o)) / gVP + vec2(150.0, 8.0);
-  if (c.x < 0.0 || c.x >= 448.0 || c.y < 0.0) return;
-  c.y = min(c.y, 399.0);
-  vec2 px = vec2(mod(f, 4.0) * 448.0 + floor(c.x), floor(f / 4.0) * 400.0 + 399.0 - floor(c.y));
-  vec4 t = texture2D(uAtlasFoot, vec2((px.x + 0.5) / 1792.0, 1.0 - (px.y + 0.5) / 800.0));
+  vec2 c = (p - snapv(o)) / gVP + vec2(128.0, 8.0);
+  if (c.x < 0.0 || c.x >= 384.0 || c.y < 0.0) return;
+  c.y = min(c.y, 351.0);
+  vec2 px = vec2(mod(f, 4.0) * 384.0 + floor(c.x), floor(f / 4.0) * 352.0 + 351.0 - floor(c.y));
+  vec4 t = texture2D(uAtlasFoot, vec2((px.x + 0.5) / 1536.0, 1.0 - (px.y + 0.5) / 704.0));
   if (t.a > 0.5) gCol = t.rgb * gSprLight;
 }
 
@@ -326,7 +339,7 @@ vec3 render(vec2 fc) {
     float ci = floor(X / 0.9);
     // the nearer the toes, the further the car is thrown, and it turns over in the air
     float carx = (ci + 0.5) * 0.9 - gSc;
-    float near = exp(-pow((carx - (land(gM) + 0.9 - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0))) / 0.45, 2.0));
+    float near = exp(-pow((carx - (land(gM) + 1.0 - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0))) / 0.45, 2.0));
     float jp = clamp(gImpAge * 2.2 - 0.2 * h11(ci), 0.0, 1.0);
     float jump = sin(jp * 3.14159) * (0.04 + 0.22 * near);
     vec2 c = (vec2(mod(X, 0.9) - 0.45, p.y - SY - 0.012 - jump)) / 0.085 - vec2(0.0, 0.35);
@@ -359,9 +372,9 @@ vec3 render(vec2 fc) {
   // ---- charges along the street, behind the team ----
   float boomAge = mod(gM, 2.0) < 0.5 ? gImpAge : -1.0;
   if (gPy > 0.0) {
-    addBoom(p - vec2(0.3 - boomAge * 0.2 * pc * 2.1, -0.2), boomAge - 0.05, 0.25 * gPy, cA, gM + 1.0);
-    addBoom(p - vec2(0.55 - boomAge * 0.2 * pc * 2.1, -0.17), boomAge - 0.16, 0.3 * gPy, cB, gM + 2.0);
-    addBoom(p - vec2(0.8 - boomAge * 0.2 * pc * 2.1, -0.2), boomAge - 0.27, 0.25 * gPy, cC, gM + 3.0);
+    addBoom(p - vec2(0.2 - boomAge * 0.2 * pc * 2.1, -0.2), boomAge - 0.05, 0.25 * gPy, cA, gM + 1.0);
+    addBoom(p - vec2(0.45 - boomAge * 0.2 * pc * 2.1, -0.17), boomAge - 0.16, 0.3 * gPy, cB, gM + 2.0);
+    addBoom(p - vec2(0.72 - boomAge * 0.2 * pc * 2.1, -0.2), boomAge - 0.27, 0.25 * gPy, cC, gM + 3.0);
   }
 
   // ---- the feet ----
@@ -373,7 +386,7 @@ vec3 render(vec2 fc) {
 
   // ---- impact: dust thrown out both ways along the road, sparks ----
   float fx = land(gM) - drift;
-  addBoom(p - vec2(fx + 0.95, -0.35), gImpAge * 0.9 + 0.55, (0.07 + 0.11 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 11.0);
+  addBoom(p - vec2(fx + 1.0, -0.35), gImpAge * 0.9 + 0.55, (0.07 + 0.11 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 11.0);
   addBoom(p - vec2(fx + 0.55, -0.37), gImpAge * 0.9 + 0.55, (0.06 + 0.1 * smoothstep(0.0, 0.5, gImpAge)) * (0.5 + 0.5 * gHaze), vec3(0.62, 0.58, 0.52), 12.0);
 
   // ---- the team ----
@@ -381,9 +394,11 @@ vec3 render(vec2 fc) {
     vec4 hs = k == 0 ? gS0 : k == 1 ? gS1 : gS2;
     vec2 s2 = (p - vec2(hs.x, hs.z)) / vec2(0.075, 0.013);
     gCol *= 1.0 - 0.5 * (1.0 - smoothstep(0.4, 1.0, dot(s2, s2)));
-    heroSprite(p, hs.xy, 1.0, hs.w, k == 0 ? cA : k == 1 ? cB : cC);
+    heroSprite(p, hs.xy, k == 1 ? gBolt.w : 1.0, hs.w, k == 0 ? cA : k == 1 ? cB : cC, float(k));
+    if (k == 1 && gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 52.0 * gVP), -1.0, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
   }
-  gCol += sparks(p - vec2(fx + 0.9, -0.31), gImpAge * 1.2, 0.26 * (0.3 + 0.7 * gPy), gM);
+  gCol += sparks(p - vec2(fx + 1.0, -0.26), (gU * 4.0 * 0.47 - 0.95) * 2.0 * step(0.5, mod(gM, 2.0)), 0.14, gM + 9.0);   // where the bolt lands
+  gCol += sparks(p - vec2(fx + 0.95, -0.31), gImpAge * 1.2, 0.26 * (0.3 + 0.7 * gPy), gM);
   rubble(p - vec2(fx + 0.85, -0.31), gImpAge * 1.1, gM);
 
   // ---- smoke machine, then whatever is too close to the lens to focus on ----
@@ -400,8 +415,8 @@ void main() {
   gKick = clamp(uBassHit, 0.0, 1.0);
   gAlpha = 1.0;
   gFit = max(1.0, 1.5 * uResolution.y / uResolution.x);
-  // one grid of virtual pixels for everything: about 270 lines, a whole number of screen pixels each
-  float scl = max(1.0, floor(uResolution.y / 270.0));
+  // one grid of virtual pixels for everything: about 216 lines, a whole number of screen pixels each
+  float scl = max(1.0, floor(uResolution.y / 216.0 + 0.5));
   gVP = scl * gFit / uResolution.y;
   gPix = 0.6 * gVP;
   gHaze = clamp(haze, 0.0, 2.0);
@@ -421,7 +436,7 @@ void main() {
   // and the last in line dives clear and rolls back onto his feet
   for (int k = 0; k < 3; k++) {
     float fk = float(k);
-    float x = 0.42 + 0.18 * fk + 0.02 * sin(uBeatClock * (0.7 + 0.23 * fk) + fk * 2.0);
+    float x = 0.3 + 0.2 * fk + 0.02 * sin(uBeatClock * (0.7 + 0.23 * fk) + fk * 2.0);
     float ly = k == 1 ? -0.4 : -0.37;
     float hop = 0.045 * sin(clamp(gImpAge * 2.6 - 0.12 * fk, 0.0, 1.0) * 3.14159);
     float dv = k == 0 ? clamp((gU > 0.5 ? gU - 0.92 : gU + 0.08) / 0.24, 0.0, 1.0) : 0.0;
@@ -429,8 +444,18 @@ void main() {
     hop = mix(hop, 0.12 * sin(dv * 3.14159), wT);
     x += 0.06 * sin(dv * 3.14159);
     float lb = k == 2 ? 0.0 : smoothstep(0.5 + 0.06 * fk, 0.6 + 0.06 * fk, gU) * (1.0 - smoothstep(0.84, 0.92, gU));
-    float fr = (lb > 0.5 ? 16.0 : 0.0) + floor(fract(uBeatClock * 1.5 + fk * 0.37) * 16.0);
-    if (wT > 0.5) fr = 32.0 + floor(dv * 15.99);
+    float fr = (lb > 0.5 ? F_LOOK : F_RUN) + floor(fract(uBeatClock * 1.5 + fk * 0.37) * 12.0);
+    if (wT > 0.5) fr = F_FLIP + floor(dv * 11.99);
+    if (k == 1) {
+      // on the stomps with no charges, the second one turns and puts a bolt into the toes
+      float on = mod(gM, 2.0) > 0.5 ? 1.0 : 0.0;
+      float bp = clamp((gU - 0.1) / 0.24, 0.0, 1.0) * on;
+      float act = step(0.001, bp) * step(bp, 0.999);
+      if (act > 0.5) fr = bp < 0.08 ? F_TURN : bp > 0.92 ? F_TURN + 1.0 : F_BLAST + floor(clamp((bp - 0.08) / 0.84, 0.0, 1.0) * 9.99);
+      float fl = clamp((bp - 0.52) / 0.4, 0.0, 1.0);
+      float toe = land(gM) - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0) + 1.0;
+      gBolt = vec4(mix(x - 0.2, toe, fl), mix(-0.2, -0.24, fl), step(0.001, fl) * step(fl, 0.999) * on, act > 0.5 ? -1.0 : 1.0);
+    }
     vec4 hs = vec4(x, ly + hop, ly, fr);
     if (k == 0) gS0 = hs; else if (k == 1) gS1 = hs; else gS2 = hs;
   }

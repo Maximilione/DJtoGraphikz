@@ -123,7 +123,9 @@ import telemetryFrag from './shaders/telemetry.frag?raw'
 import aegisFrag from './shaders/aegis.frag?raw'
 import titanhandFrag from './shaders/titanhand.frag?raw'
 import kaijustompFrag from './shaders/kaijustomp.frag?raw'
-import tokuHeroesUrl from './assets/toku-heroes.png?url'
+import tokuHero0Url from './assets/toku-hero-0.png?url'
+import tokuHero1Url from './assets/toku-hero-1.png?url'
+import tokuHero2Url from './assets/toku-hero-2.png?url'
 import tokuFootUrl from './assets/toku-foot.png?url'
 import tokuHandUrl from './assets/toku-hand.png?url'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
@@ -1215,8 +1217,13 @@ export class Engine {
       ...paramUniforms,
       ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
       ...(id === 'pipes' ? { uPipes: { value: this.getPipesTexture() } } : {}),
-      ...(id === 'titanhand' ? { uAtlasHero: { value: this.getSpriteSheet(tokuHeroesUrl) }, uAtlasHand: { value: this.getSpriteSheet(tokuHandUrl) } } : {}),
-      ...(id === 'kaijustomp' ? { uAtlasHero: { value: this.getSpriteSheet(tokuHeroesUrl) }, uAtlasFoot: { value: this.getSpriteSheet(tokuFootUrl) } } : {}),
+      ...(id === 'titanhand' || id === 'kaijustomp' ? {
+        uAtlasHero0: { value: this.getSpriteSheet(tokuHero0Url) },
+        uAtlasHero1: { value: this.getSpriteSheet(tokuHero1Url) },
+        uAtlasHero2: { value: this.getSpriteSheet(tokuHero2Url) },
+      } : {}),
+      ...(id === 'titanhand' ? { uAtlasHand: { value: this.getSpriteSheet(tokuHandUrl) } } : {}),
+      ...(id === 'kaijustomp' ? { uAtlasFoot: { value: this.getSpriteSheet(tokuFootUrl) } } : {}),
       // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
       // applyEffectUniforms computes them once a frame instead of per vertex
       ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),

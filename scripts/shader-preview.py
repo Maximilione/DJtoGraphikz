@@ -24,7 +24,8 @@ import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-ATLAS = {"Hero": "toku-heroes.png", "Foot": "toku-foot.png", "Hand": "toku-hand.png"}
+ATLAS = {"Hero0": "toku-hero-0.png", "Hero1": "toku-hero-1.png", "Hero2": "toku-hero-2.png",
+         "Foot": "toku-foot.png", "Hand": "toku-hand.png"}
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 TONE = ("\nvec4 djgTone(vec3 c, float a) {\n"
         "  c *= 1.1;\n"
@@ -110,6 +111,7 @@ def build_page(effect: str, t: float, audio: list[float]) -> pathlib.Path:
 
     html = """<!DOCTYPE html><html><body style="margin:0">
 <canvas id="c"></canvas>
+__IMGS__
 <script>
 (async () => {
 const CFG = __CFG__;
@@ -120,9 +122,10 @@ const gl = canvas.getContext('webgl2');
 gl.getExtension('EXT_color_buffer_float');
 // sprite sheets: nearest, flipped like three's TextureLoader, on units 5..
 const ATLAS = {};
+if (document.readyState !== 'complete') await new Promise(r => addEventListener('load', r));   // the <img> tags below
 { let unit = 5;
   for (const [name, url] of Object.entries(CFG.atlas)) {
-    const img = new Image(); img.src = url; await img.decode();
+    const img = document.getElementById('atlas' + name);
     const tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -347,6 +350,7 @@ void main(){ djgFragColor = djgTone(texture(tSrc, vUv).rgb, 1.0); }`);
 gl.finish();
 })();
 </script></body></html>"""
+    html = html.replace("__IMGS__", "".join(f'<img id="atlas{n}" src="{u}" style="display:none">' for n, u in cfg["atlas"].items()))
     html = html.replace("__CFG__", json.dumps(cfg)).replace("__PARAMS__", effect_params(effect))
     page = pathlib.Path(f"/tmp/djg-preview-{effect}.html")
     page.write_text(html)
