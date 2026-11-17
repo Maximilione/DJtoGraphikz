@@ -25,7 +25,7 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 ATLAS = {"Hero0": "toku-hero-0.png", "Hero1": "toku-hero-1.png", "Hero2": "toku-hero-2.png",
-         "Foot": "toku-foot.png", "Hand": "toku-hand.png"}
+         "Foot": "toku-foot.png", "Hand": "toku-hand.png", "Robo": "toku-robo.png", "Kaiju": "toku-kaiju.png"}
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 TONE = ("\nvec4 djgTone(vec3 c, float a) {\n"
         "  c *= 1.1;\n"

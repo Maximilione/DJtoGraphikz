@@ -140,6 +140,7 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'telemetry', label: 'Telemetry', icon: '⌖' },
       { id: 'titanhand', label: 'Titan Hand', icon: 'Ψ' },
       { id: 'kaijustomp', label: 'Kaiju Stomp', icon: '▼' },
+      { id: 'robokaiju', label: 'Robo vs Kaiju', icon: '⚔' },
       { id: 'halftone', label: 'Xerox', icon: '⁙' },
       { id: 'truchet', label: 'Truchet', icon: '◜' },
       { id: 'voronoi', label: 'Voronoi', icon: '⬡' },

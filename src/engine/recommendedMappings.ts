@@ -541,6 +541,10 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     pyro: { source: 'bass', depth: 0.4, value: 1 },
     haze: { source: 'energy', depth: 0.3, value: 1 },
   },
+  robokaiju: {
+    pyro: { source: 'bass', depth: 0.4, value: 1 },
+    haze: { source: 'energy', depth: 0.3, value: 1 },
+  },
   escher: {
     edge: { source: 'bass', depth: 0.4, value: 1 },
     spin: { source: 'lfo-sine', depth: 0.3, lfoRate: 32, value: 0.3 },

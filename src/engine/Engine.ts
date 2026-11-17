@@ -123,11 +123,14 @@ import telemetryFrag from './shaders/telemetry.frag?raw'
 import aegisFrag from './shaders/aegis.frag?raw'
 import titanhandFrag from './shaders/titanhand.frag?raw'
 import kaijustompFrag from './shaders/kaijustomp.frag?raw'
+import robokaijuFrag from './shaders/robokaiju.frag?raw'
 import tokuHero0Url from './assets/toku-hero-0.png?url'
 import tokuHero1Url from './assets/toku-hero-1.png?url'
 import tokuHero2Url from './assets/toku-hero-2.png?url'
 import tokuFootUrl from './assets/toku-foot.png?url'
 import tokuHandUrl from './assets/toku-hand.png?url'
+import tokuRoboUrl from './assets/toku-robo.png?url'
+import tokuKaijuUrl from './assets/toku-kaiju.png?url'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -262,7 +265,7 @@ export type EffectId =
   | 'ringworld' | 'escher'
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
   | 'singularity' | 'aurora' | 'armillary' | 'telemetry' | 'aegis'
-  | 'titanhand' | 'kaijustomp'
+  | 'titanhand' | 'kaijustomp' | 'robokaiju'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -591,6 +594,7 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   aegis: aegisFrag,
   titanhand: titanhandFrag,
   kaijustomp: kaijustompFrag,
+  robokaiju: robokaijuFrag,
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
@@ -1224,6 +1228,10 @@ export class Engine {
       } : {}),
       ...(id === 'titanhand' ? { uAtlasHand: { value: this.getSpriteSheet(tokuHandUrl) } } : {}),
       ...(id === 'kaijustomp' ? { uAtlasFoot: { value: this.getSpriteSheet(tokuFootUrl) } } : {}),
+      ...(id === 'robokaiju' ? {
+        uAtlasRobo: { value: this.getSpriteSheet(tokuRoboUrl) },
+        uAtlasKaiju: { value: this.getSpriteSheet(tokuKaijuUrl) },
+      } : {}),
       // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
       // applyEffectUniforms computes them once a frame instead of per vertex
       ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),
