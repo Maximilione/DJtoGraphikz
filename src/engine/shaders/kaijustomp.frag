@@ -112,7 +112,7 @@ void lit(vec3 dg, float rad, vec3 alb, float gloss, vec2 bn) {
 
 // ---- sprites ----
 // Heroes, hand and foot are pixel art, drawn frame by frame by
-// scripts/gen-toku-sprites.py. The whole picture lives on one grid of
+// scripts/toku/*.py (yarn gen:sprites). The whole picture lives on one grid of
 // virtual pixels (about 270 lines): sprites are drawn 1:1 on it and their
 // positions snap to it, so every pixel on screen is the same size.
 uniform sampler2D uAtlasHero0;

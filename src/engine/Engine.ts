@@ -1897,7 +1897,7 @@ export class Engine {
   }
 
   /**
-   * Pixel-art sprite sheet of an effect (scripts/gen-toku-sprites.py), loaded on
+   * Pixel-art sprite sheet of an effect (scripts/toku/*.py, yarn gen:sprites), loaded on
    * first use and kept: nearest filtering, no mipmaps, no colour conversion, so
    * the shader reads exactly the texel the artist put there.
    */

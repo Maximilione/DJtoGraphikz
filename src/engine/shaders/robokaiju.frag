@@ -174,7 +174,7 @@ vec3 tapeLook(vec3 c0, vec3 cl, vec2 fc, float amt) {
 // ---- end of the tokusatsu kit ----
 
 // ---- the duel ----
-// Robot and kaiju are pixel art, drawn frame by frame by scripts/gen-toku-sprites.py
+// Robot and kaiju are pixel art, drawn frame by frame by scripts/toku/robo.py and kaiju.py
 // (8 x 8 cells of 288 x 224 each). The sheets are indexed: R = material, G = tone 1..5;
 // the ramps are built here, so the robot wears the palette and the kaiju keeps its hide.
 uniform sampler2D uAtlasRobo;
@@ -258,11 +258,12 @@ vec3 fighter(float who, vec3 d, float u, float thrown, float apart) {
     if (atk) f = u < 0.2 ? idle : u < 0.3 ? 26.0 : u < 0.4 ? 27.0 : u < 0.5 ? 28.0 : u < 0.72 ? 29.0 : u < 0.86 ? 30.0 : 31.0;
     else if (u >= 0.3) {
       // seized, hauled overhead on the beat, thrown back where it came from
-      vec2 hold = vec2(KX - RX + 16.0, 68.0);
+      // as high as the frame allows (the top is 215 px above the street): the lying robot is 95 px thick, the kaiju 130
+      vec2 hold = vec2(KX - RX + 16.0, who < 0.5 ? 118.0 : 100.0);
       if (u < 0.4) { f = 32.0; ox = 12.0 * (u - 0.3) / 0.1; }
       else if (u < 0.5) { float v = ease((u - 0.4) / 0.1); f = 34.0; ox = mix(12.0, hold.x, v); oy = hold.y * v; }
       else if (u < 0.72) { f = 35.0; ox = hold.x; oy = hold.y + (u < 0.56 ? 3.0 : 0.0); }
-      else { float v = (u - 0.72) / 0.28; f = v < 0.7 ? 35.0 : 36.0; ox = mix(hold.x, 0.0, v); oy = hold.y * (1.0 - v * v) + 26.0 * sin(v * 3.14159); }
+      else { float v = (u - 0.72) / 0.28; f = v < 0.7 ? 35.0 : 36.0; ox = mix(hold.x, 0.0, v); oy = hold.y * (1.0 - v * v) + 14.0 * sin(v * 3.14159); }
     }
   } else if (m == M_GETUP) {
     if (atk) f = u < 0.07 && thrown > 0.5 ? 36.0 : u < 0.16 && thrown > 0.5 ? 37.0 : u < 0.3 ? 38.0 : u < 0.46 ? 39.0 : u < 0.62 ? 40.0 : u < 0.76 ? 41.0 : u < 0.9 ? 42.0 : idle;
@@ -485,7 +486,6 @@ void main() {
   gR = fighter(0.0, d, u, thrown, apart);
   gK = fighter(1.0, d, u, thrown, apart);
   gFirst = d.x > 0.5 ? 0.0 : 1.0;                           // the attacker is drawn last
-  if (d.y == M_GRAB && u > 0.4) gFirst = d.x;               // except what it holds over its head
 
   // what lands in this slot, and where
   float vx = d.x < 0.5 ? KX - 30.0 : RX + 30.0;            // the chest of whoever takes it

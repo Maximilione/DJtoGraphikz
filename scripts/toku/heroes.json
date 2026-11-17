@@ -1,0 +1,425 @@
+{
+ "cell": [
+  144,
+  144
+ ],
+ "cols": 16,
+ "rows": 8,
+ "atlases": [
+  "toku-hero-0.png",
+  "toku-hero-1.png",
+  "toku-hero-2.png"
+ ],
+ "encoding": "R = material * 40 (1 suit, 2 white, 3 visor, 4 gold, 5 ink, 6 energy), G = tone * 50 (1..5, ink 0)",
+ "note": "hold = cells on the sheet per drawing: frames[i] is the first cell of drawing i and the next hold[i]-1 cells repeat it, so the first cell and the length of every action are the ones titanhand.frag and kaijustomp.frag already use",
+ "actions": {
+  "stance": {
+   "frames": [
+    0,
+    2,
+    4,
+    6
+   ],
+   "hold": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "stance",
+    "stance_up",
+    "stance",
+    "stance_dn"
+   ]
+  },
+  "walk": {
+   "frames": [
+    8,
+    10,
+    12,
+    14
+   ],
+   "hold": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "walk1",
+    "walk2",
+    "walk3",
+    "walk4"
+   ]
+  },
+  "run": {
+   "frames": [
+    16,
+    18,
+    20,
+    22,
+    24,
+    26
+   ],
+   "hold": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "run1",
+    "run2",
+    "run3",
+    "run4",
+    "run5",
+    "run6"
+   ]
+  },
+  "look": {
+   "frames": [
+    28,
+    30,
+    32,
+    34,
+    36,
+    38
+   ],
+   "hold": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "look1",
+    "look2",
+    "look3",
+    "look4",
+    "look5",
+    "look6"
+   ]
+  },
+  "flip": {
+   "frames": [
+    40,
+    42,
+    45,
+    47,
+    49,
+    51
+   ],
+   "hold": [
+    2,
+    3,
+    2,
+    2,
+    2,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "crouch",
+    "dive",
+    "tuck1",
+    "tuck2",
+    "crouch",
+    "rise"
+   ]
+  },
+  "skid": {
+   "frames": [
+    52,
+    53,
+    56
+   ],
+   "hold": [
+    1,
+    3,
+    2
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "skid1",
+    "skid2",
+    "rise"
+   ]
+  },
+  "knock": {
+   "frames": [
+    58,
+    60,
+    62,
+    64
+   ],
+   "hold": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "hit",
+    "fly",
+    "land",
+    "flat"
+   ]
+  },
+  "getup": {
+   "frames": [
+    66,
+    68,
+    70,
+    73,
+    75
+   ],
+   "hold": [
+    2,
+    2,
+    3,
+    2,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "flat",
+    "sit",
+    "kneel",
+    "rise",
+    "stance"
+   ]
+  },
+  "pose": {
+   "frames": [
+    76,
+    77,
+    80,
+    82
+   ],
+   "hold": [
+    1,
+    3,
+    2,
+    6
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "stance",
+    "windup",
+    "pose_flash",
+    "pose"
+   ]
+  },
+  "punch": {
+   "frames": [
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    95
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "stance",
+    "jab_hit",
+    "jab",
+    "stance",
+    "cross_hit",
+    "cross",
+    "stance"
+   ]
+  },
+  "kick": {
+   "frames": [
+    96,
+    97,
+    98,
+    99,
+    100,
+    102,
+    103
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "stance",
+    "chamber",
+    "round_hit",
+    "round_fade",
+    "round",
+    "chamber",
+    "stance"
+   ]
+  },
+  "fkick": {
+   "frames": [
+    104,
+    106,
+    107,
+    108,
+    110,
+    111
+   ],
+   "hold": [
+    2,
+    1,
+    1,
+    2,
+    1,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "crouch",
+    "flykick1",
+    "flykick2",
+    "flykick",
+    "crouch",
+    "stance"
+   ]
+  },
+  "blast": {
+   "frames": [
+    112,
+    113,
+    114,
+    115,
+    117,
+    118,
+    119,
+    121
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    2,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "stance",
+    "gather1",
+    "gather2",
+    "gather3",
+    "fire_flash",
+    "fire_fade",
+    "fire",
+    "stance"
+   ]
+  },
+  "turn": {
+   "frames": [
+    122,
+    123
+   ],
+   "hold": [
+    1,
+    1
+   ],
+   "anchor": [
+    72,
+    132
+   ],
+   "drawings": [
+    "turn1",
+    "turn2"
+   ]
+  },
+  "bolt": {
+   "frames": [
+    124,
+    125,
+    126,
+    127
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "anchor": [
+    72,
+    72
+   ],
+   "drawings": [
+    "bolt",
+    "bolt",
+    "bolt",
+    "bolt"
+   ]
+  }
+ }
+}
