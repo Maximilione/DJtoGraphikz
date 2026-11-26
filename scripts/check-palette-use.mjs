@@ -102,7 +102,7 @@ app.whenReady().then(async () => {
 
 await build({
   entryPoints: [join(T, 'harness.ts')], bundle: true, format: 'iife', outfile: join(T, 'bundle.js'),
-  loader: { '.frag': 'text', '.vert': 'text' }, logLevel: 'warning',
+  loader: { '.frag': 'text', '.vert': 'text', '.png': 'empty' }, logLevel: 'warning',
 })
 
 const cat = readFileSync(join(REPO, 'src/renderer/catalog.ts'), 'utf8')

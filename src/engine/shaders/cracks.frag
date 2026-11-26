@@ -92,7 +92,7 @@ void main() {
   vec3 col = slabC * (1.0 + 1.6 * uBassHit * step(0.6, h1)) + under * (0.15 + 1.25 * exp(-edge * 6.0));
   col += mix(uColor1, vec3(1.0), min(pulse * 0.6, 0.85)) * lit;
   // wide halo bleeding out of the crack, hot core on the kick
-  col += mix(uColor2, uColor1, 0.5) * exp(-edge * 14.0 / (1.0 + uLineBoost)) * (0.12 + 0.5 * uBassHit) * glow;
+  col += mix(uColor2, uColor1, 0.15) * exp(-edge * 14.0 / (1.0 + uLineBoost)) * (0.12 + 0.5 * uBassHit) * glow;
   col += uColor2 * crack * exp(-edge * 40.0) * 0.3;
   col = vec3(1.0) - exp(-col * 1.3);
   col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;   // dither the dark slab gradients

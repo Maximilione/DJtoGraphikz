@@ -97,7 +97,7 @@ void main() {
   // Color: the cloud walks the palette 1 -> 3, valleys stay black, and the
   // lines replace it instead of adding to it (two palette colours summed
   // went pastel and the whole frame read as one washed green)
-  vec3 base = mix(uColor3, uColor1, smoothstep(0.3, 0.7, n3)) * pattern * pattern;
+  vec3 base = mix(uColor3, uColor1, smoothstep(0.2, 0.52, n3)) * pattern * pattern;
   // stained-glass relief from the cloud itself
   vec2 gr = vec2(dFdx(n2), dFdy(n2)) * uResolution.y / zm;
   base *= clamp(0.8 + dot(gr, vec2(0.15, 0.2)), 0.5, 1.3);
