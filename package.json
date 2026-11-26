@@ -17,7 +17,7 @@
     "check:output": "python3 scripts/check-output.py",
     "check:audiorecovery": "node scripts/check-audiorecovery.mjs",
     "check:glsl": "sh scripts/check-glsl.sh",
-    "gen:sprites": "python3 scripts/toku/heroes.py && python3 scripts/toku/hand.py && python3 scripts/toku/robo.py && python3 scripts/toku/kaiju.py",
+    "gen:sprites": "python3 scripts/toku/heroes.py && python3 scripts/toku/hand.py && python3 scripts/toku/foot.py && python3 scripts/toku/robo.py && python3 scripts/toku/kaiju.py",
     "check:sweep": "python3 scripts/check-sweep.py",
     "check:colorsync": "node scripts/check-colorsync.mjs",
     "check:audiodevice": "node scripts/check-audiodevice.mjs",
