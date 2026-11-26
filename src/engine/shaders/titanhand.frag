@@ -257,7 +257,7 @@ vec3 facade(vec2 p) {
         float sv = sin(ang);
         float yy = dq.y / (1.0 + 0.12 * sv * lxx / 0.15);
         float sl = fract(yy / 0.036);
-        vec3 steel = mix(gWallLit * 1.5, uColor2 * 0.42, 0.45) * (1.0 - 0.45 * sv);
+        vec3 steel = (gWallLit * 1.25 + uColor2 * 0.14) * (1.0 - 0.45 * sv);
         gCol = mix(steel, steel * 0.62, step(0.55, sl));
         // light through the slats when the thing behind them leans on the doors, and on the kick
         float leak = max(act * gRum, 0.22 * gKick) * step(0.9, sl);
@@ -353,7 +353,8 @@ vec3 render(vec2 fc) {
   vec2 pc = vec2(gSlamX, -0.3);
   p = pc + (p - pc) * (1.0 - gPunch) + gShake;
   float py = clamp(pyro, 0.0, 2.0);
-  float sil = max(gImpact, clamp(exp(-max(gPoseAge, 0.0) * 4.0) * step(0.0, gPoseAge) * 1.3 * min(py, 1.0), 0.0, 1.0));
+  // black against the charges for the frame or two they ignite, then their colours come back
+  float sil = max(gImpact, step(0.0, gPoseAge) * step(gPoseAge, 0.09) * min(py, 1.0));
   if (gImpact > 0.5) gCol = impactFrame(p - vec2(gSlamX, -0.34), mix(uColor1, vec3(1.0, 0.75, 0.3), 0.45), floor(uBeatClock));
   else gCol = p.y > FY ? facade(p) : plaza(p);
 
@@ -397,7 +398,7 @@ vec3 render(vec2 fc) {
   if (gBoltA.z > 0.5) heroSprite(p, gBoltA.xy - vec2(0.0, 60.0 * gU), gBoltA.w, bf, cA, 0.0);
   if (gBoltC.z > 0.5 && gCrew > 2.5) heroSprite(p, gBoltC.xy - vec2(0.0, 60.0 * gU), gBoltC.w, bf, cC, 2.0);
   // the two bolts meet on the fist
-  if (gFin > 0.5) celBoom(p - gW - vec2(0.0, 0.08), secs(0.68), 0.2 * py, mix(uColor1, vec3(1.0, 0.8, 0.4), 0.5), 11.0);
+  if (gFin > 0.5) celBoom(p - vec2(gXd + gSide * 0.2, 0.06), secs(0.68) * 1.7, 0.2 * py, mix(uColor1, vec3(1.0, 0.8, 0.4), 0.5), 11.0);
 
   // sparks: the slam, the two pats, the doors, the bolt and the kick
   vec3 sp = sparks(p - vec2(gSlamX, -0.36), gImpAge * 1.3, 0.22 * (0.5 + 0.5 * py), 1.0);
