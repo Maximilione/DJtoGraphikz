@@ -70,10 +70,15 @@ void main() {
   float crack = 1.0 - smoothstep(w, w + max(0.02, 1.5 / cellPx), edge);
   // the pulse travels outward along the cracks, one per beat
   float dist = length(p);
-  float pulse = exp(-abs(dist - uBeatPhase * 0.9) * 6.0) * (0.5 + 0.8 * uBass);
+  // a sharp front with a tail behind it: a symmetric bump read as a vague
+  // brightening, a front reads as light running outward
+  float back = uBeatPhase * 1.05 - dist;
+  float pulse = (back > 0.0 ? exp(-back * 5.0) : exp(back * 30.0)) * (0.5 + 0.8 * uBass);
   // idle travelling pulse so a silent room still has light running in the cracks
   float pulse2 = exp(-abs(dist - fract(uTime * 0.12) * 1.1) * 7.0) * 0.6;
-  float lit = crack * (0.3 + (pulse * 2.0 + pulse2) * glow) * (1.0 + uBeat * 0.9);
+  // resting cracks stay dim and coloured: lit near white all the time, the
+  // pulse had no headroom left to show
+  float lit = crack * (0.12 + (pulse * 2.4 + pulse2) * glow) * (1.0 + uBeat * 0.9);
 
   // slabs: near black, a little grain, slightly lighter toward the crack
   float slab = 0.03 + 0.05 * h1 + exp(-edge * 8.0) * 0.07;
@@ -82,11 +87,14 @@ void main() {
   vec3 slabC = mix(vec3(slab), uColor3 * slab * 1.6, 0.6) * 0.7;
   // slabs lit from below: the underglow rises from the bottom edge
   vec3 under = mix(uColor1, uColor3, uv.x) * (0.05 + 0.1 * (1.0 - uv.y) * (1.0 - uv.y)) * (0.6 + 0.8 * uEnergy);
-  vec3 col = slabC * (1.0 + 1.6 * uBassHit * step(0.6, h1)) + under * (0.5 + 0.9 * exp(-edge * 6.0));
-  col += mix(uColor1, vec3(1.0), pulse * 0.5 + 0.15) * lit;
+  // the underglow leaks out of the cracks: spread flat over the slabs it
+  // turned a loud passage into a milky wall
+  vec3 col = slabC * (1.0 + 1.6 * uBassHit * step(0.6, h1)) + under * (0.15 + 1.25 * exp(-edge * 6.0));
+  col += mix(uColor1, vec3(1.0), min(pulse * 0.6, 0.85)) * lit;
   // wide halo bleeding out of the crack, hot core on the kick
   col += mix(uColor2, uColor1, 0.5) * exp(-edge * 14.0 / (1.0 + uLineBoost)) * (0.12 + 0.5 * uBassHit) * glow;
   col += uColor2 * crack * exp(-edge * 40.0) * 0.3;
   col = vec3(1.0) - exp(-col * 1.3);
+  col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;   // dither the dark slab gradients
   gl_FragColor = vec4(col, 1.0);
 }

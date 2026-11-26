@@ -74,12 +74,19 @@ void main() {
   float hot = smoothstep(0.86, 1.0, abs(m123));
   color += vec3(1.0) * hot * (0.25 + 0.7 * uBassHit + 0.5 * uHighHit);
 
-  // beat inverts the field polarity briefly: the classic op-art flip
-  color = mix(color, uColor2 * (1.0 - smoothstep(0.2, 0.9, m12)) + uColor3 * iso * 0.4, smoothstep(0.35, 0.65, uBassHit) * 0.75);
+  // beat inverts the field polarity briefly: the classic op-art flip. The
+  // flipped picture is the negative lobes of the same field, so it covers as
+  // much as the positive one (1 - m12 was lit nearly everywhere: a flat wash)
+  vec3 neg = uColor2 * smoothstep(0.38, 0.62, -m12) + uColor1 * smoothstep(0.45, 0.75, m123) * 0.8
+           + uColor3 * exp(-abs(m12 + 0.5) * 12.0) * 0.4;
+  color = mix(color, neg, smoothstep(0.35, 0.65, uBassHit) * 0.85);
 
-  // Kick shockwave ring
-  float sw = (r0 - (0.05 + 0.9 * (1.0 - uBassHit))) * 14.0;
-  color += mix(uColor3, vec3(1.0), 0.5) * exp(-sw * sw) * uBassHit * 0.9;
+  // Kick shockwave: a ring that lights the pattern it crosses, plus a thin
+  // edge. A grey ring added on top smeared the fringes it was meant to show.
+  float sw = (r0 - (0.05 + 0.9 * (1.0 - uBassHit))) * 16.0;
+  float ring = exp(-sw * sw) * uBassHit;
+  color *= 1.0 + 1.6 * ring;
+  color += uColor3 * exp(-sw * sw * 9.0) * uBassHit * 0.5;
 
   // Faint palette haze: never black
   color += mix(uColor1, uColor3, r0) * 0.04 * smoothstep(0.9, 0.2, r0);
@@ -87,5 +94,6 @@ void main() {
   color *= 1.0 + 0.3 * uBeat;
   color *= smoothstep(1.35, 0.55, r0);
   color = vec3(1.0) - exp(-color * 1.4);
+  color += (hash(gl_FragCoord.xy) - 0.5) / 255.0;
   gl_FragColor = vec4(color, 1.0);
 }

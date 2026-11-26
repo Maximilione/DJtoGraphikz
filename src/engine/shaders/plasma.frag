@@ -58,28 +58,35 @@ void main() {
   // The plasma value walks the palette loop. Was c1 + c2 * rings + c3 * …:
   // colour 1 at full weight everywhere, colour 2 only on the sparse rings.
   float hue = (v * 3.0 + t * 0.3) * 0.1591549;
-  // rings carve darkness; the secondary colour only where the plasma field is high
-  vec3 color = pal3(hue) * (0.4 + 0.85 * rings) + pal3(hue + 0.5) * 0.35 * smoothstep(0.1, 0.9, v * 0.5 + 0.5);
-  // depth from the two radial sources: dark valleys roll through the frame
-  color *= 0.35 + 0.65 * smoothstep(-0.6, 0.5, v4 * 0.6 + v5 * 0.4);
+  // one palette colour per place. It used to add the opposite colour of the
+  // loop on top (hue + 0.5): any two of the three sum towards white, and with
+  // the audio gains the frame was a grey pastel wash
+  vec3 color = pal3(hue) * (0.25 + 0.75 * rings);
+  // depth from the two radial sources: valleys roll through the frame, down to black
+  float relief = v4 * 0.6 + v5 * 0.4;
+  color *= 0.04 + 0.96 * smoothstep(-0.75, 0.45, relief);
+  // the field lit as a surface: a wet highlight on the slopes facing the light
+  vec2 gr = vec2(dFdx(v), dFdy(v)) * min(uResolution.x, uResolution.y) / zoom;
+  vec3 n = normalize(vec3(-gr * 0.12, 1.0));
+  color *= 0.8 + 0.5 * dot(n.xy, vec2(0.5, 0.7));
+  color += pal3(hue + 0.08) * pow(max(dot(n, normalize(vec3(0.35, 0.5, 0.8))), 0.0), 18.0) * 0.5;
   // thin iso-contours that sparkle on the hats
   float iso = 1.0 - smoothstep(0.0, 0.06, abs(fract(v * 2.5 + t * 0.1) - 0.5));
-  color += pal3(hue + 0.33) * iso * (0.15 + 1.2 * uHigh);
-  color *= 0.7;
+  color += pal3(hue + 0.33) * iso * (0.12 + 1.2 * uHigh);
 
-  // Energy-reactive brightness. The gains compound (0.7 × energy × beat ×
-  // tone map): the old 2.5× beat strobe drove the whole frame to pastel white
-  color *= 0.6 + uEnergy * 0.5;
+  // Energy-reactive brightness. The gains compound (energy x beat x tone
+  // map): the old 2.5x beat strobe drove the whole frame to pastel white
+  color *= 0.6 + uEnergy * 0.4;
 
   // Beat pulse
-  color *= 1.0 + beat * 0.5;
+  color *= 1.0 + beat * 0.4;
 
-  // Pulsing center — measured on uv0: at zoom 0.3 the zoomed radius never
+  // Pulsing center, measured on uv0: at zoom 0.3 the zoomed radius never
   // left the glow and the whole frame was a flat pastel wash
-  float glow = exp(-r0 * 2.5) * (0.3 + beat * 0.6);
-  color += pal3(t * 0.05) * 1.6 * glow;
+  float glow = exp(-r0 * 5.0) * (0.15 + beat * 0.45);
+  color += pal3(hue) * 1.6 * glow;
 
-  color = 1.0 - exp(-color * 1.4);   // highlight rolloff: beats keep their hue instead of clipping
+  color = 1.0 - exp(-color * 1.25);  // highlight rolloff: beats keep their hue instead of clipping
   color *= 1.0 - 0.55 * smoothstep(0.35, 0.95, r0);
   // dither: smooth gradients do not band on 8-bit projector output
   color += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;

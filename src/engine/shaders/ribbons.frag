@@ -71,8 +71,10 @@ void main() {
     float ew = (ad - hw) * 125.0;
     float edge = exp(-ew * ew);
     // palette across the layers and along the ribbon
-    float m = fract(f * 1.3 + 0.12 * sin(x * 0.7 + T));
-    vec3 pc = m < 0.5 ? mix(uColor1, uColor2, m * 2.0) : mix(uColor2, uColor3, m * 2.0 - 1.0);
+    // a closed loop 1 > 2 > 3 > 1: an open ramp jumped from colour 3 back
+    // to colour 1 where fract() wraps, a hard vertical seam across the ribbon
+    float m = fract(f * 1.3 + 0.12 * sin(x * 0.7 + T)) * 3.0;
+    vec3 pc = m < 1.0 ? mix(uColor1, uColor2, m) : m < 2.0 ? mix(uColor2, uColor3, m - 1.0) : mix(uColor3, uColor1, m - 2.0);
     float near = 0.35 + 0.9 * f;
     // one crest per beat travels through the depth, far to near
     float crest = exp(-8.0 * abs(f - fract(uBeatClock)));

@@ -56,11 +56,19 @@ void main() {
 
   // a few bars carry the palette, the rest are white
   float tinted = step(0.9, hash(vec2(cell, gen + 3.7)));
-  vec3 ink = mix(vec3(1.0), uColor1, tinted);
+  vec3 ink = mix(vec3(1.0), hash(vec2(cell, gen + 9.1)) < 0.65 ? uColor1 : uColor3, tinted);
+  // the scanner: a laser line that crosses the label once per beat, top to
+  // bottom. The print sits at a dim grey and lights where it has just been
+  // read, so the beat is a moving thing and not a change of level on a flat
+  // field of bars.
+  float dy = uv.y - (1.0 - fract(uBeatClock));
+  float read = dy > 0.0 ? exp(-dy * 4.0) : 0.0;
+  float beam = exp(-dy * dy * 12000.0);
   // the band that just tore flashes brighter
-  float bright = 0.6 + 0.25 * uBeat + 0.3 * uBassHit;
+  float bright = 0.30 + 0.60 * read * (0.7 + 0.3 * uEnergy) + 0.15 * uBeat + 0.3 * uBassHit;
   bright *= 1.0 + 0.5 * uHighHit * abs(th - 0.5) * 2.0;
   vec3 col = ink * bar * bright;
+  col += uColor2 * beam * (0.25 + 1.2 * bar) * (0.6 + 0.6 * uEnergy);
   // black separator lines between bands, and a dim digit strip at the bottom
   col *= step(0.01, fract(uv.y * 3.0));
   col *= 1.0 - 0.6 * step(uv.y, 0.06) ;

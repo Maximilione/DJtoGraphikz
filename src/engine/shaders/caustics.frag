@@ -64,36 +64,47 @@ void main() {
   float ring = exp(-rd * rd) * uBassHit;
   p += (q / (r + 0.001)) * ring * 2.4 * causticscale;
 
+  // Both fields are normalised to their ceiling (1.17) before the power, so
+  // light tops out at 1 on the crests only. Raw, acc sat above 1 over a third
+  // of the frame and the power clipped all of it to one flat white sheet.
   float acc = causField(p, t, 5.0);
-  float light = clamp(pow(abs(acc), 8.0 + sharpness * 7.0 + uHigh * 3.0), 0.0, 2.5);
+  float a1 = clamp(acc / 1.17, 0.0, 1.0);
+  float light = pow(a1, 7.0 + sharpness * 9.0 + uHigh * 4.0);
 
   // floor layer: bigger cells, slower, offset: reads as light further down
   vec2 p2 = p * 0.58 + vec2(sin(t * 0.7), cos(t * 0.6)) * 4.0 - 120.0;
   float acc2 = causField(p2, t * 0.55 + 7.0, 2.0);
-  float light2 = clamp(pow(abs(acc2), 7.0 + sharpness * 5.0), 0.0, 2.0);
+  float light2 = pow(clamp(acc2 / 1.17, 0.0, 1.0), 5.0 + sharpness * 5.0);
 
-  // depth tint: the water column between the surface and the floor
-  float depth = clamp(acc * 0.8, 0.0, 1.0);
-  vec3 water = mix(uColor3 * 0.10, uColor1 * 0.30, depth * depthk);
-  // deeper at the bottom, brighter near the surface
-  water *= 0.7 + 0.8 * uvp.y;
+  // the water column: colour 3 in the deep, colour 1 where the surface swells
+  // (a1 low = trough = dark), brighter toward the top of the frame
+  float swell = smoothstep(0.35, 0.95, a1);
+  vec3 water = mix(uColor3 * 0.07, mix(uColor3, uColor1, 0.6) * 0.22, swell * depthk * 0.5);
+  water *= 0.45 + 0.9 * uvp.y;
 
   // light shafts falling from the surface
   float sh = 0.5 + 0.5 * sin(q.x * 6.5 + sin(q.y * 2.2 + t * 0.8) * 1.6 + t * 0.4);
-  float shafts = (sh * sh * sh) * smoothstep(0.0, 1.0, uvp.y) * (0.05 + 0.10 * uEnergy + 0.18 * uBassHit);
+  float shafts = (sh * sh * sh) * smoothstep(0.0, 1.0, uvp.y) * (0.04 + 0.08 * uEnergy + 0.14 * uBassHit);
 
-  vec3 c = water * 0.35 + uColor3 * 0.035;
-  c += mix(uColor1, uColor3, 0.5) * light2 * (0.16 + 0.14 * uEnergy);
-  c += uColor2 * shafts;
-  c += uColor2 * light * (0.22 + 0.40 * uEnergy + 0.35 * uBeat + 0.45 * uBassHit);
-  c += uColor1 * pow(light, 1.6) * 0.22;
-  // clean hot cores for the bloom to take
-  c += mix(uColor2, vec3(1.0), 0.6) * (light * light * light) * (0.06 + 0.28 * uBassHit + 0.12 * uBeat);
-  c += uColor2 * ring * 0.35;
+  // filaments take colour 1 or 2 by region (a slow, frame-wide wave), so the
+  // palette reads as two lights crossing the pool
+  float region = 0.5 + 0.5 * sin(q.x * 2.1 + sin(q.y * 1.7 - t * 0.31) * 1.8 + t * 0.23);
+  vec3 fil = mix(uColor1, uColor2, smoothstep(0.3, 0.7, region));
+  float gain = 0.75 + 0.6 * uEnergy + 0.5 * uBassHit + 0.25 * uBeat;
+
+  vec3 c = water;
+  c += mix(uColor3, uColor1, 0.35) * light2 * (0.22 + 0.18 * uEnergy);
+  c += mix(uColor2, uColor3, 0.5) * shafts;
+  c += fil * light * gain;
+  // white only in the very core of a crest, so the bloom has something clean
+  c += mix(fil, vec3(1.0), 0.75) * (light * light * light) * (0.7 + 0.7 * uBassHit + 0.3 * uEnergy);
+  c += mix(uColor2, vec3(1.0), 0.3) * ring * (0.25 + 0.5 * light);
 
   float vig = smoothstep(1.4, 0.3, length((uvp - 0.5) * vec2(1.5, 1.0)));
   c *= vig;
   // soft shoulder: the highlights land near 0.9 instead of clipping flat
   c = 1.0 - exp(-c * 1.25);
+  // IGN dither: the dark water gradient bands on an 8-bit target
+  c += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(c, 1.0);
 }

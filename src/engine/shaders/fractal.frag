@@ -79,8 +79,16 @@ void main() {
     color += uColor3 * exp(-trapX * 14.0 / max(zm, 0.5)) * 0.5;
   } else {
     // inside the set: shade by how close the orbit came to the origin
-    float g = exp(-sqrt(trapR2) * 2.2);
+    float tr = sqrt(trapR2);
+    float g = exp(-tr * 2.2);
     color = mix(uColor3 * 0.06, uColor1 * 0.7, g);
+    // contour bands of the trap distance, drifting inwards: the interior was
+    // half the frame in one flat tone. log: the bands keep their width as
+    // they nest towards the attractor. The bass pushes them along.
+    float lt = log(tr + 0.02);
+    float band = sin(lt * 7.0 + uTime * 0.5 + uBass * 1.5);
+    color = mix(color, uColor3 * (0.15 + 0.5 * g), smoothstep(-0.2, 0.8, band) * 0.75);
+    color *= 0.55 + 0.45 * smoothstep(-1.0, 0.3, sin(lt * 14.0 + uTime * 0.5 + uBass * 1.5));
     color += uColor2 * exp(-trapX * 9.0 / max(zm, 0.5)) * 0.35;
     color *= 0.6 + uBass * 0.3;
   }
@@ -90,5 +98,6 @@ void main() {
   vec3 k = max(color - 0.8, 0.0);
   color = min(color, 0.8) + 0.2 * (1.0 - exp(-k * 2.5));
 
+  color += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;   // dither: the dark exterior does not band
   gl_FragColor = vec4(color, 1.0);
 }

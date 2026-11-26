@@ -95,7 +95,23 @@ void main() {
   vec3 c = tint * line * (1.6 + 0.9 * uBeat) * chase * spark;
   c += mix(uColor1, uColor3, 0.5) * acc * (0.09 + 0.06 * uEnergy);
   c += uColor3 * 0.03 * smoothstep(1.3, 0.6, length(p));   // floor only on the disc
+
+  // the pins the strings hang on, and the light they throw outwards: the
+  // figure used to float alone in a black frame with nothing holding it
+  float len = length(p);
+  float na = atan(p.y, p.x) / TAU * n;
+  float node = floor(na + 0.5);
+  float dt = (na - node) / n * TAU * len;          // along the rim, in p units
+  float dr = len - r;
+  float pinR = max(w * 2.2, 3.0 * pxP);
+  float pin = 1.0 - smoothstep(pinR * 0.6, pinR, length(vec2(dt, dr)));
+  float nodeChase = 0.4 + 0.6 * smoothstep(0.25, 0.0, abs(fract(node / n - uBeatClock * 0.25) - 0.5));
+  float rayW = max(w, 1.5 * pxP);
+  float ray = exp(-dt * dt / (rayW * rayW)) * step(0.0, dr) * exp(-dr * (5.0 - 3.0 * uBass));
+  c += tint * (pin * 1.1 + ray * (0.25 + 0.5 * uBeat)) * nodeChase;
   c = 1.0 - exp(-c * 1.3);   // hot core, coloured edges, no flat clip
+
+  c += (fract(sin(dot(gl_FragCoord.xy, vec2(127.1, 311.7))) * 43758.5453) - 0.5) / 255.0;   // the chord glow bands on 8 bit
 
   gl_FragColor = vec4(c, 1.0);
 }

@@ -61,7 +61,10 @@ void main() {
 
   // velocity: buoyancy up, stronger where the smoke is already dense, plus a
   // curl field that gives the plume its curling edges
-  vec2 vel = vec2(0.0, (0.45 + 1.3 * rise) * (0.35 + d));
+  // the density term is kept mild: with (0.35 + d) dense smoke rose four times
+  // faster than thin smoke, overtook it and piled into a hard front (a
+  // shock), which is the razor edge the plumes used to end in
+  vec2 vel = vec2(0.0, (0.45 + 1.3 * rise) * (0.75 + 0.30 * d));
   float tw = uTime * 0.25 + uBeatClock * 0.05;
   // two octaves: one octave gives smooth arcs that read as comets, not smoke —
   // the small scale is what makes the edges curl and break up
@@ -73,7 +76,7 @@ void main() {
   float moved = texture2D(tBufferS, clamp(back, 0.002, 0.998)).r;
 
   // dissipation, and a little extra near the top so the plume has an end
-  float loss = 0.986 - dissipate * 0.05 - smoothstep(0.75, 1.0, uv.y) * 0.05;
+  float loss = 0.986 - dissipate * 0.05 - smoothstep(0.70, 1.0, uv.y) * 0.12;
   float next = moved * loss;
 
   // injection: three vents along the floor, each fed by its own spectrum band.

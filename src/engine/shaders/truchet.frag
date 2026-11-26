@@ -65,14 +65,18 @@ vec3 tlayer(vec2 p, float n, float gen, float seed, float wk) {
   float sgn = mod(cell.x + cell.y, 2.0) < 0.5 ? 1.0 : -1.0;
   float run = 0.5 + 0.5 * sin(sgn * ang * 4.0 - uTime * 2.5 - uBeatClock * 3.14159);
 
-  // colour by cell so the field reads as regions, not one flat weave
-  float region = hash(floor(cell / 3.0) + gen * 2.17 + seed);
-  vec3 tint = mix(uColor1, uColor2, region);
-  tint = mix(tint, uColor3, step(0.88, hash(cell + 4.2 + seed)));
+  // colour by a slow wave across the field, with a plateau on each palette
+  // colour: a per-block blend of colour 1 and 2 averaged complementary pairs
+  // to grey and cut the strokes along square block borders
+  float hue = fract(p.x * 0.42 + sin(p.y * 1.6 + uTime * 0.11) * 0.22 + gen * 0.21 + seed * 0.03) * 3.0;
+  float hf = smoothstep(0.3, 0.7, fract(hue));
+  vec3 tint = hue < 1.0 ? mix(uColor1, uColor2, hf) : hue < 2.0 ? mix(uColor2, uColor3, hf) : mix(uColor3, uColor1, hf);
 
-  vec3 c = tint * (line * (0.55 + 0.55 * run) * (0.9 + 0.8 * uBeat)
-                   + glow * glow * (0.18 + 0.5 * uEnergy + 0.5 * uBassHit));   // squared: gaps stay dark
-  c += mix(tint, vec3(1.0), 0.7) * core * (0.30 + 0.45 * uBeat + 0.55 * uBassHit) * (0.4 + 0.6 * run);
+  // the stroke body stays under 1 so it keeps its hue through the shoulder in
+  // main(): summed to ~3 on a kick, every stroke came out the same white
+  vec3 c = tint * (line * (0.50 + 0.45 * run) * (0.85 + 0.25 * uBeat)
+                   + glow * glow * (0.16 + 0.22 * uEnergy + 0.30 * uBassHit));   // squared: gaps stay dark
+  c += mix(tint, vec3(1.0), 0.7) * core * (0.25 + 0.25 * uBeat + 0.35 * uBassHit) * (0.4 + 0.6 * run);
   return c;
 }
 
@@ -101,15 +105,20 @@ void main() {
   // ring of light leaving the centre on each kick
   float rd = (r - fract(uBeatClock)) / 0.09;
   float ring = exp(-rd * rd) * uBassHit;
-  cNear *= 1.0 + ring * 2.2;
+  cNear *= 1.0 + ring * 1.4;
 
   // depth: the far weave sits under a dim colour haze that the kick lights
   vec3 haze = mix(uColor3, uColor1, 0.4) * (0.05 + 0.10 * uBassHit + 0.04 * uEnergy)
             * smoothstep(1.0, 0.0, r);
+  // the near weave covers the far one instead of adding to it: two hues summed
+  // where they cross is what bleached the strokes
+  cFar *= 1.0 - clamp(max(cNear.r, max(cNear.g, cNear.b)) * 1.5, 0.0, 1.0);
   vec3 c = cFar + cNear + haze + uColor3 * 0.02;
   c *= smoothstep(1.25, 0.25, r);
 
   // soft shoulder: the strokes peak near 0.9, clean for the bloom
   c = 1.0 - exp(-max(c, 0.0) * 1.6);
+  // IGN dither: the haze and vignette gradients band on an 8-bit target
+  c += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(c, 1.0);
 }
