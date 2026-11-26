@@ -3,17 +3,24 @@
   288,
   224
  ],
+ "texelsPerUnit": 2,
  "cols": 8,
- "sheet": [
-  2304,
-  1792
- ],
- "encoding": "R = material x 32 (1 armour, 2 white, 3 gunmetal, 4 gold, 5 ink, 6 energy, 7 glass), G = tone x 50",
+ "rows": 8,
+ "encoding": "cel sheet, see scripts/toku/cel.py: suit = armour, dim suit = joints and far limbs, white = panels, gold = crest and trims, visor = eyes, energy = lens of the chest",
  "tick": "1/12 s",
  "emitter": [
-  12,
-  95
+  9.5,
+  107.0
  ],
+ "rocketWrist": [
+  86,
+  126
+ ],
+ "rocketFist": [
+  0,
+  100
+ ],
+ "note": "emitter = the lens of the chest in cells 53-57, units from the feet; the rocket fist (cell 61) is drawn with its wrist on rocketFist",
  "actions": {
   "idle": {
    "frames": [
@@ -244,6 +251,32 @@
     120,
     212
    ]
+  },
+  "rocket": {
+   "frames": [
+    59,
+    60
+   ],
+   "hold": [
+    3,
+    6
+   ],
+   "anchor": [
+    120,
+    212
+   ]
+  },
+  "rocket_fist": {
+   "frames": [
+    61
+   ],
+   "hold": [
+    1
+   ],
+   "anchor": [
+    120,
+    212
+   ]
   }
  },
  "cells": [
@@ -305,6 +338,9 @@
   "beam2",
   "beam3",
   "beam4",
-  "taunt"
+  "taunt",
+  "aim",
+  "fired",
+  "fist"
  ]
 }

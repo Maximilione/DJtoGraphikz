@@ -3,10 +3,16 @@
   288,
   224
  ],
+ "texelsPerUnit": 2,
  "cols": 8,
+ "rows": 8,
  "atlas": "src/engine/assets/toku-kaiju.png",
- "encoding": "R = material * 32, G = tone * 50 (1 hide, 2 ivory, 3 belly and frill, 4 sail, 5 ink, 6 energy, 7 glow)",
- "note": "cells keep the numbers robokaiju.frag already reads; hold counts cells of the shader's own timing; the kaiju faces +x; beam leaves the mouth at (85, 111) px from the feet in cells 56-57",
+ "encoding": "cel sheet, see scripts/toku/cel.py: suit = hide, dim white = belly and plates, white = teeth, claws, horns, gold = eye, energy = plate cores and breath",
+ "mouth": [
+  86.2,
+  118.2
+ ],
+ "note": "cells keep the numbers robokaiju.frag reads; the kaiju faces +x and the shader mirrors it; mouth = where the breath leaves the jaws in cells 56-57, units from the feet",
  "actions": {
   "idle": {
    "frames": [
@@ -319,59 +325,27 @@
    "drawings": [
     "roar"
    ]
-  }
- },
- "foot": {
-  "atlas": "src/engine/assets/toku-foot.png",
-  "cell": [
-   384,
-   352
-  ],
-  "cols": 4,
-  "anchor": [
-   128,
-   344
-  ],
-  "encoding": "colour",
-  "actions": {
-   "descend": {
-    "frames": [
-     1,
-     0
-    ],
-    "hold": [
-     1,
-     1
-    ]
-   },
-   "impact": {
-    "frames": [
-     2,
-     3
-    ],
-    "hold": [
-     1,
-     2
-    ]
-   },
-   "planted": {
-    "frames": [
-     4
-    ],
-    "hold": [
-     1
-    ]
-   },
-   "lift": {
-    "frames": [
-     5,
-     6
-    ],
-    "hold": [
-     1,
-     1
-    ]
-   }
+  },
+  "bite": {
+   "frames": [
+    59,
+    60,
+    61
+   ],
+   "hold": [
+    1,
+    1,
+    1
+   ],
+   "anchor": [
+    140,
+    212
+   ],
+   "drawings": [
+    "bite_wind",
+    "bite_fx",
+    "bite"
+   ]
   }
  }
 }
