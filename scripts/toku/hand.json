@@ -3,6 +3,7 @@
   288,
   288
  ],
+ "texelsPerUnit": 2,
  "cols": 6,
  "drawings": [
   "open",
@@ -24,132 +25,131 @@
   "slack",
   "windup"
  ],
- "actions": {
-  "grope": {
-   "frames": [
-    0,
-    1,
-    2,
-    3
-   ],
-   "hold": [
-    1,
-    1,
-    1,
-    1
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "pat": {
-   "frames": [
-    4,
-    5
-   ],
-   "hold": [
-    1,
-    2
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "burst": {
-   "frames": [
-    9,
-    8,
-    7,
-    6
-   ],
-   "hold": [
-    1,
-    1,
-    1,
-    1
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "grab": {
-   "frames": [
-    6,
-    7,
-    8,
-    9
-   ],
-   "hold": [
-    1,
-    1,
-    1,
-    2
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "slam": {
-   "frames": [
-    10,
-    11,
-    12
-   ],
-   "hold": [
-    4,
-    1,
-    4
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "fist": {
-   "frames": [
-    9,
-    13,
-    14
-   ],
-   "hold": [
-    1,
-    1,
-    1
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "withdraw": {
-   "frames": [
-    15,
-    16
-   ],
-   "hold": [
-    1,
-    1
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  },
-  "spare": {
-   "frames": [
-    17
-   ],
-   "hold": [
-    1
-   ],
-   "anchor": [
-    144,
-    144
-   ]
-  }
+ "encoding": "cel sheet, see scripts/toku/cel.py: suit = hide, dim suit = fur, white = claws",
+ "grope": {
+  "frames": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "hold": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "pat": {
+  "frames": [
+   4,
+   5
+  ],
+  "hold": [
+   1,
+   2
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "burst": {
+  "frames": [
+   9,
+   8,
+   7,
+   6
+  ],
+  "hold": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "grab": {
+  "frames": [
+   6,
+   7,
+   8,
+   9
+  ],
+  "hold": [
+   1,
+   1,
+   1,
+   2
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "slam": {
+  "frames": [
+   10,
+   11,
+   12
+  ],
+  "hold": [
+   4,
+   1,
+   4
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "fist": {
+  "frames": [
+   9,
+   13,
+   14
+  ],
+  "hold": [
+   1,
+   1,
+   1
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "withdraw": {
+  "frames": [
+   15,
+   16
+  ],
+  "hold": [
+   1,
+   1
+  ],
+  "anchor": [
+   144,
+   144
+  ]
+ },
+ "spare": {
+  "frames": [
+   17
+  ],
+  "hold": [
+   1
+  ],
+  "anchor": [
+   144,
+   144
+  ]
  }
 }

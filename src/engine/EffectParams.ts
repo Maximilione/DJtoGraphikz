@@ -517,19 +517,19 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'tempo', label: 'Ritmo', min: 0.25, max: 2, default: 1 },
     { key: 'crew', label: 'Eroi', min: 1, max: 3, default: 3 },
     { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
-    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0.7 },
+    { key: 'tape', label: 'Retino stampa', min: 0, max: 1, default: 0.7 },
   ],
   kaijustomp: [
     { key: 'pace', label: 'Andatura', min: 0.3, max: 3, default: 1 },
     { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
     { key: 'haze', label: 'Fumo', min: 0, max: 2, default: 1 },
-    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0.7 },
+    { key: 'tape', label: 'Retino stampa', min: 0, max: 1, default: 0.7 },
   ],
   robokaiju: [
     { key: 'pace', label: 'Ritmo', min: 0.5, max: 2, default: 1 },
     { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
     { key: 'haze', label: 'Fumo', min: 0, max: 2, default: 1 },
-    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0.7 },
+    { key: 'tape', label: 'Retino stampa', min: 0, max: 1, default: 0.7 },
   ],
   escher: [
     { key: 'complexity', label: 'Labirinto', min: 0.2, max: 1, default: 0.6 },

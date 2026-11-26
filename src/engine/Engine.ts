@@ -1905,9 +1905,11 @@ export class Engine {
     let tex = this.spriteSheets.get(url)
     if (!tex) {
       tex = new THREE.TextureLoader().load(url)
-      tex.magFilter = tex.minFilter = THREE.NearestFilter
+      // cel sheets hold smooth fields (edge, class, normal) that the shader thresholds: they must be filtered
+      tex.magFilter = tex.minFilter = THREE.LinearFilter
       tex.generateMipmaps = false
       tex.colorSpace = THREE.NoColorSpace
+      tex.premultiplyAlpha = false
       tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
       this.spriteSheets.set(url, tex)
     }

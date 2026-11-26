@@ -3,6 +3,7 @@
   144,
   144
  ],
+ "texelsPerUnit": 2,
  "cols": 16,
  "rows": 8,
  "atlases": [
@@ -10,8 +11,8 @@
   "toku-hero-1.png",
   "toku-hero-2.png"
  ],
- "encoding": "R = material * 40 (1 suit, 2 white, 3 visor, 4 gold, 5 ink, 6 energy), G = tone * 50 (1..5, ink 0)",
- "note": "hold = cells on the sheet per drawing: frames[i] is the first cell of drawing i and the next hold[i]-1 cells repeat it, so the first cell and the length of every action are the ones titanhand.frag and kaijustomp.frag already use",
+ "encoding": "cel sheet, see scripts/toku/cel.py: A silhouette, B class, R G normal or class code",
+ "note": "hold = cells on the sheet per drawing: frames[i] is the first cell of drawing i and the next hold[i]-1 cells repeat it, so the first cell and the length of every action are the ones titanhand.frag and kaijustomp.frag read",
  "actions": {
   "stance": {
    "frames": [

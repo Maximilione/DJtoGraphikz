@@ -2,22 +2,21 @@
 """The three suited heroes, drawn frame by frame: src/engine/assets/toku-hero-{0,1,2}.png.
 
 No rig and no joint angles. Every key drawing below is a list of contours written by hand for
-that pose, in pixels (x to the right of the feet anchor, y up from the ground): the torso as
+that pose, in units (x to the right of the feet anchor, y up from the ground): the torso as
 four stations with the offset of its front and back contour, each limb as the points its
 centre line passes through (the contour is offset from it with an anatomical, asymmetric
-profile), swooshes and energy as closed outlines. Helmets and emblems are pixel maps typed by
-hand, one set per hero. Everything is filled and shaded once, at the sprite's own resolution:
-four tones and a specular per material, light from the top left, dark outline, lit edges
-outlined in the material's own shadow.
+profile), swooshes and energy as closed outlines. Helmets and emblems are outlines too, one set
+per hero.
 
-The sheet keeps the layout the shaders already read (16 x 8 cells of 144 px, same first cell
-per action, same number of cells): a key drawing is held over several cells, never tweened.
-heroes.json describes the drawings and how long each is held.
+The sheets are cel sheets (see cel.py): silhouette, class and surface normal, two texels per
+unit. The shaders give them their flat tones, the pen line, the rim light and the suit colour.
 
-The pixels are indexed, not coloured: R = material * 40, G = tone * 50 (1..5, ink 0).
+The layout is the one the shaders read (16 x 8 cells, same first cell per action, same number
+of cells): a key drawing is held over several cells, never tweened. heroes.json describes the
+drawings and how long each is held.
 
     python3 scripts/toku/heroes.py                 writes the three atlases and heroes.json
-    python3 scripts/toku/heroes.py --preview F.png also a 3x strip of every drawing
+    python3 scripts/toku/heroes.py --preview F.png also a contact sheet of every drawing
 """
 import json
 import math
@@ -25,264 +24,18 @@ import pathlib
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
+
+from cel import SUIT, WHITE, INK, VISOR, GOLD, Canvas, Space, cut_by_cell, ellipse, paint, spline
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE.parent.parent / "src/engine/assets"
-CELL, COLS, ROWS = 144, 16, 8
-OX, OY = 72, 132                          # the feet anchor in a cell (pixels, y down)
-SS = 4                                    # an outline is tested on 4 x 4 points per pixel: in or out, never grey
-SUIT, WHITE, VISOR, GOLD, INK, FX = 1, 2, 3, 4, 5, 6
-LX, LY, LZ = -0.5, 0.62, 0.6              # the light: top left, toward the viewer
+CELL, COLS, ROWS = 144, 16, 8             # a cell in units; the sheet stores 2 texels per unit
+OX, OY = 72, 132                          # the feet anchor in a cell (units, y down)
+SP = Space(CELL, CELL, OX, OY)
+WX, WY = SP.WX, SP.WY
 
 
-# ------------------------------------------------------------------ contours
-def spline(pts, n=10):
-    """Catmull-Rom through pts (k columns), n samples per span."""
-    p = np.asarray(pts, float)
-    q = np.vstack([p[0], p, p[-1]])
-    out = []
-    for i in range(len(p) - 1):
-        a, b, c, d = q[i], q[i + 1], q[i + 2], q[i + 3]
-        for t in np.arange(n) / n:
-            out.append(0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t ** 3))
-    out.append(p[-1])
-    return np.array(out)
-
-
-def raster(polys, discs=()):
-    im = Image.new("L", (CELL * SS, CELL * SS), 0)
-    d = ImageDraw.Draw(im)
-    for poly in polys:
-        d.polygon([((OX + x) * SS, (OY - y) * SS) for x, y in poly], fill=255)
-    for x, y, r in discs:
-        cx, cy = (OX + x) * SS, (OY - y) * SS
-        d.ellipse([cx - r * SS, cy - r * SS, cx + r * SS, cy + r * SS], fill=255)
-    a = np.asarray(im, np.float32).reshape(CELL, SS, CELL, SS).mean((1, 3))
-    return a >= 127.5
-
-
-YY, XX = np.mgrid[0:CELL, 0:CELL]
-WX, WY = XX + 0.5 - OX, OY - (YY + 0.5)   # the centre of each pixel, in drawing coordinates
-
-
-def stroke(st, logical, caps=(True, True)):
-    """A contour given as stations (x, y, left offset, right offset) along a line.
-    Returns mask and, per pixel, the place along the line (logical), across it (u, -1..1, +1 = left
-    of travel) and the light it catches."""
-    s = spline(np.column_stack([np.asarray(st, float), logical]))
-    p, wl, wr, lg = s[:, :2], np.maximum(s[:, 2], 0.3), np.maximum(s[:, 3], 0.3), s[:, 4]
-    d = np.gradient(p, axis=0)
-    d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-6)
-    nrm = np.column_stack([-d[:, 1], d[:, 0]])
-    le, ri = p + nrm * wl[:, None], p - nrm * wr[:, None]
-    polys = [[le[i], le[i + 1], ri[i + 1], ri[i]] for i in range(len(p) - 1)]
-    mid, hw = 0.5 * (le + ri), 0.5 * (wl + wr)
-    discs = [(mid[i][0], mid[i][1], hw[i]) for i, c in zip((0, -1), caps) if c]
-    m = raster(polys, discs)
-    ys, xs = np.nonzero(m)
-    q = np.column_stack([WX[ys, xs], WY[ys, xs]])
-    k = np.argmin(((q[:, None, :] - mid[None]) ** 2).sum(2), axis=1)
-    u = np.clip(((q - mid[k]) * nrm[k]).sum(1) / hw[k], -1, 1)
-    U, G, LAM = (np.zeros((CELL, CELL), np.float32) for _ in range(3))
-    U[ys, xs], G[ys, xs] = u, lg[k]
-    return m, G, U, (ys, xs, u, nrm[k])
-
-
-def lam_of(geo, flat=1.0):
-    ys, xs, u, n = geo
-    u = u * flat
-    a = np.zeros((CELL, CELL), np.float32)
-    a[ys, xs] = u * (n[:, 0] * LX + n[:, 1] * LY) + np.sqrt(1 - u * u) * LZ
-    return a
-
-
-def tones(lam):
-    return np.where(lam > 0.72, 4, np.where(lam > 0.4, 3, np.where(lam > 0.1, 2, 1))).astype(np.int8)
-
-
-def nb4(m):
-    o = np.zeros_like(m)
-    o[1:] |= m[:-1]; o[:-1] |= m[1:]; o[:, 1:] |= m[:, :-1]; o[:, :-1] |= m[:, 1:]
-    return o
-
-
-class Frame:
-    def __init__(self):
-        self.mat = np.zeros((CELL, CELL), np.int8)
-        self.tone = np.zeros((CELL, CELL), np.int8)
-        self.pid = np.zeros((CELL, CELL), np.int8)
-
-    def put(self, m, mat, tone, pid, quiet=()):
-        """Lay a shape over what is drawn: where it crosses another part, that part gets a contour line."""
-        line = nb4(m) & ~m & (self.pid > 0) & (self.pid != pid)
-        for x, y, r in quiet:                              # a limb grows out of the body here: no line
-            line &= (WX - x) ** 2 + (WY - y) ** 2 > r * r
-        self.mat[line], self.tone[line] = INK, 0
-        self.mat[m], self.tone[m], self.pid[m] = mat[m] if isinstance(mat, np.ndarray) else mat, tone[m], pid
-
-    def finish(self, fx):
-        mat, tone = self.mat, self.tone
-        fig = mat > 0
-        code = mat.astype(np.int16) * 8 + tone
-        for _ in range(2):                                 # no orphan pixels: a lone tone joins its neighbours
-            pad = np.pad(code, 1)
-            ns = np.stack([pad[:-2, 1:-1], pad[2:, 1:-1], pad[1:-1, :-2], pad[1:-1, 2:]])
-            lone = fig & (mat != INK) & (mat != GOLD) & (mat != VISOR) & (tone < 5) & (ns != code).all(0)
-            for y, x in zip(*np.nonzero(lone)):
-                c = [v for v in ns[:, y, x] if v and v // 8 not in (INK, GOLD, VISOR) and v % 8 < 5]
-                if c:
-                    code[y, x] = max(set(c), key=c.count)
-        mat, tone = (code // 8).astype(np.int8), (code % 8).astype(np.int8)
-        out = nb4(fig) & ~fig
-        mat[out], tone[out] = INK, 0
-        # selective outline: on an edge that faces the light the line takes the shadow of the material
-        for dy, dx in ((1, 0), (0, 1)):
-            nm, nt = np.roll(mat, (-dy, -dx), (0, 1)), np.roll(tone, (-dy, -dx), (0, 1))
-            sel = out & (mat == INK) & (nt >= 4) & (nm != INK) & (nm != FX) & (nm != VISOR)
-            mat[sel], tone[sel] = nm[sel], 1
-        for lvl, polys, discs, front in fx:
-            m = raster(polys, discs)
-            if not front:
-                m &= mat == 0
-            mat[m], tone[m] = FX, lvl
-        arr = np.zeros((CELL, CELL, 4), np.uint8)
-        arr[..., 0] = mat.astype(np.int16) * 40
-        arr[..., 1] = tone.astype(np.int16) * 50
-        arr[..., 3] = 255 * (mat > 0)
-        return arr
-
-
-# ------------------------------------------------------------------ helmets and emblems, pixel by pixel
-# S suit, V visor, W silver, G gold, K line. Drawn facing right; 'f' is the front view.
-HELM = {
-    (0, "s"): """
-..SSS.........
-..SSSSS.......
-...SSSSSSS....
-..SSSSSSSSSS..
-.SSSSSSSSSSSS.
-.SSSSSSSSSSSS.
-SSSSSSVVVVVVVS
-SSSSSSSVVVVVVV
-SSSSSSSSVVVVVV
-SSSSSSSSSSVVVS
-.SSSSSSSSWWWWS
-.SSSSSSSSKWWW.
-..SSSSSSSSSS..
-....SSSSSS....""",
-    (0, "f"): """
-......S......
-.....SSS.....
-...SSSSSSS...
-..SSSSSSSSS..
-.SSSSSSSSSSS.
-.SSSSSSSSSSS.
-SVVVVVSVVVVVS
-SVVVVVVVVVVVS
-SSVVVVVVVVVSS
-SSSSVVVVVSSSS
-.SSSSWWWSSSS.
-.SSSSWWWSSSS.
-..SSSSSSSSS..
-....SSSSS....""",
-    (1, "s"): """
-....SSSSS.....
-..SSSSSSSSS...
-.SSSSSSSSSSS..
-.SSSSSSSSSSSS.
-SSSSSSSSSSSSS.
-SSSSSSSSVVVVVS
-SSWWWSSVVVVVVV
-SWWGWWSVVVVVVV
-SSWWWSSVVVVVVV
-SSSSSSSSVVVVVS
-.SSSSSSSSSSSS.
-.SSSSSSSSWWWW.
-..SSSSSSSSWW..
-....SSSSSS....""",
-    (1, "f"): """
-....SSSSS....
-..SSSSSSSSS..
-.SSSSSSSSSSS.
-.SSSSSSSSSSS.
-SSSSSSSSSSSSS
-WSSVVVVVVVSSW
-WWVVVVVVVVVWW
-WWVVVVVVVVVWW
-WSSVVVVVVVSSW
-SSSSSSSSSSSSS
-.SSSSWWWSSSS.
-.SSSSWWWSSSS.
-..SSSSSSSSS..
-....SSSSS....""",
-    (2, "s"): """
-....SSSSS.....
-..SSSSSSSSS...
-.SSSSSSSSSSS..
-.SSSSSSSSSSSS.
-SSSSSSSSSSSSS.
-SSSSSSSSSSSSSS
-SSSSSSKKKKKKKK
-SSSSSSVVVVVVV.
-SSSSSSVVVVVVV.
-SSSSSSSSSSSSS.
-.SSSSSKWWWWWWW
-.SSSSSSWWWWWWW
-..SSSSSSWWWWW.
-....SSSSSS....""",
-    (2, "f"): """
-....SSSSS....
-..SSSSSSSSS..
-.SSSSSSSSSSS.
-.SSSSSSSSSSS.
-SSSSSSSSSSSSS
-SSSSSSSSSSSSS
-SKKKKKKKKKKKS
-SSVVVVVVVVVSS
-SSVVVVVVVVVSS
-SSSSSSSSSSSSS
-.SWWWWWWWWWS.
-.SWWWWWWWWWS.
-..SWWWWWWWS..
-....SSSSS....""",
-}
-EMBLEM = ["G...G\nGG.GG\n.GGG.\n..G..", ".GGG.\nG...G\nG...G\n.GGG.", "..G..\n.GGG.\nGGGGG\n.GGG.\n..G.."]   # chevron, ring, lozenge
-CH = {".": 0, "S": SUIT, "V": VISOR, "W": WHITE, "G": GOLD, "K": INK}
-
-
-def grid(txt):
-    return np.array([[CH[c] for c in row] for row in txt.strip("\n").split("\n")], np.int8)
-
-
-def helmet(fr, v, x, y, view="s", rot=0):
-    g = grid(HELM[(v, "f" if view == "f" else "s")])
-    if view == "b":                                        # looking back over the shoulder
-        g = g[:, ::-1]
-    g = np.rot90(g, rot)                                   # quarter turns only: the pixels are never resampled
-    h, w = g.shape
-    r0, c0 = int(round(OY - y - h / 2)), int(round(OX + x - w / 2))
-    gy, gx = np.mgrid[0:h, 0:w]
-    nx, ny = (gx + 0.5 - w / 2) / (w / 2 + 0.3), (h / 2 - gy - 0.5) / (h / 2 + 0.3)
-    lam = nx * LX + ny * LY + np.sqrt(np.clip(1 - nx * nx - ny * ny, 0, 1)) * LZ
-    t = np.where(lam > 0.74, 4, np.where(lam > 0.42, 3, np.where(lam > 0.08, 2, 1))).astype(np.int8)
-    t[(g == SUIT) & (lam > 0.975)] = 5                     # the specular on the dome
-    vis = g == VISOR
-    t[vis] = np.where(lam[vis] > 0.5, 2, 1)
-    if vis.any():                                          # a glint in the corner of the visor nearest the light
-        sc = np.where(vis, lam, -9)
-        gy0, gx0 = np.unravel_index(np.argmax(sc), sc.shape)
-        t[gy0, gx0] = 4
-    t[g == INK] = 0
-    t[(g == GOLD)] = 4
-    m = np.zeros((CELL, CELL), bool); mat = np.zeros((CELL, CELL), np.int8); tone = np.zeros((CELL, CELL), np.int8)
-    m[r0:r0 + h, c0:c0 + w] = g > 0
-    mat[r0:r0 + h, c0:c0 + w] = g
-    tone[r0:r0 + h, c0:c0 + w] = t
-    fr.put(m, mat, tone, 5)
-
-
-# ------------------------------------------------------------------ the parts of a drawing
 def V(*a):
     return np.array(a, float)
 
@@ -295,65 +48,121 @@ def left(v):
     return V(-v[1], v[0])
 
 
+# ------------------------------------------------------------------ helmets and emblems
+# Outlines round the centre of the head, facing right. (class, outline) in painting order;
+# 'crest' is suit that may leave the dome, the rest is cut by it.
+def _disc(x, y, r):
+    return ellipse(x, y, r, r, 20)
+
+
+HELM = {
+    (0, "s"): [("crest", [(0.5, 6.6), (-3.0, 8.6), (-10.2, 7.4), (-6.9, 1.0)]),
+               (VISOR, [(0.4, 3.3), (7.6, 3.0), (7.6, -0.8), (4.4, -2.1), (0.4, 0.7)]),
+               ("glint", [(1.4, 2.7), (4.2, 2.6), (3.3, 1.7), (1.4, 1.9)]),
+               (WHITE, [(2.2, -2.9), (7.2, -2.3), (6.3, -5.5), (2.8, -6.0)])],
+    (0, "f"): [("crest", [(-1.6, 6.0), (0, 9.4), (1.6, 6.0)]),
+               (VISOR, [(-6.2, 3.1), (6.2, 3.1), (6.6, 0.2), (3.2, -2.2), (0, -1.2), (-3.2, -2.2), (-6.6, 0.2)]),
+               ("glint", [(-5.0, 2.5), (-2.0, 2.5), (-2.8, 1.6), (-5.0, 1.7)]),
+               (WHITE, [(-2.7, -3.0), (2.7, -3.0), (2.2, -6.1), (-2.2, -6.1)])],
+    (1, "s"): [(VISOR, ellipse(4.7, 0.7, 3.5, 3.1, 24)),
+               ("glint", [(2.6, 2.6), (5.0, 3.0), (4.4, 2.0), (2.6, 1.8)]),
+               (WHITE, _disc(-1.6, -0.2, 2.8)), (GOLD, _disc(-1.6, -0.2, 1.3)),
+               (WHITE, [(3.0, -3.5), (6.8, -3.1), (5.7, -5.7), (3.4, -5.9)])],
+    (1, "f"): [("crest", _disc(-7.2, 0.2, 2.2)), ("crest", _disc(7.2, 0.2, 2.2)),
+               (WHITE, _disc(-7.2, 0.2, 2.2)), (WHITE, _disc(7.2, 0.2, 2.2)),
+               (VISOR, ellipse(0, 0.6, 5.2, 2.9, 28)),
+               ("glint", [(-3.8, 2.4), (-1.2, 2.8), (-1.8, 1.8), (-3.8, 1.5)]),
+               (WHITE, [(-2.0, -3.7), (2.0, -3.7), (1.6, -6.1), (-1.6, -6.1)])],
+    (2, "s"): [(INK, [(-0.2, 2.6), (7.8, 2.6), (7.8, 1.5), (-0.2, 1.5)]),
+               (VISOR, [(0.2, 1.5), (7.7, 1.5), (7.5, -1.4), (0.2, -1.4)]),
+               ("glint", [(1.0, 1.2), (3.6, 1.2), (2.9, 0.3), (1.0, 0.4)]),
+               (WHITE, [(0.4, -2.3), (7.4, -2.3), (6.3, -6.0), (1.4, -6.5)]),
+               (GOLD, _disc(3.4, 4.7, 1.2))],
+    (2, "f"): [(INK, [(-6.0, 2.6), (6.0, 2.6), (6.0, 1.5), (-6.0, 1.5)]),
+               (VISOR, [(-5.7, 1.5), (5.7, 1.5), (5.4, -1.4), (-5.4, -1.4)]),
+               ("glint", [(-4.6, 1.2), (-2.0, 1.2), (-2.7, 0.3), (-4.6, 0.4)]),
+               (WHITE, [(-4.6, -2.3), (4.6, -2.3), (3.6, -6.4), (-3.6, -6.4)]),
+               (GOLD, _disc(0, 4.8, 1.2))],
+}
+EMBLEM = [[[(-2.8, 2.2), (-1.2, 2.2), (0, 0.2), (1.2, 2.2), (2.8, 2.2), (0, -2.4)]],                 # chevron
+          [_disc(0, 0, 2.7)],                                                                       # ring (its eye is cut out below)
+          [[(0, 3.0), (2.4, 0), (0, -3.0), (-2.4, 0)]]]                                             # lozenge
+RH = 7.2                                  # the radius the helmets are written for
+HS = 1.14                                 # and how much bigger they are drawn: a helmet, not a bare head
+
+
+def helmet(cv, v, x, y, view="s", rot=0):
+    mir = -1.0 if view == "b" else 1.0     # looking back over the shoulder
+    c, s = [(1, 0), (0, 1), (-1, 0), (0, -1)][rot % 4]
+
+    def tr(pts):                           # mirror, quarter turns, then into place
+        return [(x + HS * ((px * mir) * c - py * s), y + HS * ((px * mir) * s + py * c)) for px, py in pts]
+
+    parts = HELM[(v, "f" if view == "f" else "s")]
+    dome = SP.raster([tr(ellipse(0, 0, RH, RH))])
+    m = dome | SP.raster([tr(p) for k, p in parts if k == "crest"])
+    nx, ny = SP.dome(m, x, y, RH * HS, RH * HS)
+    cv.put(m, SUIT, nx, ny, 5)
+    for k, p in parts:
+        if k == "crest":
+            continue
+        pm = SP.raster([tr(p)]) & (m if k == WHITE else dome)
+        if k == WHITE:                     # the mouthpiece is a lit surface; a pen line round it
+            cv.flat(SP.grow(pm, 0.45) & m & ~pm, INK)
+            cv.cls[pm] = WHITE
+        elif k == "glint":
+            cv.g[pm & (cv.cls == VISOR)] = 1.0
+        else:
+            cv.flat(pm, k, g=0.0)
+
+
+# ------------------------------------------------------------------ the parts of a drawing
 TQ = [(6.5, 7.5), (9.0, 8.5), (5.5, 5.5), (6.5, 7.0)]      # the torso in three-quarter view: front, back
 TF = [(9.5, 9.5), (10.0, 10.0), (6.5, 6.5), (7.5, 7.5)]  # and from the front
 
 
-def draw_torso(fr, v, T, front, quiet, emblem=True):
+def draw_torso(cv, v, T, front, quiet, emblem=True):
     T = [tuple(s) + ((TF if front else TQ)[i] if len(s) == 2 else ()) for i, s in enumerate(T)]
     a, b = V(*T[2][:2]), V(*T[3][:2])
     tail = b + unit(b - a) * 3.0
     st = T + [(tail[0], tail[1], 3.2, 3.2)]
-    m, G, U, geo = stroke(st, [0, 1, 2, 3, 3.4], caps=(False, True))
-    lam = lam_of(geo, 0.7)
-    tone = tones(lam)
+    m, G, U, nx, ny = SP.stroke(st, [0, 1, 2, 3, 3.4], caps=(False, True), flat=0.75)
     c = 0.0 if front else 0.2
-    mat = np.full((CELL, CELL), SUIT, np.int8)
-    mat[G < 0.9 * (1 - np.minimum(1, np.abs(U - c) / 0.78))] = WHITE          # the yoke: a white V from the shoulders
+    cls = np.full(m.shape, SUIT, np.int8)
+    cls[G < 0.9 * (1 - np.minimum(1, np.abs(U - c) / 0.78))] = WHITE          # the yoke: a white V from the shoulders
     belt = (G >= 2.02) & (G < 2.42)
-    mat[belt] = WHITE
-    mat[belt & (np.abs(U - c - 0.05) < 0.3)] = GOLD
-    pec = (G > 1.28) & (G < 1.45) & (U > -0.35) & (mat == SUIT)               # under the chest
-    tone[pec] = np.maximum(tone[pec] - 1, 1)
-    tone[mat == GOLD] = np.maximum(tone[mat == GOLD], 3)
-    fr.put(m, mat, tone, 4, quiet)
+    cls[belt] = WHITE
+    cv.put(m, cls, nx, ny, 4, quiet=quiet)
+    cv.flat(m & belt & (np.abs(U - c - 0.05) < 0.3), GOLD)
     if emblem:                                             # the emblem, below the point of the yoke
         s = spline(np.asarray(T, float))
         k = 13
         d = unit(s[k + 1, :2] - s[k - 1, :2])
         p = s[k, :2] + left(d) * (c * 0.5 * (s[k, 2] + s[k, 3]) + 0.5 * (s[k, 2] - s[k, 3]))
-        g = grid(EMBLEM[v]) > 0
-        h, w = g.shape
-        r0, c0 = int(round(OY - p[1] - h / 2)), int(round(OX + p[0] - w / 2))
-        box = np.zeros((CELL, CELL), bool)
-        box[r0:r0 + h, c0:c0 + w] = g
-        box &= m
-        fr.mat[box], fr.tone[box] = GOLD, 4
+        up = -d                                            # the emblem stands along the spine
+        rt = V(up[1], -up[0])
+        e = SP.raster([[tuple(p + rt * ex + up * ey) for ex, ey in poly] for poly in EMBLEM[v]])
+        if v == 1:
+            e &= ~SP.raster([], [(p[0], p[1], 1.3)])
+        cv.flat(e & m, GOLD)
 
 
-def draw_neck(fr, T, H):
+def draw_neck(cv, T, H):
     a = V(*T[0][:2])
     st = [(a[0], a[1] - 1.5, 3.2, 3.2), (0.5 * (a[0] + H[0]), 0.5 * (a[1] + H[1]), 2.8, 2.8)]
-    m, G, U, geo = stroke(st, [0, 1], caps=(False, True))
-    fr.put(m, SUIT, np.maximum(tones(lam_of(geo)) - 1, 1), 4)
+    m, G, U, nx, ny = SP.stroke(st, [0, 1], caps=(False, True))
+    cv.put(m, SUIT, nx, ny, 4, dim=True)
 
 
-def draw_leg(fr, L, pid, dim, quiet):
+def draw_leg(cv, L, pid, dim, quiet):
     hip, knee, ank, toe = V(*L[0:2]), V(*L[2:4]), V(*L[4:6]), V(*L[6:8])
     th, sh = knee - hip, ank - knee
     nt, ns = left(unit(th)), left(unit(sh))                # left of travel is the front of the leg
     st = [(*hip, 4.6, 4.8), (*(hip + 0.45 * th + nt * 0.9), 5.0, 4.4), (*knee, 3.6, 3.3),
           (*(knee + 0.3 * sh - ns * 0.7), 3.0, 4.3), (*(knee + 0.52 * sh), 3.4, 3.9), (*ank, 2.5, 2.7)]
-    m, G, U, geo = stroke(st, [0, 0.45, 1, 1.3, 1.52, 2])
-    lam = lam_of(geo)
-    tone = tones(lam)
-    mat = np.where(G >= 1.5, WHITE, np.where(G >= 1.42, GOLD, SUIT)).astype(np.int8)
-    tone[(mat == SUIT) & (lam > 0.765) & (G > 0.15) & (G < 0.7)] = 5          # the sheen down the thigh
-    tone[(mat == SUIT) & (G > 0.9) & (G < 1.08) & (U < -0.2)] -= 0             # (the knee keeps its tone)
-    tone[mat == GOLD] = 4
-    if dim:
-        tone = np.maximum(np.minimum(tone, 4) - 1, 1).astype(np.int8)
-    fr.put(m, mat, tone, pid, quiet)
+    m, G, U, nx, ny = SP.stroke(st, [0, 0.45, 1, 1.3, 1.52, 2])
+    cv.put(m, np.where(G >= 1.42, WHITE, SUIT).astype(np.int8), nx, ny, pid, dim=dim, quiet=quiet)
+    cv.flat(m & (G >= 1.42) & (G < 1.5), GOLD)             # the cuff of the boot
     # the boot: heel, instep, toe
     s = unit(sh)
     c = ank + s * 2.3
@@ -361,57 +170,66 @@ def draw_leg(fr, L, pid, dim, quiet):
     up = 1.0 if np.dot(left(a), -s) >= 0 else -1.0         # which side of the foot is the instep
     w = lambda top, sole: (top, sole) if up > 0 else (sole, top)
     st = [(*(c - a * 2.0), *w(2.5, 2.2)), (*(c + a * 4.0), *w(2.7, 2.2)), (*toe, *w(1.5, 2.0))]
-    m, G, U, geo = stroke(st, [0, 1, 2])
-    tone = tones(lam_of(geo))
-    tone[U * up < -0.55] = 1                               # the sole
-    if dim:
-        tone = np.maximum(tone - 1, 1).astype(np.int8)
-    fr.put(m, WHITE, tone, pid)
+    m, G, U, nx, ny = SP.stroke(st, [0, 1, 2])
+    cv.put(m, WHITE, nx, ny, pid, dim=(U * up < -0.5) | dim, line=0)
 
 
-def draw_arm(fr, A, pid, dim, quiet):
+def draw_arm(cv, A, pid, dim, quiet):
     sh, el, wr = V(*A[0:2]), V(*A[2:4]), V(*A[4:6])
     opened = len(A) > 6 and A[6] == "o"
     up, fo = el - sh, wr - el
     nu = left(unit(up))
     st = [(*sh, 3.5, 3.5), (*(sh + 0.5 * up + nu * 0.4), 3.4, 3.0), (*el, 2.6, 2.6),
           (*(el + 0.35 * fo), 3.0, 2.8), (*(el + 0.55 * fo), 3.3, 3.3), (*wr, 2.4, 2.4)]
-    m, G, U, geo = stroke(st, [0, 0.5, 1, 1.35, 1.55, 2])
-    lam = lam_of(geo)
-    tone = tones(lam)
-    mat = np.where(G >= 1.52, WHITE, np.where(G >= 1.42, GOLD, SUIT)).astype(np.int8)
-    tone[(mat == SUIT) & (lam > 0.77) & (G < 0.4)] = 5     # the shoulder catches the light
-    tone[mat == GOLD] = 4
-    if dim:
-        tone = np.maximum(np.minimum(tone, 4) - 1, 1).astype(np.int8)
-    fr.put(m, mat, tone, pid, quiet)
+    m, G, U, nx, ny = SP.stroke(st, [0, 0.5, 1, 1.35, 1.55, 2])
+    cv.put(m, np.where(G >= 1.42, WHITE, SUIT).astype(np.int8), nx, ny, pid, dim=dim, quiet=quiet)
+    cv.flat(m & (G >= 1.42) & (G < 1.52), GOLD)            # the cuff of the glove
     d = unit(fo)
     st = [(*(wr + d * 0.5), 2.4, 2.4), (*(wr + d * 6.0), 1.9, 1.9)] if opened else [(*(wr + d * 1.2), 3.1, 3.1), (*(wr + d * 3.4), 3.1, 3.1)]
-    m, G, U, geo = stroke(st, [0, 1])
-    tone = tones(lam_of(geo))
-    if dim:
-        tone = np.maximum(tone - 1, 1).astype(np.int8)
-    fr.put(m, WHITE, tone, pid)
+    m, G, U, nx, ny = SP.stroke(st, [0, 1])
+    cv.put(m, WHITE, nx, ny, pid, dim=dim, line=0)
+
+
+def draw_scarf(cv, T, H):
+    """A scarf from the back of the neck: it hangs when they stand, streams when they lean into a run."""
+    top, hip = V(*T[0][:2]), V(*T[3][:2])
+    lean = min(abs(top[0] - hip[0]) / 9.0, 1.0)
+    d = unit(V(-1.0, 0.1) * (0.3 + 0.7 * lean) + V(-0.15, -1.0) * (0.7 - 0.7 * lean))
+    n, L = left(d), 15.0 + 11.0 * lean
+    p0 = top + unit(V(H[0], H[1]) - top) * 3.0 + d * 2.0
+    st = [(*p0, 2.0, 2.0), (*(p0 + d * L * 0.36 + n * 1.6), 2.6, 2.3), (*(p0 + d * L * 0.7 - n * 1.3), 2.1, 2.3), (*(p0 + d * L + n * 0.9), 0.5, 0.5)]
+    m, G, U, nx, ny = SP.stroke(st, caps=(True, False), flat=0.6)
+    cv.put(m & (WY > 1.0), WHITE, nx, ny, 7, dim=G > 1.6)
 
 
 def draw(pose, v):
-    fr = Frame()
+    cv = Canvas(SP)
     T, H = pose["T"], pose["H"]
     front = pose.get("front", False)
+    if not front:
+        draw_scarf(cv, T, H)
     hips = [(pose[k][0], pose[k][1], 7.5) for k in "AB"]
     shs = [(pose[k][0], pose[k][1], 4.0) for k in "ab"]
     for part in pose.get("order", "bBATHa"):
         if part in "AB":
-            draw_leg(fr, pose[part], 3 if part == "A" else 2, part == "B" and not front, hips)
+            draw_leg(cv, pose[part], 3 if part == "A" else 2, part == "B" and not front, hips)
         elif part in "ab":
-            draw_arm(fr, pose[part], 6 if part == "a" else 1, part == "b" and not front, shs)
+            draw_arm(cv, pose[part], 6 if part == "a" else 1, part == "b" and not front, shs)
         elif part == "T":
-            draw_neck(fr, T, H)
-            draw_torso(fr, v, T, front, hips + shs, pose.get("E", True))
+            draw_neck(cv, T, H)
+            draw_torso(cv, v, T, front, hips + shs, pose.get("E", True))
         elif part == "H":
-            helmet(fr, v, *H)
-    return fr.finish(pose.get("fx", ()))
+            helmet(cv, v, *H)
+    for f in pose.get("fx", ()):
+        cv.fx(*f)
+    return cv.encode()
 
+
+def blank_fx(fx):
+    cv = Canvas(SP)
+    for f in fx:
+        cv.fx(*f)
+    return cv.encode()
 
 # ------------------------------------------------------------------ effects: closed outlines, no line round them
 def arc(c, r0, r1, a0, a1, lvl=5, front=False, n=18):
@@ -653,6 +471,7 @@ ACTIONS = [
 BOLT = 124
 
 
+
 def build(v):
     D = drawings(v)
     done = {}
@@ -667,15 +486,13 @@ def build(v):
                 cells[c] = done[d]
                 c += 1
     for i in range(4):
-        cells[BOLT + i] = Frame().finish(bolt(i))
+        cells[BOLT + i] = blank_fx(bolt(i))
     assert all(c is not None for c in cells), "the sheet has an empty cell"
+    px = CELL * SP.scale
+    sheet = np.zeros((ROWS * px, COLS * px, 4), np.uint8)
     for i, c in enumerate(cells):                           # nothing may touch the edge of its cell, nothing may be empty
-        a = c[..., 3] > 0
-        assert a.any() and not (a[0].any() or a[-1].any() or a[:, 0].any() or a[:, -1].any()), f"hero {v}: cell {i} is cut by its cell"
-        assert set(np.unique(c[..., 0])) <= {0, 40, 80, 120, 160, 200, 240} and c[..., 1].max() <= 250
-    sheet = np.zeros((ROWS * CELL, COLS * CELL, 4), np.uint8)
-    for i, c in enumerate(cells):
-        sheet[(i // COLS) * CELL:(i // COLS + 1) * CELL, (i % COLS) * CELL:(i % COLS + 1) * CELL] = c
+        assert (c[..., 3] > 127).any() and not cut_by_cell(c), f"hero {v}: cell {i} is empty or cut by its cell"
+        sheet[(i // COLS) * px:(i // COLS + 1) * px, (i % COLS) * px:(i % COLS + 1) * px] = c
     return sheet, done
 
 
@@ -688,49 +505,31 @@ def table():
             c += h
         acts[name] = {"frames": fr, "hold": hold, "anchor": [OX, OY], "drawings": seq}
     acts["bolt"] = {"frames": [BOLT + i for i in range(4)], "hold": [1, 1, 1, 1], "anchor": [OX, CELL // 2], "drawings": ["bolt"] * 4}
-    return {"cell": [CELL, CELL], "cols": COLS, "rows": ROWS, "atlases": [f"toku-hero-{v}.png" for v in range(3)],
-            "encoding": "R = material * 40 (1 suit, 2 white, 3 visor, 4 gold, 5 ink, 6 energy), G = tone * 50 (1..5, ink 0)",
+    return {"cell": [CELL, CELL], "texelsPerUnit": SP.scale, "cols": COLS, "rows": ROWS, "atlases": [f"toku-hero-{v}.png" for v in range(3)],
+            "encoding": "cel sheet, see scripts/toku/cel.py: A silhouette, B class, R G normal or class code",
             "note": "hold = cells on the sheet per drawing: frames[i] is the first cell of drawing i and the next hold[i]-1 cells repeat it, "
-                    "so the first cell and the length of every action are the ones titanhand.frag and kaijustomp.frag already use",
+                    "so the first cell and the length of every action are the ones titanhand.frag and kaijustomp.frag read",
             "actions": acts}
 
 
-def preview(done_all, path, zoom=3):
-    """Every drawing once, tinted the way the shader does, on a flat ground."""
-    suits = [(0.2, 0.72, 0.32), (0.86, 0.2, 0.22), (0.2, 0.42, 0.9)]
+def preview(done_all, path):
+    """Every drawing once, coloured roughly the way the shaders do."""
+    suits = [(0.15, 0.75, 0.4), (0.92, 0.2, 0.3), (0.2, 0.45, 0.95)]
     names = list(done_all[0])
-    cw, chh, cols = 140, 124, 10
+    px, cols = CELL * SP.scale, 10
     rows_per = -(-len(names) // cols)
-    out = np.zeros((rows_per * 3 * chh, cols * cw, 3), np.float32)
-    out[:] = (0.27, 0.45, 0.72)
-    for v in range(3):
+    out = np.zeros((rows_per * len(done_all) * px, cols * px, 3), np.float32)
+    for v in range(len(done_all)):
         for i, n in enumerate(names):
-            a = done_all[v][n][CELL - chh - 2:CELL - 2, (CELL - cw) // 2:(CELL + cw) // 2]
-            mat, lv = a[..., 0] // 40, a[..., 1] // 50
-            y0, x0 = (v * rows_per + i // cols) * chh, (i % cols) * cw
-            reg = out[y0:y0 + chh, x0:x0 + cw]
-            suit = np.array(suits[v])
-            for m, base in ((1, suit), (2, np.array([0.96, 0.96, 0.93])), (3, np.array([0.1, 0.12, 0.22])), (4, np.array([1.0, 0.8, 0.25]))):
-                for l in range(1, 6):
-                    k = [(0.5 if m == 2 else 0.3), (0.66 if m == 2 else 0.5), (0.82 if m == 2 else 0.75), 1.0, 1.0][l - 1]
-                    c = base * k
-                    if l == 1:
-                        c = c * 0.75 + np.array([0.12, 0.08, 0.3]) * 0.25
-                    if l == 5:
-                        c = base * 0.4 + np.array([1.0, 1.0, 0.92]) * 0.6
-                    if m == 3 and l >= 4:
-                        c = np.array([0.8, 0.88, 1.0])
-                    reg[(mat == m) & (lv == l)] = c
-            reg[mat == 5] = (0.04, 0.03, 0.08)
-            for l in range(1, 6):
-                reg[(mat == 6) & (lv == l)] = np.ones(3) if l > 4 else suit * 0.4 + 0.6 if l > 2 else np.minimum(suit * 1.25, 1)
-    im = Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8))
-    im.resize((im.width * zoom, im.height * zoom), Image.NEAREST).save(path)
+            y0, x0 = (v * rows_per + i // cols) * px, (i % cols) * px
+            out[y0:y0 + px, x0:x0 + px] = paint(done_all[v][n], suits[v % 3])
+    Image.fromarray((out * 255).astype(np.uint8)).save(path)
 
 
 def main():
     done_all = []
-    for v in range(3):
+    only = [int(sys.argv[sys.argv.index("--only") + 1])] if "--only" in sys.argv else range(3)
+    for v in only:
         sheet, done = build(v)
         Image.fromarray(sheet, "RGBA").save(OUT / f"toku-hero-{v}.png", optimize=True)
         done_all.append(done)

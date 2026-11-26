@@ -21,27 +21,24 @@ uniform float crew;
 uniform float pyro;
 uniform float tape;
 
-// Titan Hand: a frame from a 90s tokusatsu episode. The set is a miniature:
-// the foot of a building too big for the frame, three steel bay doors, a
-// plaza, smoke-machine haze along the ground, model trees out of focus in
-// front of the lens. Three suited heroes hold the plaza. Every 8 beats a bay
-// rattles, bursts open on the beat, and the hand of something the size of the
-// building comes out of it: a suit actor's glove, wet black latex fingers and
-// a fur sleeve. It gropes after the team, pats the ground, winds up and slams
-// (sparks, shake, a punch-in), shakes its fist and is gone; the doors slam
-// and the team runs to the next bay and strikes the roll-call pose with a
-// coloured charge going off behind each of them. Nothing here is flat paint:
-// every solid is a distance field lit with a key, a back light and a
-// specular. The picture is finished the way a home deck would have recorded it.
+// Titan Hand: a cel from a giant-monster cartoon. The foot of a building too big
+// for the frame, three steel bay doors, a plaza. Three suited heroes hold the
+// plaza. Every 8 beats a bay rattles, bursts open on the beat and the hand of
+// something the size of the building comes out of it, black against the light
+// behind the doors. It gropes after the team, pats the ground, winds up and slams
+// (an impact frame, sparks, shake, a punch-in), shakes its fist and is gone; the
+// doors slam and the team runs to the next bay and strikes the roll-call pose
+// with a coloured charge going off behind each of them.
+// Everything is flat paint: two tones and a pen line per surface, a rim of
+// whatever light is behind it. The mood of the street (night, dusk, storm)
+// changes every two rounds.
 
 const float FY = -0.2;                   // where the facade meets the plaza
+const float HAND = 0.74;                 // the size the hand sheet is drawn at
 
-// ---- tokusatsu kit: the same block lives in titanhand.frag and kaijustomp.frag ----
-// Everything here is drawn as a lit object, not as a flat shape: each 2D
-// distance field carries its gradient, the inside is given a round profile,
-// and that normal is lit by a key light, a coloured back light and a wet
-// specular. That is what makes latex read as latex.
+// ---- cel kit: the same block lives in titanhand.frag, kaijustomp.frag and robokaiju.frag ----
 const float TAU = 6.2831853;
+const vec3 INK = vec3(0.025, 0.02, 0.055);
 
 float h11(float x) { return fract(sin(x * 127.1) * 43758.5453); }
 float h21(vec2 p) { return fract(sin(dot(p, vec2(27.17, 91.43))) * 43758.5453); }
@@ -54,15 +51,24 @@ float vn(vec2 p) {
 float fbm(vec2 p) { return 0.62 * vn(p) + 0.38 * vn(p * 2.3 + 7.3); }
 
 vec3 gCol;                      // the frame being painted
-float gPx;                      // edge softness: one pixel in focus, many out of it
-float gAlpha;                   // 1 for solids, less for the smear behind a fast limb
-vec3 gL, gKey, gAmb, gRim;      // key direction and colour, ambient, back light
-vec3 cA, cB, cC;                // the three suit colours, from the palette
+float gPx;                      // one screen pixel, in scene units
+float gU;                       // one sheet unit, in scene units
+float gFit;
+// the light on whatever is painted next
+vec3 gKeyDir, gKeyCol, gShadeCol, gRimCol;
+vec2 gRimDir;
+float gSil;                     // 0 = lit from the front .. 1 = a black shape against the light
 
-float aa(float d) { return 1.0 - smoothstep(-gPx, gPx, d); }
+// a hard edge, one pixel soft: 1 inside (d < 0)
+float cut(float d) { return 1.0 - smoothstep(-gPx, gPx, d); }
+void fill(float d, vec3 c) { gCol = mix(gCol, c, cut(d)); }
 
-// distance fields that also return their gradient in .yz
-vec3 gCirc(vec2 p, float r) { float l = length(p); return vec3(l - r, p / max(l, 1e-5)); }
+float sdSeg(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a, ba = b - a;
+  return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+}
+float sdBox(vec2 p, vec2 b) { vec2 w = abs(p) - b; return max(w.x, w.y); }
+// a tapered capsule that also returns its gradient in .yz
 vec3 gSeg(vec2 p, vec2 a, vec2 b, float ra, float rb) {
   vec2 pa = p - a, ba = b - a;
   float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
@@ -70,109 +76,66 @@ vec3 gSeg(vec2 p, vec2 a, vec2 b, float ra, float rb) {
   float l = length(q);
   return vec3(l - mix(ra, rb, h), q / max(l, 1e-5));
 }
-vec3 gEll(vec2 p, vec2 r) {
-  float k0 = length(p / r);
-  vec2 g = p / (r * r);
-  float k1 = length(g);
-  return vec3(k0 * (k0 - 1.0) / max(k1, 1e-5), g / max(k1, 1e-5));
-}
-vec3 gBox(vec2 p, vec2 b, float r) {
-  vec2 w = abs(p) - b + r;
-  float g = max(w.x, w.y);
-  vec2 q = max(w, 0.0);
-  float l = length(q);
-  vec2 n = g > 0.0 ? q / max(l, 1e-5) : (w.x > w.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
-  return vec3((g > 0.0 ? l : g) - r, sign(p) * n);
-}
 vec3 smin3(vec3 a, vec3 b, float k) {
   float h = clamp(0.5 + 0.5 * (b.x - a.x) / k, 0.0, 1.0);
   return vec3(mix(b.x, a.x, h) - k * h * (1.0 - h), mix(b.yz, a.yz, h));
 }
-float sdSeg(vec2 p, vec2 a, vec2 b) {
-  vec2 pa = p - a, ba = b - a;
-  return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+
+// two flat tones, a hot spot and a rim for a surface with normal n
+vec3 celTone(vec3 base, vec3 n, float dim) {
+  float lam = dot(n, gKeyDir) - 0.22 * dim;
+  float e = 0.02;
+  vec3 c = mix(base * gShadeCol, base * gKeyCol, smoothstep(0.3 - e, 0.3 + e, lam));
+  c = mix(c, mix(base, vec3(1.0), 0.32) * gKeyCol, smoothstep(0.965 - e, 0.965 + e, lam) * (1.0 - dim));
+  c = mix(c, INK + base * 0.05, gSil);
+  float side = dot(n.xy / max(length(n.xy), 1e-4), gRimDir);
+  float rim = smoothstep(0.8, 0.86, length(n.xy)) * smoothstep(0.2, 0.35, side);
+  return mix(c, gRimCol, rim * (0.55 + 0.45 * gSil));
 }
 
-// light a field as a rounded solid. rad = how far in the surface keeps
-// curving; gloss 0 cloth .. 1 wet latex; bn = extra normal tilt (texture)
-void lit(vec3 dg, float rad, vec3 alb, float gloss, vec2 bn) {
-  float d = dg.x;
-  if (d > 0.03) return;
-  gCol *= 1.0 - 0.4 * gAlpha * (1.0 - smoothstep(0.0, 0.03, d)) * step(0.0, d);     // it shades what is behind it
-  float t = clamp(-d / rad, 0.0, 1.0);
-  float z = sqrt(max(1.0 - (1.0 - t) * (1.0 - t), 0.0));
-  vec3 n = normalize(vec3(dg.yz * (1.0 - t) + bn, z + 0.06));
-  float dif = max(dot(n, gL) * 0.8 + 0.2, 0.0);
-  float sp = pow(max(dot(n, normalize(gL + vec3(0.0, 0.0, 1.0))), 0.0), mix(10.0, 110.0, gloss)) * gloss * (0.35 + 2.2 * gloss);
-  float rim = pow(1.0 - n.z, 2.2) * max(dot(n.xy, -normalize(gL.xy)) * 0.6 + 0.6, 0.0);
-  vec3 c = alb * (gAmb + gKey * dif) + gKey * sp + gRim * rim * (0.2 + 0.6 * alb + 0.3 * gloss);
-  c *= 0.5 + 0.5 * smoothstep(0.0, 0.3, t);
-  gCol = mix(gCol, c, aa(d) * gAlpha);
+// one texel of a cel sheet (scripts/toku/cel.py): A the silhouette, B the class,
+// R G the normal. dir mirrors it. tpp = sheet texels per screen pixel. Four lit
+// colours: the two lit classes (suit, white) and the far variant of each
+void celPaint(vec4 t, float dir, vec3 suit, vec3 suitFar, vec3 white, vec3 whiteFar, float tpp) {
+  float w = clamp(0.19 * tpp, 0.02, 0.2);
+  float line = smoothstep(0.24 - w, 0.24 + w, t.a);
+  if (line <= 0.0) return;
+  float body = smoothstep(0.5 - w, 0.5 + w, t.a);
+  float b = t.b;
+  if (b < 0.09) {                                           // energy: no pen line, it glows
+    vec3 e = t.r > 0.8 ? vec3(1.0) : t.r > 0.45 ? mix(suit, vec3(1.0), 0.55) : suit * 1.25;
+    gCol = mix(gCol, e, body);
+    return;
+  }
+  vec3 c;
+  if (b > 0.9) c = t.r > 0.5 ? mix(vec3(1.0, 0.78, 0.2), INK, 0.6 * gSil)
+                             : (t.g > 0.5 ? vec3(0.86, 0.95, 1.0) : mix(vec3(0.05, 0.07, 0.2), gRimCol, 0.18 + 0.5 * gSil));
+  else if (b > 0.4 && b < 0.62) c = INK;
+  else {
+    vec2 nxy = vec2((t.r * 2.0 - 1.0) * dir, t.g * 2.0 - 1.0);
+    vec3 n = vec3(nxy, sqrt(max(1.0 - dot(nxy, nxy), 0.0)));
+    float far = b > 0.62 ? step(b, 0.75) : step(b, 0.235);
+    c = celTone(b > 0.62 ? mix(white, whiteFar, far) : mix(suit, suitFar, far), n, far);
+  }
+  gCol = mix(gCol, mix(INK, c, body), line);
 }
 
-// ---- sprites ----
-// Heroes, hand and foot are pixel art, drawn frame by frame by
-// scripts/toku/*.py (yarn gen:sprites). The whole picture lives on one grid of
-// virtual pixels (about 270 lines): sprites are drawn 1:1 on it and their
-// positions snap to it, so every pixel on screen is the same size.
-uniform sampler2D uAtlasHero0;
-uniform sampler2D uAtlasHero1;
-uniform sampler2D uAtlasHero2;
-float gVP;                      // one virtual pixel, in scene units
-vec3 gSprLight;                 // the light of the set on the sprites
-vec2 snapv(vec2 o) { return floor(o / gVP + 0.5) * gVP; }
-float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
-float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
-
-// frames on a hero's sheet (16 x 8 cells of 144 px, a hero 95 px tall)
-const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 40.0, F_SKID = 52.0, F_KNOCK = 58.0, F_GETUP = 66.0,
-            F_POSE = 76.0, F_PUNCH = 88.0, F_KICK = 96.0, F_FKICK = 104.0, F_BLAST = 112.0, F_TURN = 122.0, F_BOLT = 124.0;
-
-// one frame of hero v's sheet, feet at o. The sheet is indexed: R = material,
-// G = tone 1..5; the ramp of each material is built here from the suit colour
-void heroSprite(vec2 p, vec2 o, float dir, float idx, vec3 suit, float v) {
-  vec2 c = (p - snapv(o)) / gVP;
-  c = vec2(c.x * dir + 72.0, c.y + 12.0);
-  if (c.x < 0.0 || c.y < 0.0 || c.x >= 144.0 || c.y >= 144.0) return;
-  vec2 px = vec2(mod(idx, 16.0) * 144.0 + floor(c.x), floor(idx / 16.0) * 144.0 + 143.0 - floor(c.y));
-  vec2 uv = vec2((px.x + 0.5) / 2304.0, 1.0 - (px.y + 0.5) / 1152.0);
-  vec4 t = v < 0.5 ? texture2D(uAtlasHero0, uv) : v < 1.5 ? texture2D(uAtlasHero1, uv) : texture2D(uAtlasHero2, uv);
-  if (t.a < 0.5) return;
-  float mat = floor(t.r * 255.0 / 40.0 + 0.5), lv = floor(t.g * 255.0 / 50.0 + 0.5);
-  vec3 base = mat < 1.5 ? suit : mat < 2.5 ? vec3(0.96, 0.96, 0.93) : mat < 3.5 ? vec3(0.1, 0.12, 0.22) : vec3(1.0, 0.8, 0.25);
-  // five tones: the shadows go cool, the top one is a warm specular pixel
-  float wh = step(1.5, mat) * step(mat, 2.5);
-  float k = lv < 1.5 ? mix(0.3, 0.5, wh) : lv < 2.5 ? mix(0.5, 0.66, wh) : lv < 3.5 ? mix(0.75, 0.82, wh) : 1.0;
-  vec3 col = base * k;
-  if (lv < 1.5) col = mix(col, vec3(0.12, 0.08, 0.3), 0.25);
-  if (lv > 4.5) col = mix(base, vec3(1.0, 1.0, 0.92), 0.6);
-  if (mat > 2.5 && mat < 3.5 && lv > 3.5) col = vec3(0.8, 0.88, 1.0);                     // the glint on the visor
-  col *= gSprLight;
-  if (mat > 5.5) col = lv > 4.5 ? vec3(1.0) : lv > 2.5 ? mix(suit, vec3(1.0), 0.6) : suit * 1.25;   // energy, swooshes
-  gCol = mat > 4.5 && mat < 5.5 ? vec3(0.04, 0.03, 0.08) : col;
-}
-
-// a pyro charge: white-hot core, coloured fire, then smoke that rises. q from the
-// charge, R its size, age in seconds-ish (0 = ignition). rgb premultiplied, a = cover
-vec4 boom(vec2 q, float age, float R, vec3 hue, float seed) {
-  if (age <= 0.0 || age > 1.6 || abs(q.x) > R * 2.2) return vec4(0.0);
-  float grow = 1.0 - exp(-age * 8.0);
-  q.y -= R * 0.55 * age;
-  float n = fbm(q * 5.0 / R + vec2(seed * 9.0, -age * 2.5));
-  float d = length(q * vec2(1.0, 0.8)) / (R * (0.2 + 0.8 * grow)) + (n - 0.5) * 0.9;
-  float heat = clamp(1.0 - age * 1.9, 0.0, 1.0);
-  float core = 1.0 - smoothstep(0.05, 0.75, d);
-  vec3 fire = mix(hue * 1.3, vec3(1.0, 0.96, 0.78), core * core) * (1.0 + 2.2 * core);
-  vec3 smoke = mix(hue * 0.4, vec3(0.16, 0.15, 0.15), 0.45) * (0.5 + 0.9 * n);
-  float a = (1.0 - smoothstep(0.7, 1.08, d)) * (1.0 - smoothstep(0.9, 1.6, age));
-  vec3 c = mix(smoke, fire, heat * (0.3 + 0.7 * core));
-  // the bloom the tube adds around anything this bright
-  float halo = heat * heat * exp(-dot(q, q) / (R * R * 1.4));
-  return vec4(c * a + hue * halo * 0.55 * (1.0 - a), a);
-}
-void addBoom(vec2 q, float age, float R, vec3 hue, float seed) {
-  vec4 b = boom(q, age, R, hue, seed);
-  gCol = gCol * (1.0 - b.a) + b.rgb;
+// a charge going off, as an animator would paint it: a white core, a hot ring, the
+// colour, then balls of smoke that rise and thin. q from the charge, R its size
+void celBoom(vec2 q, float age, float R, vec3 hue, float seed) {
+  if (age <= 0.0 || age > 1.5 || dot(q, q) > R * R * 6.0) return;
+  float grow = 1.0 - exp(-age * 9.0);
+  q.y -= R * 0.5 * age;
+  float a = atan(q.y, q.x);
+  float lump = 0.1 * sin(a * 5.0 + seed * 3.0) + 0.07 * sin(a * 9.0 - seed * 5.0 + age * 3.0) + 0.3 * (fbm(q * 4.0 / R + seed * 7.0) - 0.5);
+  float d = length(q * vec2(1.0, 0.88)) / (R * (0.25 + 0.75 * grow)) + lump;
+  float heat = clamp(1.0 - age * 1.7, 0.0, 1.0);
+  float thin = smoothstep(0.75, 1.5, age) * 1.2;             // the smoke is eaten away from the outside and through its holes
+  fill((d - 1.0 + thin * (0.4 + fbm(q * 7.0 / R + seed))) * R, mix(hue * 0.22, INK, 0.45));
+  fill((d - 0.86 + thin * 1.6) * R, mix(hue * 0.5, vec3(0.2, 0.18, 0.22), 0.4));
+  fill((d - 0.72 * heat - 0.02) * R + (1.0 - step(0.001, heat)), hue);
+  fill((d - 0.5 * heat) * R + (1.0 - step(0.001, heat)), mix(hue, vec3(1.0, 0.9, 0.45), 0.75));
+  fill((d - 0.27 * heat * heat) * R + (1.0 - step(0.001, heat)), vec3(1.0, 0.98, 0.9));
 }
 
 // a shower of sparks thrown up from q = 0, falling under gravity
@@ -185,38 +148,61 @@ vec3 sparks(vec2 q, float age, float R, float seed) {
     vec2 v = vec2(cos(an), sin(an)) * R * (0.8 + 1.8 * h11(fi * 3.1 + seed + 7.0));
     vec2 pos = v * age + vec2(0.0, -2.2 * R * age * age);
     vec2 vel = v + vec2(0.0, -4.4 * R * age);
-    float d = sdSeg(q, pos, pos - vel * 0.07);
-    acc += exp(-d * d / (R * R * 0.0004)) * (0.4 + 0.6 * h11(fi + seed * 3.0));
+    acc += cut(sdSeg(q, pos, pos - vel * 0.07) - R * 0.014) * step(age, 0.55 + 0.45 * h11(fi + seed * 3.0));
   }
-  return vec3(1.0, 0.72, 0.3) * acc * 2.8 * (1.0 - age) + vec3(1.0, 0.85, 0.6) * exp(-dot(q, q) / (R * R * 0.08)) * max(1.0 - age * 6.0, 0.0);
+  return vec3(1.0, 0.86, 0.5) * min(acc, 1.0);
 }
 
-// what a consumer deck did to the picture. c0 is the frame, cl the same frame a
-// few pixels to the left: the second render is what the colour smear costs
-vec3 tapeLook(vec3 c0, vec3 cl, vec2 fc, float amt) {
-  vec3 W = vec3(0.299, 0.587, 0.114);
-  vec3 av = (c0 + cl) * 0.5;
-  // luma stays sharp, colour is smeared sideways and the red lags the blue
-  vec3 chroma = vec3(cl.r - dot(cl, W), av.g - dot(av, W), c0.b - dot(c0, W));
-  vec3 c = mix(c0, vec3(dot(c0, W) * 0.85 + dot(av, W) * 0.15) + chroma * 1.25, amt);
-  float line = floor(fc.y / uResolution.y * 486.0);
-  c *= 1.0 - 0.1 * amt * mod(line + floor(uTime * 30.0), 2.0);                  // interlace
-  c += (h21(fc + fract(uTime) * 91.0) - 0.5) * 0.07 * amt;                    // tape noise
-  float sw = step(fc.y / uResolution.y, 0.02) * amt;                           // head-switching band
-  c = mix(c, vec3(h21(vec2(floor(fc.x / 5.0), floor(uTime * 60.0) + line))) * 0.8, 0.6 * sw * step(0.35, h11(line + floor(uTime * 60.0))));
-  c = mix(vec3(dot(c, W)), c, 1.0 + 0.25 * amt);                              // tape oversaturates
-  c = c * (1.0 - 0.04 * amt) + 0.022 * amt;                                    // lifted blacks
+// an impact frame: the plate goes to one hot colour and ink lines fly out of the hit
+vec3 impactFrame(vec2 q, vec3 hot, float seed) {
+  float a = atan(q.y, q.x) / TAU, r = length(q);
+  float k = floor(a * 70.0);
+  float f = abs(fract(a * 70.0) - 0.5);
+  float wdt = 0.5 * h11(k + seed) * smoothstep(0.05, 0.9, r);
+  float ln = step(0.45, h11(k * 3.1 + seed)) * step(0.12 + 0.4 * h11(k * 7.3 + seed), r) * step(f, wdt);
+  return mix(mix(vec3(1.0, 0.97, 0.9), hot, smoothstep(0.1, 0.75, r)), INK, ln);
+}
+
+// the print: screen-tone dots in the dark tones, a little grain in the paper
+vec3 printLook(vec3 c, vec2 fc, float amt) {
+  float lum = dot(c, vec3(0.299, 0.587, 0.114));
+  vec2 g = mat2(0.7071, -0.7071, 0.7071, 0.7071) * fc / (uResolution.y / 190.0);
+  float dot_ = length(fract(g) - 0.5);
+  float tone = smoothstep(0.42, 0.06, lum);
+  c *= 1.0 - 0.3 * amt * tone * (1.0 - smoothstep(0.3 * tone, 0.3 * tone + 0.1, dot_));
+  c *= 1.0 + 0.05 * amt * (fbm(fc / (uResolution.y / 300.0)) - 0.5);
   return c;
 }
-// ---- end of the tokusatsu kit ----
+// ---- end of the cel kit ----
 
-float gPix, gTc, gXd, gSide, gOpen, gRum, gKick, gHandOn, gCurl, gSpread, gHS, gSlamX, gImpAge, gBurstAge, gShutAge, gPoseAge, gPat1, gPat2, gFit, gShadow, gCrew;
+uniform sampler2D uAtlasHero0;
+uniform sampler2D uAtlasHero1;
+uniform sampler2D uAtlasHero2;
+uniform sampler2D uAtlasHand;
+
+// frames on a hero's sheet (16 x 8 cells of 144 units, a hero 95 units tall)
+const float F_STANCE = 0.0, F_WALK = 8.0, F_RUN = 16.0, F_LOOK = 28.0, F_FLIP = 40.0, F_SKID = 52.0, F_KNOCK = 58.0, F_GETUP = 66.0,
+            F_POSE = 76.0, F_PUNCH = 88.0, F_KICK = 96.0, F_FKICK = 104.0, F_BLAST = 112.0, F_TURN = 122.0, F_BOLT = 124.0;
+
+// one frame of hero v's sheet, feet at o
+void heroSprite(vec2 p, vec2 o, float dir, float idx, vec3 suit, float v) {
+  vec2 c = (p - o) / gU;
+  c = vec2(c.x * dir + 72.0, c.y + 12.0);
+  if (c.x < 0.5 || c.y < 0.5 || c.x > 143.5 || c.y > 143.5) return;
+  vec2 uv = vec2((mod(idx, 16.0) * 144.0 + c.x) / 2304.0, 1.0 - (floor(idx / 16.0) * 144.0 + 144.0 - c.y) / 1152.0);
+  vec4 t = v < 0.5 ? texture2D(uAtlasHero0, uv) : v < 1.5 ? texture2D(uAtlasHero1, uv) : texture2D(uAtlasHero2, uv);
+  celPaint(t, dir, suit, suit * 0.7, vec3(0.97, 0.96, 0.92), vec3(0.66, 0.65, 0.66), 2.0 * gPx / gU);
+}
+
+float gTc, gXd, gSide, gOpen, gRum, gKick, gHandOn, gCurl, gSpread, gHS, gSlamX, gImpAge, gBurstAge, gShutAge, gPoseAge, gPat1, gPat2, gShadow, gCrew;
+float gMood, gBolt_, gStorm, gImpact, gPunch;
 vec2 gW, gHD, gShake;
-vec3 gGlow;
+vec3 gGlow, gWall, gWallLit, gGround, gAmbRim, cA, cB, cC;
 vec4 gS0, gS1, gS2;                      // per hero: x, hop, facing, frame on the sheet
 float gHandFrame;
 vec4 gBolt;                              // the energy bolt: x, y, on, direction
-uniform sampler2D uAtlasHand;
+vec4 gBoltA, gBoltC;                     // the two bolts of the finisher, same layout
+float gFin;                              // 1 on the rounds that end with the double blast instead of the kicks
 
 float ease(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
 float kf(float a, float b) { return clamp((gTc - a) / (b - a), 0.0, 1.0); }
@@ -227,189 +213,227 @@ float bay(float n) {
 }
 
 vec3 facade(vec2 p) {
-  vec3 conc = mix(vec3(0.6, 0.58, 0.55), uColor3, 0.16);
   float xd = clamp(floor(p.x / 0.6 + 0.5), -1.0, 1.0) * 0.6;
   float act = step(abs(xd - gXd), 0.01);
   vec2 dq = vec2(p.x - xd, p.y - FY);
-  vec3 col = conc;
-  // cast panels, and the grime the model shop airbrushed on
+  // the wall: two flat tones, parted by the stepped shadow of the block across the street
+  float sh = p.y - 0.07 - 0.5 * p.x - 0.07 * step(0.5, fract(p.x * 1.7 + 0.2)) - 0.04 * step(0.6, fract(p.x * 4.3));
+  gCol = mix(gWallLit, gWall, cut(-sh));
+  // cast panels
   vec2 pj = abs(fract(p / vec2(0.2, 0.11) + 0.5) - 0.5) * vec2(0.2, 0.11);
-  col *= 1.0 - 0.28 * (1.0 - smoothstep(0.0, 0.004, min(pj.x, pj.y)));
-  col *= 0.78 + 0.4 * fbm(vec2(p.x * 9.0, p.y * 2.2));
-  col *= mix(1.08, 0.55, smoothstep(-0.1, 0.5, p.y));         // a small set, lit from low down
+  gCol *= 1.0 - 0.2 * cut(min(pj.x, pj.y) - 0.0016);
+  // streaks of rain water under the ledge
+  float stx = floor(p.x / 0.021);
+  gCol *= 1.0 - 0.16 * step(0.72, h11(stx)) * step(0.345 - 0.3 * h11(stx + 9.0), p.y) * step(p.y, 0.345);
   if (p.y > 0.36) {
     // upper storeys: ranks of windows far too small, which is what makes it huge
-    vec2 wc = vec2(p.x / 0.032, (p.y - 0.365) / 0.04);
+    gCol = gWall * 0.8;
+    vec2 wc = vec2(p.x / 0.024, (p.y - 0.372) / 0.04);
     vec2 wi = floor(wc), wf = fract(wc) - 0.5;
-    float wd = max(abs(wf.x) - 0.3, abs(wf.y) - 0.3);
-    vec3 glass = mix(vec3(0.04, 0.06, 0.1), vec3(0.25, 0.33, 0.42), wf.y + 0.5);
-    glass = mix(glass, vec3(1.0, 0.85, 0.5), 0.7 * step(0.82, h21(wi)));
-    col = mix(col, glass, 1.0 - smoothstep(-0.05, 0.05, wd));
-    col *= 1.0 - 0.45 * (1.0 - smoothstep(0.36, 0.39, p.y));
+    float on = step(0.86 - 0.3 * uHigh * step(0.5, h21(wi + 3.0)), h21(wi + floor(uBeatClock * 0.125) * 0.37));
+    fill(max(abs(wf.x) - 0.22, abs(wf.y) - 0.3) * 0.036, mix(gWall * 1.45, mix(uColor2, vec3(1.0, 0.86, 0.55), 0.7), on));
   }
-  float lg = abs(p.y - 0.345) - 0.015;
-  col = mix(col, conc * (p.y > 0.347 ? 1.2 : 0.85), 1.0 - smoothstep(0.0, 0.003, lg));
-  // piers between the bays, bevelled: lit on the left edge, shaded on the right
+  // the ledge, catching the sky
+  fill(abs(p.y - 0.348) - 0.012, mix(gWallLit * 1.5, gAmbRim, 0.25));
+  fill(abs(p.y - 0.334) - 0.003, INK);
+  // piers between the bays: a lit face and a shaded one
   float px = abs(abs(p.x) - 0.6) - 0.3;
   if (p.y < 0.33) {
-    float pr = abs(px) - 0.05;
-    col = mix(col, conc * 1.05 * (0.85 + 0.3 * fbm(p * 30.0)), 1.0 - smoothstep(0.0, 0.003, pr));
-    col *= 1.0 + 0.3 * (1.0 - smoothstep(0.0, 0.008, abs(px + 0.046)));
-    col *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 0.01, abs(px - 0.046)));
-    col *= 1.0 - 0.3 * (1.0 - smoothstep(0.05, 0.085, px)) * step(0.05, px);
+    fill(abs(px) - 0.05, gWallLit * 1.25);
+    fill(max(abs(px - 0.03) - 0.02, 0.0), gWall * 0.75);
+    fill(abs(abs(px) - 0.05) - 0.002, INK);
   }
-  // the bay: painted steel frame, slatted doors
+  // the bay: a hazard-striped frame, two slatted leaves
   dq.x += act * gRum * 0.005 * sin(uTime * 75.0);
   float dB = max(abs(dq.x) - 0.15, dq.y - 0.5);
-  if (dB < 0.024) {
-    vec3 frame = mix(vec3(0.5, 0.5, 0.48), uColor1, 0.5) * 0.7;
-    float hz = step(0.5, fract((dq.x + dq.y) * 22.0));
-    frame = mix(frame, mix(vec3(0.95, 0.78, 0.1), vec3(0.06), hz), step(dq.y, 0.5));
-    frame *= 0.7 + 0.5 * smoothstep(0.024, 0.0, dB) * (0.6 + 0.4 * fbm(p * 60.0));
-    col = mix(col, frame, 1.0 - smoothstep(0.02, 0.024, dB));
+  if (dB < 0.03) {
+    float hz = step(0.5, fract((dq.x + dq.y) * 20.0));
+    fill(dB - 0.022, mix(mix(vec3(0.98, 0.76, 0.1), gGlow, 0.35 * act * gOpen), INK, hz));
+    fill(abs(dB - 0.024) - 0.0022, INK);
     if (dB < 0.0) {
       float ang = act * gOpen * 1.45 + act * gRum * 0.12 * abs(sin(uTime * 31.0));
       float lxx = (0.15 - abs(dq.x)) / cos(ang);
       if (lxx < 0.15) {
         float sv = sin(ang);
         float yy = dq.y / (1.0 + 0.12 * sv * lxx / 0.15);
-        vec3 steel = mix(vec3(0.36, 0.37, 0.4), uColor2, 0.38) * 0.55;
-        float sl = fract(yy / 0.03);
-        vec3 lc = steel * (0.72 + 0.4 * smoothstep(0.0, 0.35, sl) - 0.4 * smoothstep(0.82, 1.0, sl));
-        lc *= (1.0 - 0.5 * sv) * (0.8 + 0.35 * fbm(vec2(lxx * 30.0, yy * 14.0)));
-        lc = mix(lc, mix(vec3(0.9, 0.75, 0.1), vec3(0.05), step(0.5, fract((lxx + yy) * 16.0))), step(yy, 0.045) * 0.9);
-        lc *= 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.006, 0.15 - lxx));
-        lc += vec3(0.5) * pow(max(1.0 - abs(sl - 0.3) * 4.0, 0.0), 3.0) * 0.12;
-        // the doors sit back in the frame: its shadow lies across their top and one side
-        col = lc * (1.0 - 0.55 * smoothstep(0.42, 0.5, dq.y)) * (1.0 - 0.4 * smoothstep(-0.11, -0.15, dq.x));
+        float sl = fract(yy / 0.036);
+        vec3 steel = mix(gWallLit * 1.5, uColor2 * 0.42, 0.45) * (1.0 - 0.45 * sv);
+        gCol = mix(steel, steel * 0.62, step(0.55, sl));
+        // light through the slats when the thing behind them leans on the doors, and on the kick
+        float leak = max(act * gRum, 0.22 * gKick) * step(0.9, sl);
+        gCol = mix(gCol, gGlow * 1.3, leak);
+        fill(0.004 - (0.15 - lxx), mix(INK, gGlow, 0.5 * gKick + act * gRum));     // the seam where the leaves meet
+        gCol = mix(gCol, mix(vec3(0.98, 0.76, 0.1), INK, step(0.5, fract((lxx + yy) * 18.0))), step(yy, 0.04));
       } else {
-        // inside: black, and smoke lit from behind
-        float sm = fbm(vec2(dq.x * 7.0 + uTime * 0.25, dq.y * 5.0 - uTime * 0.6));
-        col = vec3(0.008, 0.01, 0.016) + gGlow * (0.18 + 0.75 * sm * sm) * smoothstep(0.55, 0.0, dq.y);
+        // inside: the light that is behind whatever lives here, in three bands, and its smoke
+        float sm = fbm(vec2(dq.x * 9.0, dq.y * 6.0 - uTime * 0.7));
+        float lv = 1.0 - dq.y / 0.5 + 0.35 * (sm - 0.5);
+        gCol = lv > 0.72 ? mix(gGlow, vec3(1.0, 0.95, 0.8), 0.65) : lv > 0.4 ? gGlow : gGlow * 0.5;
+        gCol = mix(gCol, gGlow * 0.22, step(0.62, fbm(vec2(dq.x * 7.0 + uTime * 0.3, dq.y * 5.0 - uTime * 0.5))) * step(0.12, dq.y));
       }
     }
   }
-  return col;
+  // lightning lights the whole street for a frame or two
+  gCol += gBolt_ * vec3(0.3, 0.38, 0.5);
+  return gCol;
 }
 
 vec3 plaza(vec2 p) {
   float f = FY - p.y;
   float X = p.x / (1.0 + f * 1.6);
-  vec3 col = mix(vec3(0.3, 0.3, 0.32), uColor3, 0.07);
-  col *= 0.75 + 0.5 * fbm(vec2(X * 16.0, f * 50.0));
-  col *= 1.0 - 0.3 * (1.0 - smoothstep(0.0, 0.003 * (1.0 + f * 3.0), abs(fract(X / 0.25) - 0.5) * 0.25));
+  gCol = gGround;
+  gCol *= 1.0 - 0.2 * cut(abs(fract(X / 0.25) - 0.5) * 0.25 * (1.0 + f * 1.6) - 0.0015 * (1.0 + f * 4.0));
   float row = pow(f / 0.3, 0.75) * 4.0;
-  col *= 1.0 - 0.3 * step(fract(row), 0.06);
-  col = mix(col, vec3(0.8, 0.68, 0.15), 0.65 * step(abs(f - 0.045), 0.005) * step(0.3, fract(X / 0.1)));
-  col *= 0.5 + 0.5 * smoothstep(0.0, 0.07, f);
-  // light spilling out of an open bay, and its smear on the wet tarmac
-  float sx = (p.x - gXd) / 0.22;
-  col += gGlow * (0.22 * exp(-sx * sx) * exp(-f * 7.0) + 0.1 * exp(-sx * sx * 4.0) * fbm(vec2(X * 30.0, f * 12.0))) * gOpen;
-  // hosed down before the take: the set shows in the tarmac
-  float keep = gPx;
-  if (f < 0.22) col += facade(vec2(p.x + (vn(vec2(X * 40.0, f * 9.0)) - 0.5) * 0.03, FY + f * 1.6 + 0.01)) * 0.16 * exp(-f * 5.0) * smoothstep(0.22, 0.15, f);
-  gPx = keep;
-  return col;
+  gCol *= 1.0 - 0.2 * step(fract(row), 0.05);
+  fill(abs(f - 0.045) - 0.004 + step(fract(X / 0.1), 0.3), vec3(0.9, 0.72, 0.15) * (0.45 + 0.4 * dot(gGround, vec3(1.0))));
+  fill(f - 0.012, gGround * 0.55);                              // where the wall stands on it
+  // the light of an open bay thrown across the plaza: two hard wedges
+  float ax = abs(p.x - gXd);
+  gCol = mix(gCol, gCol * 0.6 + gGlow * 0.42, gOpen * cut(ax - 0.17 - f * 1.5));
+  gCol = mix(gCol, gCol * 0.3 + gGlow * 0.8, gOpen * cut(max(ax - 0.11 - f * 0.7, f - 0.2)));
+  // puddles keep a piece of the wall
+  float pud = step(0.63, fbm(vec2(X * 7.0, f * 26.0) + 3.0)) * step(0.05, f);
+  gCol = mix(gCol, mix(gWallLit * 1.3, gGlow, 0.5 * gOpen * step(ax, 0.3)), 0.5 * pud * (0.4 + 0.6 * gStorm));
+  gCol += gBolt_ * vec3(0.22, 0.28, 0.38);
+  return gCol;
+}
+
+// the light on a figure standing at x: the street's own, or the open bay's from the side
+void figureLight(float x, float sil) {
+  vec3 door = normalize(vec3((gXd - x) * 3.0, 0.45, 0.42));
+  gKeyDir = normalize(mix(vec3(-0.45, 0.6, 0.66), door, 0.85 * gOpen));
+  gRimDir = normalize(mix(vec2(0.55, 0.83), vec2(gXd - x, 0.22), gOpen) + vec2(1e-4, 0.0));
+  gSil = sil;
 }
 
 void titanHand(vec2 p) {
   if (gHandOn < 0.5) return;
   vec2 R = vec2(gXd, FY + 0.27);
-  if (sdSeg(p, R, gW) > 0.6) return;
-  float sc = 1.0;
-  // the sleeve: fur, lost in the dark at the far end. The sprite takes over at the wrist
+  if (sdSeg(p, R, gW) > 0.7) return;
+  vec3 hide = mix(vec3(0.33, 0.29, 0.44), uColor3, 0.2);
+  figureLight(gW.x - gSide * 0.5, 0.45);
+  // the arm: fur, thin and lost in the light at the far end. The sheet takes over at the wrist
   vec2 C = mix(R, gW, 0.5) + vec2(-gSide * 0.04, 0.16);
   vec3 g = vec3(1e3, 0.0, 0.0);
   vec2 pa = R;
   for (int i = 1; i <= 5; i++) {
     float t = float(i) / 5.0;
     vec2 pb = mix(mix(R, C, t), mix(C, gW, t), t);
-    g = smin3(g, gSeg(p, pa, pb, 0.115 * sc, 0.115 * sc), 0.02);
+    g = smin3(g, gSeg(p, pa, pb, mix(0.05, 0.105, t - 0.2), mix(0.05, 0.105, t)), 0.02);
     pa = pb;
   }
   vec2 ad = normalize(gW - C);
-  // fur in locks, like the sprite's: long clusters along the arm, three tones of dark brown
-  vec2 fq = vec2(dot(p, vec2(-ad.y, ad.x)), dot(p, ad)) / gVP;
-  float lock = h21(vec2(floor(fq.x / 3.0), floor((fq.y + 7.0 * h11(floor(fq.x / 3.0))) / 14.0)));
-  float strand = floor(lock * 3.0) / 2.0;
-  g.x += (lock - 0.5) * 0.016;
-  vec3 under = gCol;
-  lit(g, 0.11 * sc, vec3(0.2, 0.115, 0.06) * (0.35 + 0.9 * strand), 0.05, vec2(0.0));
-  gCol = mix(gCol, mix(under, vec3(0.01, 0.012, 0.018), 0.85), aa(g.x) * (1.0 - smoothstep(0.03, 0.22, length(p - R))));
-  // the hand: one frame of the 6 x 3 sheet (288 px cells), wrist on gW. It is drawn
+  g.x += (abs(fract(dot(p, ad) / 0.03 + 0.4 * sin(dot(p, vec2(-ad.y, ad.x)) * 40.0)) - 0.5) - 0.25) * 0.02 * (0.35 + vn(p * 26.0)) * smoothstep(0.02, 0.2, length(p - R));     // tufts along both edges
+  if (g.x < 0.012) {
+    float t = clamp(-g.x / 0.1, 0.0, 1.0);
+    vec3 n = vec3(g.yz * (1.0 - t), sqrt(max(1.0 - (1.0 - t) * (1.0 - t), 0.0)));
+    vec3 c = celTone(hide * 0.6, n, 1.0);
+    c = mix(INK + gGlow * 0.05, c, smoothstep(0.0, 0.22, length(p - R)));          // the far end is only a shape against the light
+    fill(g.x - 0.006, INK);
+    fill(g.x, c);
+  }
+  // the hand: one frame of the 6 x 3 sheet (cells of 288 units), wrist on gW. It is drawn
   // already turned the way it points, for a reach to the right: mirrored for the left
-  vec2 c = (p - snapv(gW)) / gVP;
+  vec2 c = (p - gW) / (gU * HAND);
   c = vec2(c.x * gSide + 144.0, c.y + 144.0);
-  if (c.x < 0.0 || c.y < 0.0 || c.x >= 288.0 || c.y >= 288.0) return;
-  vec2 px = vec2(mod(gHandFrame, 6.0) * 288.0 + floor(c.x), floor(gHandFrame / 6.0) * 288.0 + 287.0 - floor(c.y));
-  vec4 t = texture2D(uAtlasHand, vec2((px.x + 0.5) / 1728.0, 1.0 - (px.y + 0.5) / 864.0));
-  if (t.a > 0.5) gCol = t.rgb * gSprLight;
+  if (c.x < 0.5 || c.y < 0.5 || c.x > 287.5 || c.y > 287.5) return;
+  vec4 t = texture2D(uAtlasHand, vec2((mod(gHandFrame, 6.0) * 288.0 + c.x) / 1728.0, 1.0 - (floor(gHandFrame / 6.0) * 288.0 + 288.0 - c.y) / 864.0));
+  celPaint(t, gSide, hide, hide * 0.6, vec3(0.96, 0.92, 0.78), vec3(0.7, 0.66, 0.56), 2.0 * gPx / (gU * HAND));
+}
+
+// a flat shadow on the plaza, thrown away from the open bay
+void shadowAt(vec2 p, float x, float y, float w) {
+  float away = gOpen * clamp((x - gXd) * 0.5, -0.12, 0.12);
+  vec2 q = (p - vec2(x + away, y)) / vec2(w + abs(away), 0.012);
+  gCol = mix(gCol, gCol * 0.42, cut((length(q) - 1.0) * 0.012));
 }
 
 vec3 render(vec2 fc) {
-  vec2 p = (fc - 0.5 * uResolution) / uResolution.y * gFit + gShake;
-  gPx = gPix;
-  gCol = p.y > FY ? facade(p) : plaza(p);
-  // smoke machine: a low bank along the foot of the wall
-  float hz = fbm(vec2(p.x * 2.5 - uTime * 0.07, p.y * 7.0 + uTime * 0.03));
-  float bank = exp(-pow((p.y - FY + 0.02) / 0.11, 2.0)) * (0.25 + 0.75 * hz);
-  vec3 hazeC = mix(vec3(0.62, 0.66, 0.72), gGlow, 0.25);
-  gCol = mix(gCol, hazeC, 0.42 * bank);
-  // shadow of the hand before it lands
-  vec2 sq = (p - vec2(gSlamX, -0.37)) / vec2(0.2, 0.035);
-  gCol *= 1.0 - 0.6 * gShadow * (1.0 - smoothstep(0.3, 1.0, dot(sq, sq)));
-
+  vec2 p = (fc - 0.5 * uResolution) / uResolution.y * gFit;
+  vec2 pc = vec2(gSlamX, -0.3);
+  p = pc + (p - pc) * (1.0 - gPunch) + gShake;
   float py = clamp(pyro, 0.0, 2.0);
-  // roll call: one charge behind each of them, in their colour
-  if (gPoseAge > 0.0 && py > 0.0) {
-    addBoom(p - vec2(gS0.x - 0.03, -0.17), gPoseAge, 0.26 * py, cA, 1.0);
-    if (gCrew > 1.5) addBoom(p - vec2(gS1.x + 0.05, -0.14), gPoseAge - 0.06, 0.28 * py, cB, 2.0);
-    if (gCrew > 2.5) addBoom(p - vec2(gS2.x - 0.05, -0.15), gPoseAge - 0.12, 0.26 * py, cC, 3.0);
+  float sil = max(gImpact, clamp(exp(-max(gPoseAge, 0.0) * 4.0) * step(0.0, gPoseAge) * 1.3 * min(py, 1.0), 0.0, 1.0));
+  if (gImpact > 0.5) gCol = impactFrame(p - vec2(gSlamX, -0.34), mix(uColor1, vec3(1.0, 0.75, 0.3), 0.45), floor(uBeatClock));
+  else gCol = p.y > FY ? facade(p) : plaza(p);
+
+  if (gImpact < 0.5) {
+    // rain, in the storm
+    vec2 rq = vec2(p.x + p.y * 0.25, p.y) * vec2(60.0, 5.0) + vec2(0.0, uTime * 9.0);
+    float rain = step(0.93, h21(floor(rq))) * step(abs(fract(rq.x) - 0.5), 0.09);
+    gCol = mix(gCol, gAmbRim, 0.3 * rain * gStorm);
+    // mist along the foot of the wall, in two flat layers
+    float m1 = FY + 0.03 + 0.022 * sin(p.x * 5.0 + uTime * 0.3) + 0.012 * sin(p.x * 13.0 - uTime * 0.5);
+    vec3 mist = mix(gWallLit * 1.9, gGlow, 0.35 * gOpen);
+    gCol = mix(gCol, mist, 0.3 * cut(max(p.y - m1, FY - 0.035 - p.y)));
+    // shadow of the hand before it lands
+    vec2 sq = (p - vec2(gSlamX, -0.37)) / vec2(0.2, 0.035);
+    gCol = mix(gCol, gCol * 0.4, gShadow * cut((length(sq) - 1.0) * 0.03));
+    // roll call: one charge behind each of them, in their colour
+    if (gPoseAge > 0.0 && py > 0.0) {
+      celBoom(p - vec2(gS0.x - 0.03, -0.17), gPoseAge, 0.26 * py, cA, 1.0);
+      if (gCrew > 1.5) celBoom(p - vec2(gS1.x + 0.05, -0.14), gPoseAge - 0.06, 0.28 * py, cB, 2.0);
+      if (gCrew > 2.5) celBoom(p - vec2(gS2.x - 0.05, -0.15), gPoseAge - 0.12, 0.26 * py, cC, 3.0);
+    }
+    // dust blown out of the bay when the doors go
+    if (gBurstAge > 0.0) celBoom(p - vec2(gXd, FY + 0.08), gBurstAge * 1.1 + 0.6, 0.1 + 0.1 * smoothstep(0.0, 0.5, gBurstAge), mix(gWallLit * 2.2, gGlow, 0.3), 5.0);
   }
-  // dust blown out of the bay when the doors go
-  if (gBurstAge > 0.0) addBoom(p - vec2(gXd, FY + 0.08), gBurstAge * 1.1 + 0.55, 0.06 + 0.08 * smoothstep(0.0, 0.5, gBurstAge), vec3(0.75, 0.72, 0.68), 5.0);
 
   for (int k = 2; k >= 1; k--) {
     vec4 hh = k == 1 ? gS1 : gS2;
     if (gCrew < float(k) + 0.5) continue;
     float ly = k == 1 ? -0.36 : -0.34;
-    vec2 s2 = (p - vec2(hh.x, ly)) / vec2(0.07, 0.012);
-    gCol *= 1.0 - 0.5 * (1.0 - smoothstep(0.4, 1.0, dot(s2, s2)));
+    if (gImpact < 0.5) shadowAt(p, hh.x, ly, 0.065);
+    figureLight(hh.x, sil);
     heroSprite(p, vec2(hh.x, ly + hh.y), hh.z, hh.w, k == 1 ? cB : cC, float(k));
   }
   titanHand(p);
-  vec2 s0 = (p - vec2(gS0.x, -0.385)) / vec2(0.075, 0.013);
-  gCol *= 1.0 - 0.5 * (1.0 - smoothstep(0.4, 1.0, dot(s0, s0)));
+  if (gImpact < 0.5) shadowAt(p, gS0.x, -0.385, 0.07);
+  figureLight(gS0.x, sil);
   heroSprite(p, vec2(gS0.x, -0.385 + gS0.y), gS0.z, gS0.w, cA, 0.0);
   // the second one's bolt, on its way to the hand
-  if (gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 60.0 * gVP), gBolt.w, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
+  float bf = F_BOLT + mod(floor(uTime * 12.0), 4.0);
+  if (gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 60.0 * gU), gBolt.w, bf, cB, 1.0);
+  if (gBoltA.z > 0.5) heroSprite(p, gBoltA.xy - vec2(0.0, 60.0 * gU), gBoltA.w, bf, cA, 0.0);
+  if (gBoltC.z > 0.5 && gCrew > 2.5) heroSprite(p, gBoltC.xy - vec2(0.0, 60.0 * gU), gBoltC.w, bf, cC, 2.0);
+  // the two bolts meet on the fist
+  if (gFin > 0.5) celBoom(p - gW - vec2(0.0, 0.08), secs(0.68), 0.2 * py, mix(uColor1, vec3(1.0, 0.8, 0.4), 0.5), 11.0);
 
-  // practical sparks: the slam, the two pats, the doors
+  // sparks: the slam, the two pats, the doors, the bolt and the kick
   vec3 sp = sparks(p - vec2(gSlamX, -0.36), gImpAge * 1.3, 0.22 * (0.5 + 0.5 * py), 1.0);
   sp += sparks(p - vec2(gTc < 0.375 ? gPat1 : gPat2, -0.33), secs(gTc < 0.375 ? 0.25 : 0.375) * 2.0, 0.09 * py, 2.0);
   sp += sparks(p - vec2(gXd, FY + 0.3), gBurstAge * 1.5, 0.2 * (0.4 + 0.6 * py), 4.0);
   sp += sparks(p - vec2(gXd, FY + 0.02), gShutAge * 2.0, 0.1 * py, 5.0);
-  sp += sparks(p - gW, secs(0.43) * 2.2, 0.12 * py, 6.0) + sparks(p - gW - vec2(0.0, 0.1), secs(0.64) * 2.2, 0.14 * py, 8.0);     // the bolt and the kick land
-  gCol += sp;
-  if (gImpAge > 0.0) addBoom(p - vec2(gSlamX, -0.34), gImpAge * 0.9 + 0.55, 0.06 + 0.08 * smoothstep(0.0, 0.5, gImpAge), vec3(0.6, 0.57, 0.52), 7.0);
+  sp += sparks(p - gW, secs(0.43) * 2.2, 0.12 * py, 6.0) + sparks(p - gW - vec2(0.0, 0.1), secs(gFin > 0.5 ? 0.68 : 0.64) * 2.2, 0.14 * py, 8.0);
+  gCol = mix(gCol, vec3(1.0, 0.9, 0.6), min(sp.r, 1.0));
+  if (gImpAge > 0.0 && gImpact < 0.5) {
+    celBoom(p - vec2(gSlamX - 0.12, -0.35), gImpAge * 0.9 + 0.62, 0.11, gGround * 2.4, 7.0);
+    celBoom(p - vec2(gSlamX + 0.13, -0.36), gImpAge * 0.9 + 0.66, 0.09, gGround * 2.0, 9.0);
+    // the ground gives: a ring of ink cracks out from under the palm
+    vec2 cq = (p - vec2(gSlamX, -0.37)) / vec2(1.0, 0.3);
+    float ring = abs(length(cq) - 0.5 * (1.0 - exp(-gImpAge * 7.0))) - 0.012 * exp(-gImpAge * 3.0);
+    gCol = mix(gCol, vec3(1.0), cut(ring) * step(p.y, FY) * step(gImpAge, 0.5));
+  }
 
-  // model trees an inch from the lens: nothing but soft dark shapes
-  float fg = fbm(p * 5.0 + 3.0);
-  float t1 = smoothstep(0.3, 0.16, length((p - vec2(-0.95, -0.56)) * vec2(0.8, 1.0)) + 0.12 * fg);
-  float t2 = smoothstep(0.28, 0.14, length((p - vec2(0.97, -0.58)) * vec2(0.9, 1.0)) + 0.12 * fg);
-  gCol = mix(gCol, vec3(0.03, 0.05, 0.035) + hazeC * 0.06, 0.93 * max(t1, t2));
+  // what stands an inch from the lens: a lamp post and a heap of rubble, black
+  if (gImpact < 0.5) {
+    float lamp = min(sdBox(p - vec2(-0.83, -0.2), vec2(0.011, 0.36)), sdBox(p - vec2(-0.78, 0.165), vec2(0.06, 0.008)));
+    lamp = min(lamp, sdBox(p - vec2(-0.735, 0.15), vec2(0.022, 0.012)));
+    float heap = p.y + 0.5 - 0.1 * (1.0 - smoothstep(0.0, 0.34, abs(p.x - 0.8))) - 0.03 * vn(vec2(p.x * 22.0, 1.0));
+    float fg = min(lamp, heap);
+    fill(fg - 0.004, mix(INK, gAmbRim, 0.5));
+    fill(fg, INK);
+    fill(length((p - vec2(-0.735, 0.128)) * vec2(1.0, 1.6)) - 0.013, mix(vec3(1.0, 0.9, 0.6), vec3(1.0), gKick));
+  }
   return gCol;
 }
 
 void main() {
   float tp = clamp(tape, 0.0, 1.0);
   gKick = clamp(uBassHit, 0.0, 1.0);
-  gAlpha = 1.0;
   gFit = max(1.0, 1.5 * uResolution.y / uResolution.x);
-  // one grid of virtual pixels for everything: about 216 lines, a whole number of screen pixels each
-  float scl = max(1.0, floor(uResolution.y / 216.0 + 0.5));
-  gVP = scl * gFit / uResolution.y;
-  gPix = 0.6 * gVP;
+  gU = gFit / 216.0;                       // a sheet unit: a hero is 95 of them tall
+  gPx = gFit / uResolution.y;
   gCrew = floor(clamp(crew, 1.0, 3.0) + 0.5);
   cA = mix(uColor1, vec3(1.0), 0.1);
   cB = mix(uColor2, vec3(1.0), 0.1);
@@ -419,6 +443,8 @@ void main() {
   float cyc = uBeatClock * clamp(tempo, 0.25, 2.0) / 8.0;
   float n = floor(cyc);
   gTc = fract(cyc);
+  gFin = mod(n, 2.0);
+  gBoltA = gBoltC = vec4(0.0);
   gXd = bay(n) * 0.6;
   float xn = bay(n + 1.0) * 0.6;
   gSide = abs(gXd) > 0.3 ? -sign(gXd) : (h11(n * 5.3 + 2.0) > 0.5 ? 1.0 : -1.0);
@@ -508,7 +534,15 @@ void main() {
     // a beat of turning round before each run: nobody flips like a card
     if ((a > 0.001 && a < 0.07) || (c > 0.001 && c < 0.06)) fr = F_TURN + (a > 0.035 || c > 0.03 ? 1.0 : 0.0);
     // and they fight back, each with a move of his own
-    if (k == 0) {
+    // every other round the first and the third finish it together: two bolts into the fist
+    if (gFin > 0.5 && k != 1) {
+      float bp = kf(0.585, 0.685), fl = kf(0.635, 0.68);
+      float ly = k == 0 ? -0.385 : -0.34;
+      if (bp > 0.001 && bp < 0.999) { fr = F_BLAST + floor(bp * 9.99); face = sign(gW.x - x + 1e-3); hop = 0.0; }
+      vec4 b = vec4(mix(x + face * 0.2, gW.x, fl), mix(ly + 0.33, gW.y + 0.08, fl), step(0.001, fl) * step(fl, 0.999), face);
+      if (k == 0) gBoltA = b; else gBoltC = b;
+    }
+    if (k == 0 && gFin < 0.5) {
       // the first one lands a flying kick on the fist while it is still shaking
       float fkp = kf(0.6, 0.675);
       if (fkp > 0.001 && fkp < 0.999) {
@@ -532,39 +566,41 @@ void main() {
     if (k == 2) {
       // the third one comes in under the arm with a roundhouse
       float rk = kf(0.6, 0.68);
-      if (rk > 0.001 && rk < 0.999) { fr = F_KICK + floor(rk * 7.99); face = sign(gXd + gSide * 0.1 - x + 1e-3); }
+      if (rk > 0.001 && rk < 0.999 && gFin < 0.5) { fr = F_KICK + floor(rk * 7.99); face = sign(gXd + gSide * 0.1 - x + 1e-3); }
       if (gTc > 0.4 && gTc < 0.48) fr = F_PUNCH + floor(kf(0.4, 0.48) * 7.99);
     }
     vec4 hs = vec4(x, hop, face, fr);
     if (k == 0) gS0 = hs; else if (k == 1) gS1 = hs; else gS2 = hs;
   }
 
-  // camera: hand-held jolt on every hit, a punch-in on the slam and the pose
+  // the street: night, dusk, storm, two rounds each
+  gMood = mod(floor(n / 2.0), 3.0);
+  gStorm = step(1.5, gMood);
+  vec3 wall = gMood < 0.5 ? vec3(0.075, 0.065, 0.16) : gMood < 1.5 ? vec3(0.24, 0.11, 0.17) : vec3(0.05, 0.075, 0.105);
+  vec3 lit = gMood < 0.5 ? vec3(0.13, 0.125, 0.27) : gMood < 1.5 ? vec3(0.52, 0.27, 0.23) : vec3(0.1, 0.145, 0.19);
+  gAmbRim = gMood < 0.5 ? vec3(0.55, 0.66, 1.0) : gMood < 1.5 ? vec3(1.0, 0.72, 0.42) : vec3(0.72, 0.9, 1.0);
+  vec3 tint = mix(vec3(1.0), min(uColor3 / max(dot(uColor3, vec3(0.333)), 0.05), 1.6), 0.16);
+  gWall = wall * tint;
+  gWallLit = lit * tint;
+  gGround = mix(gWall, gWallLit, 0.62);
+  gBolt_ = gStorm * gKick * gKick * step(0.5, h11(floor(uBeatClock) * 3.7));
+
+  // camera: a jolt on every hit, a punch-in on the slam
   float hit = exp(-max(gImpAge, 0.0) * 7.0) * step(0.0, gImpAge) + 0.5 * exp(-max(gBurstAge, 0.0) * 8.0) * step(0.0, gBurstAge)
             + 0.3 * exp(-max(gShutAge, 0.0) * 9.0) * step(0.0, gShutAge) + 0.15 * gRum + 0.12 * gKick;
-  gShake = snapv(hit * 0.02 * vec2(sin(uTime * 61.0), cos(uTime * 47.0)));
-  // light: a hard key from upper left, sky fill, a coloured lamp behind the doors
+  gShake = hit * 0.02 * vec2(sin(uTime * 61.0), cos(uTime * 47.0));
+  gImpact = step(0.0, gImpAge) * step(gImpAge, 0.085) * step(0.01, pyro);
+  gPunch = 0.07 * exp(-max(gImpAge, 0.0) * 5.0) * step(0.0, gImpAge);
   float flash = (exp(-max(gPoseAge, 0.0) * 5.0) * step(0.0, gPoseAge) + exp(-max(gImpAge, 0.0) * 9.0) * step(0.0, gImpAge)) * clamp(pyro, 0.0, 2.0);
-  gL = normalize(vec3(-0.5, 0.55, 0.67));
-  gKey = vec3(1.0, 0.95, 0.86) * (1.0 + 0.5 * flash);
-  gAmb = vec3(0.27, 0.3, 0.37);
-  gGlow = mix(uColor1, vec3(1.0, 0.6, 0.3), 0.3) * (0.7 + 0.5 * gKick + 0.3 * uBass);
-  gRim = gGlow * 0.9 + vec3(1.0, 0.8, 0.5) * flash;
-  gSprLight = vec3(1.0, 0.98, 0.95) * (1.0 + 0.35 * flash);
+  gGlow = mix(uColor1, vec3(1.0, 0.62, 0.3), 0.3) * (0.85 + 0.35 * gKick + 0.2 * uBass);
+  gKeyCol = vec3(1.0, 0.98, 0.94) * (1.0 + 0.25 * flash + 0.5 * gBolt_);
+  gShadeCol = mix(vec3(0.3, 0.26, 0.5), gWallLit * 1.6, 0.25);
+  gRimCol = mix(gAmbRim, gGlow * 1.35, gOpen) + vec3(1.0, 0.85, 0.6) * 0.5 * flash;
 
-  // tracking error: each scanline sits a hair off
-  vec2 fc = gl_FragCoord.xy;
-  float line = floor(fc.y / uResolution.y * 243.0);
-  fc.x += tp * uResolution.y * 0.0012 * (h11(line + floor(uTime * 30.0) * 3.1) - 0.5);
-  // the frame is computed at the centre of its virtual pixel and held to a
-  // 16-bit console's colour depth with an ordered dither; the tape comes after
-  vec2 vq = floor(fc / scl);
-  vec2 fv = (vq + 0.5) * scl;
-  float dth = bayer4(vq);
-  vec3 c0 = floor(render(fv) * 15.0 + dth) / 15.0;
-  vec3 col = tp > 0.01 ? tapeLook(c0, floor(render(fv - vec2(2.0 * scl, 0.0)) * 15.0 + dth) / 15.0, gl_FragCoord.xy, tp) : c0;
+  vec3 col = render(gl_FragCoord.xy);
+  col = printLook(col, gl_FragCoord.xy, tp);
   vec2 vp = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
-  col *= clamp(1.25 - dot(vp, vp) * 0.8, 0.4, 1.0);
+  col *= clamp(1.22 - dot(vp, vp) * 0.75, 0.45, 1.0);
   col += (h21(gl_FragCoord.xy) - 0.5) / 255.0;
   gl_FragColor = vec4(max(col, 0.0), 1.0);
 }
