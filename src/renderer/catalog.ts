@@ -33,7 +33,9 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'spectrum', label: 'Spectrum', icon: '▁' },
       { id: 'pulsar', label: 'Pulsar', icon: '⩘' },
       { id: 'eclipse', label: 'Eclipse', icon: '●' },
-      { id: 'aegis', label: 'Aegis', icon: '⬣' },
+      { id: 'aegis', label: 'Aegis', icon: '⬣' },      { id: 'airdancers', label: 'Tube Men', icon: 'Ψ' },
+      { id: 'jackpot', label: 'Jackpot', icon: '♦' },
+
     ],
   },
   {
@@ -55,7 +57,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'storm', label: 'Storm', icon: 'ϟ' },
       { id: 'android', label: 'Android', icon: '☤' },
       { id: 'faces', label: 'Maschere', icon: '☺' },
-      { id: 'tribal', label: 'Tribal', icon: '✵' },
+      { id: 'tribal', label: 'Tribal', icon: '✵' },      { id: 'eyewall', label: 'Occhi', icon: '⦿' },
+
     ],
   },
   {
@@ -103,7 +106,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'stringart', label: 'String', icon: '✴' },
       { id: 'neonpoly', label: 'Neon', icon: '⬠' },
       { id: 'rings', label: 'Rings', icon: '◉' },
-      { id: 'hexagons', label: 'Hex', icon: '⏣' },
+      { id: 'hexagons', label: 'Hex', icon: '⏣' },      { id: 'opticon', label: 'Phantom', icon: '◔' },
+
     ],
   },
   {
@@ -147,7 +151,8 @@ export const EFFECT_CATEGORIES: { name: string; effects: { id: EffectId; label: 
       { id: 'grid', label: 'Grid', icon: '⊞' },
       { id: 'shatter', label: 'Shatter', icon: '❖' },
       { id: 'isocontour', label: 'Contour', icon: '⊚' },
-      { id: 'imgbeat', label: 'Immagine a tempo', icon: '▣' },
+      { id: 'imgbeat', label: 'Immagine a tempo', icon: '▣' },      { id: 'chatter', label: 'Dentiere', icon: '⩸' },
+
     ],
   },
 ]

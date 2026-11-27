@@ -551,6 +551,30 @@ export const RECOMMENDED: Record<string, Record<string, Recommendation>> = {
     discharge: { source: 'energy', depth: 0.4, value: 0.7 },
     globe: { source: 'lfo-sine', depth: 0.4, lfoRate: 16, value: 0.33 },
   },
+  eyewall: {
+    unison: { source: 'bass', depth: 0.3, value: 0.6 },
+    nerve: { source: 'high', depth: 0.4, value: 0.6 },
+    dive: { source: 'lfo-sine', depth: 0.3, lfoRate: 64, value: 0.7 },
+  },
+  airdancers: {
+    flail: { source: 'mid', depth: 0.3, value: 0.8 },
+    blast: { source: 'energy', depth: 0.3, value: 0.8 },
+    canon: { source: 'lfo-sine', depth: 0.4, lfoRate: 32, value: 0.3 },
+  },
+  chatter: {
+    bite: { source: 'bass', depth: 0.3, value: 0.9 },
+    swing: { source: 'lfo-sine', depth: 0.4, lfoRate: 32, value: 0.5 },
+    ranks: { source: 'lfo-square', depth: 0.3, lfoRate: 32, value: 3 },
+  },
+  opticon: {
+    honest: { source: 'bass', depth: 0.25, value: 0 },
+    drive: { source: 'energy', depth: 0.3, value: 0.8 },
+    grain: { source: 'lfo-square', depth: 0.25, lfoRate: 32, value: 14 },
+  },
+  jackpot: {
+    payout: { source: 'bass', depth: 0.3, value: 0.8 },
+    reels: { source: 'lfo-square', depth: 0.5, lfoRate: 64, value: 3 },
+  },
   kickworks: {
     trail: { source: 'bass', depth: 0.4, value: 0.6 },
     gravity: { source: 'mid', depth: 0.5, value: 0.3 },

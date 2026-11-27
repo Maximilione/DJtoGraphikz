@@ -162,6 +162,11 @@ import bloomPrefilterFrag from './shaders/bloomPrefilter.frag?raw'
 import blurFrag from './shaders/blur.frag?raw'
 import masterFrag from './shaders/master.frag?raw'
 import deckmixFrag from './shaders/deckmix.frag?raw'
+import eyewallFrag from './shaders/eyewall.frag?raw'
+import airdancersFrag from './shaders/airdancers.frag?raw'
+import chatterFrag from './shaders/chatter.frag?raw'
+import opticonFrag from './shaders/opticon.frag?raw'
+import jackpotFrag from './shaders/jackpot.frag?raw'
 import motionblurFrag from './shaders/motionblur.frag?raw'
 import cameraFrag from './shaders/camera.frag?raw'
 
@@ -266,6 +271,11 @@ export type EffectId =
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
   | 'singularity' | 'aurora' | 'armillary' | 'telemetry' | 'aegis'
   | 'titanhand' | 'kaijustomp' | 'robokaiju'
+  | 'jackpot'
+  | 'opticon'
+  | 'chatter'
+  | 'airdancers'
+  | 'eyewall'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -595,6 +605,11 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   titanhand: titanhandFrag,
   kaijustomp: kaijustompFrag,
   robokaiju: robokaijuFrag,
+  jackpot: jackpotFrag,
+  opticon: opticonFrag,
+  chatter: chatterFrag,
+  airdancers: airdancersFrag,
+  eyewall: eyewallFrag,
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
