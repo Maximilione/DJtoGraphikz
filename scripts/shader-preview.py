@@ -25,7 +25,8 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 ATLAS = {"Hero0": "toku-hero-0.png", "Hero1": "toku-hero-1.png", "Hero2": "toku-hero-2.png",
-         "Foot": "toku-foot.png", "Hand": "toku-hand.png", "Robo": "toku-robo.png", "Kaiju": "toku-kaiju.png"}
+         "Foot": "toku-foot.png", "Hand": "toku-hand.png", "Robo": "toku-robo.png", "Kaiju": "toku-kaiju.png",
+         "Tube": "toku-tube.png", "Teeth": "toku-teeth.png"}
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 TONE = ("\nvec4 djgTone(vec3 c, float a) {\n"
         "  c *= 1.1;\n"
@@ -123,7 +124,7 @@ const canvas = document.getElementById('c');
 canvas.width = W; canvas.height = H;
 const gl = canvas.getContext('webgl2');
 gl.getExtension('EXT_color_buffer_float');
-// sprite sheets: filtered and not premultiplied, flipped like three's TextureLoader, on units 5..
+// sprite sheets: nearest, flipped like three's TextureLoader, on units 5..
 const ATLAS = {};
 if (document.readyState !== 'complete') await new Promise(r => addEventListener('load', r));   // the <img> tags below
 { let unit = 5;
@@ -132,10 +133,9 @@ if (document.readyState !== 'complete') await new Promise(r => addEventListener(
     const tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    for (const f of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, f, gl.LINEAR);
+    for (const f of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, f, gl.NEAREST);
     for (const f of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, f, gl.CLAMP_TO_EDGE);
     ATLAS['uAtlas' + name] = unit++;
   }

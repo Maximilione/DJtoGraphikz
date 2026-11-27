@@ -131,6 +131,8 @@ import tokuFootUrl from './assets/toku-foot.png?url'
 import tokuHandUrl from './assets/toku-hand.png?url'
 import tokuRoboUrl from './assets/toku-robo.png?url'
 import tokuKaijuUrl from './assets/toku-kaiju.png?url'
+import tokuTubeUrl from './assets/toku-tube.png?url'
+import tokuTeethUrl from './assets/toku-teeth.png?url'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -1247,6 +1249,8 @@ export class Engine {
         uAtlasRobo: { value: this.getSpriteSheet(tokuRoboUrl) },
         uAtlasKaiju: { value: this.getSpriteSheet(tokuKaijuUrl) },
       } : {}),
+      ...(id === 'airdancers' ? { uAtlasTube: { value: this.getSpriteSheet(tokuTubeUrl) } } : {}),
+      ...(id === 'chatter' ? { uAtlasTeeth: { value: this.getSpriteSheet(tokuTeethUrl) } } : {}),
       // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
       // applyEffectUniforms computes them once a frame instead of per vertex
       ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),
@@ -1920,11 +1924,9 @@ export class Engine {
     let tex = this.spriteSheets.get(url)
     if (!tex) {
       tex = new THREE.TextureLoader().load(url)
-      // cel sheets hold smooth fields (edge, class, normal) that the shader thresholds: they must be filtered
-      tex.magFilter = tex.minFilter = THREE.LinearFilter
+      tex.magFilter = tex.minFilter = THREE.NearestFilter
       tex.generateMipmaps = false
       tex.colorSpace = THREE.NoColorSpace
-      tex.premultiplyAlpha = false
       tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
       this.spriteSheets.set(url, tex)
     }

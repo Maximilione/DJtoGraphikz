@@ -1,0 +1,138 @@
+{
+  "atlas": "toku-tube.png",
+  "cell": [
+    160,
+    160
+  ],
+  "cols": 6,
+  "rows": 3,
+  "stand": 150,
+  "base": 1,
+  "encoding": "R = material * 40 (1 fabric, 2 white, 3 mouth, 4 blower, 5 ink), G = tone * 50 (fabric 1..5)",
+  "anchor": "blower centre on x = cell width / 2, feet on the bottom line; rocket and tumble centred",
+  "blower_top": [
+    20,
+    23
+  ],
+  "poses": {
+    "heap": {
+      "cell": 0,
+      "size": [
+        104,
+        50
+      ]
+    },
+    "sag": {
+      "cell": 1,
+      "size": [
+        89,
+        96
+      ]
+    },
+    "stand": {
+      "cell": 2,
+      "size": [
+        98,
+        150
+      ]
+    },
+    "buckle_a": {
+      "cell": 3,
+      "size": [
+        106,
+        132
+      ]
+    },
+    "buckle_b": {
+      "cell": 4,
+      "size": [
+        101,
+        136
+      ]
+    },
+    "scurve": {
+      "cell": 5,
+      "size": [
+        99,
+        145
+      ]
+    },
+    "bow": {
+      "cell": 6,
+      "size": [
+        92,
+        99
+      ]
+    },
+    "yell": {
+      "cell": 7,
+      "size": [
+        58,
+        156
+      ]
+    },
+    "stump": {
+      "cell": 8,
+      "size": [
+        77,
+        54
+      ]
+    },
+    "flop_r": {
+      "cell": 9,
+      "size": [
+        81,
+        111
+      ]
+    },
+    "flop_l": {
+      "cell": 10,
+      "size": [
+        76,
+        115
+      ]
+    },
+    "lean_a": {
+      "cell": 11,
+      "size": [
+        89,
+        143
+      ]
+    },
+    "lean_b": {
+      "cell": 12,
+      "size": [
+        88,
+        145
+      ]
+    },
+    "corkscrew": {
+      "cell": 13,
+      "size": [
+        104,
+        149
+      ]
+    },
+    "rocket": {
+      "cell": 14,
+      "size": [
+        98,
+        130
+      ]
+    },
+    "tumble": {
+      "cell": 15,
+      "size": [
+        95,
+        112
+      ]
+    },
+    "blower": {
+      "cell": 16,
+      "size": [
+        34,
+        22
+      ]
+    }
+  }
+}

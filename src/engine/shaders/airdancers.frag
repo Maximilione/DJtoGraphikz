@@ -21,493 +21,256 @@ uniform float flail;
 uniform float canon;
 uniform float blast;
 
-// Tube Men: a row of inflatable tube dancers on a night forecourt, floodlit
-// from behind through haze. Air pressure is the music. Each dancer is a chain
-// of capsules whose joint angles are a closed form of the clocks, so both
-// windows draw the same picture and nothing is integrated:
-//   - below the fold point the tube is full of air, straight and fat; above it
-//     the fabric is limp, curls toward gravity and flaps;
-//   - a beat is one breath: the kick sends a bulge from the blower to the head
-//     in half a beat, pushing the fold up until the tube snaps straight and the
-//     arms fly up, then the pressure leaks and the fold sinks again;
-//   - 16 beats are one phrase: a bow in the fourth bar, then one tube tears off
-//     its blower and corkscrews away while a new one fills in its place;
-//   - 32 beats swap the floodlights to the other side.
-// A pixel only tests the two dancers whose lanes bracket it (plus the one in
-// flight), so the cost does not grow with the row.
+// Tube Men: a row of inflatable tube dancers on a car lot at night, as pixel
+// art. The dancers are sprites (scripts/toku/ingest_tube.py: 17 cells of
+// 160 x 160, R = material, G = tone) drawn 1 texel = 1 virtual pixel on a grid
+// of about 216 lines; the lot is painted on the same grid in flat tones.
+// Nothing is interpolated: every lane picks a drawing from the beat clock and
+// holds it, and what moves does so by whole pixels.
+//   - silence: limp heaps that now and then heave half up; a little energy and
+//     they hang over their blowers; more and they stand;
+//   - a beat: snap straight with the arms up (and a hop), then lean or buckle
+//     to one side, the other side on the next beat; canon delays each lane;
+//   - beats 12-14 of the 16: the whole row bows;
+//   - top of the phrase: one tube tears off and flies away, a new one grows;
+//   - 32 beats: the floodlight changes tower and colour.
+// A pixel reads the two lanes that can reach it (three when the lanes are
+// closer than a hanging head is long) and the tube in flight: 4 texels at most.
+uniform sampler2D uAtlasTube;
 
-const float PI = 3.14159265;
-const vec3 INK = vec3(0.025, 0.02, 0.055);
-const float GROUND = -0.36;     // where the blowers stand
-const float HZ = -0.27;         // horizon of the forecourt
-const int NS = 9;               // spine capsules, the last one is the head
-const float SEG = 0.0745;       // one body capsule; the head is 1.4 of these
-const float RAD = 0.05;
-const float ARM = 0.068;
+const float F_HEAP = 0.0, F_SAG = 1.0, F_STAND = 2.0, F_BUCKA = 3.0, F_BUCKB = 4.0, F_SCURVE = 5.0, F_BOW = 6.0, F_YELL = 7.0,
+            F_STUMP = 8.0, F_FLOPR = 9.0, F_FLOPL = 10.0, F_LEANA = 11.0, F_LEANB = 12.0, F_CORK = 13.0, F_ROCKET = 14.0, F_TUMBLE = 15.0, F_BLOWER = 16.0;
+const float BH = 22.0;                   // rows of a cell taken by the blower: the tube hops, the blower stays
+const float REACH_L = 59.0, REACH_R = 76.0;   // how far a pose goes left and right of its blower
 
 float h11(float x) { return fract(sin(x * 127.1) * 43758.5453); }
 float h21(vec2 p) { return fract(sin(dot(p, vec2(27.17, 91.43))) * 43758.5453); }
-float vn(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
-             mix(h21(i + vec2(0.0, 1.0)), h21(i + 1.0), f.x), f.y);
+
+vec2 gVQ;                                // the virtual pixel being painted
+float gBC, gPB, gN, gSp, gX0, gGY, gHW, gTorn, gFly, gFlail, gBlast, gCanon;
+vec3 gLamp, gLight;
+
+float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
+// a gradient cut into n flat bands; only the last w of each band is dithered into the next
+float bands(float v, float n, float w) { return floor(clamp(v, 0.0, 1.0) * n + bayer2(gVQ) * w) / n; }
+// the five tones of a material: shadows lose saturation and drift to violet, the highlight to warm yellow
+vec3 ramp(vec3 b, float lv) {
+  if (lv > 4.5) return mix(b, vec3(1.0, 0.95, 0.72), 0.5);
+  if (lv > 3.5) return b;
+  float k = lv < 1.5 ? 0.3 : lv < 2.5 ? 0.52 : 0.76;
+  float t = lv < 1.5 ? 0.4 : lv < 2.5 ? 0.22 : 0.08;
+  vec3 s = b * k;
+  return mix(mix(s, vec3(dot(s, vec3(0.299, 0.587, 0.114))), 0.6 * t), vec3(0.14, 0.08, 0.36) * (0.5 + k), t);
+}
+// a palette colour as paint: never darker than a fabric under a floodlight
+vec3 paint(float i) {
+  i = mod(i, 3.0);
+  vec3 c = i < 0.5 ? uColor1 : i < 1.5 ? uColor2 : uColor3;
+  return mix(c * max(1.0, 0.75 / max(max(c.r, max(c.g, c.b)), 0.05)), vec3(1.0), 0.06);
 }
 
-vec3 gCol;                      // the frame being painted
-float gPx;                      // one screen pixel, in scene units
-float gInk;                     // half width of the pen line
-vec3 gKey;                      // where the floodlight comes from
-vec3 gLit, gShade;              // the two cel tones, as multipliers of the fabric colour
-vec2 gRimDir;
-
-// one dancer, posed: spine joints and radii, the two arms, the face
-vec2 gJ[10];
-float gR[10];
-vec2 gA[8];                     // left arm 0..3, right arm 4..7
-float gArmR;
-float gHead;                    // air in the head: 1 taut .. 0 limp
-float gYell;                    // 1 = the round mouth of the one in flight
-float gLook;
-float gBj, gBh;                 // which capsule of the chain was nearest, and where along it
-
-float cut(float d) { return 1.0 - smoothstep(-gPx, gPx, d); }
-vec2 dir(float a) { return vec2(sin(a), cos(a)); }   // 0 = up, positive leans right
-vec3 pal(float k) { k = mod(k, 3.0); return k < 0.5 ? uColor1 : k < 1.5 ? uColor2 : uColor3; }
-
-// nearest capsule of a chain: x distance, yz the direction away from the axis, w the radius there
-void cap(vec2 p, vec2 a, vec2 b, float ra, float rb, inout vec4 best) {
-  vec2 pa = p - a, ba = b - a;
-  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-  vec2 q = pa - ba * h;
-  float l = length(q), r = mix(ra, rb, h);
-  if (l - r < best.x) { best = vec4(l - r, q / max(l, 1e-5), r); gBh = h; }
+// one texel of a cell: c.x from the left, c.y from the bottom, whole numbers
+vec4 cellTex(float f, vec2 c) {
+  vec2 px = vec2(mod(f, 6.0) * 160.0 + c.x, floor(f / 6.0) * 160.0 + 159.0 - c.y);
+  return texture2D(uAtlasTube, vec2((px.x + 0.5) / 960.0, 1.0 - (px.y + 0.5) / 480.0));
+}
+vec3 dress(vec4 t, vec3 fab) {
+  float mat = floor(t.r * 255.0 / 40.0 + 0.5), lv = floor(t.g * 255.0 / 50.0 + 0.5);
+  if (mat > 4.5) return vec3(0.03, 0.025, 0.07);
+  vec3 c = mat < 1.5 ? ramp(fab, lv)
+         : mat < 2.5 ? vec3(0.97, 0.97, 0.93)
+         : mat < 3.5 ? (lv < 2.0 ? fab * 0.16 + vec3(0.05, 0.0, 0.04) : vec3(0.88, 0.12, 0.17))
+         : (lv < 1.5 ? vec3(0.1, 0.105, 0.15) : lv < 2.5 ? vec3(0.17, 0.18, 0.24) : lv < 3.5 ? vec3(0.25, 0.26, 0.33) : vec3(0.36, 0.37, 0.45));
+  return c * gLight;
 }
 
-// a tube as the pen draws it: ink line, two flat tones split along its length by
-// the coordinate across it, a rim of the next colour on the edge facing the light
-void tube(vec4 t, vec3 base, vec3 rim, float sparkle) {
-  if (t.x > gInk + gPx) return;
-  float rho = clamp(1.0 + t.x / t.w, 0.0, 1.0);
-  float lam = dot(t.yz, gKey.xy) * rho + gKey.z * sqrt(1.0 - rho * rho);
-  float e = gPx / t.w;
-  vec3 c = base * mix(gShade, gLit, smoothstep(-e, e, lam - 0.12));
-  // sequins: single cells of the weave catch the lamps
-  vec2 cell = floor(gl_FragCoord.xy / max(uResolution.y / 270.0, 1.0));
-  c += sparkle * step(0.975, h21(cell + floor(uTime * 12.0) * 7.0)) * step(0.0, lam);
-  float rm = smoothstep(0.74, 0.74 + 2.0 * e, rho) * smoothstep(0.2, 0.35, dot(t.yz, gRimDir));
-  c = mix(c, rim, rm);
-  gCol = mix(gCol, INK, cut(t.x - gInk));
-  gCol = mix(gCol, c, cut(t.x));
+// what lane i shows now: drawing, mirrored or not, hop in pixels (negative = squashed), age of the puff of air (< 0 none)
+vec4 lanePose(float i) {
+  float bl = gBC - gCanon * i / gN;
+  float k = floor(bl), u = bl - k;
+  float r1 = h11(i * 7.3 + k * 1.7), r2 = h11(i * 3.1 + floor(bl * 0.25) * 5.3), r3 = h11(i * 5.9 + k * 2.3 + 4.0);
+  float eLow = 0.07 + 0.03 * h11(i + 3.0), eUp = 0.2 + 0.08 * h11(i + 9.0);
+  if (gFly > 0.5 && abs(i - gTorn) < 0.5 && gPB < 4.0)     // torn off: a bare blower, then a new tube fills
+    return gPB < 1.0 ? vec4(F_BLOWER, 0.0, 0.0, gPB * 0.34)
+         : gPB < 2.0 ? vec4(F_STUMP, 0.0, gPB < 1.12 ? 1.0 : 0.0, -1.0)
+         : gPB < 2.75 ? vec4(F_SAG, 0.0, 0.0, -1.0)
+         : gPB < 3.5 ? vec4(F_FLOPR, 0.0, 0.0, -1.0)
+         : vec4(F_STAND, 0.0, gPB < 3.62 ? 2.0 : 0.0, -1.0);
+  if (uEnergy < eLow) {                                    // silence: a heap, that sometimes heaves half up
+    float b4 = mod(bl, 4.0);
+    if (r2 < 0.35 && b4 > 1.0 && b4 < 3.0) return vec4(b4 > 1.5 && b4 < 2.5 ? F_FLOPR : F_STUMP, 0.0, 0.0, -1.0);
+    return vec4(F_HEAP, 0.0, 0.0, -1.0);
+  }
+  if (uEnergy < eUp) {                                     // not enough air to stand: it hangs to one side, then the other
+    float m = mod(k, 4.0);
+    return vec4(m < 0.5 ? F_FLOPR : m < 1.5 ? F_SAG : m < 2.5 ? F_FLOPL : F_SAG, 0.0, u < 0.12 ? 1.0 : 0.0, -1.0);
+  }
+  if (gPB >= 12.0 && gPB < 14.0)                           // the bow, all together
+    return gPB < 12.25 ? vec4(F_SAG, 0.0, 0.0, -1.0)
+         : gPB < 13.5 ? vec4(F_BOW, 0.0, gPB >= 13.0 && gPB < 13.12 ? -2.0 : 0.0, -1.0)
+         : gPB < 13.75 ? vec4(F_SAG, 0.0, 0.0, -1.0)
+         : vec4(F_STAND, 0.0, 2.0, -1.0);
+  float side = mod(k, 2.0);
+  if (u < 0.2) {                                           // the kick: straight up, arms in the air
+    bool hard = gBlast > 1.3 || (gBlast > 0.6 && uBassHit > 0.5);
+    return vec4(hard ? F_YELL : F_STAND, 0.0, floor(gBlast * (u < 0.1 ? 3.0 : 1.5) + 0.5), u);
+  }
+  if (r1 >= gFlail * 0.5 + max(gBlast - 1.0, 0.0) * 0.3)   // upright sway
+    return vec4(r3 < 0.5 ? F_LEANA : F_LEANB, side, u > 0.6 ? -1.0 : 0.0, u);
+  if (u < 0.5) return vec4(r3 < 0.5 ? F_BUCKA : F_BUCKB, side, 0.0, u);
+  return vec4(r3 < gFlail - 1.0 ? F_CORK : F_SCURVE, side, u > 0.75 ? -1.0 : 0.0, u);
 }
 
-// The pose of dancer i of n on its blower at x0. q = beats into the phrase,
-// lim = how far sideways it may reach (the next lane), grow = air let into a
-// new tube, over = overpressure before it tears off, bow = the row's bow.
-void pose(float i, float n, float x0, float lim, float q, float grow, float over, float bow, float hs) {
-  float ph = i * 2.399;
-  // the canon: each lane hears the beat a little later; unison around the phrase events
-  float cw = smoothstep(0.0, 1.5, q) * (1.0 - smoothstep(11.0, 12.0, q));
-  float c = uBeatClock - cw * canon * i / n;
-  float phi = fract(c);
-  float sig = mod(floor(c) + i, 2.0) * 2.0 - 1.0;          // which way this beat buckles
-  float kick = clamp(max(uBassHit, 1.5 * uBass), 0.0, 1.0) * blast * grow * (1.0 - bow);
-  float kc = min(kick, 1.0);
-
-  // with no music one after the other heaves half up and sinks back
-  float heave = pow(max(sin(uTime * 0.45 + ph * 1.3), 0.0), 6.0) * (1.0 - smoothstep(0.1, 0.4, uEnergy));
-  float press = clamp(0.04 + 0.3 * heave + 0.75 * smoothstep(0.15, 0.85, uEnergy) + 0.35 * uBass
-                      + 0.1 * sin(uTime * 1.3 + ph * 2.1) * smoothstep(0.1, 0.3, uEnergy), 0.0, 1.0) * grow;
-  press = mix(press, 1.0, over);
-
-  // at rest: where the tube folds and how far the limp part has fallen
-  float f0 = mix(0.02, 1.3, smoothstep(0.0, 1.0, press));
-  float a0 = mix(2.2, 0.55 * flail, press) * (mod(i, 2.0) * 2.0 - 1.0);
-  // the breath of a beat: the bulge front leaves the blower fast and is out of the
-  // head by half a beat, pushing the fold ahead of it; then the fold sinks back to a
-  // height the bass holds up
-  float front = phi < 0.5 ? 5.6 * phi * (1.0 - phi) : 2.8 * phi;
-  float fk = clamp(0.15 + 0.4 * uBass + 0.15 * press - 0.15 * (flail - 1.0), 0.12, 0.95);
-  float fc = phi < 0.5 ? max(fk, front) : mix(1.4, fk, smoothstep(0.5, 1.0, phi));
-  float ac = flail * mix(1.5, 0.9, uBass) * (phi < 0.5 ? 1.0 - smoothstep(0.2, 0.45, phi) : smoothstep(0.5, 0.95, phi));
-  float sk = sig * (2.0 * smoothstep(0.3, 0.5, phi) - 1.0);   // the side changes while it stands straight
-  float f = mix(f0, fc, kc);
-  float A = mix(a0, ac * sk, kc);
-  f = mix(f, 0.36, bow);
-  A = mix(A, 2.3, bow);
-  f = mix(f, 1.6, over);
-
-  float sgn = A / (abs(A) + 0.15);
-  float curl = mix(0.62, 0.16, smoothstep(0.1, 0.7, press)) * (1.0 - 0.6 * kc);  // gravity on the limp part, per joint
-  float hang = mix(3.7, 2.4, smoothstep(0.1, 0.45, press)); // an empty tube curls under itself on the ground, a half full one only droops
-  float crumple = 0.9 * (1.0 - smoothstep(0.1, 0.5, press));
-  float shake = flail * 0.07 * smoothstep(0.12, 0.4, press) * (1.0 - smoothstep(0.6, 0.95, press)) + 0.05 * over;
-  // follow-through: the top overshoots past upright after the snap and rings down
-  float tau = phi - 0.28;
-  float whip = tau > 0.0 ? kick * flail * 0.45 * sig * exp(-7.0 * tau) * sin(20.0 * tau) : 0.0;
-  hs *= 1.0 + 0.05 * over;
-
-  float a = 0.05 * sin(uTime * 1.9 + ph) - 0.07 * flail * sk * kc;  // the hips answer the head
-  float aSh = 0.0;
-  vec2 P = vec2(x0, GROUND + 0.035);
-  gJ[0] = P;
-  for (int j = 0; j < NS; j++) {
-    float s = float(j) / float(NS);
-    float lj = smoothstep(f - 0.08, f + 0.15, s);          // 0 full of air .. 1 limp
-    if (j > 0) {
-      float x = (s - f) / 0.17;
-      a += A * exp(-x * x) / 2.71;                         // the fold, a bump of bend that slides along the joints
-      a += sgn * curl * lj;
-      a += lj * flail * (0.24 * s * sin(uTime * 6.1 - 7.0 * s + ph) + 0.13 * sin(uBassTime * 9.0 - 11.0 * s + ph * 2.0));
-      a += lj * crumple * sin(float(j) * 2.6 + ph * 3.0);     // an empty tube lies in folds, not in an arc
-      a += shake * sin(uTime * 31.0 + float(j) * 2.1 + ph);
-      a += 0.78 * whip * s * s;
-    }
-    float al = hang * tanh(a / hang);
-    if (j == 6) aSh = al;
-    float bx = (s - front) / 0.16;
-    float r = RAD * hs * mix(1.0, 0.9, s) * (1.0 - mix(0.42, 0.3, press) * lj) * (1.0 + 0.5 * min(kick, 1.25) * exp(-bx * bx * 1.6) * min(1.0, 0.3 + 6.0 * s) + 0.22 * over);
-    gR[j] = r;
-    float len = (j == NS - 1 ? 1.4 : 1.0) * SEG * hs;
-    vec2 N = P + dir(al) * len;
-    // fabric lies on the tarmac: a capsule that would go under keeps its length along the ground
-    float fl = GROUND + 0.7 * r;
-    if (N.y < fl) {
-      float dy = fl - P.y;
-      N = vec2(P.x + sqrt(max(len * len - dy * dy, 0.0)) * clamp(sin(al) * 4.0, -1.0, 1.0), fl);
-    }
-    gJ[j + 1] = vec2(x0 + lim * tanh((N.x - x0) / lim), N.y);
-    P = N;
-  }
-  gR[NS] = gR[NS - 1] * 0.97;
-  gHead = 1.0 - smoothstep(f - 0.08, f + 0.15, 0.95);
-  gLook = clamp(-sgn * (1.0 - gHead) + 0.6 * sk * kc, -1.0, 1.0);
-  gYell = over;
-
-  // arms: full of air only while the fold is above the shoulders; the lift of the
-  // snap reaches each capsule a little later than the one before
-  float air = (1.0 - smoothstep(f - 0.08, f + 0.15, 0.667)) * smoothstep(0.2, 0.45, press + 0.4 * kc);
-  gArmR = 0.021 * hs * (0.8 + 0.2 * air);
-  float la = lim + 0.035;
-  for (int sd = 0; sd < 2; sd++) {
-    float sg = float(sd) * 2.0 - 1.0;
-    vec2 Q = gJ[6] + dir(aSh + sg * PI * 0.5) * 0.7 * gR[6];
-    gA[sd * 4] = Q;
-    for (int k = 0; k < 3; k++) {
-      float fk3 = float(k);
-      float t = phi - 0.14 - 0.07 * fk3;
-      float up = kick * smoothstep(0.0, 0.1, t) * (1.0 - smoothstep(0.15, 0.5, t));
-      float wv = flail * (0.2 + 1.0 * uMid) * (fk3 + 1.0) / 3.0 * sin(uTime * 7.3 - fk3 * 1.2 + ph + sg * 0.9);
-      float full = aSh + sg * (PI * 0.5 - 0.15 - min(1.3 * up, 1.4) - 0.9 * over) + wv * (1.0 - 0.7 * min(up, 1.0));
-      float limp = sg * (PI - 0.28) + 0.25 * wv - 0.5 * a * fk3 / 3.0;
-      Q += dir(mix(limp, full, air)) * ARM * hs;
-      Q.y = max(Q.y, GROUND + 0.6 * gArmR);
-      gA[sd * 4 + k + 1] = vec2(x0 + la * tanh((Q.x - x0) / la), Q.y);
-    }
-  }
-}
-
-// head of the torn-off tube, t beats after it left its blower at s0
-vec2 rpath(float t, vec2 s0, float dx) {
-  if (t < 0.0) return s0 + vec2(0.0, 0.9 * t);
-  float sc = 1.0 / (1.0 + 0.55 * t * t);
-  float th = 3.6 * t;
-  vec2 c = mix(s0, vec2(s0.x + dx * 0.3, 0.02), 1.0 - exp(-1.6 * t));
-  return c + 0.24 * sc * vec2(dx * (1.0 - cos(th)), sin(th));
-}
-
-// the one in flight: its joints are where the head was a moment ago, so the
-// body lies along the corkscrew it flew; the open end flaps
-void rocketPose(float t, vec2 s0, float dx) {
-  float dt = SEG / 0.9;
-  float tt = t;
-  for (int j = NS; j >= 0; j--) {
-    float w = float(NS - j) / float(NS);
-    float sc = 1.0 / (1.0 + 0.55 * max(tt, 0.0) * max(tt, 0.0));
-    vec2 H = rpath(tt, s0, dx);
-    vec2 tn = normalize(H - rpath(tt - 0.02, s0, dx) + vec2(0.0, 1e-5));
-    float lv = smoothstep(0.0, 0.5, t);
-    gJ[j] = H + vec2(tn.y, -tn.x) * 0.045 * sc * lv * w * w * sin(uTime * 26.0 - w * 9.0);
-    gR[j] = RAD * sc * (1.0 - 0.25 * smoothstep(0.0, 3.0, t)) * (1.0 - 0.25 * w * lv);
-    tt -= dt * (j == NS ? 1.4 : 1.0);
-  }
-  float sc5 = gR[6] / RAD;
-  vec2 back = normalize(gJ[5] - gJ[6]);
-  float ab = atan(back.x, back.y);
-  gArmR = 0.02 * sc5;
-  for (int sd = 0; sd < 2; sd++) {
-    float sg = float(sd) * 2.0 - 1.0;
-    vec2 Q = gJ[6] + vec2(back.y, -back.x) * sg * 0.7 * gR[6];
-    gA[sd * 4] = Q;
-    for (int k = 0; k < 3; k++) {
-      Q += dir(ab + sg * (0.75 - 0.2 * float(k)) + 0.35 * sin(uTime * 21.0 - float(k) * 1.3 + sg)) * ARM * sc5;
-      gA[sd * 4 + k + 1] = Q;
-    }
-  }
-  gHead = 1.0;
-  gYell = 1.0;
-  gLook = 0.0;
-}
-
-// paint the posed dancer: arms behind, fringe, body, face
-void paint(vec2 p, vec3 base, vec3 rim, float seed) {
-  vec4 aL = vec4(1e3, 0.0, 0.0, 1.0), aR = aL, bd = aL, hd = aL;
-  for (int k = 0; k < 3; k++) {
-    float r0 = gArmR * (1.0 - 0.1 * float(k)), r1 = gArmR * (0.9 - 0.1 * float(k));
-    cap(p, gA[k], gA[k + 1], r0, r1, aL);
-    cap(p, gA[k + 4], gA[k + 5], r0, r1, aR);
-  }
-  float jn = 0.0;
-  for (int j = 0; j < NS - 1; j++) {
-    float was = bd.x;
-    cap(p, gJ[j], gJ[j + 1], gR[j], gR[j + 1], bd);
-    if (bd.x < was) jn = float(j) + step(0.5, gBh);
-  }
-  cap(p, gJ[NS - 1], gJ[NS], gR[NS - 1], gR[NS], hd);
-  if (min(min(aL.x, aR.x), min(bd.x, hd.x)) > 0.11) return;
-  float sparkle = 0.9 * uHigh;
-  tube(aL, base, rim, sparkle);
-  tube(aR, base, rim, sparkle);
-
-  // the head frame: v across, u along
-  vec2 hv = gJ[NS] - gJ[NS - 1];
-  float hl = max(length(hv), 1e-4), hr = gR[NS];
-  vec2 u = hv / hl, v = vec2(u.y, -u.x);
-  float lx = dot(p - gJ[NS - 1], v), ly = dot(p - gJ[NS - 1], u);
-  float k1 = hr / 0.046;                                   // everything on the head scales with it
-
-  // fringe on the open top: five strands that fan out, flutter with the highs and
-  // hang toward the ground when the head has no air
-  float fr = 0.07 * k1, fy = ly - hl - 0.4 * hr;
-  if (fy > -0.02 * k1 && fy < fr && abs(lx) < 3.0 * hr) {
-    float t = clamp(fy / fr, 0.0, 1.0);
-    float uu = (lx + (1.0 - gHead) * 0.06 * k1 * t * t * v.y) / (1.0 + 0.9 * t);
-    float sp = hr * 0.42;
-    float kk = clamp(floor(uu / sp + 0.5), -2.0, 2.0);
-    float wob = (0.003 + 0.011 * uHigh) * k1 * t * sin(fy / k1 * 95.0 - uTime * 17.0 + kk * 2.4 + seed);
-    float d = abs(uu - kk * sp - wob) * (1.0 + 0.9 * t) - 0.0085 * k1 * (1.0 - 0.65 * t);
-    gCol = mix(gCol, INK, cut(d - gInk * 0.7));
-    gCol = mix(gCol, mix(rim, base, 0.35) * gLit, cut(d));
-  }
-
-  // a crease where the fabric folds: a pen stroke from the inside of the bend at the nearest joint
-  float crease = 0.0;
-  if (bd.x < 0.0 && bd.x < hd.x && jn > 0.5) {
-    int ji = int(jn);
-    vec2 J = gJ[ji], d0 = normalize(J - gJ[ji - 1] + 1e-5), d1 = normalize(gJ[ji + 1] - J + 1e-5);
-    float bend = d0.x * d1.y - d0.y * d1.x;
-    vec2 nb = normalize(d1 - d0 + 1e-5);
-    vec2 pj = p - J;
-    float along = dot(pj, nb);
-    float dl = length(pj - nb * clamp(along, 0.3 * gR[ji], 1.2 * gR[ji]));
-    crease = cut(dl - gInk * 0.55) * smoothstep(0.3, 0.6, abs(bend));
-  }
-  if (hd.x < bd.x) bd = hd;
-  tube(bd, base, rim, sparkle);
-  gCol = mix(gCol, INK, crease);
-
-  // the face, printed on the fabric: lids and mouth follow the air in the head
-  float m = cut(hd.x + gInk * 0.5);
-  if (m > 0.0) {
-    float er = 0.0155 * k1;
-    vec2 e = vec2(abs(lx) - 0.02 * k1, (ly - 0.74 * hl) / 1.25);
-    float de = length(e) - er;
-    float blink = step(0.955, fract(uTime * 0.21 + seed * 0.37));
-    float lid = max(0.72 * (1.0 - gHead), blink) * (1.0 - gYell);
-    vec3 fc = mix(INK, vec3(0.96, 0.95, 0.9), cut(de + gInk * 0.8));
-    vec2 pu = vec2(lx - sign(lx) * 0.02 * k1 - gLook * 0.006 * k1, (ly - 0.74 * hl) / 1.25 + (0.5 - gHead) * 0.006 * k1);
-    fc = mix(fc, INK, cut(length(pu) - er * mix(0.45, 0.3, gYell)) * cut(de + gInk * 0.8));
-    float lidLine = e.y - er * (1.0 - 2.0 * lid);
-    fc = mix(fc, base * gShade * 1.25, cut(-lidLine) * cut(de + gInk * 0.8));
-    fc = mix(fc, INK, cut(abs(lidLine) - gInk * 0.5) * cut(de) * step(0.02, lid));
-    gCol = mix(gCol, fc, m * cut(de));
-
-    // mouth: a grin with teeth when taut, turned down when limp, round in flight
-    float my = 0.3 * hl, w = 0.031 * k1;
-    float xx = 1.0 - (lx / w) * (lx / w);
-    float cv = mix(-0.5, 1.0, gHead) * 0.021 * k1;
-    float ya = my - cv * xx, yb = my - 0.15 * cv * xx;
-    float dm = max(max(min(ya, yb) - ly, ly - max(ya, yb)) - 0.0035 * k1, abs(lx) - w);
-    dm = mix(dm, length(vec2(lx, ly - my) / vec2(0.9, 1.2)) - 0.013 * k1, gYell);
-    vec3 mc = mix(INK, vec3(0.96, 0.95, 0.9), cut(dm + gInk * 1.2) * step(yb - 0.006 * k1, ly) * step(0.5, gHead) * (1.0 - gYell));
-    gCol = mix(gCol, mc, m * cut(dm));
-  }
-}
-
-// how many times lane i has been refilled by phrase ph: the lanes take turns with a
-// stride coprime to n, so each one goes once every n phrases
-float genOf(float i, float ph, float n, float stride) {
-  float g = floor(ph / n), k0 = n * g;
-  for (int k = 0; k < 7; k++) {
-    float kk = k0 + float(k);
-    if (kk > ph) break;
-    if (abs(mod(kk * stride, n) - i) < 0.5) g += 1.0;
-  }
-  return g;
-}
-
-// floodlight towers on one side: x haze glow and beams, y silhouette, z lamp faces
-vec3 rig(vec2 p, float side, float hw) {
-  float glow = 0.0, sil = 0.0, lamp = 0.0;
-  for (int k = 0; k < 2; k++) {
-    float sz = k == 0 ? 1.0 : 0.6;
-    vec2 L = vec2(side * hw * (k == 0 ? 0.8 : 0.36), k == 0 ? 0.4 : 0.29);
-    vec2 d = p - L;
-    sil = max(sil, cut(max(abs(d.x) - 0.007 * sz, d.y)) * step(HZ, p.y));
-    vec2 b = abs(d) - vec2(0.075, 0.02) * sz;
-    sil = max(sil, cut(max(b.x, b.y) - 0.006 * sz));
-    float cx = d.x / (0.0375 * sz);
-    lamp += cut(length(vec2((fract(cx) - 0.5) * 0.0375 * sz, d.y)) - 0.012 * sz) * step(abs(cx), 2.0) * sz;
-    glow += sz * 0.012 / (dot(d, d) + 0.012);
-    vec2 aim = normalize(vec2(-side * 0.6, -1.0));
-    float al = dot(d, aim), ang = dot(d, vec2(aim.y, -aim.x)) / (0.04 * sz + 0.5 * max(al, 0.0));
-    glow += sz * 0.55 * exp(-ang * ang * 1.6) * smoothstep(-0.02, 0.05, al) / (1.0 + 3.0 * al)
-          * (0.75 + 0.25 * sin(ang * 9.0 + float(k) * 2.0 + uTime * 0.15) * sin(ang * 23.0 - uTime * 0.11));
-  }
-  return vec3(glow, sil, lamp);
+// a parked car of the lot, side on: x from its tail, y from the ground
+vec4 car(vec2 p, float id) {
+  if (p.x < 0.0 || p.x > 36.0 || p.y < 0.0 || p.y > 15.0 || h11(id * 3.3) < 0.18) return vec4(0.0);
+  if (p.y < 4.0) return abs(p.x - 7.5) < 3.0 || abs(p.x - 28.5) < 3.0 ? vec4(0.02, 0.02, 0.04, 1.0) : vec4(0.0);
+  vec3 body = mix(vec3(0.09, 0.1, 0.17), paint(id) * 0.3, 0.5 * step(0.4, h11(id * 1.9)));
+  if (p.y < 9.0) return vec4(p.y > 8.0 ? body * 1.5 : p.x > 34.0 && p.y > 6.0 ? vec3(0.9, 0.8, 0.5) : body, 1.0);
+  float in0 = 8.0 + (p.y > 13.0 ? 2.0 : 0.0), in1 = 27.0 - (p.y > 12.0 ? 2.0 : 0.0);
+  if (p.x < in0 || p.x > in1) return vec4(0.0);
+  if (p.y > 14.0) return vec4(mix(body * 1.5, gLamp, 0.35), 1.0);
+  return vec4(p.x > in0 + 2.0 && p.x < in1 - 2.0 && abs(p.x - 17.5) > 1.0 ? vec3(0.13, 0.17, 0.27) : body, 1.0);
 }
 
 void main() {
-  vec2 uv = gl_FragCoord.xy / uResolution;
-  float aspect = uResolution.x / uResolution.y;
-  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
-  float hw = 0.5 * aspect;
-  gPx = 1.0 / uResolution.y;
-  gInk = max(0.0042, 1.6 * gPx);
+  // one grid of virtual pixels for everything: about 216 lines, a whole number of screen pixels each
+  float scl = max(1.0, floor(uResolution.y / 216.0 + 0.5));
+  gVQ = floor(gl_FragCoord.xy / scl);
+  vec2 half_ = floor(0.5 * uResolution / scl);
+  vec2 q = gVQ - half_;                                    // whole numbers, 0 in the middle
+  gHW = half_.x;
+  gGY = 38.0 - half_.y;                                    // the line the blowers stand on
+  gN = clamp(floor(dancers + 0.5), 1.0, 7.0);
+  gFlail = clamp(flail, 0.0, 2.0);
+  gBlast = clamp(blast, 0.0, 2.0);
+  gCanon = clamp(canon, 0.0, 1.0);
+  gSp = min(floor((2.0 * gHW - 30.0) / gN), 104.0);
+  gX0 = -floor(gN * gSp * 0.5) + floor(gSp * 0.5) - 8.0;   // the first lane; the others every gSp. Heads hang to the right: the row sits a little left
+  gBC = uBeatClock;
+  gPB = mod(gBC, 16.0);
+  float phrase = floor(gBC / 16.0);
+  gTorn = min(floor(h11(phrase * 3.7 + 1.0) * gN), gN - 1.0);
+  gFly = step(0.14, uEnergy);
+  float lampN = floor(gBC / 32.0);
+  float sL = mod(lampN, 2.0) < 0.5 ? -1.0 : 1.0;           // which tower is lit
+  gLamp = mix(paint(lampN), vec3(1.0, 0.95, 0.85), 0.35);
+  gLight = mix(vec3(0.93, 0.93, 1.0), gLamp, 0.14);
 
-  float n = clamp(floor(dancers + 0.5), 1.0, 7.0);
-  float stride = n < 2.5 ? 1.0 : n < 3.5 ? 2.0 : n < 4.5 ? 3.0 : n < 5.5 ? 2.0 : n < 6.5 ? 5.0 : 3.0;
-  float phrase = floor(uBeatClock / 16.0), q = uBeatClock - 16.0 * phrase;
-
-  // floodlights: every 32 beats the other side takes over, in a new colour
-  float block = floor(uBeatClock / 32.0);
-  float xf = smoothstep(0.0, 1.0, uBeatClock - 32.0 * block);
-  float side = mod(block, 2.0) * 2.0 - 1.0;
-  vec3 lcNow = mix(vec3(1.0, 0.86, 0.66), pal(block), 0.3 + 0.3 * h11(block));
-  vec3 lcOld = mix(vec3(1.0, 0.86, 0.66), pal(block - 1.0), 0.3 + 0.3 * h11(block - 1.0));
-  vec3 lc = mix(lcOld, lcNow, xf);
-  float flash = blast * uBassHit;
-  float amp = (0.5 + 0.4 * uEnergy) * (1.0 + 0.7 * flash);
-  float keyX = side * (2.0 * xf - 1.0);
-  gKey = normalize(vec3(0.9 * keyX, 0.25, 0.3));
-  gRimDir = normalize(vec2(keyX, 0.35));
-  gLit = mix(vec3(1.0), lc, 0.25) * (0.85 + 0.15 * min(flash, 1.0));
-  gShade = vec3(0.24, 0.22, 0.38);
-
-  // night sky, a far roofline, the towers and what they throw into the haze
-  vec3 col = mix(vec3(0.014, 0.016, 0.04), vec3(0.004, 0.005, 0.014), smoothstep(-0.3, 0.5, p.y));
-  // the haze glows everywhere a little, most near the ground and on the lamps' side
-  col += (lc * 0.05 * amp + uColor3 * 0.035) * exp(-max(p.y - HZ, 0.0) * 2.6) * (1.0 + 0.5 * keyX * p.x / hw);
-  float bk = floor(p.x * 3.2 + 40.0);
-  if (p.y < HZ + 0.02 + 0.075 * h11(bk) * step(0.35, h11(bk + 9.0))) col = vec3(0.006, 0.007, 0.016);
-  // the side that leads at full, the other side kept low as a fill
-  float wa = mix(0.3, 1.0, xf), wb = mix(1.0, 0.3, xf);
-  vec3 rg = rig(p, side, hw), ro = rig(p, -side, hw);
-  vec3 gl = (rg.x * wa + ro.x * wb) * lc;
-  float sil = max(rg.y, ro.y), lampf = rg.z * wa + ro.z * wb;
-  // a string of pennants between the towers
-  float cat = 0.445 - 0.07 * (1.0 - p.x * p.x / (hw * hw * 0.64));
-  float pk = floor(p.x * 17.0), pfx = fract(p.x * 17.0) - 0.5;
-  float sway = 0.12 * sin(uTime * 2.3 + pk * 1.7);
-  float pen = max(abs(pfx + sway * (cat - p.y) * 17.0) - 0.42 * (1.0 - (cat - p.y) / 0.04), p.y - cat);
-  if (abs(p.x) < hw * 0.8) {
-    col = mix(col, pal(pk) * 0.16 + lc * 0.03, cut(pen / 17.0) * step(p.y, cat));
-    col = mix(col, vec3(0.008, 0.008, 0.018), cut(abs(p.y - cat) - 0.0015));
-  }
-  col = mix(col, vec3(0.008, 0.008, 0.018), sil);
-  col += gl * amp * 0.36;
-  col += mix(lc, vec3(1.0), 0.6) * lampf * min(amp, 1.2);
-
-  // the forecourt: wet tarmac that smears the lamps, parking bays to the horizon
-  if (p.y < HZ) {
-    float dz = HZ - p.y;
-    vec2 m = vec2(p.x + 0.012 * sin(p.y * 260.0 + p.x * 9.0), HZ + dz * 1.8);
-    vec3 rc = (rig(m, side, hw).x * wa + rig(m, -side, hw).x * wb) * lc;
-    col = vec3(0.014, 0.015, 0.032) + rc * amp * 0.3 * (0.6 + 0.4 * vn(vec2(p.x * 14.0, dz * 90.0)));
-    float bay = abs(fract(p.x / (dz + 0.015) * 0.42 + 0.5) - 0.5) * (dz + 0.015) / 0.42;
-    col += (0.05 + 0.25 * dot(rc, vec3(0.33)) * amp) * cut(bay - 0.0035 - 0.012 * dz) * smoothstep(0.0, 0.03, dz);
-  }
-
-  gCol = col;
-  float W = min(aspect, 2.4) * 0.85;
-  float lanew = W / n;
-  float lim = min(lanew, 0.62) - 0.065;
-  float rl = mod(phrase * stride, n);                      // the lane that tore off at the top of this phrase
-  float nextRl = mod((phrase + 1.0) * stride, n);
-  float bowUp = smoothstep(12.0, 12.9, q) * (1.0 - smoothstep(14.0, 14.45, q)) * smoothstep(0.2, 0.5, uEnergy + 0.4 * uBass);
-  float j0 = floor(p.x / lanew + 0.5 * n - 0.5);
-  for (int k = 0; k < 2; k++) {
-    float i = j0 + float(k);
-    if (i < 0.0 || i > n - 1.0) continue;
-    float x0 = (i + 0.5 - 0.5 * n) * lanew;
-    if (abs(p.x - x0) > lim + 0.11) continue;
-    float gen = genOf(i, phrase, n, stride);
-    vec3 base = pal(i + gen), rim = mix(pal(i + gen + 1.0), vec3(1.0), 0.2) * 1.1;
-    float fresh = abs(i - rl) < 0.5 ? 1.0 : 0.0;
-    float grow = mix(1.0, smoothstep(0.3, 4.0, q), fresh);
-    float over = abs(i - nextRl) < 0.5 ? smoothstep(15.0, 15.85, q) : 0.0;
-    float hs = 0.94 + 0.11 * h11(i * 7.3 + gen * 3.1);
-
-    // on the tarmac: the shadow thrown toward us, away from the lamps, and the fabric's colour in the wet
-    float dn = GROUND - p.y;
-    if (dn > -0.01) {
-      float sx = p.x - x0 + keyX * dn * 0.9;
-      gCol *= 1.0 - 0.55 * exp(-sx * sx / (0.004 + 0.08 * dn * dn)) * smoothstep(-0.01, 0.01, dn) * exp(-dn * 5.0);
-      gCol += base * 0.05 * exp(-abs(p.x - x0) * 9.0 - dn * 14.0) * (0.5 + 0.5 * grow);
-    }
-    pose(i, n, x0, lim, q, grow, over, bowUp, hs);
-    paint(p, base, rim, i * 2.399 + gen);
-
-    // the blower: a squat box with a collar, in front of the foot of the tube
-    vec2 bp = p - vec2(x0, GROUND + 0.004);
-    vec2 bb = abs(bp) - vec2(0.056, 0.026);
-    float db = max(bb.x, bb.y) - 0.006;
-    db = min(db, max(abs(bp.x) - RAD * 0.92, abs(bp.y - 0.036) - 0.009));
-    gCol = mix(gCol, INK, cut(db - gInk));
-    vec3 bc = mix(vec3(0.05, 0.055, 0.09), vec3(0.11, 0.12, 0.18), step(0.0, bp.x * keyX + 0.02));
-    bc = mix(bc, INK, step(abs(fract(bp.x * 55.0) - 0.5), 0.2) * step(abs(bp.y + 0.004), 0.012) * step(abs(bp.x), 0.04));
-    gCol = mix(gCol, bc, cut(db));
-    gCol = mix(gCol, rim * 0.8, cut(db) * cut(abs(bp.y - 0.03) - 0.002) * step(abs(bp.x), 0.058));
-    // the burst of air out of the blower its tube just left
-    if (fresh > 0.5 && q < 1.6) {
-      vec2 pf = p - vec2(x0, GROUND + 0.05 + 0.16 * q);
-      float puff = length(pf * vec2(1.0, 0.8)) - (0.025 + 0.045 * q) * (1.0 + 0.16 * sin(atan(pf.y, pf.x) * 5.0 + i + q * 2.0));
-      float gone = 1.0 - smoothstep(0.8, 1.6, q);
-      gCol = mix(gCol, INK, cut(puff - gInk) * gone * 0.8);
-      gCol = mix(gCol, mix(uColor3 * 0.6, vec3(0.9), 0.6), cut(puff) * gone);
+  float yy = q.y - (gGY + 10.0);                           // above the far edge of the tarmac
+  float xT = gHW - 20.0;                                   // the towers
+  float lampY = gGY + 168.0;
+  // ---- night sky in flat bands, a few stars ----
+  vec3 col = mix(mix(vec3(0.1, 0.07, 0.19), gLamp * 0.22, 0.3), vec3(0.015, 0.02, 0.06), bands(yy / 150.0, 5.0, 0.5));
+  if (yy > 40.0 && h21(q) > 0.9965) col = vec3(0.7, 0.75, 0.9);
+  // ---- the light of the lit tower through the damp air: a wedge, dithered ----
+  {
+    float dy = lampY - q.y, in_ = (q.x - sL * xT) * -sL;
+    if (dy > 0.0 && yy > 0.0 && in_ > 0.3 * dy && in_ < 1.9 * dy) {
+      float b = bayer2(gVQ);
+      if (b < (in_ > 0.7 * dy && in_ < 1.3 * dy ? 0.45 : 0.2)) col = mix(col, gLamp, 0.2);
     }
   }
-
-  // the one that tore off
-  if (q < 4.6) {
-    float x0 = (rl + 0.5 - 0.5 * n) * lanew;
-    float gen = genOf(rl, phrase, n, stride) - 1.0;
-    float hs = 0.94 + 0.11 * h11(rl * 7.3 + gen * 3.1);
-    vec2 s0 = vec2(x0, GROUND + 0.035 + (float(NS) + 0.4) * SEG * hs * 1.05);
-    float dx = abs(x0) < 0.01 ? (h11(phrase) < 0.5 ? -1.0 : 1.0) : -sign(x0);
-    vec2 hp = rpath(q, s0, dx);
-    float sc = 1.0 / (1.0 + 0.55 * q * q);
-    if (length(p - hp) < 0.95 * sc + 0.08) {
-      rocketPose(q, s0, dx);
-      vec3 keep = gCol;
-      float ink = gInk;
-      gInk *= max(sc, 0.4);
-      paint(p, pal(rl + gen), mix(pal(rl + gen + 1.0), vec3(1.0), 0.2) * 1.1, rl * 2.399 + gen);
-      gInk = ink;
-      gCol = mix(keep, gCol, 1.0 - smoothstep(3.6, 4.6, q));
+  // ---- the far roofline ----
+  {
+    float X = q.x + 3000.0, id = floor(X / 28.0), lx = X - id * 28.0;
+    float hh = 12.0 + floor(26.0 * h11(id * 1.7));
+    if (yy >= 0.0 && yy < hh && lx > 0.5) {
+      col = yy > hh - 1.5 ? vec3(0.08, 0.085, 0.16) : vec3(0.04, 0.045, 0.095);
+      vec2 wc = vec2(floor(lx / 6.0), floor(yy / 8.0)), wf = vec2(mod(lx, 6.0), mod(yy, 8.0));
+      if (wf.x > 1.5 && wf.x < 4.5 && wf.y > 2.5 && wf.y < 6.5 && yy < hh - 3.0 && lx < 24.0 && h21(wc + id * 7.0) > 0.8) col = vec3(0.42, 0.34, 0.2);
     }
   }
-  col = gCol;
-
-  // ground haze in front of everything low, in colour 3, lit by the lamps
-  float hz = exp(-max(p.y - HZ, 0.0) * 6.5) * exp(-max(HZ - p.y, 0.0) * 3.0);
-  float drift = 0.55 + 0.45 * vn(vec2(p.x * 2.2 + uTime * 0.05, p.y * 7.0 - uTime * 0.02)) * (0.6 + 0.8 * vn(vec2(p.x * 5.5 - uTime * 0.08, p.y * 13.0)));
-  vec3 fog = uColor3 * 0.3 + lc * 0.12 * amp * (0.5 + 0.35 * keyX * p.x / hw);
-  col = mix(col, fog, 0.4 * hz * drift) + fog * 0.3 * hz * drift;
-
-  // soft knee: the lamps and the flash roll off instead of clipping flat
-  vec3 kn = max(col - 0.8, 0.0);
-  col = min(col, 0.8) + 0.2 * (1.0 - exp(-kn * 2.5));
-  col += (h21(gl_FragCoord.xy) - 0.5) / 255.0;
+  // ---- the string of pennants between the towers ----
+  {
+    float sag = 1.0 - (q.x / xT) * (q.x / xT);
+    if (abs(q.x) < xT) {
+      if (q.y == lampY - 3.0 - floor(8.0 * sag)) col = vec3(0.3, 0.3, 0.38);
+      float id = floor((q.x + 7.0) / 14.0), lx = q.x - id * 14.0;
+      float cs = 1.0 - (id * 14.0 / xT) * (id * 14.0 / xT);
+      float dy = lampY - 3.0 - floor(8.0 * cs) - q.y;
+      // the bass flutters them: the tip leans one pixel, held
+      lx -= dy > 3.5 ? mod(floor(uBassTime * 3.0 + gBC) + id, 2.0) * 2.0 - 1.0 : 0.0;
+      if (dy >= 1.0 && dy <= 8.0 && abs(lx) <= 4.0 - dy * 0.5) col = paint(id) * (lx < 0.0 ? 0.62 : 0.8);
+    }
+  }
+  // ---- the two floodlight towers ----
+  for (int s = 0; s < 2; s++) {
+    float sd = s == 0 ? -1.0 : 1.0;
+    vec2 e = vec2(q.x - sd * xT, q.y - lampY);
+    if (yy >= 0.0 && e.y < 0.0 && (abs(e.x) < 1.5 || (abs(e.x) < 3.5 && mod(yy, 12.0) < 1.0))) col = vec3(0.1, 0.105, 0.17);
+    if (abs(e.x) < 10.0 && e.y >= 0.0 && e.y < 8.0) {
+      bool lit = sd == sL;
+      bool face = abs(e.x) < 8.5 && e.y >= 1.0 && e.y < 7.0 && mod(e.x + 8.0, 6.0) >= 1.0;
+      col = !face ? vec3(0.08, 0.085, 0.14) : lit ? mix(gLamp, vec3(1.0), e.y < 5.0 ? 0.75 : 0.45) : vec3(0.17, 0.18, 0.25);
+    }
+  }
+  // ---- the cars at the back of the lot ----
+  if (yy >= 0.0 && yy < 16.0) {
+    float X = q.x + 5000.0, id = floor(X / 46.0);
+    vec4 c = car(vec2(X - id * 46.0 - 5.0, yy), id);
+    col = mix(col, c.rgb, c.a);
+  }
+  // ---- wet tarmac: a pool of the lamp's colour, the bays, the lamp's streak ----
+  float d = -yy;                                           // rows toward the viewer
+  vec3 wet = vec3(0.0);
+  if (d > 0.0) {
+    vec2 e = vec2((q.x - sL * xT * 0.3) / 190.0, (d - 22.0) / 34.0);
+    float pool = bands(1.0 - length(e), 3.0, 0.5);
+    wet = vec3(0.05, 0.055, 0.09) + gLamp * 0.1 * pool;
+    col = wet;
+    float xs = q.x / (1.0 + d * 0.012);
+    if (d > 5.0 && d < 42.0 && mod(xs - gX0 + gSp * 0.5 + 0.75, gSp) < 1.5 * (1.0 + d * 0.012) && abs(xs) < gN * gSp * 0.5 + 2.0) col = vec3(0.3, 0.3, 0.3) * (0.6 + 0.6 * pool);
+    if (d > 4.0 && d < 6.0 && abs(q.x) < gN * gSp * 0.5) col = vec3(0.3, 0.3, 0.3) * (0.6 + 0.6 * pool);
+    if (abs(q.x - sL * xT) < 3.0 && mod(d, 3.0) < 2.0) col = mix(col, gLamp, 0.4);
+    if (d < 1.5) col *= 0.6;
+  }
+  // ---- the row: right to left, so a hanging head is in front of the next blower ----
+  float cy = q.y - gGY + 1.0;                              // row of the cell, from its bottom
+  bool refl = cy < 1.0;                                    // below the feet: the wet ground mirrors them
+  float iHi = floor((q.x + REACH_L - gX0) / gSp);
+  for (int k = 0; k < 3; k++) {
+    if (k == 2 && gSp >= 68.0) break;
+    float i = iHi - float(k);
+    if (i < 0.0 || i > gN - 0.5) continue;
+    float lx = q.x - (gX0 + i * gSp);
+    if (lx < -REACH_L - 1.0 || lx > REACH_R + 1.0 || cy > 168.0) continue;
+    vec4 st = lanePose(i);
+    float ry = refl ? 1.0 - cy : cy;
+    // a hop stretches the tube from a row of fabric just above its hem, a squash swallows rows there
+    if (!refl && ry > BH + 4.0) ry = st.z > 0.0 ? max(ry - st.z, BH + 4.0) : ry - st.z;
+    if (refl) lx += mod(ry, 4.0) < 2.0 ? 0.0 : 1.0;
+    float cx = st.y > 0.5 ? 79.0 - lx : lx + 80.0;
+    if (cx >= 0.0 && cx < 160.0 && ry >= 0.0 && ry < 160.0 && (!refl || mod(ry, 2.0) < 1.0)) {
+      vec4 t = cellTex(st.x, vec2(cx, ry));
+      if (t.a > 0.5) col = refl ? mix(wet, dress(t, paint(i)), 0.45) : dress(t, paint(i));
+    }
+    // the air the kick pushes out of the blower, both sides
+    if (st.w >= 0.0 && st.w < 0.34 && gBlast > 0.0 && !refl) {
+      float pr = floor((3.0 + 22.0 * st.w) * (0.4 + 0.3 * gBlast) * (0.7 + 0.3 * uBassHit));
+      vec2 e = vec2(abs(q.x - (gX0 + i * gSp)) - 17.0 - floor(st.w * 40.0), cy - 7.0 - floor(st.w * 14.0));
+      if (dot(e, e) < pr * pr && (st.w < 0.17 || bayer2(gVQ) < 0.45)) col = e.y - e.x > 0.0 ? vec3(0.62, 0.64, 0.74) : vec3(0.4, 0.42, 0.54);
+    }
+  }
+  // ---- the one that tore off: the rocket, then tumbling a quarter turn at a time ----
+  if (gFly > 0.5 && gPB < 4.0) {
+    float cL = gX0 + gTorn * gSp;
+    float dir = cL > 0.0 ? -1.0 : 1.0;
+    float t = gPB * 0.25;
+    // the open end of the rocket leaves from the blower
+    vec2 pos = floor(vec2(cL + dir * (40.0 + (gHW + 50.0 + abs(cL)) * t * (0.4 + 0.6 * t)), gGY + 84.0 + 42.0 * sin(t * 2.6)));
+    vec2 c = q - pos + 80.0;
+    if (c.x >= 0.0 && c.x < 160.0 && c.y >= 0.0 && c.y < 160.0) {
+      float f = F_ROCKET;
+      if (gPB >= 1.5) {
+        f = F_TUMBLE;
+        float r = mod(floor((gPB - 1.5) * 2.0), 4.0);
+        c = r < 0.5 ? c : r < 1.5 ? vec2(c.y, 159.0 - c.x) : r < 2.5 ? 159.0 - c : vec2(159.0 - c.y, c.x);
+      }
+      if (dir < 0.0) c.x = 159.0 - c.x;
+      vec4 tx = cellTex(f, c);
+      if (tx.a > 0.5) col = dress(tx, paint(gTorn));
+    }
+  }
   gl_FragColor = vec4(col, 1.0);
 }
