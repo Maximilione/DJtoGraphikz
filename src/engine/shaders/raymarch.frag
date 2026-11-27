@@ -61,7 +61,7 @@ void main() {
   gRep = 2.2 / max(repscale, 0.3);
 
   // stay near the axis of the carved tube
-  vec3 ro = vec3(0.18 * sin(t * 0.22), 0.15 * cos(t * 0.17), t * (0.9 + uBass * 0.6) + uBassTime * 0.3);
+  vec3 ro = vec3(0.18 * sin(t * 0.22), 0.15 * cos(t * 0.17), t * 0.9 + uBassTime * 0.9);
   float fov = camfov * (1.0 - uBassHit * 0.18);
   vec3 rd = normalize(vec3(uv * rot(uBarPhase * TAU * 0.12 + t * 0.05), fov));
 

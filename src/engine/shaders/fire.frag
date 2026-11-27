@@ -2,6 +2,7 @@ precision highp float;
 
 uniform float uTime;
 uniform float uBass;
+uniform float uBassTime;
 uniform float uMid;
 uniform float uHigh;
 uniform float uEnergy;
@@ -58,7 +59,8 @@ void main() {
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y);
 
   float t = uTime;
-  float rise = t * (1.4 + uBass * 1.1);
+  // uBassTime, not t * uBass: that product jumps the whole flame as t grows
+  float rise = t * 1.4 + uBassTime * 1.1;
 
   // Domain warping: fbm displaced by fbm displaced by fbm — this is what makes
   // the tongues lick and curl instead of scrolling static noise upward

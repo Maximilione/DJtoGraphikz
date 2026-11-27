@@ -93,7 +93,7 @@ void main() {
   float r = length(uv);
   float a = atan(uv.y, uv.x);
 
-  float folds = max(floor(symmetry + uMid * 6.0), 3.0);
+  float folds = max(floor(symmetry), 3.0);
 
   float rt = t * 0.2 + uBassTime * 0.03;
   vec3 front = mandalaLayer(r, a, folds, rt, t);
