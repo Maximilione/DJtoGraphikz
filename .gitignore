@@ -4,3 +4,6 @@ dist/
 .DS_Store
 *.log
 __pycache__/
+
+# fogli di pose generati, sorgente degli sprite (83 MB): servono solo a yarn gen:sprites
+scripts/toku/art/
