@@ -33,9 +33,12 @@ function bodyLines(src: string): string[] {
   return src.split('\n').filter(l => !/^\s*uniform\b|^\s*#define\b|^\s*varying\b/.test(l))
 }
 
+const CLOCK = '\\b(?:uTime|uBeatClock|uBassTime|TIME|iTime|time)\\b'
+
 /** How the shader body uses a uniform — the lines that mention it, summarized */
 function analyzeUsage(body: string[], key: string) {
-  const re = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+  const k = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`\\b${k}\\b`)
   const lines = body.filter(l => re.test(l))
   const ctx = lines.join(' ')
   return {
@@ -45,6 +48,9 @@ function analyzeUsage(body: string[], key: string) {
     timed: /\b(uTime|TIME|time|t)\b/.test(ctx),
     trig: /\b(sin|cos)\s*\(/.test(ctx),
     gate: /\b(step|smoothstep|if|mix)\s*\(?/.test(ctx),
+    // multiplies a running clock: the engine does not integrate params, so
+    // moving it shifts the phase by clock × delta and the picture jumps
+    rate: new RegExp(`\\b${k}\\b\\s*\\*\\s*${CLOCK}|${CLOCK}\\s*\\*\\s*\\b${k}\\b`).test(ctx),
   }
 }
 
@@ -89,6 +95,7 @@ export function smartMap(engine: Engine): SmartMapResult {
     const named = NAME_RULES.find(r => r.re.test(def.key) || r.re.test(def.label))
     // ISF long inputs expose "<name>_f" as param key but the body uses "<name>"
     const usage = body ? analyzeUsage(body, def.key.replace(/_f$/, '')) : null
+    if (usage?.rate) continue
     const pick: Pick = isBool ? { source: 'beat', depth: 1 }
       : named ? { source: named.source, depth: named.depth, lfoRate: named.lfoRate }
       : usage && usage.uses > 0 ? pickByUsage(usage)
