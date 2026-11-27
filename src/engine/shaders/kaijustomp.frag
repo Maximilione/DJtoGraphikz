@@ -186,8 +186,11 @@ void addBoom(vec2 q, float age, float R, vec3 hue, float seed) {
   age = floor(age * 15.0) / 15.0 + 0.03;
   float grow = 1.0 - exp(-age * 8.0);
   q.y -= R * 0.55 * age;
+  // the noise moves the edge by 0.45 at most: further out than that there is no charge, and no noise to work out
+  float d0 = length(q * vec2(1.0, 0.8)) / (R * (0.2 + 0.8 * grow)) + 0.9 * smoothstep(0.9, 1.6, age);
+  if (d0 > 1.51) return;
   float n = fbm(q * 5.0 / R + vec2(seed * 9.0, -age * 2.5));
-  float d = length(q * vec2(1.0, 0.8)) / (R * (0.2 + 0.8 * grow)) + (n - 0.5) * 0.9 + 0.9 * smoothstep(0.9, 1.6, age);
+  float d = d0 + (n - 0.5) * 0.9;
   if (d > 1.05 || (d > 0.99 && gD < 0.5)) return;
   float fire = clamp(1.0 - age * 1.9, 0.0, 1.0) * (1.25 - d);
   vec3 sm = mix(hue, vec3(0.5, 0.48, 0.47), 0.6);
@@ -199,7 +202,11 @@ void addBoom(vec2 q, float age, float R, vec3 hue, float seed) {
 // wide streaks, white at the head and orange behind, and a hard star at the start
 void addSparks(vec2 q, float age, float R, float seed) {
   if (age <= 0.0 || age > 1.0 || dot(q, q) > R * R * 9.0) return;
-  for (int i = 0; i < 10; i++) {
+  // every streak lies inside a half disc that grows with age and falls under gravity: outside it there is nothing to look for
+  vec2 cc = q + vec2(0.0, 2.2 * R * age * age);
+  float rm = R * (2.91 * age + 0.19) + 2.0 * gVP;
+  int ni = dot(cc, cc) < rm * rm && cc.y > -0.18 * R - 2.0 * gVP ? 10 : 0;
+  for (int i = 0; i < ni; i++) {
     float fi = float(i);
     if (age > 0.45 + 0.55 * h11(fi + seed * 3.0)) continue;                    // each one burns out in its own time
     float an = mix(0.25, 2.9, h11(fi * 1.7 + seed));
@@ -251,7 +258,11 @@ float heel(float m) { return sn(land(m) + m * 0.8 * clamp(pace, 0.3, 3.0)) - sn(
 // chunks of road thrown up by the toes
 void rubble(vec2 q, float age, float seed) {
   if (age <= 0.0 || age > 1.0 || dot(q, q) > 0.6) return;
-  for (int i = 0; i < 5; i++) {
+  // the chunks fly up and out inside a half ring that grows with age and falls: outside it there is none to draw
+  vec2 cc = q + vec2(0.0, 0.75 * age * age);
+  float rm = 0.9 * age + 0.05 + 2.0 * gVP;
+  int ni = dot(cc, cc) < rm * rm && cc.y > -0.05 - 2.0 * gVP ? 5 : 0;
+  for (int i = 0; i < ni; i++) {
     float fi = float(i);
     float an = mix(0.35, 2.6, h11(fi * 1.9 + seed));
     vec2 v = vec2(cos(an), sin(an)) * (0.35 + 0.55 * h11(fi * 2.7 + seed + 3.0));
@@ -418,8 +429,14 @@ vec3 render(vec2 iq) {
   addBoom(p - vec2(fx + 0.5, -0.2), gImpAge * 0.9 + 0.55, dR * 1.2, vec3(0.62, 0.58, 0.52), 12.0);
 
   // ---- smoke machine: wisps along the road, thicker after a stomp, behind the feet and the team ----
-  float hz = fbm(vec2((gQ.x + nv(gSc * 1.2)) * gVP * 2.2 - uTime * 0.05, p.y * 13.0));
-  puff(gHaze * (0.5 + 0.5 * exp(-gImpAge * 2.0)) * exp(-pow((p.y + 0.27) / 0.14, 2.0)) * hz * hz, hazeC, mix(hazeC, vec3(0.95, 0.94, 0.9), 0.5));
+  // the noise is worked out only on the rows where the bank's profile alone clears the lowest threshold of puff()
+  // (a loop of none or one, like the cull in addSparks: the loop that is not entered was measured to cost nothing)
+  float hy = (p.y + 0.27) / 0.14;
+  int nh = gHaze * exp(-hy * hy) > 0.31 ? 1 : 0;
+  for (int i = 0; i < nh; i++) {
+    float hz = fbm(vec2((gQ.x + nv(gSc * 1.2)) * gVP * 2.2 - uTime * 0.05, p.y * 13.0));
+    puff(gHaze * (0.5 + 0.5 * exp(-gImpAge * 2.0)) * exp(-pow((p.y + 0.27) / 0.14, 2.0)) * hz * hz, hazeC, mix(hazeC, vec3(0.95, 0.94, 0.9), 0.5));
+  }
 
   // ---- the feet ----
   float up = ease((gU - 0.5) / 0.22);
@@ -428,12 +445,13 @@ vec3 render(vec2 iq) {
   if (gU > 0.78) footSprite(p, vec2(nxt, -0.3 + 1.3 * (1.0 - dwn * dwn)), dwn > 0.5 ? 1.0 : 0.0);
 
   // ---- the team ----
-  for (int k = 0; k < 3; k++) {
-    vec4 hs = k == 0 ? gS0 : k == 1 ? gS1 : gS2;
+  // the first, the second, the second one's bolt, the third: one copy of the sprite code, run for each
+  for (int j = 0; j < 4; j++) {
+    if (j == 2 && gBolt.z < 0.5) continue;
+    vec4 hs = j == 0 ? gS0 : j == 1 ? gS1 : j == 3 ? gS2 : vec4(gBolt.xy - vec2(0.0, 60.0 * gVP), 0.0, F_BOLT + mod(floor(uTime * 12.0), 4.0));
     vec2 s2 = (p - vec2(hs.x, hs.z)) / vec2(0.075, 0.013);
-    if (dot(s2, s2) < 1.0) gCol = shade(gCol);
-    heroSprite(p, hs.xy, k == 1 ? gBolt.w : 1.0, hs.w, k == 0 ? cA : k == 1 ? cB : cC, float(k));
-    if (k == 1 && gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 60.0 * gVP), -1.0, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
+    if (j != 2 && dot(s2, s2) < 1.0) gCol = shade(gCol);
+    heroSprite(p, hs.xy, j == 1 ? gBolt.w : j == 2 ? -1.0 : 1.0, hs.w, j == 0 ? cA : j == 3 ? cC : cB, j == 0 ? 0.0 : j == 3 ? 2.0 : 1.0);
   }
   addSparks(p - vec2(fx + 1.05, -0.27), (gU * 4.0 * 0.47 - 0.95) * 2.0 * step(0.5, mod(gM, 2.0)), 0.14, gM + 9.0);   // where the bolt lands
   addSparks(p - vec2(fx + 1.2, -0.33), gImpAge * 1.2, 0.2 * (0.3 + 0.7 * gPy), gM);
@@ -443,6 +461,35 @@ vec3 render(vec2 iq) {
   float po = mod(gQ.x + nv(gSc * 2.4) + nv(1.2), nv(6.24)) - nv(1.2);
   if (abs(po) < nv(0.04)) gCol = po < 3.0 - nv(0.04) ? vec3(0.2, 0.2, 0.27) : vec3(0.07, 0.07, 0.12);
   return gCol;
+}
+
+// the team: three strides out of step, a look back as the shadow comes over,
+// and the last in line dives clear and rolls back onto his feet
+// (a function called three times with k written out, not a loop: straight-line code that depends on
+// nothing but uniforms is worked out once a frame, a loop of it once a pixel)
+vec4 hero(int k) {
+  float fk = float(k);
+  float x = 0.07 + 0.31 * fk + 0.02 * sin(uBeatClock * (0.7 + 0.23 * fk) + fk * 2.0);
+  float ly = k == 1 ? -0.44 : -0.36;                  // the one in the middle runs a lane nearer the lens: they are wider than the gaps
+  float hop = 0.045 * sin(clamp(gImpAge * 2.6 - 0.12 * fk, 0.0, 1.0) * 3.14159);
+  float dv = k == 0 ? clamp((gU > 0.5 ? gU - 0.92 : gU + 0.08) / 0.24, 0.0, 1.0) : 0.0;
+  float wT = smoothstep(0.0, 0.08, dv) * (1.0 - smoothstep(0.9, 1.0, dv));
+  hop = mix(hop, 0.12 * sin(dv * 3.14159), wT);
+  x += 0.06 * sin(dv * 3.14159);
+  float lb = k == 2 ? 0.0 : smoothstep(0.5 + 0.06 * fk, 0.6 + 0.06 * fk, gU) * (1.0 - smoothstep(0.84, 0.92, gU));
+  float fr = (lb > 0.5 ? F_LOOK : F_RUN) + floor(fract(uBeatClock * 1.5 + fk * 0.37) * 12.0);
+  if (wT > 0.5) fr = F_FLIP + floor(dv * 11.99);
+  if (k == 1) {
+    // on the stomps with no charges, the second one turns and puts a bolt into the toes
+    float on = mod(gM, 2.0) > 0.5 ? 1.0 : 0.0;
+    float bp = clamp((gU - 0.1) / 0.24, 0.0, 1.0) * on;
+    float act = step(0.001, bp) * step(bp, 0.999);
+    if (act > 0.5) fr = bp < 0.08 ? F_TURN : bp > 0.92 ? F_TURN + 1.0 : F_BLAST + floor(clamp((bp - 0.08) / 0.84, 0.0, 1.0) * 9.99);
+    float fl = clamp((bp - 0.52) / 0.4, 0.0, 1.0);
+    float toe = land(gM) - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0) + 1.0;
+    gBolt = vec4(mix(x - 0.2, toe, fl), mix(-0.22, -0.24, fl), step(0.001, fl) * step(fl, 0.999) * on, act > 0.5 ? -1.0 : 1.0);
+  }
+  return vec4(x, ly + hop, ly, fr);
 }
 
 void main() {
@@ -465,33 +512,9 @@ void main() {
   gU = fract(sb);
   gImpAge = gU * 4.0 * 0.47;
 
-  // the team: three strides out of step, a look back as the shadow comes over,
-  // and the last in line dives clear and rolls back onto his feet
-  for (int k = 0; k < 3; k++) {
-    float fk = float(k);
-    float x = 0.07 + 0.31 * fk + 0.02 * sin(uBeatClock * (0.7 + 0.23 * fk) + fk * 2.0);
-    float ly = k == 1 ? -0.44 : -0.36;                  // the one in the middle runs a lane nearer the lens: they are wider than the gaps
-    float hop = 0.045 * sin(clamp(gImpAge * 2.6 - 0.12 * fk, 0.0, 1.0) * 3.14159);
-    float dv = k == 0 ? clamp((gU > 0.5 ? gU - 0.92 : gU + 0.08) / 0.24, 0.0, 1.0) : 0.0;
-    float wT = smoothstep(0.0, 0.08, dv) * (1.0 - smoothstep(0.9, 1.0, dv));
-    hop = mix(hop, 0.12 * sin(dv * 3.14159), wT);
-    x += 0.06 * sin(dv * 3.14159);
-    float lb = k == 2 ? 0.0 : smoothstep(0.5 + 0.06 * fk, 0.6 + 0.06 * fk, gU) * (1.0 - smoothstep(0.84, 0.92, gU));
-    float fr = (lb > 0.5 ? F_LOOK : F_RUN) + floor(fract(uBeatClock * 1.5 + fk * 0.37) * 12.0);
-    if (wT > 0.5) fr = F_FLIP + floor(dv * 11.99);
-    if (k == 1) {
-      // on the stomps with no charges, the second one turns and puts a bolt into the toes
-      float on = mod(gM, 2.0) > 0.5 ? 1.0 : 0.0;
-      float bp = clamp((gU - 0.1) / 0.24, 0.0, 1.0) * on;
-      float act = step(0.001, bp) * step(bp, 0.999);
-      if (act > 0.5) fr = bp < 0.08 ? F_TURN : bp > 0.92 ? F_TURN + 1.0 : F_BLAST + floor(clamp((bp - 0.08) / 0.84, 0.0, 1.0) * 9.99);
-      float fl = clamp((bp - 0.52) / 0.4, 0.0, 1.0);
-      float toe = land(gM) - gU * 4.0 * 0.2 * clamp(pace, 0.3, 3.0) + 1.0;
-      gBolt = vec4(mix(x - 0.2, toe, fl), mix(-0.22, -0.24, fl), step(0.001, fl) * step(fl, 0.999) * on, act > 0.5 ? -1.0 : 1.0);
-    }
-    vec4 hs = vec4(x, ly + hop, ly, fr);
-    if (k == 0) gS0 = hs; else if (k == 1) gS1 = hs; else gS2 = hs;
-  }
+  gS0 = hero(0);
+  gS1 = hero(1);
+  gS2 = hero(2);
 
   float hit = exp(-gImpAge * 5.0) + 0.1 * gKick;
   gShake = snapv(hit * vec2(0.03 * sin(uTime * 57.0), 0.05 * cos(uTime * 43.0)) + vec2(0.0, -0.03 * exp(-gImpAge * 11.0)));
@@ -506,8 +529,13 @@ void main() {
   // tracking error, only at the high end of the tape: a row slips sideways by a whole pixel
   vq.x += floor(hi * 1.6 * (h11(vq.y + floor(uTime * 30.0) * 3.1) - 0.5) + 0.5);
   vq -= floor(0.5 * uResolution / scl);
-  vec3 c0 = render(vq);
-  vec3 cl = c0;
-  if (hi > 0.0) cl = render(vq - vec2(2.0, 0.0));
+  // the smear's second render is a second pass through the same code, not a second copy of it:
+  // a copy behind `if (hi > 0.0)` cost every pixel as much as the first, tape or no tape
+  vec3 c0, cl;
+  int nr = hi > 0.0 ? 2 : 1;
+  for (int i = 0; i < nr; i++) {
+    cl = render(vq - vec2(i == 0 ? 0.0 : 2.0, 0.0));
+    if (i == 0) c0 = cl;
+  }
   gl_FragColor = vec4(max(tapeLook(c0, cl, gl_FragCoord.xy, tp, hi), 0.0), 1.0);
 }

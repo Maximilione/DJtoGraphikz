@@ -186,8 +186,11 @@ void addBoom(vec2 q, float age, float R, vec3 hue, float seed) {
   age = floor(age * 15.0) / 15.0 + 0.03;
   float grow = 1.0 - exp(-age * 8.0);
   q.y -= R * 0.55 * age;
+  // the noise moves the edge by 0.45 at most: further out than that there is no charge, and no noise to work out
+  float d0 = length(q * vec2(1.0, 0.8)) / (R * (0.2 + 0.8 * grow)) + 0.9 * smoothstep(0.9, 1.6, age);
+  if (d0 > 1.51) return;
   float n = fbm(q * 5.0 / R + vec2(seed * 9.0, -age * 2.5));
-  float d = length(q * vec2(1.0, 0.8)) / (R * (0.2 + 0.8 * grow)) + (n - 0.5) * 0.9 + 0.9 * smoothstep(0.9, 1.6, age);
+  float d = d0 + (n - 0.5) * 0.9;
   if (d > 1.05 || (d > 0.99 && gD < 0.5)) return;
   float fire = clamp(1.0 - age * 1.9, 0.0, 1.0) * (1.25 - d);
   vec3 sm = mix(hue, vec3(0.5, 0.48, 0.47), 0.6);
@@ -199,7 +202,11 @@ void addBoom(vec2 q, float age, float R, vec3 hue, float seed) {
 // wide streaks, white at the head and orange behind, and a hard star at the start
 void addSparks(vec2 q, float age, float R, float seed) {
   if (age <= 0.0 || age > 1.0 || dot(q, q) > R * R * 9.0) return;
-  for (int i = 0; i < 10; i++) {
+  // every streak lies inside a half disc that grows with age and falls under gravity: outside it there is nothing to look for
+  vec2 cc = q + vec2(0.0, 2.2 * R * age * age);
+  float rm = R * (2.91 * age + 0.19) + 2.0 * gVP;
+  int ni = dot(cc, cc) < rm * rm && cc.y > -0.18 * R - 2.0 * gVP ? 10 : 0;
+  for (int i = 0; i < ni; i++) {
     float fi = float(i);
     if (age > 0.45 + 0.55 * h11(fi + seed * 3.0)) continue;                    // each one burns out in its own time
     float an = mix(0.25, 2.9, h11(fi * 1.7 + seed));
@@ -319,8 +326,9 @@ vec3 facade(vec2 p) {
   return col;
 }
 
-// the plaza: a floor of rows, each one scaled by its distance, as a 16-bit console would raster it
-vec3 plaza(vec2 p) {
+// the plaza: a floor of rows, each one scaled by its distance, as a 16-bit console would raster it.
+// wall = the facade at this pixel's mirror image (one copy of facade() serves the wall and its reflection)
+vec3 plaza(vec2 p, vec3 wall) {
   float r = floor((sn(FY) - p.y) / gVP);
   float f = (r + 0.5) * gVP, k = 1.0 + f * 1.6;
   float X = p.x / k;
@@ -333,7 +341,7 @@ vec3 plaza(vec2 p) {
   if (yl >= 0.0 && yl < 2.0 && fract(X / 0.1) > 0.3) col = yl < 1.0 ? vec3(0.86, 0.72, 0.18) : vec3(0.6, 0.46, 0.16);
   // hosed down before the take: the set shows in the tarmac, squashed to half and dimmer with distance
   float rn = nv(0.16);
-  if (r < rn) col = mix(col, facade(vec2(p.x, sn(FY) + (2.0 * r + 0.5) * gVP)), r < 0.4 * rn ? 0.22 : r < 0.7 * rn ? 0.14 : 0.07);
+  if (r < rn) col = mix(col, wall, r < 0.4 * rn ? 0.22 : r < 0.7 * rn ? 0.14 : 0.07);
   // light spilling out of an open bay, in flat steps
   float sx = (p.x - gXd) / 0.22;
   col += gGlow * 0.1 * gOpen * floor(exp(-sx * sx) * exp(-f * 7.0) * 3.0 + 0.5);
@@ -373,7 +381,9 @@ vec3 render(vec2 iq) {
   gQ = floor(p / gVP);
   gD = bayer2(gQ) + 0.125;
   gPx = gVP;
-  gCol = p.y > sn(FY) ? facade(p) : plaza(p);
+  bool up = p.y > sn(FY);
+  vec3 wall = facade(up ? p : vec2(p.x, sn(FY) + (2.0 * floor((sn(FY) - p.y) / gVP) + 0.5) * gVP));
+  gCol = up ? wall : plaza(p, wall);
   // smoke machine: a low bank along the foot of the wall
   float hz = fbm(vec2(p.x * 3.0 - uTime * 0.07, p.y * 24.0));
   vec3 hazeC = mix(vec3(0.66, 0.7, 0.76), gGlow, 0.15);
@@ -384,27 +394,29 @@ vec3 render(vec2 iq) {
   if (gShadow > 0.6 ? ss < 1.0 : (gShadow > 0.15 && ss < 0.7 && gD > 0.5)) gCol = shade(gCol);
 
   float py = clamp(pyro, 0.0, 2.0);
-  // roll call: one charge behind each of them, in their colour
-  if (gPoseAge > 0.0 && py > 0.0) {
-    addBoom(p - vec2(gS0.x - 0.03, -0.17), gPoseAge, 0.26 * py, cA, 1.0);
-    if (gCrew > 1.5) addBoom(p - vec2(gS1.x + 0.05, -0.14), gPoseAge - 0.06, 0.28 * py, cB, 2.0);
-    if (gCrew > 2.5) addBoom(p - vec2(gS2.x - 0.05, -0.15), gPoseAge - 0.12, 0.26 * py, cC, 3.0);
+  // roll call: one charge behind each of them, in their colour; then the dust blown out of the bay
+  // when the doors go. One copy of the charge's code, run for each: a copy per call is paid for by every pixel
+  for (int b = 0; b < 4; b++) {
+    vec2 bo; float ba, br; vec3 bc;
+    if (b == 0) { bo = vec2(gS0.x - 0.03, -0.17); ba = py > 0.0 ? gPoseAge : -1.0; br = 0.26 * py; bc = cA; }
+    else if (b == 1) { bo = vec2(gS1.x + 0.05, -0.14); ba = py > 0.0 && gCrew > 1.5 ? gPoseAge - 0.06 : -1.0; br = 0.28 * py; bc = cB; }
+    else if (b == 2) { bo = vec2(gS2.x - 0.05, -0.15); ba = py > 0.0 && gCrew > 2.5 ? gPoseAge - 0.12 : -1.0; br = 0.26 * py; bc = cC; }
+    else { bo = vec2(gXd, FY + 0.08); ba = gBurstAge > 0.0 ? gBurstAge * 1.1 + 0.55 : -1.0; br = 0.06 + 0.08 * smoothstep(0.0, 0.5, gBurstAge); bc = vec3(0.75, 0.72, 0.68); }
+    addBoom(p - bo, ba, br, bc, b == 3 ? 5.0 : float(b) + 1.0);
   }
-  // dust blown out of the bay when the doors go
-  if (gBurstAge > 0.0) addBoom(p - vec2(gXd, FY + 0.08), gBurstAge * 1.1 + 0.55, 0.06 + 0.08 * smoothstep(0.0, 0.5, gBurstAge), vec3(0.75, 0.72, 0.68), 5.0);
 
   titanHand(p);                           // along the wall, behind the three of them
-  for (int k = 2; k >= 1; k--) {
-    vec4 hh = k == 1 ? gS1 : gS2;
-    if (gCrew < float(k) + 0.5) continue;
-    float ly = k == 1 ? -0.36 : -0.34;
-    blob(p, vec2(hh.x, ly), vec2(0.07, 0.012));
-    heroSprite(p, vec2(hh.x, ly + hh.y), hh.z, hh.w, k == 1 ? cB : cC, float(k));
+  // back to front: the third, the second, the first, then the second one's bolt on its way to the hand.
+  // One copy of the sprite code, run three or four times
+  int ns = gBolt.z > 0.5 ? 4 : 3;
+  for (int j = 0; j < ns; j++) {
+    vec4 hh = j == 0 ? gS2 : j == 1 ? gS1 : j == 2 ? gS0 : vec4(gBolt.x, 0.0, gBolt.w, F_BOLT + mod(floor(uTime * 12.0), 4.0));
+    float who = j == 0 ? 2.0 : j == 2 ? 0.0 : 1.0;
+    if (j < 3 && gCrew < who + 0.5) continue;
+    float ly = j == 0 ? -0.34 : j == 1 ? -0.36 : j == 2 ? -0.385 : gBolt.y - 60.0 * gVP;
+    if (j < 3) blob(p, vec2(hh.x, ly), j == 2 ? vec2(0.075, 0.013) : vec2(0.07, 0.012));
+    heroSprite(p, vec2(hh.x, ly + hh.y), hh.z, hh.w, who < 0.5 ? cA : who < 1.5 ? cB : cC, who);
   }
-  blob(p, vec2(gS0.x, -0.385), vec2(0.075, 0.013));
-  heroSprite(p, vec2(gS0.x, -0.385 + gS0.y), gS0.z, gS0.w, cA, 0.0);
-  // the second one's bolt, on its way to the hand
-  if (gBolt.z > 0.5) heroSprite(p, gBolt.xy - vec2(0.0, 60.0 * gVP), gBolt.w, F_BOLT + mod(floor(uTime * 12.0), 4.0), cB, 1.0);
 
   // practical sparks: the slam, the two pats, the doors
   addSparks(p - vec2(gSlamX, -0.26), gImpAge * 1.3, 0.22 * (0.5 + 0.5 * py), 1.0);
@@ -424,6 +436,78 @@ vec3 render(vec2 iq) {
     if (td < 0.23) gCol = td < 0.19 && vn(p * 24.0) + 0.9 * (tq.y - tq.x) > 0.62 ? vec3(0.07, 0.15, 0.1) : vec3(0.035, 0.06, 0.07);
   }
   return gCol;
+}
+
+// the team: every change of action is a cross-fade of joint angles, and each
+// of the three runs the routine a little later than the one before
+// (a function called three times with k written out, not a loop: straight-line code that depends on
+// nothing but uniforms is worked out once a frame, a loop of it once a pixel: it was 3 ms of the frame at 4K)
+vec4 hero(int k, float xn) {
+  float fk = float(k);
+  // they are about 76 px wide: the roll call stands 0.4 apart, half way between the bay and the middle of the
+  // set so that all three fit. room = how far a hero can go on the hand's side before he leaves the frame
+  float off = k == 0 ? 0.0 : k == 1 ? 0.4 : -0.4;
+  float start = gXd * 0.5 - 0.02 + off, next = xn * 0.5 - 0.02 + off;
+  float room = 0.7 - gXd * gSide;
+  float flee = clamp(k == 0 ? gSlamX : k == 1 ? gXd + gSide * min(1.08, room) : gXd - gSide * 0.32, -0.72, 0.72);
+  float flee2 = k == 0 ? gXd + gSide * min(0.72, room - 0.08) : flee;
+  float t1 = 0.3 + 0.025 * fk;
+  float a = kf(0.13 + 0.02 * fk, t1), c = kf(0.752 + 0.012 * fk, 0.86 + 0.004 * fk);
+  float j = k == 0 ? kf(0.455, 0.585) : 0.0;
+  float x = mix(mix(mix(start, flee, ease(a)), flee2, ease(j)), next, ease(c));
+  float bA = smoothstep(0.0, 0.1, a) * (1.0 - smoothstep(0.8, 0.96, a));
+  float bC = smoothstep(0.0, 0.1, c) * (1.0 - smoothstep(0.84, 1.0, c));
+  float roll = k == 2 ? a : j;
+  float wTum = (k == 1 ? 0.0 : 1.0) * smoothstep(0.0, 0.07, roll) * (1.0 - smoothstep(0.93, 1.0, roll));
+  float wRun = (k == 2 ? 0.0 : bA) + bC;
+  float skid = (k == 2 ? 0.0 : smoothstep(0.78, 0.96, a) * (1.0 - kf(t1 + 0.012, t1 + 0.05))) + 0.8 * smoothstep(0.8, 1.0, c) * (1.0 - kf(0.866, 0.88));
+  float late = gTc - 0.87 - 0.006 * fk;
+  float pp = gTc > 0.5 ? late / 0.075 : 1.0;
+  float wPose = gTc > 0.5 ? smoothstep(0.0, 0.2, pp) : 1.0 - smoothstep(0.045 + 0.012 * fk, 0.08 + 0.012 * fk, gTc);
+  float face = sign(gXd + gSide * 0.15 - x + 1e-3);
+  if (a > 0.001 && a < 0.97) face = sign(flee - start + 1e-3);
+  if (j > 0.001 && j < 0.999) face = gSide;
+  if (c > 0.001 && c < 0.97) face = sign(next - flee2 + 1e-3);
+  if (wPose > 0.5) face = 1.0;
+  float lb = k == 2 ? 0.0 : smoothstep(0.3, 0.42, a) * (1.0 - smoothstep(0.66, 0.8, a));
+  float hop = k == 0 ? 0.14 * sin(j * 3.14159) : k == 2 ? 0.06 * sin(a * 3.14159) : 0.03 * sin(kf(0.5, 0.56) * 3.14159);
+  // which drawing: the action that weighs most picks the animation, its progress the frame
+  float fr = F_STANCE + floor(fract(uBeatClock * 0.5 + fk * 0.31) * 8.0);
+  if (wRun > 0.35) fr = (lb > 0.5 ? F_LOOK : F_RUN) + floor(fract(uBeatClock * 1.5 + fk * 0.37) * 12.0);
+  if (skid > 0.45) fr = F_SKID + floor(clamp((skid - 0.45) / 0.5, 0.0, 1.0) * 5.99);
+  if (wPose > 0.5) fr = F_POSE + floor(clamp(pp, 0.0, 1.0) * 11.99);
+  if (wTum > 0.5) fr = F_FLIP + floor(roll * 11.99);
+  // a beat of turning round before each run: nobody flips like a card
+  if ((a > 0.001 && a < 0.07) || (c > 0.001 && c < 0.06)) fr = F_TURN + (a > 0.035 || c > 0.03 ? 1.0 : 0.0);
+  // and they fight back, each with a move of his own
+  if (k == 0) {
+    // the first one lands a flying kick on the fist while it is still shaking
+    float fkp = kf(0.6, 0.675);
+    if (fkp > 0.001 && fkp < 0.999) {
+      fr = F_FKICK + floor(fkp * 7.99);
+      face = -gSide;
+      x = mix(x, gXd + gSide * 0.5, ease(clamp((fkp - 0.2) / 0.5, 0.0, 1.0)) * (1.0 - ease((fkp - 0.8) / 0.2)));
+      hop = 0.2 * smoothstep(0.2, 0.45, fkp) * (1.0 - smoothstep(0.75, 0.95, fkp));
+    }
+  }
+  if (k == 1) {
+    // the second one fires an energy bolt at it while it gropes
+    float bp = kf(0.335, 0.435);
+    if (bp > 0.001 && bp < 0.999) { fr = F_BLAST + floor(bp * 9.99); face = -gSide; }
+    float fl = kf(0.385, 0.43);
+    gBolt = vec4(mix(x - gSide * 0.2, gHit.x, fl), mix(-0.14, gHit.y, fl), step(0.001, fl) * step(fl, 0.999), -gSide);
+    // the slam throws him off his feet; he is up again before the doors shut
+    float kd = kf(0.5, 0.56), up = kf(0.6, 0.72);
+    if (gTc >= 0.5 && gTc < 0.6) { fr = F_KNOCK + floor(kd * 7.99); face = -gSide; x += gSide * 0.07 * step(1.0, room) * ease(kd); hop = 0.0; }
+    if (gTc >= 0.6 && gTc < 0.72) { fr = F_GETUP + floor(up * 9.99); face = -gSide; x += gSide * 0.07 * step(1.0, room); hop = 0.0; }
+  }
+  if (k == 2) {
+    // the third one comes in under the arm with a roundhouse
+    float rk = kf(0.6, 0.68);
+    if (rk > 0.001 && rk < 0.999) { fr = F_KICK + floor(rk * 7.99); face = sign(gXd + gSide * 0.1 - x + 1e-3); }
+    if (gTc > 0.4 && gTc < 0.48) fr = F_PUNCH + floor(kf(0.4, 0.48) * 7.99);
+  }
+  return vec4(x, hop, face, fr);
 }
 
 void main() {
@@ -492,76 +576,9 @@ void main() {
   gHit = gW + vec2(gSide * 0.5, 0.0);
   gShadow = ease(kf(0.42, 0.5)) * (1.0 - ease(kf(0.56, 0.62)));
 
-  // the team: every change of action is a cross-fade of joint angles, and each
-  // of the three runs the routine a little later than the one before
-  for (int k = 0; k < 3; k++) {
-    float fk = float(k);
-    // they are about 76 px wide: the roll call stands 0.4 apart, half way between the bay and the middle of the
-    // set so that all three fit. room = how far a hero can go on the hand's side before he leaves the frame
-    float off = k == 0 ? 0.0 : k == 1 ? 0.4 : -0.4;
-    float start = gXd * 0.5 - 0.02 + off, next = xn * 0.5 - 0.02 + off;
-    float room = 0.7 - gXd * gSide;
-    float flee = clamp(k == 0 ? gSlamX : k == 1 ? gXd + gSide * min(1.08, room) : gXd - gSide * 0.32, -0.72, 0.72);
-    float flee2 = k == 0 ? gXd + gSide * min(0.72, room - 0.08) : flee;
-    float t1 = 0.3 + 0.025 * fk;
-    float a = kf(0.13 + 0.02 * fk, t1), c = kf(0.752 + 0.012 * fk, 0.86 + 0.004 * fk);
-    float j = k == 0 ? kf(0.455, 0.585) : 0.0;
-    float x = mix(mix(mix(start, flee, ease(a)), flee2, ease(j)), next, ease(c));
-    float bA = smoothstep(0.0, 0.1, a) * (1.0 - smoothstep(0.8, 0.96, a));
-    float bC = smoothstep(0.0, 0.1, c) * (1.0 - smoothstep(0.84, 1.0, c));
-    float roll = k == 2 ? a : j;
-    float wTum = (k == 1 ? 0.0 : 1.0) * smoothstep(0.0, 0.07, roll) * (1.0 - smoothstep(0.93, 1.0, roll));
-    float wRun = (k == 2 ? 0.0 : bA) + bC;
-    float skid = (k == 2 ? 0.0 : smoothstep(0.78, 0.96, a) * (1.0 - kf(t1 + 0.012, t1 + 0.05))) + 0.8 * smoothstep(0.8, 1.0, c) * (1.0 - kf(0.866, 0.88));
-    float late = gTc - 0.87 - 0.006 * fk;
-    float pp = gTc > 0.5 ? late / 0.075 : 1.0;
-    float wPose = gTc > 0.5 ? smoothstep(0.0, 0.2, pp) : 1.0 - smoothstep(0.045 + 0.012 * fk, 0.08 + 0.012 * fk, gTc);
-    float face = sign(gXd + gSide * 0.15 - x + 1e-3);
-    if (a > 0.001 && a < 0.97) face = sign(flee - start + 1e-3);
-    if (j > 0.001 && j < 0.999) face = gSide;
-    if (c > 0.001 && c < 0.97) face = sign(next - flee2 + 1e-3);
-    if (wPose > 0.5) face = 1.0;
-    float lb = k == 2 ? 0.0 : smoothstep(0.3, 0.42, a) * (1.0 - smoothstep(0.66, 0.8, a));
-    float hop = k == 0 ? 0.14 * sin(j * 3.14159) : k == 2 ? 0.06 * sin(a * 3.14159) : 0.03 * sin(kf(0.5, 0.56) * 3.14159);
-    // which drawing: the action that weighs most picks the animation, its progress the frame
-    float fr = F_STANCE + floor(fract(uBeatClock * 0.5 + fk * 0.31) * 8.0);
-    if (wRun > 0.35) fr = (lb > 0.5 ? F_LOOK : F_RUN) + floor(fract(uBeatClock * 1.5 + fk * 0.37) * 12.0);
-    if (skid > 0.45) fr = F_SKID + floor(clamp((skid - 0.45) / 0.5, 0.0, 1.0) * 5.99);
-    if (wPose > 0.5) fr = F_POSE + floor(clamp(pp, 0.0, 1.0) * 11.99);
-    if (wTum > 0.5) fr = F_FLIP + floor(roll * 11.99);
-    // a beat of turning round before each run: nobody flips like a card
-    if ((a > 0.001 && a < 0.07) || (c > 0.001 && c < 0.06)) fr = F_TURN + (a > 0.035 || c > 0.03 ? 1.0 : 0.0);
-    // and they fight back, each with a move of his own
-    if (k == 0) {
-      // the first one lands a flying kick on the fist while it is still shaking
-      float fkp = kf(0.6, 0.675);
-      if (fkp > 0.001 && fkp < 0.999) {
-        fr = F_FKICK + floor(fkp * 7.99);
-        face = -gSide;
-        x = mix(x, gXd + gSide * 0.5, ease(clamp((fkp - 0.2) / 0.5, 0.0, 1.0)) * (1.0 - ease((fkp - 0.8) / 0.2)));
-        hop = 0.2 * smoothstep(0.2, 0.45, fkp) * (1.0 - smoothstep(0.75, 0.95, fkp));
-      }
-    }
-    if (k == 1) {
-      // the second one fires an energy bolt at it while it gropes
-      float bp = kf(0.335, 0.435);
-      if (bp > 0.001 && bp < 0.999) { fr = F_BLAST + floor(bp * 9.99); face = -gSide; }
-      float fl = kf(0.385, 0.43);
-      gBolt = vec4(mix(x - gSide * 0.2, gHit.x, fl), mix(-0.14, gHit.y, fl), step(0.001, fl) * step(fl, 0.999), -gSide);
-      // the slam throws him off his feet; he is up again before the doors shut
-      float kd = kf(0.5, 0.56), up = kf(0.6, 0.72);
-      if (gTc >= 0.5 && gTc < 0.6) { fr = F_KNOCK + floor(kd * 7.99); face = -gSide; x += gSide * 0.07 * step(1.0, room) * ease(kd); hop = 0.0; }
-      if (gTc >= 0.6 && gTc < 0.72) { fr = F_GETUP + floor(up * 9.99); face = -gSide; x += gSide * 0.07 * step(1.0, room); hop = 0.0; }
-    }
-    if (k == 2) {
-      // the third one comes in under the arm with a roundhouse
-      float rk = kf(0.6, 0.68);
-      if (rk > 0.001 && rk < 0.999) { fr = F_KICK + floor(rk * 7.99); face = sign(gXd + gSide * 0.1 - x + 1e-3); }
-      if (gTc > 0.4 && gTc < 0.48) fr = F_PUNCH + floor(kf(0.4, 0.48) * 7.99);
-    }
-    vec4 hs = vec4(x, hop, face, fr);
-    if (k == 0) gS0 = hs; else if (k == 1) gS1 = hs; else gS2 = hs;
-  }
+  gS0 = hero(0, xn);
+  gS1 = hero(1, xn);
+  gS2 = hero(2, xn);
 
   // camera: hand-held jolt on every hit, in whole pixels
   float hit = exp(-max(gImpAge, 0.0) * 7.0) * step(0.0, gImpAge) + 0.5 * exp(-max(gBurstAge, 0.0) * 8.0) * step(0.0, gBurstAge)
@@ -580,8 +597,13 @@ void main() {
   // tracking error, only at the high end of the tape: a row slips sideways by a whole pixel
   vq.x += floor(hi * 1.6 * (h11(vq.y + floor(uTime * 30.0) * 3.1) - 0.5) + 0.5);
   vq -= floor(0.5 * uResolution / scl);
-  vec3 c0 = render(vq);
-  vec3 cl = c0;
-  if (hi > 0.0) cl = render(vq - vec2(2.0, 0.0));
+  // the smear's second render is a second pass through the same code, not a second copy of it:
+  // a copy behind `if (hi > 0.0)` cost every pixel as much as the first, tape or no tape
+  vec3 c0, cl;
+  int nr = hi > 0.0 ? 2 : 1;
+  for (int i = 0; i < nr; i++) {
+    cl = render(vq - vec2(i == 0 ? 0.0 : 2.0, 0.0));
+    if (i == 0) c0 = cl;
+  }
   gl_FragColor = vec4(max(tapeLook(c0, cl, gl_FragCoord.xy, tp, hi), 0.0), 1.0);
 }
