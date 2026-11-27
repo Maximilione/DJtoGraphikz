@@ -49,7 +49,8 @@ mat3 gRo, gRi;
 
 void setupCage() {
   // breathes slowly in silence, swells with the bass, snaps on the kick
-  gS = size * (1.0 + 0.04 * sin(uTime * 0.8) + 0.12 * uBass + 0.12 * uBassHit);
+  // 0.65: at size 1 the outer cube's corners stay inside a 16:9 frame
+  gS = 0.65 * size * (1.0 + 0.04 * sin(uTime * 0.8) + 0.12 * uBass + 0.12 * uBassHit);
   gSi = gS * (0.55 - 0.1 * uBassHit);
   // bar half-thickness: widened, floored at ~lminPx pixels (world units per pixel at the cube's depth)
   float pxW = 2.25 / (min(uResolution.x / uResolution.y, 1.0) * uResolution.y);
@@ -119,7 +120,7 @@ void main() {
   // highs make the edges glitter
   col *= 1.0 + 1.6 * uHigh * (hash21(floor(gl_FragCoord.xy / max(uResolution.y / 540.0, 1.0)) + fract(uTime) * 57.0) - 0.35);
   // faint ambient so the cage never sits on pure black
-  col += uColor3 * 0.04 * (1.0 - length(p) * 0.6);
+  col += mix(uColor1, uColor2, 0.5) * 0.04 * (1.0 - length(p) * 0.6);
   // soft shoulder, no flat white
   col = 1.0 - exp(-col * 1.3);
   gl_FragColor = vec4(col, 1.0);

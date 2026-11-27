@@ -276,7 +276,7 @@ void main() {
 
     // kick pulse climbing the stairs: a band of lit tops rising with the decay
     float wave = exp(-abs(float(c.y) - (1.0 - uBassHit) * 24.0) * 0.8) * uBassHit;
-    col += cC * wave * (axis == 1 ? 0.7 : 0.3);
+    col += cC * wave * (axis == 1 ? 1.5 : 0.6);
 
     // highs: sparkles on the tops of steps
     if (axis == 1 && typ == 2) {

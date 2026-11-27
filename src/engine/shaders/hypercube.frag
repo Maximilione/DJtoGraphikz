@@ -115,7 +115,7 @@ void main() {
   float t0 = uTime * rs;
   gRout = rotY(t0 * 0.37) * rotX(t0 * 0.23 + 0.6) * rotZ(t0 * 0.11);
   gRin = rotY(-t0 * 0.29 + 1.3) * rotX(t0 * 0.41) * rotZ(-t0 * 0.19 + 2.1);
-  gOuterS = sc;
+  gOuterS = sc * (1.0 + 0.05 * uBass);
   gInnerS = gOuterS * (0.42 + 0.07 * sin(uTime * 0.5) + 0.06 * kick);
   float lb = 1.0 + 1.6 * uLineBoost;
   gEdgeR = (0.026 + 0.018 * gl) * sc * lb;

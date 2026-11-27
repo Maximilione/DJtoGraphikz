@@ -74,12 +74,12 @@ vec3 normalAt(vec3 p) {
 // (called four times per hit pixel: integer powers by squaring, key direction
 // pre-normalised)
 float studio(vec3 r) {
-  float s = 0.5 + 0.5 * sin(dot(r, vec3(2.3, 1.7, 3.1)) * 3.2 + gT * 0.4);
+  float s = 0.5 + 0.5 * sin(dot(r, vec3(2.3, 1.7, 3.1)) * 6.0 + gT * 0.4);
   s = smoothstep(0.35, 1.0, s);
   s *= s;
   float z = max(r.z, 0.0);
   float z2 = z * z, z4 = z2 * z2;
-  s += 0.9 * (z4 * z4) * (0.7 + 0.8 * gKick + 0.5 * uBass);
+  s += 0.45 * (z4 * z4) * (0.7 + 0.8 * gKick + 0.5 * uBass);
   float k = max(dot(r, vec3(0.618853, 0.721995, 0.309426)), 0.0); // normalize(0.6, 0.7, 0.3)
   float k2 = k * k, k4 = k2 * k2, k8 = k4 * k4, k16 = k8 * k8;
   s += 1.8 * k16 * k8 * k4; // ^28
@@ -124,7 +124,7 @@ void main() {
     vec3 p = ro + rd * t;
     vec3 n = normalAt(p);
     // three indices of refraction, one per palette colour
-    float disp = 0.07 * dispersion;
+    float disp = 0.13 * dispersion;
     vec3 rA = refract(rd, n, 1.0 / (1.42 - disp));
     vec3 rB = refract(rd, n, 1.0 / 1.45);
     vec3 rC = refract(rd, n, 1.0 / (1.48 + disp));

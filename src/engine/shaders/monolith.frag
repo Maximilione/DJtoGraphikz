@@ -130,8 +130,12 @@ vec3 blade(vec3 ro, vec3 rd, float tOcc, float tFar) {
   float tS = (RING_C.z - ro.z) / rd.z;
   if (tS <= 0.0 || (tOcc > 0.0 && tS > tOcc) || tS > tFar) return vec3(0.0);
   vec3 qs = ro + rd * tS - RING_C;
-  float b = exp(-max(abs(qs.x) - gSlitW, 0.0) * 45.0) * smoothstep(2.3, 2.0, abs(qs.y));
-  return slitColor() * b * (1.6 + 1.2 * gKick * pulse);
+  float dx = max(abs(qs.x) - gSlitW, 0.0);
+  float b = exp(-dx * 45.0) * smoothstep(2.3, 2.0, abs(qs.y));
+  // the blade's halo in the haze, analytic like the blade: the marched fog
+  // takes too few samples near the slit to show one
+  float hl = exp(-dx * 1.5) * smoothstep(3.4, 1.0, abs(qs.y)) * 0.16 * haze * (0.8 + 0.5 * uBass + 0.5 * gKick * pulse);
+  return slitColor() * b * (1.6 + 1.2 * gKick * pulse) + mix(uColor1, slitColor(), 0.35 + 0.4 * gKick) * hl;
 }
 
 void main() {

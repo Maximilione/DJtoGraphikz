@@ -88,10 +88,14 @@ void main() {
 
   // Temperature ramp, tinted by the palette: glow → body → hot → white core
   vec3 col = vec3(0.0);
-  col += uColor3 * smoothstep(0.02, 0.28, i2) * 0.5;
-  col += uColor2 * smoothstep(0.18, 0.75, i2);
-  col += uColor1 * smoothstep(0.55, 1.15, i2) * 1.35;
-  col += vec3(1.0) * smoothstep(0.95, 1.6, i2);
+  // each stage hands over to the next instead of piling on it: summed, a
+  // palette of complementary colours came out white long before the core
+  float sBody = smoothstep(0.18, 0.75, i2);
+  float sHot = smoothstep(0.55, 1.15, i2);
+  col += uColor3 * smoothstep(0.02, 0.28, i2) * 0.5 * (1.0 - 0.7 * sBody);
+  col += uColor2 * sBody * (1.0 - 0.6 * sHot);
+  col += uColor1 * sHot * 1.35;
+  col += vec3(1.0) * smoothstep(1.25, 2.0, i2);
   // soft shoulder: the core keeps its gradient instead of clipping to a white slab
   col = col / (1.0 + 0.18 * col) * 1.18;
 

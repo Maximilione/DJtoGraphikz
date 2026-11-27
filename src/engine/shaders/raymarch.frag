@@ -107,7 +107,7 @@ void main() {
   }
   // vanishing-point light: the tunnel has a destination
   color += mix(uColor2, uColor3, uBarPhase) * exp(-dot(uv, uv) * 10.0) * (0.12 + 0.35 * uBeat);
-  color += mix(uColor2, uColor3, uBarPhase) * glow * 0.05 * glowk * (0.6 + uEnergy);
+  color += mix(uColor2, uColor3, uBarPhase) * glow * 0.02 * glowk * (0.6 + uEnergy);
 
   color = 1.0 - exp(-color * 1.3);
   gl_FragColor = vec4(color, 1.0);

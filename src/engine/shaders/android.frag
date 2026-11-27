@@ -241,7 +241,10 @@ void main() {
       surf += mix(uColor3, vec3(1.0), 0.5) * slit * (0.9 + 1.2 * uHigh + 1.0 * gKick) * (0.6 + glow);
 
       // the eroded edge burns
-      float rim = 1.0 - smoothstep(0.0, 0.08, eroHit - gLvl);
+      // the whole carved cavity sits on the erosion isosurface (eroHit == gLvl):
+      // fade with the depth under the intact skin so only the lip of the cut
+      // burns and the hollow stays dark, instead of a flat white patch
+      float rim = (1.0 - smoothstep(0.0, 0.08, eroHit - gLvl)) * exp(min(body(pO), 0.0) * 70.0);
       surf += mix(uColor3, vec3(1.0), 0.3) * rim * (1.4 + 1.5 * uBass) * (1.0 + 0.8 * gKick) * (0.4 + 0.6 * glow);
 
       col = surf;

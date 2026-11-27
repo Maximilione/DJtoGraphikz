@@ -123,7 +123,7 @@ void main() {
 
   // --- sky: dark gradient + clouds lit by the lightning
   float sky = smoothstep(hz, 1.0, vy);
-  vec3 col = mix(uColor2 * 0.05, uColor1 * 0.10, sky);
+  vec3 col = mix(uColor2 * 0.12, uColor1 * 0.10, sky);
   float cl = vnoise(vec2(xr * 1.3 - uTime * 0.03 * (1.0 + gust), vy * 2.6)) * 0.6
            + vnoise(vec2(xr * 3.1 + uTime * 0.05, vy * 6.0 - uTime * 0.02)) * 0.4;
   float lightX = (hash(vec2(floor(uBeatClock), 3.0)) - 0.5) * asp;
@@ -162,7 +162,7 @@ void main() {
   // --- wet street: darker mirror, ripples and splashes landing
   if (street) {
     col *= (0.6 - 0.3 * d) * (0.7 + 0.6 * wob);
-    col += uColor2 * 0.05 * (1.0 - d);
+    col += uColor2 * 0.10 * (1.0 - d);
     float dd = d + 0.1;
     vec2 P = vec2(x / dd, 1.0 / dd) * 0.5;
     float T = bc * 0.5;

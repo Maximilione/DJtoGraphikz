@@ -88,7 +88,7 @@ float map(vec3 p) {
 }
 
 vec3 glowColor() {
-  return mix(uColor3, vec3(1.0), 0.5 + 0.3 * uBassHit);
+  return mix(uColor3, vec3(1.0), 0.15 + 0.25 * uBassHit);
 }
 
 float march(vec3 ro, vec3 rd, float tmax) {
@@ -127,7 +127,7 @@ vec3 shade(vec3 p, vec3 rd) {
   vec3 col = glowColor() * lit * bleed * 0.3;
 
   // dark brushed steel base + cold rim
-  col += uColor2 * 0.045;
+  col += uColor2 * 0.07;
   col += uColor1 * pow(1.0 - max(dot(n, -rd), 0.0), 3.0) * 0.4;
 
   bool onDoor = r < R + 0.01 && abs(p.z - ZDOOR) < THICK;
@@ -152,7 +152,7 @@ vec3 shade(vec3 p, vec3 rd) {
     float tri = abs(fract(sv) - 0.5);
     float wv = min(fwidth(sv), 0.25);
     float band = smoothstep(0.25 - wv, 0.25 + wv, tri);
-    col += mix(vec3(0.0), uColor3 * 0.5, band) * 0.35;
+    col += mix(vec3(0.0), uColor2 * 0.5, band) * (0.8 + 0.8 * uBassHit);
     col += uColor2 * 0.03;
   }
   return col;
@@ -181,7 +181,7 @@ void main() {
       float r2 = length(p.xy);
       float radial = exp(-r2 * r2 * 0.35);
       float pulse = 0.5 + 0.5 * sin(uBeatClock * 2.0 + r2 * 4.0);
-      col = glowColor() * (0.5 + 1.1 * uBass + 1.5 * uBassHit) * (0.5 + 0.5 * pulse) * (0.4 + 0.9 * radial);
+      col = glowColor() * (0.35 + 0.5 * uBass + 0.7 * uBassHit) * (0.5 + 0.5 * pulse) * (0.4 + 0.9 * radial);
     } else {
       col = shade(p, rd);
     }
