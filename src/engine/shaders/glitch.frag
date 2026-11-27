@@ -82,7 +82,14 @@ void main() {
   // dropped colour 2 and 3 whenever they lacked that channel
   color = (uColor1 * rVal + uColor2 * gVal + uColor3 * bVal) * 0.7;
   // negative space: a third of the blocks drop near black on the glitch clock
-  color *= mix(0.12, 1.0, step(0.38, hash(floor(centered * vec2(5.0, 12.0)) + glitchTime * 3.7)));
+  // (and more of them when the room is quiet: silence used to be as full as a drop)
+  float calm = 1.0 - clamp(uEnergy * 1.3, 0.0, 1.0);
+  color *= mix(0.12, 1.0, step(0.3 + 0.2 * calm, hash(floor(centered * vec2(5.0, 12.0)) + glitchTime * 3.7)));
+  // hierarchy: whole slabs of the frame go dark on a slower clock, so the
+  // picture is islands of signal on black and not one even carpet of blocks
+  float slabTime = floor(mod(floor(t * fps), 4096.0) / 5.0);
+  float slab = hash(floor(centered * vec2(1.7, 3.2) + 0.5) + slabTime * 1.3);
+  color *= mix(0.04, 1.0, step(0.2 + 0.4 * calm - 0.2 * uBassHit, slab));
 
   // Big glitch blocks on beat (block size clamped: at full intensity it hit
   // zero, the division made NaN and the blocks silently disappeared)

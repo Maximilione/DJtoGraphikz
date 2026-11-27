@@ -47,7 +47,9 @@ void main() {
   vec2 gv = hex.xy;  // local coords within hex
   vec2 id = hex.zw;  // hex cell ID
 
-  float cellHash = hash(id);
+  // hash the lattice index, not id itself: id = uv - gv wobbles by a few ulp
+  // from pixel to pixel and the sin hash turned that into hatched tiles
+  float cellHash = hash(floor(id / vec2(0.5, 0.866) + 0.5));
 
   // Hex edge distance: 0.5 on every edge of the cell. The old coefficients
   // (0.577) did not match the lattice, so the outline showed as loose dashes.

@@ -121,6 +121,18 @@ import auroraFrag from './shaders/aurora.frag?raw'
 import armillaryFrag from './shaders/armillary.frag?raw'
 import telemetryFrag from './shaders/telemetry.frag?raw'
 import aegisFrag from './shaders/aegis.frag?raw'
+import titanhandFrag from './shaders/titanhand.frag?raw'
+import kaijustompFrag from './shaders/kaijustomp.frag?raw'
+import robokaijuFrag from './shaders/robokaiju.frag?raw'
+import tokuHero0Url from './assets/toku-hero-0.png?url'
+import tokuHero1Url from './assets/toku-hero-1.png?url'
+import tokuHero2Url from './assets/toku-hero-2.png?url'
+import tokuFootUrl from './assets/toku-foot.png?url'
+import tokuHandUrl from './assets/toku-hand.png?url'
+import tokuRoboUrl from './assets/toku-robo.png?url'
+import tokuKaijuUrl from './assets/toku-kaiju.png?url'
+import tokuTubeUrl from './assets/toku-tube.png?url'
+import tokuTeethUrl from './assets/toku-teeth.png?url'
 import fluxlinesFrag from './shaders/fluxlines.frag?raw'
 import androidFrag from './shaders/android.frag?raw'
 import facesFrag from './shaders/faces.frag?raw'
@@ -152,6 +164,11 @@ import bloomPrefilterFrag from './shaders/bloomPrefilter.frag?raw'
 import blurFrag from './shaders/blur.frag?raw'
 import masterFrag from './shaders/master.frag?raw'
 import deckmixFrag from './shaders/deckmix.frag?raw'
+import eyewallFrag from './shaders/eyewall.frag?raw'
+import airdancersFrag from './shaders/airdancers.frag?raw'
+import chatterFrag from './shaders/chatter.frag?raw'
+import opticonFrag from './shaders/opticon.frag?raw'
+import jackpotFrag from './shaders/jackpot.frag?raw'
 import motionblurFrag from './shaders/motionblur.frag?raw'
 import cameraFrag from './shaders/camera.frag?raw'
 
@@ -255,6 +272,12 @@ export type EffectId =
   | 'ringworld' | 'escher'
   | 'plasmaglobe' | 'kickworks' | 'fluxlines'
   | 'singularity' | 'aurora' | 'armillary' | 'telemetry' | 'aegis'
+  | 'titanhand' | 'kaijustomp' | 'robokaiju'
+  | 'jackpot'
+  | 'opticon'
+  | 'chatter'
+  | 'airdancers'
+  | 'eyewall'
 export type PostId = 'bloom' | 'rgb-split' | 'chromatic' | 'feedback' | 'filmgrain' | 'scanlines' | 'pixelate' | 'mirror' | 'invert'
   | 'rgb-delay' | 'displace' | 'frame-glitch' | 'outline'
   | 'anamorphic' | 'tiltshift' | 'cinegrade' | 'godrays' | 'halation'
@@ -581,6 +604,14 @@ const EFFECT_SHADERS: Record<EffectId, string | MultiPassEffect | GeometryEffect
   armillary: armillaryFrag,
   telemetry: telemetryFrag,
   aegis: aegisFrag,
+  titanhand: titanhandFrag,
+  kaijustomp: kaijustompFrag,
+  robokaiju: robokaijuFrag,
+  jackpot: jackpotFrag,
+  opticon: opticonFrag,
+  chatter: chatterFrag,
+  airdancers: airdancersFrag,
+  eyewall: eyewallFrag,
   fluxlines: fluxlinesFrag,
   ribbons: ribbonsFrag,
   storm: stormFrag,
@@ -656,6 +687,8 @@ export class Engine {
   private perfLastNow = 0
   private perfCooldown = 300 // ~5s warmup: boot + output-window spawn jank must not downscale
   private perfSpikeLast = false
+  private perfCeil = 1          // a scale this effect already failed to hold: do not try it again
+  private perfClimbAt = 0       // frames since the last climb, to tell a failed climb from new load
 
   // Deck B + crossfader
   private deckBEffect: EffectId = 'plasma'
@@ -722,6 +755,7 @@ export class Engine {
   // float texel per chunk header / run; pipesTime is the clock it was built for
   private pipesPixels = new Float32Array(PIPES_TEX_WIDTH * 4)
   private pipesTex: THREE.DataTexture | null = null
+  private spriteSheets = new Map<string, THREE.Texture>()
   private pipesTime = NaN
   private pipesEpoch = NaN   // screen the pipe count was latched for
   private pipesN = 0
@@ -1206,6 +1240,19 @@ export class Engine {
       ...paramUniforms,
       ...(id === 'imgbeat' ? this.imgbeatUniforms() : {}),
       ...(id === 'pipes' ? { uPipes: { value: this.getPipesTexture() } } : {}),
+      ...(id === 'titanhand' || id === 'kaijustomp' ? {
+        uAtlasHero0: { value: this.getSpriteSheet(tokuHero0Url) },
+        uAtlasHero1: { value: this.getSpriteSheet(tokuHero1Url) },
+        uAtlasHero2: { value: this.getSpriteSheet(tokuHero2Url) },
+      } : {}),
+      ...(id === 'titanhand' ? { uAtlasHand: { value: this.getSpriteSheet(tokuHandUrl) } } : {}),
+      ...(id === 'kaijustomp' ? { uAtlasFoot: { value: this.getSpriteSheet(tokuFootUrl) } } : {}),
+      ...(id === 'robokaiju' ? {
+        uAtlasRobo: { value: this.getSpriteSheet(tokuRoboUrl) },
+        uAtlasKaiju: { value: this.getSpriteSheet(tokuKaijuUrl) },
+      } : {}),
+      ...(id === 'airdancers' ? { uAtlasTube: { value: this.getSpriteSheet(tokuTubeUrl) } } : {}),
+      ...(id === 'chatter' ? { uAtlasTeeth: { value: this.getSpriteSheet(tokuTeethUrl) } } : {}),
       // galaxy: the camera's cos/sin (yaw, tilt) depend on the clocks alone, so
       // applyEffectUniforms computes them once a frame instead of per vertex
       ...(id === 'galaxy' ? { uCamRot: { value: new THREE.Vector4(1, 0, 1, 0) } } : {}),
@@ -1621,6 +1668,7 @@ export class Engine {
     // at that resolution for up to a minute even if it's cheap. Give every
     // new effect a clean shot at near-full res; the crash-detector re-engages
     // within a couple of frames if this one turns out to be heavy too.
+    this.perfCeil = 1
     if (this.perfScale < 1) {
       this.perfScale = Math.min(1, this.perfScale * 1.6)
       this.perfCooldown = 0
@@ -1868,6 +1916,24 @@ export class Engine {
       this.spectrumTex = tex
     }
     return this.spectrumTex
+  }
+
+  /**
+   * Pixel-art sprite sheet of an effect (scripts/toku/*.py, yarn gen:sprites), loaded on
+   * first use and kept: nearest filtering, no mipmaps, no colour conversion, so
+   * the shader reads exactly the texel the artist put there.
+   */
+  private getSpriteSheet(url: string): THREE.Texture {
+    let tex = this.spriteSheets.get(url)
+    if (!tex) {
+      tex = new THREE.TextureLoader().load(url)
+      tex.magFilter = tex.minFilter = THREE.NearestFilter
+      tex.generateMipmaps = false
+      tex.colorSpace = THREE.NoColorSpace
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+      this.spriteSheets.set(url, tex)
+    }
+    return tex
   }
 
   private getPipesTexture(): THREE.DataTexture {
@@ -3265,6 +3331,7 @@ export class Engine {
     }
     this.perfSpikeLast = false
     this.perfEmaMs = this.perfEmaMs * 0.9 + d * 0.1
+    if (this.perfClimbAt > 0) this.perfClimbAt++
     if (--this.perfCooldown > 0) return
     // resizing render targets discards them — never mid-transition
     if (this.transitionProgress >= 0) return
@@ -3273,17 +3340,27 @@ export class Engine {
       // raymarcher at 15fps converges in 2 steps instead of crawling down.
       // (thresholds follow the output display's refresh: a 30/50Hz projector no longer reads as overload)
       const step = Math.max(0.55, Math.min(0.9, Math.sqrt(this.framePeriodMs / this.perfEmaMs)))
+      // dropping right after a climb means that size does not fit: remember it
+      if (this.perfClimbAt > 0 && this.perfClimbAt < 240) this.perfCeil = this.perfScale * 0.85   // the size it held before
+      this.perfClimbAt = 0
       this.perfScale = Math.max(0.3, this.perfScale * step)
       this.perfCooldown = this.perfEmaMs > this.framePeriodMs * 2.4 ? 20 : 45
       this.setRenderSize(this.outputWidth, this.outputHeight)
       console.warn(`[Engine] perf: render scale ${Math.round(this.perfScale * 100)}% (frame ${this.perfEmaMs.toFixed(1)}ms)`)
-    } else if (this.perfScale < 1 && this.perfEmaMs * (Math.min(1, this.perfScale / 0.85) / this.perfScale) ** 2 < this.framePeriodMs * 1.2) {
-      // headroom: climb back slowly, and only when the frame still fits once the
-      // bigger buffer is paid for (x1.38 pixels a step). Climbing on "< 17ms" alone
-      // put a 26ms shader back at full size every 5s, then down again: a hitch
-      // and a resize each time, the "lag" seen on pulsar/lissajous.
-      this.perfScale = Math.min(1, this.perfScale / 0.85)
-      this.perfCooldown = 300
+      // the average still holds the slow frames of the old size: start again, or it drops twice
+      this.perfEmaMs = this.framePeriodMs
+    } else if (this.perfScale < this.perfCeil && this.perfEmaMs < this.framePeriodMs * 1.08) {
+      // Under vsync a frame never measures shorter than the display period, so
+      // headroom cannot be read off the clock (the old test needed 14 ms frames
+      // on a 60 Hz output and never fired: effects stayed at 40% for good).
+      // Try the next size up instead; if it does not hold, the drop above
+      // records it in perfCeil and it is not tried again for this effect.
+      // (Climbing blindly every 5 s was the "lag" once seen on pulsar/lissajous:
+      // the ceiling is what stops that.)
+      this.perfScale = Math.min(this.perfCeil, this.perfScale / 0.85)
+      this.perfCooldown = 180
+      this.perfClimbAt = 1
+      this.perfEmaMs = this.framePeriodMs
       this.setRenderSize(this.outputWidth, this.outputHeight)
     }
   }
@@ -3569,6 +3646,8 @@ export class Engine {
           this.disposeEffectMaterial(this.transitionOldMaterial)
           this.transitionOldMaterial = null
           this.transitionProgress = -1
+          this.perfEmaMs = this.framePeriodMs
+          this.perfCooldown = Math.max(this.perfCooldown, 20)
           this.emitState()
         } else {
           // Render old effect → rtTransition

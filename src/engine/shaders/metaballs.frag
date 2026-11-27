@@ -28,7 +28,6 @@ void main() {
   float aspect = uResolution.x / uResolution.y;
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
   vec2 ext = vec2(max(aspect, 1.0), max(1.0 / aspect, 1.0)) * 0.5;
-  vec2 spread = ext / vec2(0.89, 0.5);   // = 1 on 16:9, the reference look
   float t = uTime;
 
   float field = 0.0;
@@ -43,8 +42,10 @@ void main() {
     float speed = 0.5 + hash1(fi * 7.0) * 0.5;
     float phase = hash1(fi * 13.0) * PI * 2.0;
 
-    // Orbit with audio influence
-    float orbitR = 0.2 + hash1(fi * 17.0) * 0.4 + uBass * 0.2;
+    // Orbit with audio influence, in units of the half frame: orbit + wobble
+    // never pass 1, so no ball leaves the picture (the old radii reached
+    // 0.9 on a half height of 0.5 and the loud frames were mostly empty)
+    float orbitR = 0.3 + hash1(fi * 17.0) * 0.45 + uBass * 0.15;
     float angle = t * speed + phase + uMid * sin(t + fi);
 
     vec2 pos = vec2(
@@ -53,7 +54,7 @@ void main() {
     );
 
     // Beat: balls expand outward
-    pos *= (1.0 + uBeat * 0.3) * spread;
+    pos *= (0.88 + uBeat * 0.08) * ext;
 
     // Ball radius varies with audio
     float radius = size + hash1(fi * 23.0) * 0.04 + uEnergy * 0.03;
@@ -103,7 +104,9 @@ void main() {
     color = baseColor * edge * dif * (0.6 + interior * 0.4)
           + vec3(1.0) * spec * edge * (0.5 + uHigh)
           + baseColor * fres * edge * 0.8;
-    color += baseColor * glow * 1.5;
+    color += baseColor * glow * 1.25;
+    // wide aura of the nearest ball's colour: the space between them is lit, not void
+    color += baseColor * min(field / threshold, 1.0) * 0.16 * (1.0 - edge);
 
     // Extra brightness on beat
     color *= 1.0 + uBeat * 0.6;
@@ -113,5 +116,6 @@ void main() {
   color += mix(uColor1, uColor3, 0.5) * 0.02 * uEnergy;
 
   color = 1.0 - exp(-color * 1.4);
+  color += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;   // dither: the halos do not band
   gl_FragColor = vec4(color, 1.0);
 }

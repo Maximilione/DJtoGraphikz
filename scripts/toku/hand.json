@@ -1,0 +1,148 @@
+{
+ "cell": [
+  288,
+  288
+ ],
+ "cols": 6,
+ "atlas": "src/engine/assets/toku-hand.png",
+ "encoding": "colour",
+ "note": "built by scripts/toku/ingest_giants.py from art/hand-*.png. The arm comes in from the left (mirrored by the shader for a reach to the left). anchor = the middle of the forearm's cut end; in pat, slam1 and slam2 the hand instead touches the ground on row 205.",
+ "drawings": [
+  "open",
+  "grope1",
+  "open",
+  "grope2",
+  "cup",
+  "pat",
+  "claw",
+  "half",
+  "shut",
+  "fist",
+  "windup",
+  "slam1",
+  "slam2",
+  "shake1",
+  "shake2",
+  "limp",
+  "slack",
+  "pullback"
+ ],
+ "actions": {
+  "grope": {
+   "frames": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  },
+  "pat": {
+   "frames": [
+    4,
+    5
+   ],
+   "hold": [
+    1,
+    2
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  },
+  "burst": {
+   "frames": [
+    9,
+    8,
+    7,
+    6
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  },
+  "grab": {
+   "frames": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "hold": [
+    1,
+    1,
+    1,
+    2
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  },
+  "slam": {
+   "frames": [
+    10,
+    11,
+    12
+   ],
+   "hold": [
+    4,
+    1,
+    4
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  },
+  "fist": {
+   "frames": [
+    9,
+    13,
+    14
+   ],
+   "hold": [
+    1,
+    1,
+    1
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  },
+  "withdraw": {
+   "frames": [
+    15,
+    16,
+    17
+   ],
+   "hold": [
+    1,
+    1,
+    1
+   ],
+   "anchor": [
+    40,
+    150
+   ]
+  }
+ }
+}

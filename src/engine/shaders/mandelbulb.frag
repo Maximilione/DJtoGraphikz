@@ -117,8 +117,9 @@ void main() {
   vec3 trapHit = gTrap;
 
   float rr = length(uv);
-  vec3 col = mix(uColor2 * 0.12, uColor1 * 0.07, smoothstep(0.0, 1.0, rr)) * (1.0 + 0.4 * uBass);
-  col += uColor1 * clamp(glow, 0.3, 2.0) * 0.05 / (mind * 6.0 + 0.04) * (0.6 + 0.8 * kick + 0.4 * uEnergy);
+  vec3 bg = mix(uColor2 * 0.12, uColor1 * 0.07, smoothstep(0.0, 1.0, rr)) * (1.0 + 0.4 * uBass);
+  vec3 halo = uColor1 * clamp(glow, 0.3, 2.0) * 0.05 / (mind * 6.0 + 0.04) * (0.6 + 0.8 * kick + 0.4 * uEnergy);
+  vec3 col = bg + halo;
 
   if (hit) {
     vec3 p = ro + rd * t;
@@ -141,7 +142,10 @@ void main() {
               + uColor3 * rim * (0.5 + 0.9 * kick + 0.6 * uHigh) * glow
               + uColor3 * 0.25 * max(dot(n, -L), 0.0) * ao
               + mix(uColor1, vec3(1.0), 0.5) * pow(max(dot(reflect(rd, n), L), 0.0), 40.0) * 0.9;
-    col = mix(col, surf, exp(-max(t - 1.2, 0.0) * 0.55));
+    // the distance fog fades to the backdrop with a fraction of the halo: on a
+    // hit the halo is at its peak, and at full strength it painted the whole
+    // bulb in colour 1 on every kick
+    col = mix(bg + 0.2 * halo, surf, exp(-max(t - 1.2, 0.0) * 0.55));
   }
 
   col = col / (1.0 + 0.35 * col);

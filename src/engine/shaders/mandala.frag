@@ -93,7 +93,7 @@ void main() {
   float r = length(uv);
   float a = atan(uv.y, uv.x);
 
-  float folds = max(floor(symmetry + uMid * 6.0), 3.0);
+  float folds = max(floor(symmetry), 3.0);
 
   float rt = t * 0.2 + uBassTime * 0.03;
   vec3 front = mandalaLayer(r, a, folds, rt, t);
@@ -116,7 +116,9 @@ void main() {
   // Kick shockwave: a bright ring travelling outward while the hit decays
   float sr = 0.12 + 0.85 * (1.0 - uBassHit);
   float sw = (r - sr) * 16.0;
-  color += mix(uColor3, vec3(1.0), 0.45) * exp(-sw * sw) * uBassHit * 1.3;
+  // the ring is born as it leaves the eye: at full strength on the hit itself
+  // it sat on the centre and burned the inner rings into a white disc
+  color += mix(uColor3, vec3(1.0), 0.45) * exp(-sw * sw) * uBassHit * 1.3 * smoothstep(0.12, 0.35, sr);
 
   // Breathing
   color *= 1.0 + sin(t * 2.0 + uBass * 3.0) * 0.12 + uBeat * 0.35 + uBassHit * 0.35;

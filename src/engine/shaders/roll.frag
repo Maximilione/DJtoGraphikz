@@ -87,7 +87,7 @@ void main() {
     float hot = step(0.88, hash(cell * 5.3 + lane * 2.9 + floor(beat / 4.0)));
     // glass fill: dark body, brighter top edge, sheen band
     float gy = fy / max(h, 0.01);
-    vec3 body = mix(uColor3, uColor2, 0.5 + 0.5 * hash(cell + lane * 0.37)) * (0.10 + 0.10 * (0.5 - gy * 0.5));
+    vec3 body = mix(uColor3, uColor2, hash(cell + lane * 0.37)) * (0.10 + 0.10 * (0.5 - gy * 0.5));
     body += mix(uColor1, vec3(1.0), 0.5) * 0.09 * smoothstep(0.7, 1.0, -gy);   // thin coloured top sheen: glass
     body *= 0.8 + 0.6 * uEnergy;
     col += body * inside;
@@ -105,7 +105,7 @@ void main() {
   float tx = fract(xw * 6.0 - beat * speed * dir * 3.0);
   float tick = (1.0 - smoothstep(0.0, aa * 14.0, abs(tx - 0.5) - 0.02)) *
                step(abs(fy + 0.43), 0.035 + 0.03 * step(0.9, fract(xw * 6.0 * 0.25)));
-  col += uColor3 * tick * 0.45 * (0.5 + 0.5 * uHigh + 0.5 * waveL);
+  col += uColor3 * tick * 0.7 * (0.5 + 0.5 * uHigh + 0.5 * waveL);
   col += uColor2 * 0.05 * exp(-abs(fy + 0.5) * 40.0) * (1.0 + 2.0 * uBass);
   // lane haze follows the light wave: gaps go black elsewhere
   col += uColor3 * (0.015 + 0.05 * waveL) * (1.0 - smoothstep(0.0, 0.5, abs(fy)));

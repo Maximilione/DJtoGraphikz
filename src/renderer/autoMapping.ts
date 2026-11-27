@@ -2,6 +2,7 @@ import type { Engine, EffectId } from '@engine/Engine'
 import { readJson, writeJson } from './storage'
 import { smartMap, SKIP_KEYS } from './smartMap'
 import { noteRecent } from './fxPicks'
+import { recommendedFor } from '@engine/recommendedMappings'
 
 /**
  * "Mapping consigliato al cambio effetto": quando l'utente sceglie un effetto
@@ -58,7 +59,12 @@ export function magicMap(engine: Engine): MagicMapResult {
     r = smartMap(engine)
     // the curated preset is keyed by built-in effect id: with a custom shader
     // on, it would write into the built-in's bucket, not the one on screen
-    curated = engine.isUsingCustomShader() ? 0 : engine.applyRecommendedMapping(effect, false)
+    if (engine.isUsingCustomShader()) return
+    // a built-in with a preset gets the preset alone: the heuristic sees only
+    // param names there, and what the preset leaves free it leaves on purpose
+    // (rates that multiply the clock jump when modulated)
+    if (Object.keys(recommendedFor(effect)).length) r.undo()
+    curated = engine.applyRecommendedMapping(effect, false)
   })
   const undo = () => {
     if (engine.getCurrentEffect() !== effect || engine.getCustomShaderSource() !== custom) return
@@ -70,5 +76,5 @@ export function magicMap(engine: Engine): MagicMapResult {
       }
     })
   }
-  return { count: r.count, curated, undo }
+  return { count: curated || r.count, curated, undo }
 }

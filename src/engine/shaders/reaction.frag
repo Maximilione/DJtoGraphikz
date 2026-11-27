@@ -57,25 +57,30 @@ void main() {
   vec3 col = mix(uColor3 * 0.10, uColor1, t);
   col = mix(col, uColor2, smoothstep(0.22, 0.34, b));
 
-  float edge = smoothstep(0.0, 0.18, length(vec2(bx, by)) * 14.0);
+  // membranes only: the old 0..0.18 ramp saturated on any slope at all, so
+  // every "edge" light below was a full-frame wash and a kick turned the
+  // whole pattern white
+  float edge = smoothstep(0.25, 1.4, length(vec2(bx, by)) * 14.0);
   col *= 0.45 + 0.95 * diff;
-  col += uColor2 * spec * (0.5 + 1.5 * uHigh + 1.0 * uBassHit) * edge;
-  col += uColor1 * edge * (0.10 + 0.45 * uBeat + 0.35 * uBassHit);
+  col += uColor2 * spec * (0.4 + 0.9 * uHigh + 0.5 * uBassHit) * edge;
+  col += uColor1 * edge * (0.10 + 0.22 * uBeat + 0.20 * uBassHit);
 
   // thin-film shimmer on the membranes: hue walks with density and light
   float film = 0.5 + 0.5 * sin(b * 38.0 + diff * 3.0 + uTime * 0.6);
   col += mix(uColor1, uColor2, film) * edge * (0.12 + 0.20 * uMid);
 
   // halo + hot core of the densest chemistry, clean for the bloom
-  col += mix(uColor1, uColor2, 0.5) * halo * (0.9 + 1.2 * uBassHit);
-  col += mix(uColor2, vec3(1.0), 0.5) * smoothstep(0.26, 0.40, b) * (0.10 + 0.35 * uBassHit);
+  // tinted by the density it blurs: a fixed colour 1 + 2 mix laid the
+  // complement over every worm and greyed it
+  col += mix(uColor1, uColor2, smoothstep(0.10, 0.24, halo)) * halo * (0.45 + 0.6 * uBassHit);
+  col += mix(uColor2, vec3(1.0), 0.5) * smoothstep(0.26, 0.40, b) * (0.10 + 0.20 * uBassHit);
 
   // kick trail: the spots where the last kicks landed
   col += mix(uColor2, vec3(1.0), 0.35) * kickGlow * (0.7 + 0.5 * uEnergy);
 
   // a quiet room must still light the projector: the floor is most of it
-  col *= 0.95 + 0.45 * uEnergy;
-  col *= 1.0 + 0.35 * uBassHit;
+  col *= 0.95 + 0.20 * uEnergy;
+  col *= 1.0 + 0.20 * uBassHit;
 
   float vig = smoothstep(1.35, 0.30, length((uv - 0.5) * vec2(1.5, 1.0)));
   col = max(col * vig, 0.0);

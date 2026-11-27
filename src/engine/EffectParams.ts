@@ -513,6 +513,24 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'beam', label: 'Fascio', min: 0, max: 2, default: 1 },
     { key: 'orbit', label: 'Orbita', min: 0, max: 2, default: 0.5 },
   ],
+  titanhand: [
+    { key: 'tempo', label: 'Ritmo', min: 0.25, max: 2, default: 1 },
+    { key: 'crew', label: 'Eroi', min: 1, max: 3, default: 3 },
+    { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
+    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0 },
+  ],
+  kaijustomp: [
+    { key: 'pace', label: 'Andatura', min: 0.3, max: 3, default: 1 },
+    { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
+    { key: 'haze', label: 'Fumo', min: 0, max: 2, default: 1 },
+    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0 },
+  ],
+  robokaiju: [
+    { key: 'pace', label: 'Ritmo', min: 0.5, max: 2, default: 1 },
+    { key: 'pyro', label: 'Pirotecnica', min: 0, max: 2, default: 1 },
+    { key: 'haze', label: 'Fumo', min: 0, max: 2, default: 1 },
+    { key: 'tape', label: 'Nastro VHS', min: 0, max: 1, default: 0 },
+  ],
   escher: [
     { key: 'complexity', label: 'Labirinto', min: 0.2, max: 1, default: 0.6 },
     { key: 'edge', label: 'Spigoli', min: 0, max: 2, default: 1 },
@@ -530,6 +548,36 @@ export const EFFECT_PARAMS: Record<string, EffectParam[]> = {
     { key: 'gravity', label: 'Gravità', min: 0, max: 1.5, default: 0.6 },
     { key: 'burst', label: 'Tipo', min: 0, max: 4, default: 0 },
     { key: 'trail', label: 'Scia', min: 0.2, max: 1.5, default: 0.7 },
+  ],
+  eyewall: [
+    { key: 'eyes', label: 'Occhi', min: 3, max: 60, default: 12 },
+    { key: 'unison', label: 'Unisono', min: 0, max: 1, default: 0.8 },
+    { key: 'nerve', label: 'Nervi', min: 0, max: 2, default: 0.8 },
+    { key: 'dive', label: 'Tuffo', min: 0, max: 1, default: 1 },
+  ],
+  airdancers: [
+    { key: 'dancers', label: 'Ballerini', min: 1, max: 7, default: 5 },
+    { key: 'flail', label: 'Sbandata', min: 0, max: 2, default: 1 },
+    { key: 'canon', label: 'Canone', min: 0, max: 1, default: 0.5 },
+    { key: 'blast', label: 'Soffio', min: 0, max: 2, default: 1 },
+  ],
+  chatter: [
+    { key: 'ranks', label: 'File', min: 1, max: 8, default: 3 },
+    { key: 'bite', label: 'Morso', min: 0, max: 2, default: 1 },
+    { key: 'swing', label: 'Onda', min: 0, max: 1, default: 0.5 },
+    { key: 'giant', label: 'Gigante', min: 0, max: 1, default: 0.6 },
+  ],
+  opticon: [
+    { key: 'plate', label: 'Tavola', min: 0, max: 4, default: 0 },
+    { key: 'grain', label: 'Grana', min: 4, max: 40, default: 16 },
+    { key: 'drive', label: 'Spinta', min: 0, max: 2, default: 1 },
+    { key: 'honest', label: 'Moto reale', min: 0, max: 1, default: 0 },
+  ],
+  jackpot: [
+    { key: 'reels', label: 'Rulli', min: 3, max: 5, default: 3 },
+    { key: 'luck', label: 'Fortuna', min: 0, max: 1, default: 0.25 },
+    { key: 'tease', label: 'Suspense', min: 0, max: 1, default: 0.6 },
+    { key: 'payout', label: 'Vincita', min: 0, max: 2, default: 1 },
   ],
   fluxlines: [
     { key: 'poles', label: 'Poli', min: 2, max: 5, default: 4 },

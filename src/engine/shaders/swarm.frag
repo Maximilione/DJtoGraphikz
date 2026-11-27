@@ -35,6 +35,9 @@ void main() {
   // its peak, so the peak has to be well above 1 for the swarm to read on a
   // projector at all — the master stage tone maps whatever is too bright
   col *= (2.0 + 1.1 * uEnergy + 0.7 * uHigh * vSeed) * vGain;
+  // a particle that has stopped is one that has reached the bottom of a sink,
+  // where thousands sit on the same pixels: dimmed, the pile keeps its colour
+  col *= mix(0.3, 1.0, smoothstep(0.03, 0.30, vSpeed));
 
   gl_FragColor = vec4(col * fall, 1.0);
 }

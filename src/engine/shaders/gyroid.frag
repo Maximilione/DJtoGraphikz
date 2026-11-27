@@ -60,7 +60,7 @@ void main() {
     glow += 0.006 / (0.12 + abs(d));
     // pixel-cone eps: far/grazing rays stop earlier (fog hides far precision)
     if (d < 0.002 + 0.0012 * t || t > 14.0) break;
-    t += max(d * 0.85, 0.01);
+    t += max(d * 0.85, 0.003);
   }
 
   vec3 c = vec3(0.0);

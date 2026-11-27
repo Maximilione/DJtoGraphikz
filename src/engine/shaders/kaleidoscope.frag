@@ -45,13 +45,15 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
 
   // Rotate with audio
-  uv *= rot(uTime * 0.2 + uBass * 0.8);
+  uv *= rot(uTime * 0.2 + uBass * 0.5);
 
   float r = length(uv);
   float a = atan(uv.y, uv.x);
 
-  // Kaleidoscope fold — segments react to bass
-  float segs = floor(segments + uBass * 8.0 + uMid * 4.0);
+  // Kaleidoscope fold. The count is the parameter alone: it used to add the
+  // bass and mid levels, so the whole mirror layout popped to a different
+  // symmetry several times a second
+  float segs = max(floor(segments), 2.0);
   float segAngle = TAU / segs;
   a = mod(a + PI, segAngle) - segAngle * 0.5;
   a = abs(a);
@@ -60,7 +62,8 @@ void main() {
   vec2 kuv = vec2(cos(a), sin(a)) * r;
 
   // Zoom pulses with beat
-  float zm = zoom + sin(uTime * 0.5) * 0.5 + uBeat * 1.5;
+  // the bass breathes the pattern in and out through the mirrors, the kick snaps it
+  float zm = zoom + sin(uTime * 0.5) * 0.5 + uBass * 1.2 + uBeat * 0.8;
   kuv *= zm;
 
   // Animated FBM pattern
@@ -91,21 +94,29 @@ void main() {
   float hw2 = min(max(0.53 * lb, fwidth(x2) * mpx), 1.2);
   float edge2 = (1.0 - smoothstep(0.0, hw2, dx2)) * 1.5;
 
-  // Color
-  vec3 color = vec3(0.0);
-  color += uColor1 * pattern * 1.2;
-  color += uColor2 * edge1;
-  color += uColor3 * edge2;
-  color += (uColor1 + uColor2) * 0.3 * exp(-r * 5.0) * (1.0 + uBeat * 2.0);
+  // Color: the cloud walks the palette 1 -> 3, valleys stay black, and the
+  // lines replace it instead of adding to it (two palette colours summed
+  // went pastel and the whole frame read as one washed green)
+  vec3 base = mix(uColor3, uColor1, smoothstep(0.2, 0.52, n3)) * pattern * pattern;
+  // stained-glass relief from the cloud itself
+  vec2 gr = vec2(dFdx(n2), dFdy(n2)) * uResolution.y / zm;
+  base *= clamp(0.8 + dot(gr, vec2(0.15, 0.2)), 0.5, 1.3);
+  vec3 color = base * (0.55 + 0.5 * uMid);
+  color = mix(color, uColor2 * (1.1 + 0.6 * uBeat), min(edge1 * 0.5, 1.0));
+  color = mix(color, mix(uColor3, vec3(1.0), 0.25) * (0.7 + 1.3 * uHigh), min(edge2 * 0.667, 1.0) * 0.8);
+  // rings of shade give the mirrors a depth to sink into
+  color *= 0.6 + 0.4 * smoothstep(-0.2, 0.6, sin(r * 9.0 - uTime * 0.8));
+  color += mix(uColor2, uColor1, 0.5 + 0.5 * sin(uTime * 0.3)) * exp(-r * 7.0) * (0.25 + uBeat * 0.9);
 
   // Audio energy bloom
-  color *= 0.8 + uEnergy * 0.3;
-  color *= 1.0 + uBeat * 0.4;
+  color *= 0.85 + uEnergy * 0.3;
+  color *= 1.0 + uBeat * 0.3;
   // soft shoulder: full audio compresses instead of clipping to white
-  color = color / (1.0 + 0.6 * color);
+  color = color / (1.0 + 0.35 * color);
 
   // Vignette
   color *= smoothstep(1.3, 0.35, r);
 
+  color += (hash21(gl_FragCoord.xy) - 0.5) / 255.0;   // dither against banding in the vignette
   gl_FragColor = vec4(color, 1.0);
 }

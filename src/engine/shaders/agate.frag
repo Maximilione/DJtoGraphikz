@@ -74,7 +74,9 @@ vec2 fbm4p(vec2 p) {
 }
 
 vec3 ramp(float x) {
-  return x < 0.5 ? mix(uColor3 * 0.25, uColor1, x * 2.0) : mix(uColor1, uColor2, x * 2.0 - 1.0);
+  // a plateau on each end: with a linear ramp colour 1 (the middle) tinted
+  // almost every band and the other two only showed as its blends
+  return x < 0.5 ? mix(uColor3 * 0.6, uColor1, smoothstep(0.15, 0.5, x)) : mix(uColor1, uColor2, smoothstep(0.5, 0.85, x));
 }
 vec3 bandCol(float i, float sh) {
   float x = hash1(i + sh * 17.0);

@@ -61,7 +61,7 @@ void main() {
   gRep = 2.2 / max(repscale, 0.3);
 
   // stay near the axis of the carved tube
-  vec3 ro = vec3(0.18 * sin(t * 0.22), 0.15 * cos(t * 0.17), t * (0.9 + uBass * 0.6) + uBassTime * 0.3);
+  vec3 ro = vec3(0.18 * sin(t * 0.22), 0.15 * cos(t * 0.17), t * 0.9 + uBassTime * 0.9);
   float fov = camfov * (1.0 - uBassHit * 0.18);
   vec3 rd = normalize(vec3(uv * rot(uBarPhase * TAU * 0.12 + t * 0.05), fov));
 
@@ -107,7 +107,7 @@ void main() {
   }
   // vanishing-point light: the tunnel has a destination
   color += mix(uColor2, uColor3, uBarPhase) * exp(-dot(uv, uv) * 10.0) * (0.12 + 0.35 * uBeat);
-  color += mix(uColor2, uColor3, uBarPhase) * glow * 0.05 * glowk * (0.6 + uEnergy);
+  color += mix(uColor2, uColor3, uBarPhase) * glow * 0.02 * glowk * (0.6 + uEnergy);
 
   color = 1.0 - exp(-color * 1.3);
   gl_FragColor = vec4(color, 1.0);

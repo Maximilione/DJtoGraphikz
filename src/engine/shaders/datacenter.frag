@@ -145,6 +145,10 @@ vec3 shade(vec3 ro, vec3 rd, float t, bool cheap) {
     // corridor's baseline light) and the cable conduit as a duller band.
     vec3 metal = mix(vec3(0.04, 0.045, 0.05), uColor2 * 0.05, 0.5);
     float strip = smoothstep(0.14, 0.0, abs(p.y - (CEIL_Y - 0.04)));
+    // a tube down the middle of the aisle plus its spill on the panels: lit
+    // wall to wall, the ceiling and its floor mirror were one flat grey slab
+    float ax = abs(p.x);
+    strip *= smoothstep(0.34, 0.22, ax) + 0.14 * smoothstep(0.95, 0.3, ax);
     vec3 tube = mix(vec3(1.0), uColor3, 0.25);
     surf = metal * 0.6 + tube * strip * 1.6;
     surf += uColor1 * 0.03;

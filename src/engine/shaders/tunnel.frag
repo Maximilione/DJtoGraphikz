@@ -60,7 +60,9 @@ void main() {
   float zi = mod(floor(zc), 64.0);
 
   float h = hash(vec2(mod(li, 32.0), zi));
-  float nr = smoothstep(0.02, 0.14, r);      // lines melt into the vanishing point
+  // lines melt into the vanishing point: past a certain depth they are closer
+  // than a pixel and only add up to a white disc
+  float nr = smoothstep(0.02, 0.14, r) * (0.25 + 0.75 * smoothstep(0.05, 0.4, r));
 
   // Slab rings and sector seams, thin in depth space so they shrink with distance
   float rings = (smoothstep(0.1, 0.0, ez) + 0.3 * exp(-ez * 9.0)) * nr;
@@ -100,11 +102,13 @@ void main() {
   color += mix(uColor1, uColor2, 0.5) * 0.04 * (0.5 + p1);
 
   // Vanishing point: halo, white-hot core and a ring that races out on the kick
-  float centerGlow = exp(-r * 4.0) * (0.5 + uBeat * 2.0);
-  color += (c1 + c2) * 0.5 * centerGlow;
-  color += vec3(1.0) * exp(-r * r * 500.0) * (0.3 + 1.5 * uBassHit);
-  float sw = (r - (0.04 + 0.9 * (1.0 - uBassHit))) * 12.0;
-  color += mix(uColor3, vec3(1.0), 0.5) * exp(-sw * sw) * uBassHit * 1.2;
+  // one palette hue at a time for the halo: the sum of two went white and,
+  // with the beat gain, burned a blank disc over the rings on every kick
+  float centerGlow = exp(-r * 6.0) * (0.45 + uBeat * 0.7);
+  color += mix(uColor2, uColor3, 0.5 + 0.5 * sin(uTime * 0.2)) * centerGlow;
+  color += vec3(1.0) * exp(-r * r * 500.0) * (0.3 + 1.0 * uBassHit);
+  float sw = (r - (0.04 + 0.9 * (1.0 - uBassHit))) * 20.0;
+  color += mix(uColor3, vec3(1.0), 0.3) * exp(-sw * sw) * uBassHit * min((1.0 - uBassHit) * 5.0, 1.0) * 1.3;   // born faint at the core, the core flash covers the hit itself
 
   // Depth fog: bright at the vanishing point, dim near the lens
   float fog = mix(0.35, 1.0, exp(-r * 1.5));
@@ -112,5 +116,6 @@ void main() {
   color *= fog * pulse;
 
   color = vec3(1.0) - exp(-color * 1.3);
+  color += (hash(gl_FragCoord.xy) - 0.5) / 255.0;   // dither: the fog gradient does not band
   gl_FragColor = vec4(color, 1.0);
 }

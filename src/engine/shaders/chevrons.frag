@@ -51,12 +51,16 @@ void main() {
   float stripe = smoothstep(1.0 - th - ay, 1.0 - th, fy) * (1.0 - smoothstep(1.0 - ay, 1.0, fy));
   // leading-edge gradient: the stripe reads as moving, not a flat slab
   stripe *= 0.55 + 0.45 * smoothstep(1.0 - th, 1.0, fy);
+  // the highs light the leading edge: hats get their own mark, apart from the kick's lane
+  float lead = smoothstep(1.0 - 0.18 * th, 1.0, fy) * stripe * clamp(uHigh, 0.0, 1.0);
   // lane gutters
   float ax = n / uResolution.x;
   float gutter = smoothstep(0.03 - ax, 0.03, fx) * (1.0 - smoothstep(0.97, 0.97 + ax, fx));
   // tinted lanes: every other one
   float tinted = mod(lane, 2.0);
-  vec3 ink = mix(vec3(1.0), uColor1, tinted);
+  // the tinted lanes walk the palette: with colour 1 alone two thirds of it never showed
+  float pick = mod(floor(lane * 0.5), 3.0);
+  vec3 ink = mix(vec3(1.0), pick < 0.5 ? uColor1 : pick < 1.5 ? uColor2 : uColor3, tinted);
   // exactly one lane per beat flashes on the kick, decaying with the hit
   float hotLane = floor(hash(vec2(mod(beat, 512.0), 3.0)) * n);
   float hot = (1.0 - step(0.5, abs(lane - hotLane))) * clamp(uBassHit, 0.0, 1.0);
@@ -66,6 +70,6 @@ void main() {
   // dim the lanes away from the centre so the wall has a middle
   bright *= 1.0 - 0.5 * abs(uv.x - 0.5) * 2.0 * (1.0 - uEnergy);
   bright = min(bright, 1.0);
-  vec3 col = ink * stripe * gutter * bright;
+  vec3 col = (ink * stripe * bright + mix(ink, vec3(1.0), 0.6) * lead * 0.7) * gutter;
   gl_FragColor = vec4(col, 1.0);
 }

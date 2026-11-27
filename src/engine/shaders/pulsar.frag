@@ -138,6 +138,10 @@ void main() {
     float now = exp(-nt * nt) * nowK;
     float h = (tr.x * 1.15 + tr.y * 0.42 + specRidge * now) * ampWin * (0.70 + band * bandK);
 
+    // soft ceiling: a loud kick band used to throw the near ridges out of the
+    // top of the frame. h only shrinks, so hMax above stays a valid bound.
+    h /= 1.0 + max(h, 0.0) * 2.4;
+
     float py = (h - eye) * FOCAL * q + HORIZON;
     float d = py - p.y;
 

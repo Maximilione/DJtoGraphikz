@@ -36,7 +36,7 @@ void main() {
 
   float aspect = uResolution.x / uResolution.y;
   // wide strips get more columns so the rain still has rows to fall through
-  float columns = max(cols + uMid * 12.0, 4.0) * max(1.0, aspect / 1.78);
+  float columns = max(cols, 4.0) * max(1.0, aspect / 1.78);
   float cellW = uResolution.x / columns;
   float cellH = cellW * 1.4;
   float rows = max(uResolution.y / cellH, 2.0);

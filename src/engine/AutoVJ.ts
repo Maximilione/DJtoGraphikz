@@ -133,6 +133,14 @@ export const FAMILY: Record<EffectId, Family> = {
   armillary: 'object',
   telemetry: 'glyph',
   aegis: 'grid',
+  titanhand: 'object',
+  kaijustomp: 'object',
+  robokaiju: 'object',
+  jackpot: 'object',
+  opticon: 'grid',
+  chatter: 'object',
+  airdancers: 'object',
+  eyewall: 'organic',
   fluxlines: 'lines',
 }
 
@@ -172,6 +180,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'hard-tekno': {
     label: 'Hard Tekno',
     scenes: [
+      s('groove', 'chatter', [], { ranks: v(3), bite: v(1), swing: v(0.5), giant: v(0.6) }),
+      s('break', 'airdancers', ['bloom'], { dancers: v(3), flail: v(0.7), canon: v(0.2), blast: v(0.6) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.3), corona: a(0.8, 'bass', 0.5), wobble: v(0.4) }),
       s('break', 'warehouse', ['filmgrain'], { pillars: v(2), fog: v(1.3), flicker: v(0.7) }),
       s('break', 'static', ['scanlines'], { grain: v(3), roll: a(0.6, 'bass', 0.5), bands: v(0.6) }),
@@ -225,6 +235,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'gabber': {
     label: 'Gabber',
     scenes: [
+      s('peak', 'chatter', [], { ranks: v(5), bite: v(1.6), swing: v(1), giant: v(1) }),
       s('break', 'static', ['scanlines'], { grain: v(4), roll: v(1.2), bands: v(0.7) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.32), corona: a(1, 'bass', 0.6), wobble: v(0.6) }),
       s('break', 'warehouse', ['filmgrain'], { pillars: v(1.5), fog: v(1.5), flicker: v(0.9) }),
@@ -269,6 +280,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'dark-industrial': {
     label: 'Dark Industrial',
     scenes: [
+      s('break', 'eyewall', ['filmgrain'], { eyes: v(5), unison: v(0.3), nerve: v(0.4), dive: v(0) }),
+      s('groove', 'eyewall', ['filmgrain'], { eyes: v(12), unison: v(0.8), nerve: v(0.8), dive: v(1) }),
+      s('peak', 'eyewall', ['filmgrain'], { eyes: v(20), unison: v(1), nerve: v(1.6), dive: v(1) }),
       s('break', 'warehouse', ['filmgrain'], { pillars: v(2), fog: v(1.2), flicker: v(0.7) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(1.3), swirl: v(1.8), dissipate: v(0.2) }),
       s('break', 'static', ['scanlines'], { grain: v(3), roll: a(0.8, 'bass', 0.5), bands: v(0.6) }),
@@ -337,6 +351,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'acid-techno': {
     label: 'Acid Techno',
     scenes: [
+      s('groove', 'opticon', [], { plate: v(0), grain: v(16), drive: v(1), honest: v(0.2) }),
       s('break', 'spaceghost', ['bloom', 'chromatic'], { folds: v(5), glow: a(30, 'bass', 0.4), drift: v(1.2) }),
       s('break', 'reaction', ['bloom'], { feed: v(0.0545), kill: a(0.062, 'lfo-sine', 0.15, 32), inject: v(1.4) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.24), corona: a(1.4, 'bass', 0.5), wobble: v(0.8) }),
@@ -384,6 +399,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'aegis', ['bloom'], { cells: v(10), impacts: v(1.6), beam: a(1, 'bass', 0.4), orbit: v(0.8) }),
       s('groove', 'armillary', ['bloom'], { rings: v(5), spin: v(0.8), snap: v(1), core: a(1, 'bass', 0.4) }),
       s('build', 'telemetry', ['rgb-split'], { detail: v(0.9), sweep: v(2), glitch: v(0.7), land: v(0.5) }),
+      s('groove', 'kaijustomp', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
+      s('groove', 'robokaiju', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
     ],
     palettes: [ACID, TOXIC, NEON, CYBER],
     phraseBars: 8,
@@ -395,6 +412,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'minimal-hypnotic': {
     label: 'Minimal Hypnotic',
     scenes: [
+      s('groove', 'eyewall', ['filmgrain'], { eyes: v(12), unison: v(0.8), nerve: v(0.8), dive: v(1) }),
+      s('break', 'opticon', [], { plate: v(4), grain: v(12), drive: v(0.6), honest: v(0) }),
+      s('groove', 'opticon', [], { plate: v(0), grain: v(16), drive: v(1), honest: v(0.2) }),
       s('break', 'inkflow', ['filmgrain'], { inkscale: v(2.2), flowspd: a(0.5, 'bass', 0.3), inkcontrast: v(1.3) }),
       s('break', 'lissajous', ['bloom', 'feedback'], { freqa: a(3, 'lfo-sine', 0.2, 32), freqb: v(4), size: v(0.5) }),
       s('break', 'waves', ['bloom'], { count: v(5), amp: a(0.09, 'bass', 0.35), freq: v(2.5) }),
@@ -572,6 +592,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'telemetry', ['rgb-split'], { detail: v(0.9), sweep: v(2), glitch: v(0.8), land: v(0.5) }),
       s('peak', 'aegis', ['bloom', 'chromatic'], { cells: v(11), impacts: v(1.8), beam: v(1), orbit: v(1.2) }),
       s('peak', 'snowride', ['bloom', 'chromatic'], { speed: v(1.8), pistewidth: v(1), curviness: a(1.1, 'lfo-sine', 0.35, 16), gates: v(11) }),
+      s('peak', 'kaijustomp', [], { pace: v(1.5), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
+      s('peak', 'robokaiju', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
+      s('groove', 'titanhand', [], { tempo: v(2), crew: v(3), pyro: a(1, 'bass', 0.4), tape: v(0) }),
     ],
     palettes: [NEON, FIRE, ACID, CYBER],
     phraseBars: 4,
@@ -641,6 +664,10 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'tech-house': {
     label: 'Tech House',
     scenes: [
+      s('groove', 'airdancers', ['bloom'], { dancers: v(5), flail: v(1), canon: v(0.5), blast: v(1) }),
+      s('peak', 'airdancers', ['bloom'], { dancers: v(7), flail: v(1.5), canon: v(1), blast: v(1.6) }),
+      s('build', 'jackpot', ['bloom'], { reels: v(3), luck: v(0.1), tease: v(1), payout: v(1) }),
+      s('peak', 'jackpot', ['bloom'], { reels: v(5), luck: v(0.6), tease: v(0.4), payout: v(1.8) }),
       s('break', 'spectrum', ['bloom', 'scanlines'], { bars: v(48), mirror: v(1), scope: v(0.6) }),
       s('break', 'fluid', ['bloom'], { zoom: v(1.2), swirl: a(1.2, 'lfo-sine', 0.3, 16) }),
       s('break', 'waves', ['bloom'], { count: v(6), amp: a(0.08, 'bass', 0.4), freq: v(3) }),
@@ -692,6 +719,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('groove', 'armillary', ['bloom'], { rings: v(5), spin: v(0.6), snap: v(1), core: v(1) }),
       s('groove', 'aegis', ['bloom'], { cells: v(8), impacts: v(1), beam: v(0.8), orbit: v(0.5) }),
       s('build', 'telemetry', [], { detail: v(0.8), sweep: v(1.5), glitch: v(0.4), land: v(0.6) }),
+      s('groove', 'titanhand', [], { tempo: v(1), crew: v(3), pyro: a(1, 'bass', 0.4), tape: v(0) }),
+      s('groove', 'kaijustomp', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
+      s('groove', 'robokaiju', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
     ],
     palettes: [SUNSET, GOLD, VAPOR, OCEAN],
     phraseBars: 8,
@@ -702,6 +732,8 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'psytrance': {
     label: 'Psytrance',
     scenes: [
+      s('groove', 'opticon', [], { plate: v(0), grain: v(16), drive: v(1), honest: v(0.2) }),
+      s('peak', 'opticon', [], { plate: v(0), grain: v(22), drive: v(1.6), honest: v(0.4) }),
       s('break', 'reaction', ['bloom'], { feed: a(0.052, 'lfo-sine', 0.2, 64), kill: v(0.061), inject: v(1.2) }),
       s('break', 'quasicrystal', ['bloom', 'chromatic'], { speed: v(0.7), waves: v(7), qfreq: a(45, 'lfo-sine', 0.3, 64), contrast: v(0.4) }),
       s('break', 'caustics', ['bloom'], { causticscale: v(1.6), sharpness: v(0.8), depthk: v(1.2) }),
@@ -749,6 +781,7 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'singularity', ['bloom', 'chromatic'], { mass: v(1.3), disk: a(1.5, 'bass', 0.3), tilt: v(0.3), swirl: v(2.2) }),
       s('break', 'aurora', ['bloom'], { curtains: v(1.3), height: v(1.4), flow: v(1.2), shimmer: v(1.4) }),
       s('peak', 'aegis', ['bloom'], { cells: v(13), impacts: v(1.6), beam: a(1.4, 'bass', 0.3), orbit: v(1) }),
+      s('build', 'kaijustomp', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
     ],
     palettes: [TOXIC, ACID, AURORA, CYBER],
     phraseBars: 8,
@@ -762,6 +795,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
   'bounce': {
     label: 'Bounce Techno',
     scenes: [
+      s('groove', 'airdancers', ['bloom'], { dancers: v(5), flail: v(1), canon: v(0.5), blast: v(1) }),
+      s('peak', 'chatter', [], { ranks: v(5), bite: v(1.6), swing: v(1), giant: v(1) }),
+      s('build', 'jackpot', ['bloom'], { reels: v(3), luck: v(0.1), tease: v(1), payout: v(1) }),
       s('break', 'eclipse', ['bloom'], { radius: v(0.28), corona: a(0.9, 'bass', 0.5), wobble: v(0.4) }),
       s('break', 'warehouse', ['filmgrain'], { pillars: v(2), fog: v(1.3), flicker: v(0.6) }),
       s('break', 'smoke', ['filmgrain'], { rise: v(0.9), swirl: v(1.4), dissipate: v(0.3) }),
@@ -796,6 +832,9 @@ export const GENRE_CONFIGS: Record<Genre, GenreConfig> = {
       s('peak', 'storm', ['bloom'], { bolts: v(2), branches: v(1), fog: a(1, 'bass', 0.5) }),
       s('groove', 'beamfield', ['bloom'], { beams: v(8), scan: v(0.9), haze: a(1, 'bass', 0.4) }),
       s('peak', 'aegis', ['bloom'], { cells: v(8), impacts: v(1.4), beam: v(1), orbit: v(0.8) }),
+      s('groove', 'titanhand', [], { tempo: v(1), crew: v(3), pyro: a(1, 'bass', 0.4), tape: v(0) }),
+      s('peak', 'kaijustomp', [], { pace: v(1.5), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
+      s('peak', 'robokaiju', [], { pace: v(1), pyro: a(1, 'bass', 0.4), haze: v(1), tape: v(0) }),
     ],
     palettes: [MONO, BLOOD, STEEL, AMBER],
     phraseBars: 8,

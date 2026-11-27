@@ -15,6 +15,7 @@ simulation pass and ping-ponged into a half-float buffer for t*60 frames
 before the visible pass is drawn, the same way the Engine runs it.
 Override iterations-per-frame and buffer scale with DJG_ITERS / DJG_SCALE.
 """
+import base64
 import json
 import os
 import pathlib
@@ -23,6 +24,9 @@ import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
+ATLAS = {"Hero0": "toku-hero-0.png", "Hero1": "toku-hero-1.png", "Hero2": "toku-hero-2.png",
+         "Foot": "toku-foot.png", "Hand": "toku-hand.png", "Robo": "toku-robo.png", "Kaiju": "toku-kaiju.png",
+         "Tube": "toku-tube.png", "Teeth": "toku-teeth.png"}
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 TONE = ("\nvec4 djgTone(vec3 c, float a) {\n"
         "  c *= 1.1;\n"
@@ -73,6 +77,9 @@ def effect_params(effect: str) -> str:
     if block:
         for m in re.finditer(r"key:\s*'(\w+)'.*?default:\s*([\d.-]+)", block.group(1)):
             out += f"  u1(p, '{m.group(1)}', {m.group(2)});\n"
+    # DJG_PARAMS='{"zoom": 2}' overrides defaults: later uniform writes win
+    for k, v in json.loads(os.environ.get("DJG_PARAMS", "{}")).items():
+        out += f"  u1(p, '{k}', {float(v)});\n"
     return out
 
 
@@ -101,17 +108,39 @@ def build_page(effect: str, t: float, audio: list[float]) -> pathlib.Path:
         # the sim's buffer letter, so the preview binds the same uniform names
         "buf": (re.search(r"uniform sampler2D tBuffer(\w+)", sim).group(1) if sim else "A"),
         "pipes": pipes_texture(t) if "uniform sampler2D uPipes" in frag_src else None,
+        # sprite sheets (uniform sampler2D uAtlasXxx): the PNGs the Engine loads, as data URLs
+        "atlas": {m: "data:image/png;base64," + base64.b64encode((REPO / "src/engine/assets" / ATLAS[m]).read_bytes()).decode()
+                  for m in re.findall(r"uniform sampler2D uAtlas(\w+)", frag_src)},
     }
 
     html = """<!DOCTYPE html><html><body style="margin:0">
 <canvas id="c"></canvas>
+__IMGS__
 <script>
+(async () => {
 const CFG = __CFG__;
 const W = CFG.w, H = CFG.h;
 const canvas = document.getElementById('c');
 canvas.width = W; canvas.height = H;
 const gl = canvas.getContext('webgl2');
 gl.getExtension('EXT_color_buffer_float');
+// sprite sheets: nearest, flipped like three's TextureLoader, on units 5..
+const ATLAS = {};
+if (document.readyState !== 'complete') await new Promise(r => addEventListener('load', r));   // the <img> tags below
+{ let unit = 5;
+  for (const [name, url] of Object.entries(CFG.atlas)) {
+    const img = document.getElementById('atlas' + name);
+    const tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    for (const f of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, f, gl.NEAREST);
+    for (const f of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, f, gl.CLAMP_TO_EDGE);
+    ATLAS['uAtlas' + name] = unit++;
+  }
+  gl.activeTexture(gl.TEXTURE0);
+}
 const vs = `#version 300 es
 in vec2 p; out vec2 vUv;
 void main(){ vUv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
@@ -147,6 +176,7 @@ const ui = (p, n, v) => { const l = gl.getUniformLocation(p, n); if (l) gl.unifo
 const T = CFG.t;
 function setCommon(p, time) {
   gl.useProgram(p);
+  for (const [n, u] of Object.entries(ATLAS)) ui(p, n, u);
   u1(p, 'uTime', time);
   u1(p, 'uBass', CFG.bass); u1(p, 'uMid', CFG.mid); u1(p, 'uHigh', CFG.high);
   u1(p, 'uEnergy', CFG.energy); u1(p, 'uBeat', CFG.beat); u1(p, 'uBassHit', CFG.bassHit);
@@ -322,11 +352,21 @@ void main(){ djgFragColor = djgTone(texture(tSrc, vUv).rgb, 1.0); }`);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 gl.finish();
+})();
 </script></body></html>"""
+    html = html.replace("__IMGS__", "".join(f'<img id="atlas{n}" src="{u}" style="display:none">' for n, u in cfg["atlas"].items()))
     html = html.replace("__CFG__", json.dumps(cfg)).replace("__PARAMS__", effect_params(effect))
     page = pathlib.Path(f"/tmp/djg-preview-{effect}.html")
     page.write_text(html)
     return page
+
+
+def blank(path: str) -> bool:
+    try:
+        from PIL import Image
+        return min(Image.open(path).convert("L").resize((16, 9)).tobytes()) > 250
+    except Exception:
+        return False
 
 
 def main() -> int:
@@ -340,10 +380,15 @@ def main() -> int:
     cfg_w = int(os.environ.get("DJG_W", 960))
     cfg_h = int(os.environ.get("DJG_H", 540))
     page = build_page(effect, t, audio)
-    subprocess.run([CHROME, "--headless=new", "--disable-gpu-sandbox", "--no-sandbox",
-                    "--use-angle=metal", f"--screenshot={out}",
-                    f"--window-size={cfg_w},{cfg_h}", "--hide-scrollbars", f"file://{page}"],
-                   capture_output=True, timeout=120)
+    for attempt in range(4):
+        subprocess.run([CHROME, "--headless=new", "--disable-gpu-sandbox", "--no-sandbox",
+                        "--use-angle=metal", "--virtual-time-budget=8000", f"--screenshot={out}",
+                        f"--window-size={cfg_w},{cfg_h}", "--hide-scrollbars", f"file://{page}"],
+                       capture_output=True, timeout=120)
+        # a page with sprite sheets draws after its images decode: now and then
+        # the screenshot is taken first and comes back blank. Take it again
+        if "uAtlas" not in page.read_text() or not blank(out):
+            break
     print("shot:", out)
     return 0
 

@@ -73,17 +73,17 @@ void main() {
   lines = smoothstep(-lw, lw, lines);
 
   // Color mapping
-  float cr = f * 3.0 + uTime * 0.1;
+  float cr = f * 7.0 + uTime * 0.1;
   vec3 c1 = uColor1 * (sin(cr) * 0.5 + 0.5);
   vec3 c2 = uColor2 * (sin(cr + 2.094) * 0.5 + 0.5);
   vec3 c3 = uColor3 * (sin(cr + 4.189) * 0.5 + 0.5);
 
-  vec3 color = c1 * fc * fc * 1.4 + c2 * (1.0 - fc) * lines + c3 * n * n * 0.6;
+  vec3 color = c1 * fc * fc * 1.4 + c2 * (1.0 - fc * fc) * lines * 2.0 + c3 * n * n * 0.6;
   color *= 1.2;
 
   // Hot spots
   // hot spots stay in palette and sparkle on the hats
-  float hot = n * n * n * (1.2 + 3.0 * uHigh);
+  float hot = n * n * n * (0.8 + 1.6 * uHigh);
   color += mix(uColor3, vec3(1.0), 0.25) * hot;
 
   // Beat flash: additive-ish gain, the old 2.2× pushed the frame to pastel
@@ -93,7 +93,7 @@ void main() {
   // negative (on a 6:1 strip origUv.x reaches 3 and the frame edges went white)
   color = 1.0 - exp(-color * 1.25);   // highlight rolloff
   vec2 vq = (vUv - 0.5) * vec2(1.78, 1.0);
-  float vig = max(1.0 - dot(vq, vq) * 1.15, 0.0);
+  float vig = max(1.0 - dot(vq, vq) * 0.6, 0.0);
   color *= vig;
 
   gl_FragColor = vec4(color, 1.0);

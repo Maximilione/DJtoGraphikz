@@ -84,7 +84,14 @@ void main() {
              || abs(pos.x) > 2.2 || abs(pos.y) > 1.45;
 
   if (reborn) {
-    float a = hash(gl_FragCoord.xy + floor(uBeatClock) * 0.137) * 6.2831853;
+    // The angle follows the particle's colour (the same index formula the
+    // vertex shader calls vSeed), plus a jitter and a slow turn: each palette
+    // colour is born in its own sector and rides the flow as a stream. With a
+    // random angle every pixel held all three colours and the swarm summed to
+    // white confetti.
+    vec2 idx = gl_FragCoord.xy - 0.5;
+    float tone = fract(idx.x * 0.017 + idx.y * 0.041);
+    float a = (tone + (hash(gl_FragCoord.xy + floor(uBeatClock) * 0.137) - 0.5) * 0.22 + uTime * 0.011) * 6.2831853;
     // sqrt of a uniform variable fills a disc evenly; without it everything
     // lands on a ring and the middle of the frame stays empty
     // sqrt spreads evenly over a disc; life*life piles everything in the
@@ -103,16 +110,19 @@ void main() {
   // because nothing is following the same streamline as its neighbours
   vec4 f0 = field(pos * 1.7, t);
   vec4 f1 = field(pos * 4.6 + 9.1, t * 1.7);
-  vec2 flow = (f0.xy + f1.xy * 0.30 * seed) * turbulence
-            - (f0.zw * 0.75 + f1.zw * 0.25) * (0.5 + 0.8 * uMid);
+  vec2 swirl = (f0.xy + f1.xy * 0.30 * seed) * turbulence;
+  vec2 fall = (f0.zw * 0.75 + f1.zw * 0.25) * (0.5 + 0.4 * uMid);
   // a silent room must still move: the audio adds to the floor, it is not
   // the whole term. At 0.25 the swarm barely drifts and reads as a still image.
-  flow *= 0.60 + 0.55 * uEnergy;
+  float lift = 0.60 + 0.55 * uEnergy;
   // kick: the whole field lurches, plus a small radial shove. Both go into
   // the target velocity so the drag bounds them: added to vel after the mix
   // the old 1.6 shove compounded to six units a second, and a track with a
   // kick on every beat kept the swarm as a hollow ring of grain.
-  flow *= 1.0 + uBassHit * burst * 1.5;
+  // Only the swirl takes the energy and the kick. The downhill part is what
+  // gathers particles: scaled up with them, a loud track drained the whole
+  // swarm into three or four solid white clots and left the rest empty.
+  vec2 flow = swirl * lift * (1.0 + uBassHit * burst * 1.5) - fall * 0.65;
   flow += normalize(pos + 1e-4) * uBassHit * burst * 0.35;
   vel = mix(vel, flow, clamp(0.06 + 0.5 * drag, 0.02, 0.9));
 

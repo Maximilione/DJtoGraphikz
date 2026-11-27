@@ -77,12 +77,11 @@ export function ParamControls({ engine }: ParamControlsProps) {
           </label>
           <button
             className="btn btn-sm"
-            title="Mappa tutti i parametri all'audio: preset dedicato dove esiste, euristica per gli altri — Annulla dal toast"
+            title="Collega i parametri all'audio: il preset dedicato dell'effetto, o un'euristica sugli shader custom — Annulla dal toast"
             onClick={() => {
               const r = magicMap(engine)
               force()
-              const detail = r.curated ? `, ${r.curated} con preset dedicato` : ''
-              pushToast(`Magic Mapping: ${r.count} parametri${detail}`, 'magicmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
+              pushToast(`Magic Mapping: ${r.count} parametri${r.curated ? ' dal preset dedicato' : ''}`, 'magicmap', { label: 'Annulla', fn: () => { r.undo(); force() } })
             }}
           >
             ✨ Magic Mapping

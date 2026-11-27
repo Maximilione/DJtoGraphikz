@@ -4,6 +4,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/) · versioni [SemVer](ht
 
 ## [Unreleased]
 
+## [0.83.0-beta] — 2026-11-27
+
+### Added
+- **Tre effetti tokusatsu in pixel art** (9996c17 … 7a39ca5): Titan Hand, Kaiju Stomp e Robo vs Kaiju. Tre eroi in tuta, una mano gigante, un piede di kaiju, un robot componibile e un rettile si muovono a fotogrammi tenuti sul battito, su una griglia di pixel a scala intera. Gli sprite nascono da fogli di pose generati e ridotti a pixel veri dagli script `scripts/toku/ingest*.py`; tuta, armatura e pinne prendono la palette dell'app.
+- **5 effetti nuovi** (025914d, 7a39ca5): Occhi (un muro di occhi che guarda la pista), Tube Men (pupazzi gonfiabili pompati dalla cassa), Dentiere (un esercito di dentiere a molla, con la gigante ogni 16 battute), Phantom (tavole di illusioni ottiche), Jackpot (una slot che gioca un giro ogni 16 battute). Tube Men e Dentiere sono in pixel art come i tokusatsu. Totale 113 effetti.
+- **Anteprima shader** (d62b378): `DJG_PARAMS` per provare un effetto con parametri diversi dal default.
+
+### Changed
+- **Magic Mapping** (dbe9a59): sugli effetti interni applica solo il preset dedicato, non piu' un mapping su ogni parametro.
+- **Preset consigliati** (d62b378): ritarati sugli shader attuali per 102 effetti; non mappano piu' parametri che moltiplicano un orologio, causa dei salti d'immagine.
+- **Nastro VHS** (e34b83d): spento di default nei tre tokusatsu e nelle loro scene Auto VJ; resta sul parametro.
+
+### Fixed
+- **Scala di rendering** (c5336f8): risale sotto vsync (prima un effetto restava al 40% per sempre) e non crolla piu' dopo una dissolvenza per i fotogrammi con due shader insieme.
+- **Prestazioni a 4K** (a9bf1cc, 7a39ca5): Titan Hand da 16 a 6 ms, Kaiju Stomp da 8 a 5 ms, Tube Men senza scheletro risolto per pixel.
+- **Revisione effetti** (11bf916, 09f648a, 63e6b93, 1dabd60): 27 effetti storici corretti in due passate dopo confronto dei render; fire e raymarch non saltano piu' col basso, conteggi fermi in matrix e mandala, palette a tre colori in kaleidoscope e cracks.
+
 ## [0.82.0-beta] — 2026-11-16
 
 ### Changed

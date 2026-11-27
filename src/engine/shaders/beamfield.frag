@@ -41,8 +41,8 @@ void main() {
 
   // fog: palette gradient, brighter low where the floor lights scatter
   vec2 lc = uv - vec2(0.0, -0.2);
-  vec3 col = mix(uColor1 * 0.10, uColor2 * 0.025, smoothstep(-0.5, 0.5, uv.y)) * hz;
-  col += uColor3 * 0.04 * hz / (1.0 + 5.0 * dot(lc, lc));
+  vec3 col = mix(uColor1 * 0.055, uColor2 * 0.02, smoothstep(-0.5, 0.5, uv.y)) * hz;
+  col += uColor3 * 0.03 * hz / (1.0 + 5.0 * dot(lc, lc));
 
   for (int i = 0; i < 12; i++) {
     float fi = float(i);
@@ -59,7 +59,10 @@ void main() {
     float nl2 = max(dot(nrm, nrm), 1e-5);
     float inl2 = 1.0 / nl2;
     float s = dot(cross(o, b), nrm) * inl2;     // along the pixel ray
-    float t = dot(cross(r, o), nrm) * inl2;     // along the beam
+    // along the beam. Solving s*r - t*b = o gives (o x r).n: with the operands
+    // swapped t was negated and every beam was drawn backwards, receding from
+    // its mover into the distance as a short stick
+    float t = dot(cross(o, r), nrm) * inl2;
     float on = dot(o, nrm);                     // dist = |on| / nl
     // beam width: widened, floored at ~lminPx pixels at the pixel ray's distance s (1 px ~ 1/(1.2*uRes.y) rad)
     float w = max(0.05 * (1.0 + 0.12 * max(t, 0.0)) * (1.0 + 0.5 * kick) * (1.0 + 2.5 * uLineBoost),
@@ -81,13 +84,13 @@ void main() {
     pc = mix(pc, uColor3, 0.25);
     // beat chase along the rig + haze shimmer travelling down the beam
     float chase = 0.55 + 0.45 * smoothstep(0.35, 0.0, abs(fract(uBeatClock * 0.5 - u) - 0.5));
-    float shim = 1.0 + 0.35 * uHigh * sin(t * 7.0 - uTime * 3.0 + fi);
-    col += pc * g * 0.16 * hz * (0.8 + 0.8 * kick + 0.4 * uEnergy) * chase * shim;
-    col += mix(pc, vec3(1.0), 0.7) * gc * 0.10 * hz * (0.6 + 1.2 * kick) * chase;
+    float shim = 1.0 + 0.35 * uHigh * sin(t * 2.2 - uTime * 3.0 + fi);
+    col += pc * g * 0.24 * hz * (0.8 + 0.8 * kick + 0.4 * uEnergy) * chase * shim;
+    col += mix(pc, vec3(1.0), 0.7) * gc * 0.15 * hz * (0.6 + 1.2 * kick) * chase;
 
     // lens of the mover
     vec3 od = o / length(o);
-    float lens = 0.0012 / (1.0 - dot(r, od) + 0.0012);
+    float lens = 0.0007 / (1.0 - dot(r, od) + 0.0007);
     col += mix(pc, vec3(1.0), 0.4) * lens * (0.6 + kick) * 0.5;
   }
 

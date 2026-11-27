@@ -81,7 +81,9 @@ void main() {
   float tipR = orbit + (1.0 - orbit) * 1.05 * stretch;
   float ha = (head / orbit) * clamp((tipR - rho) / max(tipR - orbit, 1e-3), 0.0, 1.0);
   float dBlade = rho * (abs(relc) - ha);
-  float blade = (1.0 - smoothstep(-px, px, dBlade)) * step(orbit, rho) * smoothstep(0.0, 0.05, stretch);
+  // cut at the tip: past it the half-angle is 0, the edge test sits on 0
+  // and a half-dark hairline ran on to the rim
+  float blade = (1.0 - smoothstep(-px, px, dBlade)) * step(orbit, rho) * (1.0 - smoothstep(tipR - 2.0 * px, tipR, rho)) * smoothstep(0.0, 0.05, stretch);
   float dark = max(tomoe, blade);
 
   float iris = 1.0 - smoothstep(1.0 - px, 1.0 + px, rho);

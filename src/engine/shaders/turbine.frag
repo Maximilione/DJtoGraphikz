@@ -143,8 +143,8 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
     vec3 L = normalize((HUB + vec3(0.0, 0.0, 1.6)) - p);
     float diff = max(dot(n, L), 0.0);
     float d2 = diff * diff;
-    vec3 strobeCol = mix(vec3(1.0), uColor3, 0.3);
-    c += strobeCol * diff * flash * 3.2 + strobeCol * (d2 * d2 * d2) * flash * 2.0;
+    vec3 strobeCol = mix(vec3(1.0), uColor3, 0.45);
+    c += strobeCol * diff * flash * 1.3 + strobeCol * (d2 * d2 * d2) * flash * 2.0;
   }
   return c;
 }

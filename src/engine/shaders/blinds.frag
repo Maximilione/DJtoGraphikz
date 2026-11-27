@@ -49,11 +49,24 @@ void main() {
   // a highlight along the top edge of each slat where the light catches it
   float edge = exp(-abs(f - (0.5 + gap * 0.5)) * 40.0) * 0.25;
 
-  // white-hot core, saturated colour 1 in the falloff
+  // a second, dimmer lamp in colour 2 swings the other way: one lamp left
+  // half the wall black and the palette down to a single colour
+  vec2 lampB = vec2(-0.62 * sin(uTime * 0.29 + 1.7), -0.12 + 0.24 * sin(uTime * 0.19 + 0.6));
+  float dB = length(p - lampB);
+  float lightB = (exp(-dB * dB * 7.0) * 0.9 + exp(-dB * 2.2) * 0.10) * (0.55 + 0.6 * uMid);
+
+  // white-hot core, saturated colour in the falloff
   vec3 lc = mix(uColor1, vec3(1.0), smoothstep(0.35, 1.3, light));
-  vec3 col = lc * light * through;
-  col += uColor2 * light * edge;
-  col += mix(uColor3, vec3(1.0), 0.5) * uBassHit * through * light * 0.6;
+  vec3 lcB = mix(uColor2, vec3(1.0), smoothstep(0.5, 1.4, lightB));
+  vec3 beam = lc * light + lcB * lightB;
+  // the room behind: a dim colour 3 dusk, lighter toward the top of the window
+  vec3 room = uColor3 * (0.025 + 0.035 * uv.y);
+  vec3 col = (beam + room) * through;
+  col += (uColor2 * light + uColor1 * lightB) * edge * (1.0 + 1.5 * uHigh);
+  col += mix(uColor3, vec3(1.0), 0.5) * uBassHit * through * (light + lightB) * 0.6;
+  // haze on this side of the blinds: the light that got through glows in the
+  // air in front of the slats, so it is not cut by them. Scales with the gap.
+  col += (uColor1 * exp(-d * 3.2) + uColor2 * exp(-dB * 3.2) * 0.6) * gap * (0.07 + 0.10 * uBassHit);
   // IGN dither: the gaussian falloff bands into rings on 8-bit targets
   col += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) / 255.0;
   gl_FragColor = vec4(col, 1.0);

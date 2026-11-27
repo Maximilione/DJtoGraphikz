@@ -53,14 +53,16 @@ void main() {
     ? 1.0 - smoothstep(h * 0.5 - 1.5 / uResolution.y, h * 0.5, abs(uv.y - base))
     : step(base, uv.y) * (1.0 - smoothstep(base + h - 1.5 / uResolution.y, base + h, uv.y));
 
-  vec3 tint = mix(uColor1, uColor2, u);
-  tint = mix(tint, uColor3, smoothstep(0.65, 1.0, u));
+  // three plateaus across the band, bass to air: a straight blend of two
+  // complementary colours is grey for the whole middle of the screen
+  vec3 tint = mix(uColor1, uColor2, smoothstep(0.24, 0.44, u));
+  tint = mix(tint, uColor3, smoothstep(0.62, 0.82, u));
 
   float grad = 1.0 - smoothstep(0.0, 1.0, abs(uv.y - base) / max(h * 0.5, 0.001));
-  vec3 c = tint * lit * gap * (0.5 + 1.0 * grad);
+  vec3 c = tint * lit * gap * (0.28 + 0.8 * grad * grad);
   // hot tip: the part of the bar that moves
   float tip = smoothstep(0.55, 1.0, abs(uv.y - base) / max(h * 0.5, 0.001));
-  c += mix(tint, vec3(1.0), 0.4) * lit * gap * tip * (0.5 + 0.8 * uBeat);
+  c += mix(tint, vec3(1.0), 0.3) * lit * gap * tip * (0.35 + 0.9 * uBeat);
 
   // cap: a bright line at the top of each bar reads as a level meter
   float capw = max(1.5 * (1.0 + 2.5 * uLineBoost), 1.5 + 2.0 * uLineBoost) / uResolution.y;
@@ -79,6 +81,12 @@ void main() {
   // glow above each tip
   float over = max(abs(uv.y - base) - h * 0.5, 0.0);
   c += tint * exp(-over * 40.0) * 0.18 * gap * (0.4 + uEnergy);
+
+  // the room behind the bars: a soft band of the palette that swells with the
+  // bass, so the frame is not bars on a black card
+  float back = exp(-abs(uv.y - base) * (5.0 - 2.5 * uBass));
+  c += tint * back * (0.035 + 0.11 * uBass) * (1.0 - lit * gap);
+  c += (fract(sin(dot(gl_FragCoord.xy, vec2(127.1, 311.7))) * 43758.5453) - 0.5) / 255.0;
 
   gl_FragColor = vec4(c, 1.0);
 }

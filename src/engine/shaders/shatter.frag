@@ -86,7 +86,7 @@ void main() {
   base = mix(base, uColor3, h2 * 0.5);
   // each shard a tilted pane: linear gradient across it, direction per shard
   float facet = clamp(0.5 + 0.7 * dot(mo, vec2(cos(h * TAU), sin(h * TAU))), 0.0, 1.0);
-  vec3 color = base * (0.14 + glint * 0.25 + uBassHit * h * 1.3);
+  vec3 color = base * (0.14 + glint * 0.25 + uBassHit * h * 0.8);
   color *= 0.55 + 0.9 * facet;
 
   // cracks: bright edges

@@ -1,6 +1,6 @@
 {
   "name": "djtographikz",
-  "version": "0.82.0-beta",
+  "version": "0.83.0-beta",
   "private": true,
   "license": "UNLICENSED",
   "description": "Real-time audio-reactive visual generator for tekno club nights",
@@ -17,6 +17,7 @@
     "check:output": "python3 scripts/check-output.py",
     "check:audiorecovery": "node scripts/check-audiorecovery.mjs",
     "check:glsl": "sh scripts/check-glsl.sh",
+    "gen:sprites": "cd scripts/toku && for c in hero0 hero1 hero2; do python3 ingest.py $c || exit 1; done && python3 ingest_duel.py robo && python3 ingest_duel.py kaiju && python3 ingest_giants.py hand && python3 ingest_giants.py foot && python3 ingest_tube.py && python3 ingest_teeth.py",
     "check:sweep": "python3 scripts/check-sweep.py",
     "check:colorsync": "node scripts/check-colorsync.mjs",
     "check:audiodevice": "node scripts/check-audiodevice.mjs",

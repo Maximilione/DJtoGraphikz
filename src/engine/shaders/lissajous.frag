@@ -58,7 +58,8 @@ void main() {
     if (max(abs(uv.x), abs(uv.y)) > amplitude + 0.25) continue;
     // segments follow the frequency: a fixed 72 showed its corners at the
     // high end, and burned them on the slow default curves for nothing
-    float segs = clamp(ceil(max(freqA, freqB) * 20.0), 48.0, 160.0);
+    // (40 per cycle: at 20 the default 2:3 figure was a visible polygon)
+    float segs = clamp(ceil(max(freqA, freqB) * 40.0), 96.0, 160.0);
     // the vertices are sin(f*s + ph) on a uniform s grid, so they are walked
     // with the angle-addition recurrence: 4 trig per curve instead of 2 per
     // segment (fp32 drift over 160 steps ~1e-5)

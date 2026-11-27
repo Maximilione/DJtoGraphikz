@@ -167,7 +167,9 @@ void main() {
   col += vec3(1.0) * edge * (0.8 + 0.8 * uHigh + 0.6 * uHighHit);
 
   // shockwave band
-  col += ring * mix(lineCol, vec3(1.0), 0.6) * 0.6;
+  // outside the shapes only: on the hit the band sits on the zero contour and
+  // inside it filled the fused body with a milky white
+  col += ring * smoothstep(-0.02, 0.04, d) * mix(lineCol, vec3(1.0), 0.3) * 0.6;
 
   // faint glow around the shapes
   col += lineCol * (0.035 + 0.06 * uEnergy) * exp(-abs(d) * 6.0);

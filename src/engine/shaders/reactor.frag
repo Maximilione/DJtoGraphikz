@@ -141,8 +141,8 @@ vec3 shade(vec3 ro, vec3 rd, float t) {
   float shock = exp(-sz * sz);
   float zc = cellZ(p.z);
   float isHub = step(hub(r, p.z), min(ringsField(r, zc), spokesField(p.xy, r, zc)));
-  vec3 shockCol = mix(vec3(1.0), uColor3, 0.25);
-  c += shockCol * shock * gKick * clamp(glow, 0.3, 2.0) * 2.6;
+  vec3 shockCol = mix(vec3(1.0), uColor3, 0.7);
+  c += shockCol * shock * gKick * clamp(glow, 0.3, 2.0) * 0.9;
   // hub cap as a glowing core: hot centre, dark rim, slow ring
   float hr = r / HUB_R;
   float coreK = (0.15 + 0.85 * exp(-hr * hr * 3.5)) * (0.85 + 0.15 * sin(hr * 14.0 - uTime * 1.5));

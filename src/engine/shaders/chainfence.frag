@@ -56,7 +56,10 @@ void beamAxis(float i, float extra, out vec3 a, out vec3 d) {
   float sp = 0.12 + 0.1 * hash21(vec2(i, 4.2));
   float ang = ph + uTime * sp + extra;
   float tilt = 0.5 * sin(uTime * 0.17 + ph) + extra * 1.3;
-  a = vec3(cos(ang) * R, sin(ang) * R, hash21(vec2(i, 8.8)) * 40.0);
+  // the beams repeat every 20 units of tube and stay in a window around the
+  // camera (4 behind, 16 ahead): at a fixed z it left them all behind for good
+  float zc = mod(uTime * 0.5, 400.0);
+  a = vec3(cos(ang) * R, sin(ang) * R, zc + mod(hash21(vec2(i, 8.8)) * 40.0 - zc, 20.0) - 4.0);
   d = normalize(vec3(-cos(ang) * 0.6 + tilt, -sin(ang) * 0.6 + tilt * 0.7, 0.5));
 }
 
@@ -68,6 +71,13 @@ float gW[5];
 float gK[5];
 vec3 gC[5];
 
+// 0 at both ends of the beam window, so a beam wrapping from behind the camera
+// to the far end does it unlit
+float windowFade(float z) {
+  float rel = z - mod(uTime * 0.5, 400.0);
+  return smoothstep(-4.0, -2.0, rel) * (1.0 - smoothstep(11.0, 16.0, rel));
+}
+
 void setupBeams(float kick) {
   vec3 c1 = mix(uColor1, vec3(1.0), 0.35);
   vec3 c2 = mix(uColor2, vec3(1.0), 0.35);
@@ -75,14 +85,14 @@ void setupBeams(float kick) {
     beamAxis(float(i), 0.0, gA[i], gD[i]);
     float base = (i == 0) ? 0.35 : 0.2; // beam 0: the one that never turns off
     float react = 0.5 * uMid + 0.4 * uHigh * hash21(vec2(float(i), floor(uTime * 3.0)));
-    gW[i] = (base + react) * (1.0 + 1.6 * kick);
+    gW[i] = (base + react) * (1.0 + 1.6 * kick) * windowFade(gA[i].z);
     gK[i] = 10.0;
     gC[i] = (i == 1 || i == 3) ? c2 : c1;
   }
   // the fifth beam: a fresh, randomly aimed shaft that exists only on the hit
   float bucket = floor(uBeatClock);
   beamAxis(4.0 + mod(bucket, 7.0), hash21(vec2(bucket, 2.3)) * TAU, gA[4], gD[4]);
-  gW[4] = kick * 2.2;
+  gW[4] = kick * 2.2 * windowFade(gA[4].z);
   gK[4] = 12.0;
   gC[4] = mix(uColor3, vec3(1.0), 0.6);
 }
@@ -158,13 +168,14 @@ void main() {
     float wd = cellWire(wuv);
     float thickness = 0.05 + 0.015 * uHigh;
     // pixel footprint in lattice units; fade to mean coverage where the mesh is sub-pixel
-    float px = 2.6 * tWall / (1.2 * uResolution.y);
+    // (the wall is seen at a grazing angle far down the tube: take the larger of the two axes)
+    float px = max(2.6 * tWall / (1.2 * uResolution.y), length(vec2(dFdx(wuv.y), dFdy(wuv.y))));
     float wire = 1.0 - smoothstep(max(thickness - px, 0.0), thickness + px, wd);
     wire = mix(wire, 2.0 * thickness, smoothstep(0.12, 0.4, px));
     vec3 lit = beamsAt(p) * beamIntensity;
     vec3 metal = mix(vec3(0.03, 0.032, 0.035), uColor2 * 0.06, 0.5);
     vec3 wireCol = mix(uColor1, vec3(1.0), 0.4);
-    vec3 surf = metal * wire * 0.3 + wireCol * wire * 0.15 + lit * wire * 1.1;
+    vec3 surf = metal * wire * 0.3 + wireCol * wire * 0.34 + lit * wire * 1.1;
     // kick ripple travelling down the fence
     float rip = exp(-abs(p.z - ro.z - (1.0 - kick) * 18.0) * 0.9) * kick;
     surf += mix(uColor3, vec3(1.0), 0.4) * wire * rip * 0.9;

@@ -195,7 +195,7 @@ void main() {
     col = base * (0.16 + 1.0 * dif);
     col += vec3(1.0) * (spec + spec2) * (0.55 + 0.35 * g);
     // broad gloss band from above: lacquered, not matte with a dot
-    col += vec3(1.0) * pow(max(dot(reflect(rd, n), vec3(0.0, 1.0, 0.0)), 0.0), 6.0) * 0.12 * g;
+    col += vec3(1.0) * pow(max(dot(reflect(rd, n), vec3(0.0, 1.0, 0.0)), 0.0), 6.0) * 0.12 * g * (1.0 + 5.0 * kick);
     col += base * kick * 0.3 * g;
     // limb darkening over ~1 px: soft silhouette, crossing same-colour pipes separate
     float ndv = max(dot(n, v), 0.0);
