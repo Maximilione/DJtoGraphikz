@@ -76,6 +76,9 @@ def effect_params(effect: str) -> str:
     if block:
         for m in re.finditer(r"key:\s*'(\w+)'.*?default:\s*([\d.-]+)", block.group(1)):
             out += f"  u1(p, '{m.group(1)}', {m.group(2)});\n"
+    # DJG_PARAMS='{"zoom": 2}' overrides defaults: later uniform writes win
+    for k, v in json.loads(os.environ.get("DJG_PARAMS", "{}")).items():
+        out += f"  u1(p, '{k}', {float(v)});\n"
     return out
 
 
